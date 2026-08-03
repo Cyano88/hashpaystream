@@ -22,7 +22,7 @@ function Providers() {
       theme: theme === 'dark' ? 'dark' : 'light',
       accentColor: '#2563eb',
       landingHeader: '\u00A0',
-      loginMessage: 'Staff will never ask for this code.',
+      loginMessage: 'Our team will never ask for your login code.',
       emailDomain: 'HashPayStream',
     },
     legal: {
