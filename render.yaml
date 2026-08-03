@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: hashpaystream
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_PRIVY_APP_ID
+        sync: false
+      - key: PRIVY_APP_ID
+        sync: false
+      - key: PRIVY_APP_SECRET
+        sync: false
+      - key: VITE_HASH_PAYLINK_BASE_URL
+        value: https://app.hashpaylink.com
+      - key: HASHPAYSTREAM_HASH_PAYLINK_BASE_URL
+        value: https://app.hashpaylink.com
+      - key: HASHPAYSTREAM_ARC_API_KEY
+        sync: false
+      - key: HASHPAYSTREAM_ARC_PROJECT_ID
+        sync: false
+      - key: HASHPAYSTREAM_ARC_WEBHOOK_SECRET
+        sync: false
+      - key: HASHPAYSTREAM_ARC_WEBHOOK_STORE_KEY
+        value: hashpaystream:arc-webhooks:v1
+      - key: HASHPAYSTREAM_APP_OWNERSHIP_SECRET
+        sync: false
+      - key: HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY
+        value: hashpaystream:agreement-owners:v1
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hashpaystream-db
+          property: connectionString
+
+databases:
+  - name: hashpaystream-db
+    plan: basic-256mb

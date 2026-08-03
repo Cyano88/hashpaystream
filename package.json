@@ -1,0 +1,54 @@
+{
+  "name": "hashpaystream",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0",
+    "npm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "start": "tsx server.ts",
+    "typecheck": "tsc --noEmit",
+    "test:agreement-gateway": "node --import tsx scripts/agreement-gateway-smoke.mjs",
+    "test:arc-webhook": "node --import tsx scripts/arc-agreement-webhook-smoke.mjs",
+    "test:surface": "node scripts/standalone-surface-smoke.mjs",
+    "test:smoke": "npm run test:agreement-gateway && npm run test:arc-webhook && npm run test:surface",
+    "migrate:owners": "node --import tsx scripts/owner-migrate.mjs"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.3.0",
+    "@privy-io/node": "0.28.0",
+    "@privy-io/react-auth": "^3.28.0",
+    "express": "^4.19.2",
+    "lucide-react": "^0.414.0",
+    "pg": "^8.21.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tsx": "^4.19.2",
+    "viem": "^2.51.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.10.1",
+    "@types/pg": "^8.20.0",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "5.1.4",
+    "autoprefixer": "^10.4.23",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.7",
+    "typescript": "^5.5.3",
+    "vite": "7.3.6"
+  },
+  "overrides": {
+    "@coinbase/cdp-sdk": {
+      "axios": "1.19.0"
+    },
+    "viem": {
+      "ws": "8.21.2"
+    }
+  }
+}
