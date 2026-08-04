@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
-import { ArrowUpRight, Check, Copy, Loader2, LockKeyhole } from 'lucide-react'
+import { ArrowUpRight, Check, Copy, Loader2 } from 'lucide-react'
 import { Link } from '../../lib/router'
-import { AuthButton } from '../../lib/AuthButton'
+import { useHashPayStreamSessionSplash } from '../../lib/useHashPayStreamSessionSplash'
 import UnifiedReceipt from '../UnifiedReceipt'
+import { AgreementSignInLanding } from './AgreementSignInLanding'
 import type { PaylinkReceipt } from '../../lib/paymentReceiptPdf'
 import { useStreamPayPath } from '../../lib/useStreamPayPath'
 
@@ -151,6 +152,7 @@ export default function AgreementDashboard() {
   const [deliveryNote, setDeliveryNote] = useState('')
   const [evidenceReference, setEvidenceReference] = useState('')
   const [requestingRelease, setRequestingRelease] = useState(false)
+  const splashState = useHashPayStreamSessionSplash(!authenticated)
   const newAgreementTo = useStreamPayPath('/agreements/new')
 
   const load = useCallback(async (quiet = false) => {
@@ -290,31 +292,14 @@ export default function AgreementDashboard() {
     return result
   }, { activeProtected: 0n, released: 0n, refundAvailable: 0n }), [agreements])
 
+  if (!authenticated) {
+    return <AgreementSignInLanding splashState={splashState} />
+  }
+
   if (!ready || loading) {
     return (
       <section className="flex min-h-[58vh] w-full max-w-5xl items-center justify-center">
         <Loader2 className="h-5 w-5 animate-spin text-gray-300 dark:text-gray-600" />
-      </section>
-    )
-  }
-
-  if (!authenticated) {
-    return (
-      <section className="flex min-h-[64vh] w-full max-w-md flex-col items-center justify-center text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-950 text-white dark:bg-white dark:text-gray-950">
-          <LockKeyhole className="h-5 w-5" />
-        </div>
-        <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Arc Agreements</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Your protected payments.</h1>
-        <p className="mt-3 max-w-sm text-sm leading-6 text-gray-500 dark:text-gray-400">
-          Sign in to view and manage your agreements.
-        </p>
-        <AuthButton
-          debugLabel="hashpaystream-agreements"
-          className="mt-7 w-full rounded-xl bg-gray-950 px-4 py-3 text-sm font-semibold text-white transition-transform active:scale-[0.99] dark:bg-white dark:text-gray-950"
-        >
-          Continue with email
-        </AuthButton>
       </section>
     )
   }

@@ -2,6 +2,7 @@ import { Link, useLocation } from '../lib/router'
 import { Moon, Sun } from 'lucide-react'
 import { useTheme } from '../lib/ThemeContext'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
+import { HashPayStreamMark } from './HashPayStreamMark'
 
 function isTelegramStreamPay(search: string) {
   const params = new URLSearchParams(search)
@@ -23,9 +24,9 @@ export function StreamPayHeader() {
     <header className="sticky top-0 z-50 border-b border-white/60 dark:border-white/5 bg-white/80 dark:bg-[#111113]/90 backdrop-blur-xl">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 pt-3 pb-2 sm:px-6">
         <Link to={agreementsTo} className="group flex items-center gap-2.5 focus:outline-none" aria-label="HashPayStream home">
-          <GeometricO />
+          <HashPayStreamMark className="h-6 w-6 text-gray-900 transition-transform group-hover:scale-105 dark:text-white" />
           <span className="text-[15px] font-semibold tracking-tight">
-            <span className="text-gray-900 dark:text-white">Hashpay</span><span style={{ color: '#3b82f6' }}>Stream</span>
+            <span className="text-gray-900 dark:text-white">HashPay</span><span style={{ color: '#3b82f6' }}>Stream</span>
           </span>
         </Link>
 
@@ -64,14 +65,5 @@ export function StreamPayHeader() {
         </div>
       </div>
     </header>
-  )
-}
-
-function GeometricO() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="transition-transform group-hover:scale-105">
-      <circle cx="12" cy="12" r="9.5" stroke="currentColor" strokeWidth="2.5" className="text-gray-900 dark:text-white" />
-      <circle cx="12" cy="12" r="3.5" fill="currentColor" className="text-gray-900 dark:text-white" />
-    </svg>
   )
 }
