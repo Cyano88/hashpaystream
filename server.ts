@@ -36,7 +36,7 @@ app.use((_req, res, next) => {
   next()
 })
 
-app.post(
+app.all(
   '/api/hashpaystream/arc-agreement-webhook',
   rateLimit({ name: 'arc-webhook', windowMs: 60_000, max: 120 }),
   express.raw({ type: 'application/json', limit: '64kb' }),
@@ -46,6 +46,11 @@ app.use(express.json({ limit: '64kb' }))
 app.get('/healthz', (_req, res) => res.json({ ok: true, service: 'hashpaystream' }))
 app.get('/api/hashpaystream/v2/agreements', rateLimit({ name: 'agreement-read', windowMs: 60_000, max: 120 }), agreementGateway)
 app.post('/api/hashpaystream/v2/agreements', rateLimit({ name: 'agreement-write', windowMs: 60_000, max: 30 }), agreementGateway)
+app.all('/api/hashpaystream/v2/agreements', (_req, res) => {
+  res.setHeader('Allow', 'GET, POST')
+  return res.status(405).json({ ok: false, error: 'Method not allowed.' })
+})
+app.use('/api/hashpaystream', (_req, res) => res.status(404).json({ ok: false, error: 'API route not found.' }))
 
 app.use(express.static(path.join(root, 'dist'), { index: false, maxAge: '1h' }))
 app.get('*', (_req, res) => res.sendFile(path.join(root, 'dist', 'index.html')))

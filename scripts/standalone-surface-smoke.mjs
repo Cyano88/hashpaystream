@@ -25,7 +25,7 @@ const packageLock = JSON.parse(read('package-lock.json'))
 assert.match(server, /app\.get\('\/healthz'/)
 assert.match(server, /app\.get\('\/api\/hashpaystream\/v2\/agreements'/)
 assert.match(server, /app\.post\('\/api\/hashpaystream\/v2\/agreements'/)
-assert.match(server, /app\.post\(\s*'\/api\/hashpaystream\/arc-agreement-webhook'/)
+assert.match(server, /app\.all\(\s*'\/api\/hashpaystream\/arc-agreement-webhook'/)
 assert.ok(
   server.indexOf("'/api/hashpaystream/arc-agreement-webhook'")
     < server.indexOf("app.use(express.json({ limit: '64kb' }))"),
@@ -37,6 +37,12 @@ assert.doesNotMatch(server, /connect-src[^"\n]*\shttps:\s/)
 assert.doesNotMatch(server, /connect-src[^"\n]*\swss:\s/)
 assert.match(server, /object-src 'none'/)
 assert.match(server, /worker-src 'self'/)
+assert.match(server, /app\.all\('\/api\/hashpaystream\/v2\/agreements'/)
+assert.match(server, /app\.use\('\/api\/hashpaystream'/)
+assert.ok(
+  server.indexOf("app.use('/api/hashpaystream'") < server.indexOf('app.use(express.static'),
+  'Unknown API routes must fail before the SPA fallback.',
+)
 
 assert.match(app, /route === '\/'/)
 assert.match(app, /route === '\/docs'/)
