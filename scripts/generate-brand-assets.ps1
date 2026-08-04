@@ -40,14 +40,13 @@ function Draw-GeometricMark(
   }
 }
 
-$ink = [System.Drawing.ColorTranslator]::FromHtml('#111827')
 $blue = [System.Drawing.ColorTranslator]::FromHtml('#3b82f6')
 
 $mark = New-TransparentBitmap 512 512
 $markGraphics = [System.Drawing.Graphics]::FromImage($mark)
 try {
   Set-HighQualityGraphics $markGraphics
-  Draw-GeometricMark $markGraphics 256 256 168 44 60 $ink
+  Draw-GeometricMark $markGraphics 256 256 168 44 60 $blue
   $mark.Save((Join-Path $assetRoot 'hashpaystream-mark.png'), [System.Drawing.Imaging.ImageFormat]::Png)
 } finally {
   $markGraphics.Dispose()
@@ -56,23 +55,11 @@ try {
 
 $logo = New-TransparentBitmap 360 180
 $logoGraphics = [System.Drawing.Graphics]::FromImage($logo)
-$font = [System.Drawing.Font]::new('Segoe UI', 32, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-$inkBrush = [System.Drawing.SolidBrush]::new($ink)
-$blueBrush = [System.Drawing.SolidBrush]::new($blue)
 try {
   Set-HighQualityGraphics $logoGraphics
-  Draw-GeometricMark $logoGraphics 52 90 30 8 11 $ink
-  $first = 'Hashpay'
-  $second = 'Stream'
-  $textY = 70
-  $logoGraphics.DrawString($first, $font, $inkBrush, 94, $textY)
-  $firstWidth = $logoGraphics.MeasureString($first, $font).Width
-  $logoGraphics.DrawString($second, $font, $blueBrush, 94 + $firstWidth - 4, $textY)
+  Draw-GeometricMark $logoGraphics 180 90 58 14 20 $blue
   $logo.Save((Join-Path $assetRoot 'hashpaystream-logo.png'), [System.Drawing.Imaging.ImageFormat]::Png)
 } finally {
-  $blueBrush.Dispose()
-  $inkBrush.Dispose()
-  $font.Dispose()
   $logoGraphics.Dispose()
   $logo.Dispose()
 }
