@@ -66,12 +66,25 @@ const agreement = {
   title: 'Agent research delivery',
   status: 'draft',
 }
+const eventStore = {
+  schema: 1,
+  events: {
+    evt_agentdraftpilot1234: {
+      id: 'evt_agentdraftpilot1234',
+      event: 'agreement.activated',
+      agreementId,
+      createdAt: '2026-08-04T12:01:00.000Z',
+      receivedAt: '2026-08-04T12:01:01.000Z',
+      data: { observedBlockNumber: '56000001' },
+    },
+  },
+}
 let store
 const upstreamCalls = []
 const shared = {
   hasStore: () => true,
   read: async () => store,
-  readEvents: async () => undefined,
+  readEvents: async () => eventStore,
   mutate: async (_key, update) => {
     store = update(store)
     return store
@@ -139,6 +152,7 @@ assert.equal('nextAction' in created.body, false)
 
 const ownerList = await call(handlerA, agentKeyA)
 assert.deepEqual(ownerList.body.agreements.map(item => item.id), [agreementId])
+assert.equal(ownerList.body.agreements[0].status, 'active')
 assert.equal(ownerList.body.agentActivationPilot, true)
 
 const foreignList = await call(handlerB, agentKeyB)

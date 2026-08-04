@@ -10,6 +10,14 @@ import {
 const DEFAULT_STORE_KEY = 'hashpaystream:agreement-owners:v1'
 const DEFAULT_EVENT_STORE_KEY = 'hashpaystream:arc-webhooks:v1'
 const AGREEMENT_ID = /^agr_[a-z0-9]{12,64}$/i
+const LIFECYCLE_STATUS: Record<string, string> = {
+  'agreement.activated': 'active',
+  'agreement.step_released': 'active',
+  'agreement.expired': 'expired',
+  'agreement.completed': 'completed',
+  'agreement.cancelled': 'cancelled',
+  'agreement.refunded': 'refunded',
+}
 
 type OwnedAgreement = {
   agreementId: string
@@ -207,9 +215,17 @@ function standaloneAgreementView(value: unknown, eventStore: AgreementEventStore
     ? value as Record<string, unknown>
     : {}
   const agreementId = clean(agreement.id, 80)
+  const webhookTimeline = publicTimeline(eventStore, agreementId)
+  const timeline = webhookTimeline.length
+    ? webhookTimeline
+    : Array.isArray(agreement.timeline) ? agreement.timeline : []
+  const lifecycleStatus = webhookTimeline
+    .map(event => LIFECYCLE_STATUS[event.event])
+    .find(Boolean)
   return {
     ...agreement,
-    timeline: Array.isArray(agreement.timeline) ? agreement.timeline : publicTimeline(eventStore, agreementId),
+    ...(lifecycleStatus ? { status: lifecycleStatus } : {}),
+    timeline,
     deliveryTimeline: Array.isArray(agreement.deliveryTimeline) ? agreement.deliveryTimeline : [],
   }
 }

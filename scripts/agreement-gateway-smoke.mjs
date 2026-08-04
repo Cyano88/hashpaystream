@@ -145,6 +145,7 @@ assert.equal(upstreamCalls.filter(item => item.method === 'POST' && !item.body?.
 const ownerList = await call(handler, 'user-a')
 assert.equal(ownerList.statusCode, 200)
 assert.deepEqual(ownerList.body.agreements.map(item => item.id), [agreementId])
+assert.equal(ownerList.body.agreements[0].status, 'active')
 assert.deepEqual(ownerList.body.agreements[0].timeline, [{
   id: 'evt_standalonegateway1234',
   event: 'agreement.activated',
@@ -157,6 +158,7 @@ assert.equal(JSON.stringify(ownerList.body).includes('must-not-project'), false)
 const ownerRead = await call(handler, 'user-a', 'GET', { query: { id: agreementId } })
 assert.equal(ownerRead.statusCode, 200)
 assert.equal(ownerRead.body.agreement.id, agreementId)
+assert.equal(ownerRead.body.agreement.status, 'active')
 
 const foreignList = await call(handler, 'user-b')
 assert.equal(foreignList.statusCode, 200)
