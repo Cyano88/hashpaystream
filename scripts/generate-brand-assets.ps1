@@ -57,7 +57,7 @@ $logo = New-TransparentBitmap 360 180
 $logoGraphics = [System.Drawing.Graphics]::FromImage($logo)
 try {
   Set-HighQualityGraphics $logoGraphics
-  Draw-GeometricMark $logoGraphics 180 90 58 14 20 $blue
+  Draw-GeometricMark $logoGraphics 180 90 70 16 24 $blue
   $logo.Save((Join-Path $assetRoot 'hashpaystream-logo.png'), [System.Drawing.Imaging.ImageFormat]::Png)
 } finally {
   $logoGraphics.Dispose()
