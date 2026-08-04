@@ -7,6 +7,7 @@ import App from './App'
 import { ThemeProvider, useTheme } from './lib/ThemeContext'
 
 const appId = String(import.meta.env.VITE_PRIVY_APP_ID || '').trim()
+const logoUrl = new URL('/brand/hashpaystream-logo.png', window.location.origin).toString()
 
 function Providers() {
   const { theme } = useTheme()
@@ -21,7 +22,8 @@ function Providers() {
     appearance: {
       theme: theme === 'dark' ? 'dark' : 'light',
       accentColor: '#2563eb',
-      landingHeader: '\u00A0',
+      logo: logoUrl,
+      landingHeader: 'HashPayStream',
       loginMessage: 'Our team will never ask for your login code.',
       emailDomain: 'HashPayStream',
     },

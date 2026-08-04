@@ -57,6 +57,9 @@ assert.match(dashboard, /`\$\{HASH_PAYLINK_ORIGIN\}\/agreements\/\$\{active\.id\
 assert.match(main, /loginMethods:\s*\['email'\]/)
 assert.match(main, /createOnLogin:\s*'off'/)
 assert.match(main, /disableAllExternalWallets:\s*true/)
+assert.match(main, /logo:\s*logoUrl/)
+assert.match(main, /landingHeader:\s*'HashPayStream'/)
+assert.match(main, /loginMessage:\s*'Our team will never ask for your login code\.'/)
 
 const browserSource = sourceFiles('src')
   .filter(file => /\.(?:ts|tsx|js|jsx)$/.test(file))
