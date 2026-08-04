@@ -13,9 +13,11 @@
     "start": "tsx server.ts",
     "typecheck": "tsc --noEmit",
     "test:agreement-gateway": "node --import tsx scripts/agreement-gateway-smoke.mjs",
+    "test:agent-agreement-gateway": "node --import tsx scripts/agent-agreement-gateway-smoke.mjs",
     "test:arc-webhook": "node --import tsx scripts/arc-agreement-webhook-smoke.mjs",
+    "test:agent-arc-webhook": "node --import tsx scripts/agent-arc-webhook-smoke.mjs",
     "test:surface": "node scripts/standalone-surface-smoke.mjs",
-    "test:smoke": "npm run test:agreement-gateway && npm run test:arc-webhook && npm run test:surface",
+    "test:smoke": "npm run test:agreement-gateway && npm run test:agent-agreement-gateway && npm run test:arc-webhook && npm run test:agent-arc-webhook && npm run test:surface",
     "migrate:owners": "node --import tsx scripts/owner-migrate.mjs"
   },
   "dependencies": {

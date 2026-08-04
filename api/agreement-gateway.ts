@@ -43,7 +43,7 @@ type UpstreamResponse = {
   body: Record<string, unknown>
 }
 
-type Dependencies = {
+export type AgreementGatewayDependencies = {
   hasStore: () => boolean
   read: (key: string) => Promise<OwnershipStore | undefined>
   readEvents: (key: string) => Promise<AgreementEventStore | undefined>
@@ -57,6 +57,12 @@ type Dependencies = {
   }) => Promise<UpstreamResponse>
   env: () => NodeJS.ProcessEnv
   now: () => Date
+  logError: (message: string) => void
+}
+
+type AgreementGatewayOptions = {
+  checkoutMode?: 'human' | 'agentic'
+  agentActivation?: boolean
 }
 
 function clean(value: unknown, maximum: number) {
@@ -114,8 +120,8 @@ async function upstreamRequest(input: {
   path: string
   body?: Record<string, unknown>
   idempotencyKey?: string
-}) {
-  const config = configuration(process.env)
+}, env: NodeJS.ProcessEnv) {
+  const config = configuration(env)
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 15_000)
   try {
@@ -140,15 +146,16 @@ async function upstreamRequest(input: {
   }
 }
 
-const defaults: Dependencies = {
+const defaults: AgreementGatewayDependencies = {
   hasStore: hasRenderDurableStore,
   read: readDurableJson,
   readEvents: readDurableJson,
   mutate: (key, update) => mutateDurableJson<OwnershipStore>(key, update),
   identity: verifiedIdentity,
-  upstream: upstreamRequest,
+  upstream: input => upstreamRequest(input, process.env),
   env: () => process.env,
   now: () => new Date(),
+  logError: message => console.error('[hashpaystream-agreement-gateway] request failed:', message),
 }
 
 function safeStore(current?: OwnershipStore): OwnershipStore {
@@ -165,6 +172,10 @@ function ownerHash(secret: string, userId: string) {
 
 function scopedIdempotency(owner: string, key: string) {
   return createHmac('sha256', owner).update(`hashpaystream.agreement\0${key}`).digest('hex')
+}
+
+function agentPayerReference(owner: string) {
+  return `apr_${createHmac('sha256', owner).update('hashpaystream.agent-payer\0v1').digest('hex').slice(0, 40)}`
 }
 
 function ownedAgreement(store: OwnershipStore | undefined, agreementId: string, owner: string) {
@@ -203,8 +214,38 @@ function standaloneAgreementView(value: unknown, eventStore: AgreementEventStore
   }
 }
 
-export function createHashPayStreamAgreementGateway(overrides: Partial<Dependencies> = {}) {
+function requireCheckoutMode(value: unknown, expected: 'human' | 'agentic') {
+  const agreement = value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {}
+  if (agreement.checkoutMode !== expected) {
+    throw httpError('Hash PayLink returned an agreement for the wrong checkout mode.', 502)
+  }
+}
+
+function gatewayResponse(body: Record<string, unknown>, options: Required<AgreementGatewayOptions>) {
+  if (!options.agentActivation) return body
+  const {
+    payerAccessToken: _payerAccessToken,
+    payerReviewPath: _payerReviewPath,
+    nextAction: _nextAction,
+    ...safe
+  } = body
+  return { ...safe, agentActivationPilot: true }
+}
+
+export function createHashPayStreamAgreementGateway(
+  overrides: Partial<AgreementGatewayDependencies> = {},
+  inputOptions: AgreementGatewayOptions = {},
+) {
+  const options: Required<AgreementGatewayOptions> = {
+    checkoutMode: inputOptions.checkoutMode ?? 'human',
+    agentActivation: inputOptions.agentActivation ?? false,
+  }
   const dependencies = { ...defaults, ...overrides }
+  if (!overrides.upstream) {
+    dependencies.upstream = input => upstreamRequest(input, dependencies.env())
+  }
   return async function hashPayStreamAgreementGateway(req: Request, res: Response) {
     res.setHeader('Cache-Control', 'no-store')
     if (req.method !== 'GET' && req.method !== 'POST') {
@@ -226,17 +267,18 @@ export function createHashPayStreamAgreementGateway(overrides: Partial<Dependenc
           ownedAgreement(store, requestedId, owner)
           const upstream = await dependencies.upstream({ method: 'GET', path: `/api/v2/agreements?id=${encodeURIComponent(requestedId)}` })
           if (upstream.status !== 200 || upstream.body.ok !== true) throw upstreamError(upstream)
+          requireCheckoutMode(upstream.body.agreement, options.checkoutMode)
           const agreement = standaloneAgreementView(upstream.body.agreement, eventStore)
           if (clean((agreement as Record<string, unknown>).id, 80) !== requestedId) {
             throw httpError('Hash PayLink returned an invalid agreement.', 502)
           }
-          return res.json({ ...upstream.body, agreement })
+          return res.json(gatewayResponse({ ...upstream.body, agreement }, options))
         }
         const owned = Object.values(store?.agreements ?? {})
           .filter(record => record.ownerHash === owner)
           .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
           .slice(0, 100)
-        if (!owned.length) return res.json({ ok: true, agreements: [] })
+        if (!owned.length) return res.json(gatewayResponse({ ok: true, agreements: [] }, options))
         const requestedIds = owned.map(record => record.agreementId).join(',')
         const result = await dependencies.upstream({
           method: 'GET',
@@ -253,6 +295,7 @@ export function createHashPayStreamAgreementGateway(overrides: Partial<Dependenc
             : {}
           const agreementId = clean(value.id, 80)
           if (ownedIds.has(agreementId) && !returnedById.has(agreementId)) {
+            requireCheckoutMode(candidate, options.checkoutMode)
             returnedById.set(agreementId, candidate)
           }
         }
@@ -260,7 +303,7 @@ export function createHashPayStreamAgreementGateway(overrides: Partial<Dependenc
           const agreement = returnedById.get(record.agreementId)
           return agreement ? [standaloneAgreementView(agreement, eventStore)] : []
         })
-        return res.json({ ok: true, agreements })
+        return res.json(gatewayResponse({ ok: true, agreements }, options))
       }
 
       const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body)
@@ -268,6 +311,51 @@ export function createHashPayStreamAgreementGateway(overrides: Partial<Dependenc
         : {}
       const action = clean(body.action, 40)
       if (action) {
+        if (options.agentActivation) {
+          if (![
+            'prepare',
+            'prepare-call',
+            'record',
+            'status',
+            'review',
+            'delivery-decision',
+            'lifecycle-prepare-call',
+            'lifecycle-record',
+            'lifecycle-status',
+          ].includes(action)) {
+            throw httpError('This agent agreement action is unavailable.', 409)
+          }
+          const agreementId = clean(body.agreementId, 80)
+          if (!AGREEMENT_ID.test(agreementId)) throw httpError('Agreement id is invalid.', 400)
+          ownedAgreement(store, agreementId, owner)
+          const upstream = await dependencies.upstream({
+            method: 'POST',
+            path: '/api/v2/agreements/agent',
+            body: {
+              action,
+              agreementId,
+              payerReference: agentPayerReference(owner),
+              payerAddress: clean(body.payerAddress, 80),
+              ...(action === 'prepare-call' || action === 'record' ? { stage: clean(body.stage, 20) } : {}),
+              ...(action === 'record' ? { transactionHash: clean(body.transactionHash, 80) } : {}),
+              ...(action === 'delivery-decision' ? {
+                deliveryId: clean(body.deliveryId, 40),
+                decision: clean(body.decision, 20),
+                issue: clean(body.issue, 300),
+              } : {}),
+              ...(action === 'lifecycle-prepare-call' ? {
+                lifecycleAction: clean(body.lifecycleAction, 20),
+              } : {}),
+              ...(action === 'lifecycle-record' ? {
+                transactionHash: clean(body.transactionHash, 80),
+              } : {}),
+            },
+          })
+          if (upstream.status < 200 || upstream.status >= 300 || upstream.body.ok !== true) throw upstreamError(upstream)
+          if (upstream.body.agreement) requireCheckoutMode(upstream.body.agreement, 'agentic')
+          if (upstream.body.attempt) requireCheckoutMode(upstream.body.attempt, 'agentic')
+          return res.status(upstream.status).json(gatewayResponse(upstream.body, options))
+        }
         if (!['rotate_payer_link', 'request_release'].includes(action)) {
           throw httpError('Agreement action is not supported.', 400)
         }
@@ -298,7 +386,8 @@ export function createHashPayStreamAgreementGateway(overrides: Partial<Dependenc
         ownedAgreement(store, existingId, owner)
         const existing = await dependencies.upstream({ method: 'GET', path: `/api/v2/agreements?id=${encodeURIComponent(existingId)}` })
         if (existing.status !== 200 || existing.body.ok !== true) throw upstreamError(existing)
-        return res.json({ ...existing.body, replayed: true })
+        requireCheckoutMode(existing.body.agreement, options.checkoutMode)
+        return res.json(gatewayResponse({ ...existing.body, replayed: true }, options))
       }
       const upstreamIdempotencyKey = `hps:${scopedKey.slice(0, 48)}`
       const upstream = await dependencies.upstream({
@@ -315,6 +404,7 @@ export function createHashPayStreamAgreementGateway(overrides: Partial<Dependenc
       const agreement = upstream.body.agreement && typeof upstream.body.agreement === 'object'
         ? upstream.body.agreement as Record<string, unknown>
         : {}
+      requireCheckoutMode(agreement, options.checkoutMode)
       const agreementId = clean(agreement.id, 80)
       if (!AGREEMENT_ID.test(agreementId)) throw httpError('Hash PayLink returned an invalid agreement.', 502)
       const timestamp = dependencies.now().toISOString()
@@ -331,10 +421,10 @@ export function createHashPayStreamAgreementGateway(overrides: Partial<Dependenc
         next.idempotency[scopedKey] = agreementId
         return next
       })
-      return res.status(upstream.status).json(upstream.body)
+      return res.status(upstream.status).json(gatewayResponse(upstream.body, options))
     } catch (error) {
       const status = Number((error as Error & { status?: number })?.status) || 500
-      if (status >= 500) console.error('[hashpaystream-agreement-gateway] request failed:', error instanceof Error ? error.message : String(error))
+      if (status >= 500) dependencies.logError(error instanceof Error ? error.message : String(error))
       return res.status(status).json({
         ok: false,
         error: status >= 500 ? 'HashPayStream Agreements is temporarily unavailable.' : (error as Error).message,

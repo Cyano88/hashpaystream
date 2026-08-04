@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url'
 import express from 'express'
 import agreementGateway from './api/agreement-gateway.js'
 import arcAgreementWebhook from './api/arc-agreement-webhook.js'
+import agentAgreementGateway from './api/agent-agreement-gateway.js'
+import agentArcAgreementWebhook from './api/agent-arc-webhook.js'
 import { rateLimit } from './api/rate-limit.js'
 
 const app = express()
@@ -42,11 +44,23 @@ app.all(
   express.raw({ type: 'application/json', limit: '64kb' }),
   arcAgreementWebhook,
 )
+app.all(
+  '/api/hashpaystream/v1/agent/arc-agreement-webhook',
+  rateLimit({ name: 'agent-arc-webhook', windowMs: 60_000, max: 120 }),
+  express.raw({ type: 'application/json', limit: '64kb' }),
+  agentArcAgreementWebhook,
+)
 app.use(express.json({ limit: '64kb' }))
 app.get('/healthz', (_req, res) => res.json({ ok: true, service: 'hashpaystream' }))
 app.get('/api/hashpaystream/v2/agreements', rateLimit({ name: 'agreement-read', windowMs: 60_000, max: 120 }), agreementGateway)
 app.post('/api/hashpaystream/v2/agreements', rateLimit({ name: 'agreement-write', windowMs: 60_000, max: 30 }), agreementGateway)
 app.all('/api/hashpaystream/v2/agreements', (_req, res) => {
+  res.setHeader('Allow', 'GET, POST')
+  return res.status(405).json({ ok: false, error: 'Method not allowed.' })
+})
+app.get('/api/hashpaystream/v1/agent/agreements', rateLimit({ name: 'agent-agreement-read', windowMs: 60_000, max: 120 }), agentAgreementGateway)
+app.post('/api/hashpaystream/v1/agent/agreements', rateLimit({ name: 'agent-agreement-write', windowMs: 60_000, max: 30 }), agentAgreementGateway)
+app.all('/api/hashpaystream/v1/agent/agreements', (_req, res) => {
   res.setHeader('Allow', 'GET, POST')
   return res.status(405).json({ ok: false, error: 'Method not allowed.' })
 })

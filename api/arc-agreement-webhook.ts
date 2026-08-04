@@ -39,7 +39,7 @@ type HashPayStreamArcWebhookStore = {
   events: Record<string, StoredHashPayStreamArcEvent>
 }
 
-type Dependencies = {
+export type ArcWebhookDependencies = {
   hasStore: () => boolean
   mutate: (
     key: string,
@@ -49,7 +49,7 @@ type Dependencies = {
   now: () => Date
 }
 
-const defaults: Dependencies = {
+const defaults: ArcWebhookDependencies = {
   hasStore: hasRenderDurableStore,
   mutate: (key, update) => mutateDurableJson<HashPayStreamArcWebhookStore>(key, update),
   env: () => process.env,
@@ -167,7 +167,8 @@ function verifiedPayload(
   }
 }
 
-export function createHashPayStreamArcWebhookHandler(dependencies: Dependencies = defaults) {
+export function createHashPayStreamArcWebhookHandler(dependencies: Partial<ArcWebhookDependencies> = {}) {
+  const resolved = { ...defaults, ...dependencies }
   return async function hashPayStreamArcWebhookHandler(req: Request, res: Response) {
     res.setHeader('Cache-Control', 'no-store')
     if (req.method !== 'POST') {
@@ -175,17 +176,17 @@ export function createHashPayStreamArcWebhookHandler(dependencies: Dependencies 
       return res.status(405).json({ ok: false, error: { code: 'METHOD_NOT_ALLOWED' } })
     }
     try {
-      if (!dependencies.hasStore()) {
+      if (!resolved.hasStore()) {
         throw new WebhookError('Hash PayStream Arc webhook storage is unavailable.', 503, 'STORE_UNAVAILABLE')
       }
-      const config = configuration(dependencies.env())
-      const now = dependencies.now()
+      const config = configuration(resolved.env())
+      const now = resolved.now()
       if (!Number.isFinite(now.getTime())) {
         throw new WebhookError('Webhook receiver time is unavailable.', 503, 'CLOCK_UNAVAILABLE')
       }
       const verified = verifiedPayload(req, config, now)
       let replayed = false
-      await dependencies.mutate(config.storeKey, current => {
+      await resolved.mutate(config.storeKey, current => {
         const store = current?.schema === 1 && current.events
           ? current
           : { schema: 1 as const, events: {} }

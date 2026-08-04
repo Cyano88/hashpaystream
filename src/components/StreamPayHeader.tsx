@@ -1,5 +1,6 @@
 import { Link, useLocation } from '../lib/router'
 import { Moon, Sun } from 'lucide-react'
+import { usePrivy } from '@privy-io/react-auth'
 import { useTheme } from '../lib/ThemeContext'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { HashPayStreamMark } from './HashPayStreamMark'
@@ -11,7 +12,8 @@ function isTelegramStreamPay(search: string) {
 }
 
 export function StreamPayHeader() {
-  const { search } = useLocation()
+  const { pathname, search } = useLocation()
+  const { authenticated } = usePrivy()
   const { theme, toggle } = useTheme()
 
   const agreementsTo = useStreamPayPath('/')
@@ -19,6 +21,7 @@ export function StreamPayHeader() {
   const docsTo = useStreamPayPath('/docs')
   const newAgreementTo = useStreamPayPath('/agreements/new')
   const telegramMode = isTelegramStreamPay(search)
+  const minimalSignInHeader = pathname.replace(/\/+$/, '') === '/agreements' && !authenticated
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/60 dark:border-white/5 bg-white/80 dark:bg-[#111113]/90 backdrop-blur-xl">
@@ -31,7 +34,12 @@ export function StreamPayHeader() {
         </Link>
 
         <div className="flex items-center gap-x-1.5 sm:gap-x-2">
-          {!telegramMode && (
+          {minimalSignInHeader && !telegramMode && (
+            <Link to={docsTo} className="rounded-full px-3 py-2 text-xs font-medium text-gray-500 transition-colors hover:text-gray-950 dark:text-gray-400 dark:hover:text-white">
+              Docs
+            </Link>
+          )}
+          {!minimalSignInHeader && !telegramMode && (
             <nav className="hidden items-center gap-1 md:flex" aria-label="Primary navigation">
               <Link to={workspaceTo} className="rounded-full px-3 py-2 text-xs font-medium text-gray-500 transition-colors hover:text-gray-950 dark:text-gray-400 dark:hover:text-white">
                 Agreements
@@ -41,7 +49,7 @@ export function StreamPayHeader() {
               </Link>
             </nav>
           )}
-          {!telegramMode && (
+          {!minimalSignInHeader && !telegramMode && (
             <Link
               to={newAgreementTo}
               className="hidden rounded-full bg-gray-950 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-black dark:bg-white dark:text-gray-950 dark:hover:bg-gray-100 sm:inline-flex"
@@ -49,7 +57,7 @@ export function StreamPayHeader() {
               New agreement
             </Link>
           )}
-          {!telegramMode && (
+          {!minimalSignInHeader && !telegramMode && (
             <Link to={workspaceTo} className="rounded-full px-2.5 py-2 text-[11px] font-semibold text-gray-600 dark:text-gray-300 md:hidden">
               Agreements
             </Link>

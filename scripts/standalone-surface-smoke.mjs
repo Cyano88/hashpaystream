@@ -27,11 +27,19 @@ const packageLock = JSON.parse(read('package-lock.json'))
 assert.match(server, /app\.get\('\/healthz'/)
 assert.match(server, /app\.get\('\/api\/hashpaystream\/v2\/agreements'/)
 assert.match(server, /app\.post\('\/api\/hashpaystream\/v2\/agreements'/)
+assert.match(server, /app\.get\('\/api\/hashpaystream\/v1\/agent\/agreements'/)
+assert.match(server, /app\.post\('\/api\/hashpaystream\/v1\/agent\/agreements'/)
 assert.match(server, /app\.all\(\s*'\/api\/hashpaystream\/arc-agreement-webhook'/)
+assert.match(server, /app\.all\(\s*'\/api\/hashpaystream\/v1\/agent\/arc-agreement-webhook'/)
 assert.ok(
   server.indexOf("'/api/hashpaystream/arc-agreement-webhook'")
     < server.indexOf("app.use(express.json({ limit: '64kb' }))"),
   'Signed webhook raw-body route must precede the global JSON parser.',
+)
+assert.ok(
+  server.indexOf("'/api/hashpaystream/v1/agent/arc-agreement-webhook'")
+    < server.indexOf("app.use(express.json({ limit: '64kb' }))"),
+  'Signed agent webhook raw-body route must precede the global JSON parser.',
 )
 assert.doesNotMatch(server, /script-src[^"\n]*'unsafe-inline'/)
 assert.doesNotMatch(server, /script-src[^"\n]*'unsafe-eval'/)
@@ -57,6 +65,7 @@ assert.match(dashboard, /<AgreementSignInLanding splashState=\{splashState\}\s*\
 assert.match(signInLanding, /HashPay<span className="text-blue-500">Stream<\/span>/)
 assert.match(signInLanding, /Continue with email/)
 assert.match(signInLanding, /Your protected payments\./)
+assert.match(signInLanding, /Powered by Arc/)
 assert.match(signInLanding, /motion-reduce:hidden/)
 assert.match(sessionSplash, /window\.sessionStorage/)
 assert.match(sessionSplash, /prefers-reduced-motion: reduce/)
@@ -82,6 +91,9 @@ for (const forbidden of [
   'DATABASE_URL',
   'POSTGRES_URL',
   'x-api-key',
+  'HASHPAYSTREAM_AGENT_API_KEY',
+  'HASHPAYSTREAM_AGENT_ARC_API_KEY',
+  'HASHPAYSTREAM_AGENT_ARC_WEBHOOK_SECRET',
 ]) {
   assert.equal(browserSource.includes(forbidden), false, `Browser source contains forbidden server secret name: ${forbidden}`)
 }
@@ -113,6 +125,9 @@ for (const serverOnly of [
   'HASHPAYSTREAM_ARC_WEBHOOK_SECRET',
   'HASHPAYSTREAM_APP_OWNERSHIP_SECRET',
   'DATABASE_URL',
+  'HASHPAYSTREAM_AGENT_API_KEY',
+  'HASHPAYSTREAM_AGENT_ARC_API_KEY',
+  'HASHPAYSTREAM_AGENT_ARC_WEBHOOK_SECRET',
 ]) {
   assert.match(envExample, new RegExp(`(?:^|\\n)${serverOnly}=`))
   assert.equal(envExample.includes(`VITE_${serverOnly}=`), false)

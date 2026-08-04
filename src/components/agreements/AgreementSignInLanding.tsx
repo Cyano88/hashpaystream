@@ -1,4 +1,4 @@
-import { LockKeyhole } from 'lucide-react'
+import { ArrowRight, LockKeyhole, Mail } from 'lucide-react'
 import { AuthButton } from '../../lib/AuthButton'
 import type { HashPayStreamSplashState } from '../../lib/useHashPayStreamSessionSplash'
 import { HashPayStreamMark } from '../HashPayStreamMark'
@@ -21,10 +21,30 @@ export function AgreementSignInLanding({ splashState }: { splashState: HashPaySt
       </p>
       <AuthButton
         debugLabel="hashpaystream-agreements"
-        className="mt-7 w-full rounded-xl bg-gray-950 px-4 py-3 text-sm font-semibold text-white transition-transform active:scale-[0.99] dark:bg-white dark:text-gray-950"
+        className="group relative mt-7 flex min-h-14 w-full items-center justify-center rounded-2xl bg-gray-950 px-16 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-black active:translate-y-0 disabled:cursor-wait disabled:opacity-60 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-100"
       >
-        Continue with email
+        <Mail className="absolute left-5 h-4 w-4" />
+        <span>Continue with email</span>
+        <span className="absolute right-1.5 flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 transition-transform group-hover:translate-x-0.5 dark:bg-black/[0.06]">
+          <ArrowRight className="h-4 w-4" />
+        </span>
       </AuthButton>
+      <a
+        href="https://x.com/Hash_PayLink"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-5 text-xs text-gray-400 transition-colors hover:text-gray-700 dark:hover:text-gray-200"
+      >
+        Support
+      </a>
+      <a
+        href="https://testnet.arcscan.app"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-4 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-300 transition-colors hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400"
+      >
+        Powered by Arc
+      </a>
 
       {splashActive && (
         <div

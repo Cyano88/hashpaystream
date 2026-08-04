@@ -36,6 +36,7 @@ const env = {
 const agreementId = 'agr_standalonegateway1234'
 const agreement = {
   id: agreementId,
+  checkoutMode: 'human',
   title: 'Private user agreement',
   status: 'awaiting_start',
   releaseRequest: null,
