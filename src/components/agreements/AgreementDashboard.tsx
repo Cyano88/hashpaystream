@@ -144,7 +144,9 @@ export default function AgreementDashboard() {
   const [agreements, setAgreements] = useState<Agreement[]>([])
   const [activeId, setActiveId] = useState('')
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [loadError, setLoadError] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [releaseError, setReleaseError] = useState('')
   const [rotatingLink, setRotatingLink] = useState(false)
   const [payerLink, setPayerLink] = useState('')
   const [linkCopied, setLinkCopied] = useState(false)
@@ -173,9 +175,9 @@ export default function AgreementDashboard() {
       const next = data.agreements ?? []
       setAgreements(next)
       setActiveId(current => current && next.some(item => item.id === current) ? current : next[0]?.id ?? '')
-      setError('')
+      setLoadError('')
     } catch (reason) {
-      if (!quiet) setError(reason instanceof Error ? reason.message : 'Agreements could not be loaded.')
+      if (!quiet) setLoadError(reason instanceof Error ? reason.message : 'Agreements could not be loaded.')
     } finally {
       if (!quiet) setLoading(false)
     }
@@ -219,12 +221,14 @@ export default function AgreementDashboard() {
     setReleaseMode(false)
     setDeliveryNote('')
     setEvidenceReference('')
+    setActionError('')
+    setReleaseError('')
   }, [active?.id])
 
   async function rotatePayerLink() {
     if (!active || active.status !== 'awaiting_start') return
     setRotatingLink(true)
-    setError('')
+    setActionError('')
     try {
       const token = await getAccessToken()
       if (!token) throw new Error('Sign in again to generate a payer link.')
@@ -240,7 +244,7 @@ export default function AgreementDashboard() {
       }
       setPayerLink(`${HASH_PAYLINK_ORIGIN}${data.payerReviewPath}`)
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'A new payer link could not be generated.')
+      setActionError(reason instanceof Error ? reason.message : 'A new payer link could not be generated.')
     } finally {
       setRotatingLink(false)
     }
@@ -256,7 +260,7 @@ export default function AgreementDashboard() {
   async function requestRelease() {
     if (!active || active.status !== 'active' || !['fixed_unlock', 'milestone'].includes(active.template ?? '')) return
     setRequestingRelease(true)
-    setError('')
+    setReleaseError('')
     try {
       const token = await getAccessToken()
       if (!token) throw new Error('Sign in again to request this release.')
@@ -277,7 +281,7 @@ export default function AgreementDashboard() {
       setDeliveryNote('')
       setEvidenceReference('')
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'The release request could not be saved.')
+      setReleaseError(reason instanceof Error ? reason.message : 'The release request could not be saved.')
     } finally {
       setRequestingRelease(false)
     }
@@ -320,20 +324,25 @@ export default function AgreementDashboard() {
         </div>
       </div>
 
-      {error && (
+      {loadError && (
         <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300">
-          {error}
+          {loadError}
+        </div>
+      )}
+      {!loadError && actionError && (
+        <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300">
+          {actionError}
         </div>
       )}
 
-      {!error && agreements.length === 0 ? (
+      {!loadError && agreements.length === 0 ? (
         <div className="mt-8 rounded-3xl border border-gray-200 bg-white px-6 py-12 text-center dark:border-white/10 dark:bg-[#18181b]">
           <h2 className="text-lg font-semibold text-gray-950 dark:text-white">No agreements yet</h2>
           <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-gray-500 dark:text-gray-400">
             Agreements created through this project will appear here after they are saved.
           </p>
         </div>
-      ) : !error && (
+      ) : !loadError && (
         <>
           <div className="mt-7 grid grid-cols-3 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[#18181b]">
             {[
@@ -518,8 +527,13 @@ export default function AgreementDashboard() {
                           placeholder="https://delivery-link.com"
                           className="mt-3 h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 outline-none focus:border-gray-400 dark:border-white/10 dark:bg-[#18181b] dark:text-white dark:focus:border-white/30"
                         />
+                        {releaseError && (
+                          <p role="alert" className="mt-3 rounded-xl bg-red-50 px-3 py-2.5 text-xs leading-5 text-red-700 dark:bg-red-400/10 dark:text-red-300">
+                            {releaseError}
+                          </p>
+                        )}
                         <div className="mt-3 grid grid-cols-2 gap-2">
-                          <button type="button" disabled={requestingRelease} onClick={() => setReleaseMode(false)} className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-semibold text-gray-700 disabled:opacity-60 dark:border-white/10 dark:bg-[#18181b] dark:text-gray-200">
+                          <button type="button" disabled={requestingRelease} onClick={() => { setReleaseMode(false); setReleaseError('') }} className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-semibold text-gray-700 disabled:opacity-60 dark:border-white/10 dark:bg-[#18181b] dark:text-gray-200">
                             Cancel
                           </button>
                           <button type="button" disabled={requestingRelease || deliveryNote.trim().length < 12 || !evidenceReference.trim().startsWith('https://')} onClick={() => void requestRelease()} className="rounded-xl bg-gray-950 px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-gray-950">
@@ -539,7 +553,7 @@ export default function AgreementDashboard() {
                               : 'Submit the completed work for payer review.'}
                           </p>
                         </div>
-                        <button type="button" onClick={() => setReleaseMode(true)} className="shrink-0 rounded-xl bg-gray-950 px-3 py-2.5 text-xs font-semibold text-white dark:bg-white dark:text-gray-950">
+                        <button type="button" onClick={() => { setReleaseError(''); setReleaseMode(true) }} className="shrink-0 rounded-xl bg-gray-950 px-3 py-2.5 text-xs font-semibold text-white dark:bg-white dark:text-gray-950">
                           {active.releaseRequest?.status === 'disputed' ? 'Update delivery' : activeMilestone ? 'Submit milestone' : activeCheckpoint ? 'Submit progress' : 'Submit delivery'}
                         </button>
                       </div>
