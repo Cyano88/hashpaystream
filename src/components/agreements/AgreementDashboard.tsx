@@ -130,6 +130,10 @@ function templateLabel(value?: Agreement['template']) {
   return 'One release'
 }
 
+function supportsReleaseRequests(value?: Agreement['template']) {
+  return ['fixed_unlock', 'progressive_release', 'milestone'].includes(value ?? 'fixed_unlock')
+}
+
 function StatusBadge({ status }: { status: AgreementStatus }) {
   const tone = status === 'active'
     ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300'
@@ -258,7 +262,7 @@ export default function AgreementDashboard() {
   }
 
   async function requestRelease() {
-    if (!active || active.status !== 'active' || !['fixed_unlock', 'milestone'].includes(active.template ?? '')) return
+    if (!active || active.status !== 'active' || !supportsReleaseRequests(active.template)) return
     setRequestingRelease(true)
     setReleaseError('')
     try {
@@ -466,7 +470,7 @@ export default function AgreementDashboard() {
                   </div>
                 )}
 
-                {active.status === 'active' && ['fixed_unlock', 'progressive_release', 'milestone'].includes(active.template ?? 'fixed_unlock') && (
+                {active.status === 'active' && supportsReleaseRequests(active.template) && (
                   <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
                     {activeMilestone && (
                       <div className="mb-4 border-b border-gray-200 pb-4 dark:border-white/10">
