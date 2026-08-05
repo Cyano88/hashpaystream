@@ -134,6 +134,13 @@ function supportsReleaseRequests(value?: Agreement['template']) {
   return ['fixed_unlock', 'progressive_release', 'milestone'].includes(value ?? 'fixed_unlock')
 }
 
+function releaseRequestForCurrentStep(agreement?: Agreement) {
+  const request = agreement?.releaseRequest
+  if (!request) return undefined
+  if (!['progressive_release', 'milestone'].includes(agreement.template ?? '')) return request
+  return request.step === (agreement.chain?.nextStep ?? 0) ? request : undefined
+}
+
 function StatusBadge({ status }: { status: AgreementStatus }) {
   const tone = status === 'active'
     ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300'
@@ -218,6 +225,7 @@ export default function AgreementDashboard() {
   const activeCheckpoint = active?.template === 'progressive_release'
     ? active.checkpoints?.[active.chain?.nextStep ?? 0]
     : undefined
+  const currentReleaseRequest = releaseRequestForCurrentStep(active)
 
   useEffect(() => {
     setPayerLink('')
@@ -494,20 +502,20 @@ export default function AgreementDashboard() {
                         </div>
                       </div>
                     )}
-                    {active.releaseRequest && active.releaseRequest.status !== 'disputed' ? (
+                    {currentReleaseRequest && currentReleaseRequest.status !== 'disputed' ? (
                       <div className="flex items-center justify-between gap-4">
                         <div>
                           <p className="text-xs font-medium text-gray-900 dark:text-white">
-                            {['queued', 'provider_pending', 'chain_pending'].includes(active.releaseRequest.status) ? 'Payment approved' : 'Release requested'}
+                            {['queued', 'provider_pending', 'chain_pending'].includes(currentReleaseRequest.status) ? 'Payment approved' : 'Release requested'}
                           </p>
                           <p className="mt-1 text-[11px] leading-5 text-gray-400">
-                            {RELEASE_STATUS[active.releaseRequest.status] || 'Under review'}
+                            {RELEASE_STATUS[currentReleaseRequest.status] || 'Under review'}
                           </p>
                         </div>
                         <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-gray-600 dark:bg-white/[0.07] dark:text-gray-300">
-                          {active.releaseRequest.status === 'completed'
+                          {currentReleaseRequest.status === 'completed'
                             ? 'Complete'
-                            : ['queued', 'provider_pending', 'chain_pending'].includes(active.releaseRequest.status)
+                            : ['queued', 'provider_pending', 'chain_pending'].includes(currentReleaseRequest.status)
                               ? 'Confirming'
                               : 'Pending'}
                         </span>
@@ -549,16 +557,16 @@ export default function AgreementDashboard() {
                       <div className="flex items-center justify-between gap-4">
                         <div>
                           <p className="text-xs font-medium text-gray-900 dark:text-white">
-                            {active.releaseRequest?.status === 'disputed' ? 'Delivery needs an update' : activeMilestone ? 'Milestone complete?' : activeCheckpoint ? 'Progress ready?' : 'Work delivered?'}
+                            {currentReleaseRequest?.status === 'disputed' ? 'Delivery needs an update' : activeMilestone ? 'Milestone complete?' : activeCheckpoint ? 'Progress ready?' : 'Work delivered?'}
                           </p>
                           <p className="mt-1 text-[11px] leading-5 text-gray-400">
-                            {active.releaseRequest?.status === 'disputed'
-                              ? active.releaseRequest.reviewNote || 'The payer reported an issue with this delivery.'
+                            {currentReleaseRequest?.status === 'disputed'
+                              ? currentReleaseRequest.reviewNote || 'The payer reported an issue with this delivery.'
                               : 'Submit the completed work for payer review.'}
                           </p>
                         </div>
                         <button type="button" onClick={() => { setReleaseError(''); setReleaseMode(true) }} className="shrink-0 rounded-xl bg-gray-950 px-3 py-2.5 text-xs font-semibold text-white dark:bg-white dark:text-gray-950">
-                          {active.releaseRequest?.status === 'disputed' ? 'Update delivery' : activeMilestone ? 'Submit milestone' : activeCheckpoint ? 'Submit progress' : 'Submit delivery'}
+                          {currentReleaseRequest?.status === 'disputed' ? 'Update delivery' : activeMilestone ? 'Submit milestone' : activeCheckpoint ? 'Submit progress' : 'Submit delivery'}
                         </button>
                       </div>
                     )}
