@@ -38,20 +38,43 @@ const agreement = {
   id: agreementId,
   checkoutMode: 'human',
   title: 'Private user agreement',
-  status: 'awaiting_start',
+  status: 'cancelled',
+  timeline: [
+    {
+      id: 'evt_gatewayactivated1234',
+      event: 'agreement.activated',
+      createdAt: '2026-08-03T12:01:00.000Z',
+      receivedAt: '2026-08-03T12:01:01.000Z',
+      observedBlockNumber: '55000001',
+      privatePayload: 'upstream-private-data-must-not-project',
+    },
+    {
+      id: 'evt_gatewaycancelled1234',
+      event: 'agreement.cancelled',
+      createdAt: '2026-08-03T12:02:00.000Z',
+      receivedAt: '2026-08-03T12:02:01.000Z',
+      observedBlockNumber: '55000002',
+      untrustedDuplicateData: 'must-not-win',
+    },
+    {
+      id: 'invalid-event',
+      event: 'agreement.cancelled',
+      createdAt: 'not-a-date',
+    },
+  ],
   releaseRequest: null,
   receipt: null,
 }
 const eventStore = {
   schema: 1,
   events: {
-    evt_standalonegateway1234: {
-      id: 'evt_standalonegateway1234',
-      event: 'agreement.activated',
+    evt_gatewaycancelled1234: {
+      id: 'evt_gatewaycancelled1234',
+      event: 'agreement.cancelled',
       agreementId,
-      createdAt: '2026-08-03T12:01:00.000Z',
-      receivedAt: '2026-08-03T12:01:01.000Z',
-      data: { observedBlockNumber: '55000001', privatePayload: 'must-not-project' },
+      createdAt: '2026-08-03T12:02:00.000Z',
+      receivedAt: '2026-08-03T12:02:02.000Z',
+      data: { observedBlockNumber: '55000002', privatePayload: 'must-not-project' },
     },
   },
 }
@@ -145,20 +168,32 @@ assert.equal(upstreamCalls.filter(item => item.method === 'POST' && !item.body?.
 const ownerList = await call(handler, 'user-a')
 assert.equal(ownerList.statusCode, 200)
 assert.deepEqual(ownerList.body.agreements.map(item => item.id), [agreementId])
-assert.equal(ownerList.body.agreements[0].status, 'active')
-assert.deepEqual(ownerList.body.agreements[0].timeline, [{
-  id: 'evt_standalonegateway1234',
-  event: 'agreement.activated',
-  createdAt: '2026-08-03T12:01:00.000Z',
-  receivedAt: '2026-08-03T12:01:01.000Z',
-  observedBlockNumber: '55000001',
-}])
+assert.equal(ownerList.body.agreements[0].status, 'cancelled')
+assert.deepEqual(ownerList.body.agreements[0].timeline, [
+  {
+    id: 'evt_gatewaycancelled1234',
+    event: 'agreement.cancelled',
+    createdAt: '2026-08-03T12:02:00.000Z',
+    receivedAt: '2026-08-03T12:02:02.000Z',
+    observedBlockNumber: '55000002',
+  },
+  {
+    id: 'evt_gatewayactivated1234',
+    event: 'agreement.activated',
+    createdAt: '2026-08-03T12:01:00.000Z',
+    receivedAt: '2026-08-03T12:01:01.000Z',
+    observedBlockNumber: '55000001',
+  },
+])
 assert.equal(JSON.stringify(ownerList.body).includes('must-not-project'), false)
+assert.equal(JSON.stringify(ownerList.body).includes('upstream-private-data-must-not-project'), false)
+assert.equal(JSON.stringify(ownerList.body).includes('untrustedDuplicateData'), false)
+assert.equal(JSON.stringify(ownerList.body).includes('invalid-event'), false)
 
 const ownerRead = await call(handler, 'user-a', 'GET', { query: { id: agreementId } })
 assert.equal(ownerRead.statusCode, 200)
 assert.equal(ownerRead.body.agreement.id, agreementId)
-assert.equal(ownerRead.body.agreement.status, 'active')
+assert.equal(ownerRead.body.agreement.status, 'cancelled')
 
 const foreignList = await call(handler, 'user-b')
 assert.equal(foreignList.statusCode, 200)

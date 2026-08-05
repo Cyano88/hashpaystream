@@ -10,6 +10,7 @@ import {
 const DEFAULT_STORE_KEY = 'hashpaystream:agreement-owners:v1'
 const DEFAULT_EVENT_STORE_KEY = 'hashpaystream:arc-webhooks:v1'
 const AGREEMENT_ID = /^agr_[a-z0-9]{12,64}$/i
+const EVENT_ID = /^evt_[a-z0-9]{12,64}$/i
 const LIFECYCLE_STATUS: Record<string, string> = {
   'agreement.activated': 'active',
   'agreement.step_released': 'active',
@@ -210,15 +211,49 @@ function publicTimeline(eventStore: AgreementEventStore | undefined, agreementId
     }))
 }
 
+function publicUpstreamTimeline(value: unknown) {
+  if (!Array.isArray(value)) return []
+  return value.flatMap(candidate => {
+    const event = candidate && typeof candidate === 'object' && !Array.isArray(candidate)
+      ? candidate as Record<string, unknown>
+      : {}
+    const id = clean(event.id, 80)
+    const eventName = clean(event.event, 80)
+    const createdAt = clean(event.createdAt, 64)
+    const receivedAt = clean(event.receivedAt, 64)
+    const observedBlockNumber = clean(event.observedBlockNumber, 40)
+    if (
+      !EVENT_ID.test(id)
+      || !LIFECYCLE_STATUS[eventName]
+      || !Number.isFinite(new Date(createdAt).getTime())
+      || (receivedAt && !Number.isFinite(new Date(receivedAt).getTime()))
+      || (observedBlockNumber && !/^\d{1,40}$/.test(observedBlockNumber))
+    ) {
+      return []
+    }
+    return [{
+      id,
+      event: eventName,
+      createdAt,
+      receivedAt,
+      observedBlockNumber,
+    }]
+  })
+}
+
+function mergedTimeline(upstreamTimeline: ReturnType<typeof publicUpstreamTimeline>, webhookTimeline: ReturnType<typeof publicTimeline>) {
+  const byId = new Map(upstreamTimeline.map(event => [event.id, event]))
+  for (const event of webhookTimeline) byId.set(event.id, event)
+  return [...byId.values()].sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+}
+
 function standaloneAgreementView(value: unknown, eventStore: AgreementEventStore | undefined) {
   const agreement = value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {}
   const agreementId = clean(agreement.id, 80)
   const webhookTimeline = publicTimeline(eventStore, agreementId)
-  const timeline = webhookTimeline.length
-    ? webhookTimeline
-    : Array.isArray(agreement.timeline) ? agreement.timeline : []
+  const timeline = mergedTimeline(publicUpstreamTimeline(agreement.timeline), webhookTimeline)
   const lifecycleStatus = webhookTimeline
     .map(event => LIFECYCLE_STATUS[event.event])
     .find(Boolean)
