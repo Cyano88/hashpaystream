@@ -24,6 +24,7 @@ const receiptPdf = read('src/lib/paymentReceiptPdf.ts')
 const signInLanding = read('src/components/agreements/AgreementSignInLanding.tsx')
 const sessionSplash = read('src/lib/useHashPayStreamSessionSplash.ts')
 const envExample = read('.env.example')
+const renderBlueprint = read('render.yaml')
 const packageLock = JSON.parse(read('package-lock.json'))
 
 assert.match(server, /app\.get\('\/healthz'/)
@@ -144,6 +145,19 @@ for (const serverOnly of [
 ]) {
   assert.match(envExample, new RegExp(`(?:^|\\n)${serverOnly}=`))
   assert.equal(envExample.includes(`VITE_${serverOnly}=`), false)
+}
+
+for (const agentSetting of [
+  'HASHPAYSTREAM_AGENT_ID',
+  'HASHPAYSTREAM_AGENT_API_KEY',
+  'HASHPAYSTREAM_AGENT_ARC_API_KEY',
+  'HASHPAYSTREAM_AGENT_ARC_PROJECT_ID',
+  'HASHPAYSTREAM_AGENT_ARC_WEBHOOK_SECRET',
+  'HASHPAYSTREAM_AGENT_ARC_WEBHOOK_STORE_KEY',
+]) {
+  assert.match(envExample, new RegExp('(?:^|\\n)' + agentSetting + '='))
+  assert.match(renderBlueprint, new RegExp('- key: ' + agentSetting + '(?:\\n|\\r\\n)'))
+  assert.equal(envExample.includes('VITE_' + agentSetting + '='), false)
 }
 
 const packageEntries = Object.entries(packageLock.packages ?? {})

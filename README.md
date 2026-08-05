@@ -13,9 +13,12 @@ upstream agreement, checkout, chain-policy, lifecycle, and receipt provider.
 - `/agreements/new` agreement creation
 - `/api/hashpaystream/v2/agreements` server-side Hash PayLink gateway
 - `/api/hashpaystream/arc-agreement-webhook` signed lifecycle receiver
+- `/api/hashpaystream/v1/agent/agreements` authenticated headless-agent gateway
+- `/api/hashpaystream/v1/agent/arc-agreement-webhook` separately signed agent lifecycle receiver
 
-Creator feeds, payroll, x402, Arena, content gates, and embedded agent routes
-are intentionally excluded.
+Creator feeds, payroll, x402 checkout, Arena, content gates, and embedded
+Agent Hash UI are intentionally excluded. The server-to-server headless-agent
+agreement pilot below is the only agent surface.
 
 ## Headless-agent pilot
 
