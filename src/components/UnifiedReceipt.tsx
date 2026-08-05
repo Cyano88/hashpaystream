@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Check, Eye, Loader2, Share2 } from 'lucide-react'
+import { Check, ExternalLink, Eye, Loader2, Share2 } from 'lucide-react'
 import {
+  arcTransactionUrl,
   createPaymentReceiptPdf,
   paymentReceiptFileName,
   type PaylinkReceipt,
@@ -29,6 +30,7 @@ export default function UnifiedReceipt({ receipt, className = '', label = 'Open 
   const [sharing, setSharing] = useState(false)
   const [opened, setOpened] = useState(false)
   const [error, setError] = useState('')
+  const explorerUrl = arcTransactionUrl(receipt)
 
   if (!showAction) return null
 
@@ -116,6 +118,17 @@ export default function UnifiedReceipt({ receipt, className = '', label = 'Open 
           {sharing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Share2 className="h-3.5 w-3.5" />}
           {sharing ? 'Preparing' : 'Share receipt'}
         </button>
+        {explorerUrl && (
+          <a
+            href={explorerUrl}
+            target={'_blank'}
+            rel={'noopener noreferrer'}
+            className={'col-span-2 inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 shadow-sm transition hover:text-gray-950 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:text-white'}
+          >
+            <ExternalLink className={'h-3.5 w-3.5'} />
+            View on Arc Explorer
+          </a>
+        )}
       </div>
       {error && <p role="alert" className="mt-2 text-center text-xs font-semibold text-red-500">{error}</p>}
     </div>

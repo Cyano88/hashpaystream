@@ -22,6 +22,15 @@ export type PaylinkReceipt = {
 
 type ReceiptRow = { label: string; value: string; mono?: boolean }
 
+const ARC_TESTNET_EXPLORER_ORIGIN = 'https://testnet.arcscan.app'
+
+export function arcTransactionUrl(receipt?: Pick<PaylinkReceipt, 'txHash'>) {
+  const transactionHash = receipt?.txHash?.trim() ?? ''
+  return /^0x[a-fA-F0-9]{64}$/.test(transactionHash)
+    ? `${ARC_TESTNET_EXPLORER_ORIGIN}/tx/${transactionHash}`
+    : ''
+}
+
 function amount(value?: string) {
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return value || '0'
@@ -79,7 +88,7 @@ export async function createPaymentReceiptPdf(receipt: PaylinkReceipt) {
     reader.onerror = () => reject(new Error('Receipt PDF could not be prepared.'))
     reader.readAsDataURL(blob)
   }, 'image/jpeg', 0.94))
-  return pdfFromJpeg(jpeg, width, height)
+  return pdfFromJpeg(jpeg, width, height, arcTransactionUrl(receipt))
 }
 
 function drawReceipt(ctx: CanvasRenderingContext2D, receipt: PaylinkReceipt, width: number, height: number) {
@@ -128,6 +137,11 @@ function drawReceipt(ctx: CanvasRenderingContext2D, receipt: PaylinkReceipt, wid
   ctx.fillStyle = '#ffffff'
   ctx.font = '700 12px Courier New'
   rightText(ctx, shorten(receipt.txHash || receipt.receiptHash || receipt.receiptId), 550, y + 2, 320)
+  if (arcTransactionUrl(receipt)) {
+    ctx.fillStyle = '#a3a3a3'
+    ctx.font = '700 9px Arial'
+    rightText(ctx, 'VIEW ON ARC EXPLORER', 550, y + 20, 320)
+  }
 
   ctx.setLineDash([])
   ctx.fillStyle = '#707070'
@@ -172,7 +186,11 @@ function rightText(ctx: CanvasRenderingContext2D, value: string, right: number, 
   ctx.fillText(clipped, right - ctx.measureText(clipped).width, y)
 }
 
-function pdfFromJpeg(dataUrl: string, width: number, height: number) {
+function escapePdfLiteral(value: string) {
+  return value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
+}
+
+function pdfFromJpeg(dataUrl: string, width: number, height: number, transactionUrl: string) {
   const binary = atob(dataUrl.split(',')[1] || '')
   const image = new Uint8Array(binary.length)
   for (let index = 0; index < binary.length; index += 1) image[index] = binary.charCodeAt(index)
@@ -186,12 +204,17 @@ function pdfFromJpeg(dataUrl: string, width: number, height: number) {
   add('%PDF-1.4\n')
   start(1); add('<< /Type /Catalog /Pages 2 0 R >>\nendobj\n')
   start(2); add('<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n')
-  start(3); add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${width} ${height}] /Resources << /XObject << /Im1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n`)
+  const annotations = transactionUrl ? ' /Annots [6 0 R]' : ''
+  start(3); add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${width} ${height}] /Resources << /XObject << /Im1 4 0 R >> >> /Contents 5 0 R${annotations} >>\nendobj\n`)
   start(4); add(`<< /Type /XObject /Subtype /Image /Width ${width * 2} /Height ${height * 2} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.byteLength} >>\nstream\n`); add(image.buffer.slice(0) as ArrayBuffer); add('\nendstream\nendobj\n')
   start(5); add(`<< /Length ${encoder.encode(stream).length} >>\nstream\n${stream}\nendstream\nendobj\n`)
+  if (transactionUrl) {
+    start(6); add(`<< /Type /Annot /Subtype /Link /Rect [300 110 550 153] /Border [0 0 0] /A << /S /URI /URI (${escapePdfLiteral(transactionUrl)}) >> >>\nendobj\n`)
+  }
   const xref = offset
-  add('xref\n0 6\n0000000000 65535 f \n')
-  for (let id = 1; id <= 5; id += 1) add(`${String(offsets[id]).padStart(10, '0')} 00000 n \n`)
-  add(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`)
+  const objectCount = transactionUrl ? 7 : 6
+  add(`xref\n0 ${objectCount}\n0000000000 65535 f \n`)
+  for (let id = 1; id < objectCount; id += 1) add(`${String(offsets[id]).padStart(10, '0')} 00000 n \n`)
+  add(`trailer\n<< /Size ${objectCount} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`)
   return new Blob(parts, { type: 'application/pdf' })
 }
