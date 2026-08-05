@@ -195,6 +195,25 @@ assert.equal(ownerRead.statusCode, 200)
 assert.equal(ownerRead.body.agreement.id, agreementId)
 assert.equal(ownerRead.body.agreement.status, 'cancelled')
 
+const originalStatus = agreement.status
+const originalEvents = eventStore.events
+agreement.status = 'completed'
+eventStore.events = {
+  evt_gatewaystepreleased1234: {
+    id: 'evt_gatewaystepreleased1234',
+    event: 'agreement.step_released',
+    agreementId,
+    createdAt: '2026-08-03T12:03:00.000Z',
+    receivedAt: '2026-08-03T12:03:01.000Z',
+    data: { observedBlockNumber: '55000003' },
+  },
+}
+const terminalRead = await call(handler, 'user-a', 'GET', { query: { id: agreementId } })
+assert.equal(terminalRead.statusCode, 200)
+assert.equal(terminalRead.body.agreement.status, 'completed')
+agreement.status = originalStatus
+eventStore.events = originalEvents
+
 const foreignList = await call(handler, 'user-b')
 assert.equal(foreignList.statusCode, 200)
 assert.deepEqual(foreignList.body.agreements, [])

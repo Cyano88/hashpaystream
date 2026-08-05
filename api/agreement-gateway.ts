@@ -19,6 +19,7 @@ const LIFECYCLE_STATUS: Record<string, string> = {
   'agreement.cancelled': 'cancelled',
   'agreement.refunded': 'refunded',
 }
+const TERMINAL_AGREEMENT_STATUSES = new Set(['completed', 'cancelled', 'refunded'])
 
 type OwnedAgreement = {
   agreementId: string
@@ -247,6 +248,12 @@ function mergedTimeline(upstreamTimeline: ReturnType<typeof publicUpstreamTimeli
   return [...byId.values()].sort((left, right) => right.createdAt.localeCompare(left.createdAt))
 }
 
+function reconciledLifecycleStatus(upstreamStatus: string, webhookStatus?: string) {
+  if (TERMINAL_AGREEMENT_STATUSES.has(upstreamStatus)) return upstreamStatus
+  if (upstreamStatus === 'expired' && webhookStatus === 'active') return upstreamStatus
+  return webhookStatus || upstreamStatus
+}
+
 function standaloneAgreementView(value: unknown, eventStore: AgreementEventStore | undefined) {
   const agreement = value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -257,9 +264,10 @@ function standaloneAgreementView(value: unknown, eventStore: AgreementEventStore
   const lifecycleStatus = webhookTimeline
     .map(event => LIFECYCLE_STATUS[event.event])
     .find(Boolean)
+  const status = reconciledLifecycleStatus(clean(agreement.status, 40), lifecycleStatus)
   return {
     ...agreement,
-    ...(lifecycleStatus ? { status: lifecycleStatus } : {}),
+    ...(status ? { status } : {}),
     timeline,
     deliveryTimeline: Array.isArray(agreement.deliveryTimeline) ? agreement.deliveryTimeline : [],
   }
