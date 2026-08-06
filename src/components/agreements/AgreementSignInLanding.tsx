@@ -3,14 +3,14 @@ import { AuthButton } from '../../lib/AuthButton'
 import type { HashPayStreamSplashState } from '../../lib/useHashPayStreamSessionSplash'
 import { HashPayStreamMark } from '../HashPayStreamMark'
 
-export function AgreementSignInLanding({ splashState }: { splashState: HashPayStreamSplashState }) {
+export function AgreementSignInLanding({ splashState, compact = false }: { splashState: HashPayStreamSplashState; compact?: boolean }) {
   const splashActive = splashState !== 'idle'
   const assembled = splashState === 'assembling' || splashState === 'launching'
   const markVisible = splashState !== 'entering'
   const launching = splashState === 'launching'
 
   return (
-    <section className="flex min-h-[64vh] w-full max-w-md flex-col items-center justify-center text-center">
+    <section className={`flex w-full max-w-md flex-col items-center justify-center text-center ${compact ? 'min-h-0 lg:min-h-[64vh]' : 'min-h-[64vh]'}`}>
       <HashPayStreamMark className="h-14 w-14" title="HashPayStream" />
       <p className="mt-6 text-sm font-semibold tracking-tight">
         <span className="text-gray-950 dark:text-white">Hash</span>{' '}

@@ -54,8 +54,8 @@ export default function StreamPayLanding() {
   return (
     <div className="relative flex w-full max-w-[1440px] flex-1">
       <section className="grid min-h-[100dvh] w-full items-center gap-12 py-12 lg:h-[100dvh] lg:min-h-0 lg:grid-cols-[1.1fr_.9fr] lg:gap-20 lg:py-6">
-        <div className="relative order-2 mx-auto w-full max-w-lg lg:order-1 lg:h-full lg:max-w-none">
-          <div className="absolute -inset-10 -z-10 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.16),transparent_68%)]" />
+        <div className="relative order-2 mx-auto hidden w-full max-w-lg lg:order-1 lg:block lg:h-full lg:max-w-none">
+          <div className="absolute -inset-10 -z-10 hidden bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.16),transparent_68%)] sm:block" />
           <div className="relative h-[500px] overflow-hidden rounded-[2rem] border border-white/80 bg-slate-900 shadow-[0_34px_100px_-42px_rgba(15,23,42,0.58)] dark:border-white/10 sm:h-[540px] lg:h-full">
             {agreementScenes.map((scene, index) => (
               <img
@@ -101,7 +101,7 @@ export default function StreamPayLanding() {
 
         <div className="order-1 mx-auto w-full max-w-md lg:order-2 lg:flex lg:h-full lg:items-center">
           {authenticated ? (
-            <section className="flex min-h-[64vh] w-full flex-col items-center justify-center text-center">
+            <section className="flex min-h-0 w-full flex-col items-center justify-center text-center lg:min-h-[64vh]">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Arc Agreements</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Create a protected payment.</h1>
               <p className="mt-3 max-w-sm text-sm leading-6 text-gray-500 dark:text-gray-400">
@@ -112,7 +112,7 @@ export default function StreamPayLanding() {
               </Link>
             </section>
           ) : (
-            <AgreementSignInLanding splashState={splashState} />
+            <AgreementSignInLanding splashState={splashState} compact />
           )}
         </div>
       </section>
