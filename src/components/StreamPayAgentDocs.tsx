@@ -113,7 +113,7 @@ export default function StreamPayAgentDocs() {
 
       <section className="mt-12">
         <h2 className="text-xl font-semibold tracking-tight text-gray-950 dark:text-white">Create an agreement</h2>
-        <p className="mt-3 text-sm leading-6 text-gray-500 dark:text-gray-400">This fixed-release example uses placeholders only. The recipient must be a valid Arc address.</p>
+        <p className="mt-3 text-sm leading-6 text-gray-500 dark:text-gray-400">This fixed-release example uses placeholders only. The recipient must exactly match the Arc Testnet receiving address configured for the pilot project in Hash PayLink.</p>
         <CodeBlock>{createExample}</CodeBlock>
       </section>
 
