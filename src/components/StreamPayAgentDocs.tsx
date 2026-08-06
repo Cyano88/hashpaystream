@@ -76,7 +76,7 @@ export default function StreamPayAgentDocs() {
 
       <section className="mt-9 grid gap-3 sm:grid-cols-3">
         {[
-          { Icon: KeyIcon, title: 'Server credentials', body: 'A HashPayStream pilot key authenticates one configured agent identity.' },
+          { Icon: KeyIcon, title: 'Server credentials', body: 'Each HashPayStream pilot key authenticates one registered agent identity.' },
           { Icon: CommandLineIcon, title: 'Exact Arc calls', body: 'The API prepares transaction calls; the agent wallet signs and broadcasts them.' },
           { Icon: ShieldCheckIcon, title: 'Guarded lifecycle', body: 'Hash PayLink remains authoritative for policy, confirmation, releases, cancellations, refunds, and receipts.' },
         ].map(({ Icon, title, body }) => (

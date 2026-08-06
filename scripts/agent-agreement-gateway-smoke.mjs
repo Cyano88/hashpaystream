@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { agentGatewayEnvironment } from '../api/agent-auth.ts'
+import { registerAgentCredential } from '../api/agent-credential-registry.ts'
 import { createHashPayStreamAgentAgreementGateway } from '../api/agent-agreement-gateway.ts'
 
 function responseRecorder() {
@@ -29,6 +30,7 @@ async function call(handler, credential, method = 'GET', input = {}) {
 
 const agentKeyA = `hps_agent_test_${'a'.repeat(40)}`
 const agentKeyB = `hps_agent_test_${'b'.repeat(40)}`
+const unknownAgentKey = `hps_agent_test_${'z'.repeat(40)}`
 const upstreamKeyA = `hpl_test_${'c'.repeat(32)}`
 const upstreamKeyB = `hpl_test_${'d'.repeat(32)}`
 const baseEnv = {
@@ -125,13 +127,51 @@ const shared = {
   logError: () => undefined,
 }
 
-const handlerA = createHashPayStreamAgentAgreementGateway({ ...shared, env: () => envA })
-const handlerB = createHashPayStreamAgentAgreementGateway({ ...shared, env: () => envB })
+const registryPepper = 'gateway-registry-pepper-longer-than-thirty-two-characters'
+const registryStoreKey = 'test:hashpaystream:agent-credentials'
+let credentialStore = registerAgentCredential(undefined, {
+  apiKey: agentKeyA,
+  pepper: registryPepper,
+  agentId: envA.HASHPAYSTREAM_AGENT_ID,
+  keyId: 'gatewaykeya',
+  label: 'Gateway agent A',
+  now: '2026-08-04T11:58:00.000Z',
+  auditId: 'audit_gateway_a',
+  requestsPerMinute: 120,
+})
+credentialStore = registerAgentCredential(credentialStore, {
+  apiKey: agentKeyB,
+  pepper: registryPepper,
+  agentId: envB.HASHPAYSTREAM_AGENT_ID,
+  keyId: 'gatewaykeyb',
+  label: 'Gateway agent B',
+  now: '2026-08-04T11:59:00.000Z',
+  auditId: 'audit_gateway_b',
+  requestsPerMinute: 120,
+})
+const registryEnv = {
+  ...baseEnv,
+  HASHPAYSTREAM_AGENT_ARC_API_KEY: upstreamKeyA,
+  HASHPAYSTREAM_AGENT_ARC_PROJECT_ID: envA.HASHPAYSTREAM_AGENT_ARC_PROJECT_ID,
+  HASHPAYSTREAM_AGENT_ARC_WEBHOOK_SECRET: envA.HASHPAYSTREAM_AGENT_ARC_WEBHOOK_SECRET,
+  HASHPAYSTREAM_AGENT_CREDENTIAL_PEPPER: registryPepper,
+  HASHPAYSTREAM_AGENT_CREDENTIAL_STORE_KEY: registryStoreKey,
+}
+const registryAuth = {
+  hasStore: () => true,
+  consume: () => true,
+  read: async key => {
+    assert.equal(key, registryStoreKey)
+    return credentialStore
+  },
+}
+const handlerA = createHashPayStreamAgentAgreementGateway({ ...shared, env: () => registryEnv }, registryAuth)
+const handlerB = handlerA
 
 const missingCredential = await call(handlerA, '')
 assert.equal(missingCredential.statusCode, 401)
 
-const wrongCredential = await call(handlerA, agentKeyB)
+const wrongCredential = await call(handlerA, unknownAgentKey)
 assert.equal(wrongCredential.statusCode, 401)
 
 const created = await call(handlerA, agentKeyA, 'POST', {

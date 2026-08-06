@@ -40,6 +40,29 @@ The separately signed agent-project webhook receiver is
 `/api/hashpaystream/v1/agent/arc-agreement-webhook`. Do not configure either
 agent route with the human HashPayStream project key or webhook secret.
 
+### Agent credential registry
+
+Multi-agent pilot credentials are stored as peppered HMAC digests in the
+standalone Postgres database. Configure
+`HASHPAYSTREAM_AGENT_CREDENTIAL_PEPPER` and keep it server-side. The existing
+`HASHPAYSTREAM_AGENT_ID` and `HASHPAYSTREAM_AGENT_API_KEY` remain a temporary
+compatibility fallback during migration.
+
+`npm run agent:credentials -- list` returns only sanitized credential
+metadata. Create, import, and revoke commands are dry runs unless
+`--confirm-agent-credential-write` is supplied. New credentials must be
+written to a new file outside the repository and are never printed:
+
+```text
+npm run agent:credentials -- create --agent-id agent_example_01 --label "Example" --requests-per-minute 120 --output-file C:\secure\agent-example.json
+npm run agent:credentials -- import-legacy
+npm run agent:credentials -- revoke --key-id keyidvalue
+```
+
+After confirming the legacy credential is registered and the service is using
+the registry, remove the legacy identity and key from the deployment
+environment. Never commit a generated credential output file.
+
 ## Local verification
 
 ```text

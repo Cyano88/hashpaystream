@@ -1,8 +1,38 @@
 import { timingSafeEqual } from 'node:crypto'
 import type { Request } from 'express'
+import { hasRenderDurableStore, readDurableJson } from './durable-store.js'
+import {
+  AGENT_API_KEY_PATTERN,
+  AGENT_ID_PATTERN,
+  agentCredentialDigest,
+  agentCredentialRegistryConfig,
+  safeAgentCredentialStore,
+} from './agent-credential-registry.js'
 
-const AGENT_ID = /^agent_[a-z0-9][a-z0-9_-]{7,63}$/i
-const AGENT_API_KEY = /^hps_agent_test_[A-Za-z0-9_-]{32,128}$/
+export type AgentAuthDependencies = {
+  hasStore: () => boolean
+  read: <T>(key: string) => Promise<T | undefined>
+  consume: (key: string, limit: number) => boolean
+}
+
+const credentialBuckets = new Map<string, { count: number; resetAt: number }>()
+
+function consumeCredentialRequest(key: string, limit: number) {
+  const now = Date.now()
+  const current = credentialBuckets.get(key)
+  if (!current || current.resetAt <= now) {
+    credentialBuckets.set(key, { count: 1, resetAt: now + 60_000 })
+    return true
+  }
+  current.count += 1
+  return current.count <= limit
+}
+
+const defaultDependencies: AgentAuthDependencies = {
+  hasStore: hasRenderDurableStore,
+  read: readDurableJson,
+  consume: consumeCredentialRequest,
+}
 
 function httpError(message: string, status: number) {
   return Object.assign(new Error(message), { status })
@@ -18,14 +48,54 @@ function safeEqual(left: string, right: string) {
   return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer)
 }
 
-export async function verifiedPilotAgentIdentity(req: Request, env: NodeJS.ProcessEnv = process.env) {
-  const agentId = String(env.HASHPAYSTREAM_AGENT_ID ?? '').trim()
-  const configuredKey = String(env.HASHPAYSTREAM_AGENT_API_KEY ?? '').trim()
-  if (!AGENT_ID.test(agentId) || !AGENT_API_KEY.test(configuredKey)) {
+export async function verifiedPilotAgentIdentity(
+  req: Request,
+  env: NodeJS.ProcessEnv = process.env,
+  overrides: Partial<AgentAuthDependencies> = {},
+) {
+  const dependencies = { ...defaultDependencies, ...overrides }
+  const presentedKey = bearer(req)
+  if (!AGENT_API_KEY_PATTERN.test(presentedKey)) {
+    throw httpError('A valid HashPayStream agent credential is required.', 401)
+  }
+
+  let registryConfig: ReturnType<typeof agentCredentialRegistryConfig>
+  try {
+    registryConfig = agentCredentialRegistryConfig(env)
+  } catch {
     throw httpError('HashPayStream agent access is unavailable.', 503)
   }
-  const presentedKey = bearer(req)
-  if (!AGENT_API_KEY.test(presentedKey) || !safeEqual(presentedKey, configuredKey)) {
+  if (registryConfig) {
+    if (!dependencies.hasStore()) throw httpError('HashPayStream agent access is unavailable.', 503)
+    let current
+    try {
+      current = await dependencies.read(registryConfig.storeKey)
+    } catch {
+      throw httpError('HashPayStream agent access is unavailable.', 503)
+    }
+    const store = safeAgentCredentialStore(current)
+    const digest = agentCredentialDigest(presentedKey, registryConfig.pepper)
+    const record = store.credentials[digest]
+    if (record) {
+      if (record.status !== 'active') {
+        throw httpError('A valid HashPayStream agent credential is required.', 401)
+      }
+      if (!dependencies.consume(digest, record.requestsPerMinute)) {
+        throw httpError('HashPayStream agent request limit exceeded.', 429)
+      }
+      return `agent:${record.agentId}`
+    }
+  }
+
+  const agentId = String(env.HASHPAYSTREAM_AGENT_ID ?? '').trim()
+  const configuredKey = String(env.HASHPAYSTREAM_AGENT_API_KEY ?? '').trim()
+  if (!AGENT_ID_PATTERN.test(agentId) || !AGENT_API_KEY_PATTERN.test(configuredKey)) {
+    if (registryConfig) {
+      throw httpError('A valid HashPayStream agent credential is required.', 401)
+    }
+    throw httpError('HashPayStream agent access is unavailable.', 503)
+  }
+  if (!safeEqual(presentedKey, configuredKey)) {
     throw httpError('A valid HashPayStream agent credential is required.', 401)
   }
   return `agent:${agentId.toLowerCase()}`

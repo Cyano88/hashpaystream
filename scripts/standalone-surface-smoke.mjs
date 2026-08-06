@@ -115,6 +115,7 @@ for (const forbidden of [
   'HASHPAYSTREAM_AGENT_API_KEY',
   'HASHPAYSTREAM_AGENT_ARC_API_KEY',
   'HASHPAYSTREAM_AGENT_ARC_WEBHOOK_SECRET',
+  'HASHPAYSTREAM_AGENT_CREDENTIAL_PEPPER',
 ]) {
   assert.equal(browserSource.includes(forbidden), false, `Browser source contains forbidden server secret name: ${forbidden}`)
 }
@@ -157,6 +158,7 @@ for (const serverOnly of [
   'HASHPAYSTREAM_AGENT_API_KEY',
   'HASHPAYSTREAM_AGENT_ARC_API_KEY',
   'HASHPAYSTREAM_AGENT_ARC_WEBHOOK_SECRET',
+  'HASHPAYSTREAM_AGENT_CREDENTIAL_PEPPER',
 ]) {
   assert.match(envExample, new RegExp(`(?:^|\\n)${serverOnly}=`))
   assert.equal(envExample.includes(`VITE_${serverOnly}=`), false)
@@ -169,6 +171,8 @@ for (const agentSetting of [
   'HASHPAYSTREAM_AGENT_ARC_PROJECT_ID',
   'HASHPAYSTREAM_AGENT_ARC_WEBHOOK_SECRET',
   'HASHPAYSTREAM_AGENT_ARC_WEBHOOK_STORE_KEY',
+  'HASHPAYSTREAM_AGENT_CREDENTIAL_PEPPER',
+  'HASHPAYSTREAM_AGENT_CREDENTIAL_STORE_KEY',
 ]) {
   assert.match(envExample, new RegExp('(?:^|\\n)' + agentSetting + '='))
   assert.match(renderBlueprint, new RegExp('- key: ' + agentSetting + '(?:\\n|\\r\\n)'))
