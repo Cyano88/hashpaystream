@@ -95,10 +95,14 @@ const shared = {
     upstreamCalls.push(input)
     if (input.path === '/api/v2/agreements/agent') {
       return {
-        status: ['record', 'lifecycle-record'].includes(input.body.action) ? 202 : 200,
+        status: ['circle-execute', 'record', 'lifecycle-circle-execute', 'lifecycle-record'].includes(input.body.action) ? 202 : 200,
         body: {
           ok: true,
           attempt: { id: 'aat_agentdraftpilot1234', checkoutMode: 'agentic', status: 'awaiting_approval' },
+          ...(['circle-execute', 'lifecycle-circle-execute'].includes(input.body.action) ? {
+            pending: true,
+            transactionHash: `0x${'6'.repeat(64)}`,
+          } : {}),
           ...(input.body.action === 'prepare-call' ? {
             call: { chainId: 5_042_002, to: '0x3600000000000000000000000000000000000000', data: '0x1234', value: '0' },
           } : {}),
@@ -237,6 +241,38 @@ const preparedCall = await call(handlerA, agentKeyA, 'POST', {
 assert.equal(preparedCall.statusCode, 200)
 assert.equal(preparedCall.body.call.chainId, 5_042_002)
 
+const callsBeforeMissingExecutionKey = upstreamCalls.length
+const missingExecutionKey = await call(handlerA, agentKeyA, 'POST', {
+  body: {
+    action: 'circle-execute',
+    agreementId,
+    payerAddress: '0x3333333333333333333333333333333333333333',
+    stage: 'approval',
+  },
+})
+assert.equal(missingExecutionKey.statusCode, 400)
+assert.equal(upstreamCalls.length, callsBeforeMissingExecutionKey)
+
+const circleExecuted = await call(handlerA, agentKeyA, 'POST', {
+  idempotencyKey: 'agent-approval-execution-0001',
+  body: {
+    action: 'circle-execute',
+    agreementId,
+    payerAddress: '0x3333333333333333333333333333333333333333',
+    stage: 'approval',
+  },
+})
+assert.equal(circleExecuted.statusCode, 202)
+assert.equal(circleExecuted.body.transactionHash, `0x${'6'.repeat(64)}`)
+const circleExecutionInput = upstreamCalls.at(-1)
+assert.equal(circleExecutionInput.path, '/api/v2/agreements/agent')
+assert.equal(circleExecutionInput.body.action, 'circle-execute')
+assert.equal(circleExecutionInput.body.stage, 'approval')
+assert.match(circleExecutionInput.body.payerReference, /^apr_[a-f0-9]{40}$/)
+assert.match(circleExecutionInput.idempotencyKey, /^[a-f0-9]{64}$/)
+assert.notEqual(circleExecutionInput.idempotencyKey, 'agent-approval-execution-0001')
+assert.equal(circleExecutionInput.timeoutMs, 135_000)
+
 const deliveryDecision = await call(handlerA, agentKeyA, 'POST', {
   body: {
     action: 'delivery-decision',
@@ -265,6 +301,22 @@ assert.equal(lifecycleCall.body.call.to, '0x440000000000000000000000000000000000
 const lifecyclePrepareInput = upstreamCalls.at(-1)
 assert.match(lifecyclePrepareInput.body.payerReference, /^apr_[a-f0-9]{40}$/)
 assert.equal(lifecyclePrepareInput.body.lifecycleAction, 'cancel')
+
+const lifecycleCircleExecuted = await call(handlerA, agentKeyA, 'POST', {
+  idempotencyKey: 'agent-cancel-execution-0001',
+  body: {
+    action: 'lifecycle-circle-execute',
+    agreementId,
+    payerAddress: '0x3333333333333333333333333333333333333333',
+    lifecycleAction: 'cancel',
+  },
+})
+assert.equal(lifecycleCircleExecuted.statusCode, 202)
+const lifecycleCircleInput = upstreamCalls.at(-1)
+assert.equal(lifecycleCircleInput.body.action, 'lifecycle-circle-execute')
+assert.equal(lifecycleCircleInput.body.lifecycleAction, 'cancel')
+assert.match(lifecycleCircleInput.idempotencyKey, /^[a-f0-9]{64}$/)
+assert.equal(lifecycleCircleInput.timeoutMs, 135_000)
 
 const lifecycleRecord = await call(handlerA, agentKeyA, 'POST', {
   body: {

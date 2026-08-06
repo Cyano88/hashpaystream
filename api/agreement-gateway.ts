@@ -64,6 +64,7 @@ export type AgreementGatewayDependencies = {
     path: string
     body?: Record<string, unknown>
     idempotencyKey?: string
+    timeoutMs?: number
   }) => Promise<UpstreamResponse>
   env: () => NodeJS.ProcessEnv
   now: () => Date
@@ -130,10 +131,12 @@ async function upstreamRequest(input: {
   path: string
   body?: Record<string, unknown>
   idempotencyKey?: string
+  timeoutMs?: number
 }, env: NodeJS.ProcessEnv) {
   const config = configuration(env)
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 15_000)
+  const timeoutMs = Math.max(1_000, Math.min(input.timeoutMs ?? 15_000, 135_000))
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const response = await fetch(`${config.baseUrl}${input.path}`, {
       method: input.method,
@@ -374,11 +377,13 @@ export function createHashPayStreamAgreementGateway(
           if (![
             'prepare',
             'prepare-call',
+            'circle-execute',
             'record',
             'status',
             'review',
             'delivery-decision',
             'lifecycle-prepare-call',
+            'lifecycle-circle-execute',
             'lifecycle-record',
             'lifecycle-status',
           ].includes(action)) {
@@ -387,22 +392,33 @@ export function createHashPayStreamAgreementGateway(
           const agreementId = clean(body.agreementId, 80)
           if (!AGREEMENT_ID.test(agreementId)) throw httpError('Agreement id is invalid.', 400)
           ownedAgreement(store, agreementId, owner)
+          const circleExecution = action === 'circle-execute' || action === 'lifecycle-circle-execute'
+          const requestedExecutionKey = circleExecution ? clean(req.headers['idempotency-key'], 160) : ''
+          if (circleExecution && requestedExecutionKey.length < 16) {
+            throw httpError('Idempotency-Key must contain at least 16 characters for Circle execution.', 400)
+          }
           const upstream = await dependencies.upstream({
             method: 'POST',
             path: '/api/v2/agreements/agent',
+            ...(circleExecution ? {
+              idempotencyKey: scopedIdempotency(owner, requestedExecutionKey),
+              timeoutMs: 135_000,
+            } : {}),
             body: {
               action,
               agreementId,
               payerReference: agentPayerReference(owner),
               payerAddress: clean(body.payerAddress, 80),
-              ...(action === 'prepare-call' || action === 'record' ? { stage: clean(body.stage, 20) } : {}),
+              ...(action === 'prepare-call' || action === 'circle-execute' || action === 'record'
+                ? { stage: clean(body.stage, 20) }
+                : {}),
               ...(action === 'record' ? { transactionHash: clean(body.transactionHash, 80) } : {}),
               ...(action === 'delivery-decision' ? {
                 deliveryId: clean(body.deliveryId, 40),
                 decision: clean(body.decision, 20),
                 issue: clean(body.issue, 300),
               } : {}),
-              ...(action === 'lifecycle-prepare-call' ? {
+              ...(action === 'lifecycle-prepare-call' || action === 'lifecycle-circle-execute' ? {
                 lifecycleAction: clean(body.lifecycleAction, 20),
               } : {}),
               ...(action === 'lifecycle-record' ? {

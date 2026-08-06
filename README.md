@@ -25,16 +25,20 @@ agreement pilot below is the only agent surface.
 `/api/hashpaystream/v1/agent/agreements` is a disabled-by-default,
 server-to-server agreement pilot. It uses a separate Hash PayLink agentic
 test project and never returns human payer-access credentials. The pilot
-supports agreement create, list, read, exact Arc approval/activation call
-preparation, delivery accept/dispute, exact payer cancellation/refund call
-preparation, transaction recording, and confirmed status reconciliation.
+supports agreement create, list, read, bounded Circle Agent Wallet execution,
+exact Arc approval/activation call preparation, delivery accept/dispute,
+bounded payer cancellation/refund execution, transaction recording, and
+confirmed status reconciliation.
 HashPayStream derives the opaque upstream payer reference server-side.
 
-The agent signs and broadcasts the returned calls with its own Arc wallet;
-HashPayStream and Hash PayLink never receive its private key. Accepted
-deliveries enter Hash PayLink's existing guarded operator release queue;
-agents never receive or execute the operator key. Cancellation and refund
-remain constrained by authoritative Arc escrow eligibility and confirmation.
+Circle execution uses the Agent Wallet connected to the Hash PayLink project
+owner and only calls derived from Hash PayLink's prepared agreement state.
+The existing prepare, external-sign, record, and reconcile path remains
+available for another compatible Arc wallet. HashPayStream and Hash PayLink
+never receive its private key. Accepted deliveries enter Hash PayLink's
+existing guarded operator release queue; agents never receive or execute the
+operator key. Cancellation and refund remain constrained by authoritative Arc
+escrow eligibility and confirmation.
 
 The separately signed agent-project webhook receiver is
 `/api/hashpaystream/v1/agent/arc-agreement-webhook`. Do not configure either

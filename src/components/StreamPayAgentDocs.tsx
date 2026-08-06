@@ -14,12 +14,14 @@ const endpoint = '/api/hashpaystream/v1/agent/agreements'
 const actions = [
   { action: 'prepare', purpose: 'Prepare the agreement for agent-funded activation.' },
   { action: 'prepare-call', purpose: 'Return an exact Arc call for an authorized activation stage.' },
-  { action: 'record', purpose: 'Record the transaction hash broadcast by the agent wallet.' },
+  { action: 'circle-execute', purpose: 'Execute a prepared activation call with the connected Circle Agent Wallet.' },
+  { action: 'record', purpose: 'Record the transaction hash broadcast by another compatible agent wallet.' },
   { action: 'status', purpose: 'Reconcile activation against confirmed upstream and Arc state.' },
   { action: 'review', purpose: 'Read the delivery state that is ready for payer review.' },
   { action: 'delivery-decision', purpose: 'Accept a delivery or report an issue.' },
   { action: 'lifecycle-prepare-call', purpose: 'Prepare an eligible cancellation or refund call.' },
-  { action: 'lifecycle-record', purpose: 'Record the lifecycle transaction broadcast by the agent wallet.' },
+  { action: 'lifecycle-circle-execute', purpose: 'Execute an eligible cancellation or refund with the connected Circle Agent Wallet.' },
+  { action: 'lifecycle-record', purpose: 'Record the lifecycle transaction broadcast by another compatible agent wallet.' },
   { action: 'lifecycle-status', purpose: 'Reconcile cancellation or refund confirmation.' },
 ]
 
@@ -70,14 +72,14 @@ export default function StreamPayAgentDocs() {
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Agent API · Private pilot</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-4xl">Arc Agreements for autonomous agents.</h1>
         <p className="mt-4 text-sm leading-7 text-gray-500 dark:text-gray-400">
-          Create and manage protected USDC agreements from an agent backend while the agent keeps control of its Arc wallet and signing policy.
+          Create and manage protected USDC agreements from an agent backend using a connected Circle Agent Wallet or another compatible Arc wallet.
         </p>
       </div>
 
       <section className="mt-9 grid gap-3 sm:grid-cols-3">
         {[
           { Icon: KeyIcon, title: 'Server credentials', body: 'Each HashPayStream pilot key authenticates one registered agent identity.' },
-          { Icon: CommandLineIcon, title: 'Exact Arc calls', body: 'The API prepares transaction calls; the agent wallet signs and broadcasts them.' },
+          { Icon: CommandLineIcon, title: 'Bounded execution', body: 'Use the connected Circle Agent Wallet or sign the exact prepared Arc call with another compatible wallet.' },
           { Icon: ShieldCheckIcon, title: 'Guarded lifecycle', body: 'Hash PayLink remains authoritative for policy, confirmation, releases, cancellations, refunds, and receipts.' },
         ].map(({ Icon, title, body }) => (
           <div key={title} className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#18181b]">
@@ -95,7 +97,8 @@ export default function StreamPayAgentDocs() {
             'Pilot access is issued directly by HashPayStream. It is not created in the Hash PayLink developer portal.',
             'Keep the HashPayStream agent API key in backend secret storage. Never place it in browser code or a VITE_ variable.',
             'Use a distinct Idempotency-Key for each intended agreement creation and reuse it only when retrying that same request.',
-            'The agent signs prepared calls with its own Arc wallet. HashPayStream never needs the private key or recovery phrase.',
+            'Circle execution uses the Agent Wallet already connected to the Hash PayLink project owner. HashPayStream never receives a private key or recovery phrase.',
+            'Use a new Idempotency-Key for each Circle approval, activation, cancellation, or refund. Reuse it only to retry that exact operation.',
           ].map(item => (
             <div key={item} className="flex gap-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
               <CheckCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
@@ -144,7 +147,7 @@ export default function StreamPayAgentDocs() {
       <section className="mt-12 rounded-3xl bg-gray-950 p-6 text-white dark:bg-white dark:text-gray-950 sm:p-8">
         <p className="text-xs font-semibold text-blue-400 dark:text-blue-600">Pilot boundary</p>
         <h2 className="mt-3 text-xl font-semibold tracking-tight">No browser keys. No wallet custody.</h2>
-        <p className="mt-3 text-sm leading-7 text-gray-300 dark:text-gray-600">The agent API does not expose a human payer link or payer-access credential. It does not accept a private key. Confirm status through the API after broadcasting instead of treating transaction submission as final.</p>
+        <p className="mt-3 text-sm leading-7 text-gray-300 dark:text-gray-600">The agent API does not expose a human payer link, payer-access credential, Circle session, or private key. Hash PayLink executes only its prepared agreement calls and remains authoritative for confirmed status.</p>
         <a href="https://x.com/Hash_PayLink" target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold">
           Request pilot access
           <ArrowTopRightOnSquareIcon className="h-4 w-4" />
