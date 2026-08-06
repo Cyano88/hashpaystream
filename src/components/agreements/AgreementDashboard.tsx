@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
-import { ArrowUpRight, Check, Copy, Loader2 } from 'lucide-react'
+import { ArrowPathIcon, ArrowTopRightOnSquareIcon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, ClipboardIcon } from '@heroicons/react/24/outline'
 import { Link } from '../../lib/router'
 import { useHashPayStreamSessionSplash } from '../../lib/useHashPayStreamSessionSplash'
 import UnifiedReceipt from '../UnifiedReceipt'
@@ -81,7 +81,7 @@ const STATUS_LABEL: Record<AgreementStatus, string> = {
 const EVENT_LABEL: Record<string, string> = {
   'agreement.activated': 'Agreement funded',
   'agreement.step_released': 'Release confirmed',
-  'agreement.expired': 'Agreement ended',
+  'agreement.expired': 'Refund available',
   'agreement.completed': 'Agreement completed',
   'agreement.cancelled': 'Agreement cancelled',
   'agreement.refunded': 'Remaining USDC returned',
@@ -130,6 +130,20 @@ function templateLabel(value?: Agreement['template']) {
   return 'One release'
 }
 
+function paymentPlanLabel(agreement: Agreement) {
+  if (agreement.template === 'milestone') return `${agreement.milestones?.length ?? 0} milestones`
+  if (agreement.template === 'progressive_release') return `${agreement.checkpoints?.length ?? 0} progress releases`
+  return 'One release'
+}
+
+function percentageUsdc(units: string | undefined, percentage: number) {
+  try {
+    return formatUsdc(((BigInt(units || '0') * BigInt(percentage)) / 100n).toString())
+  } catch {
+    return '0 USDC'
+  }
+}
+
 function supportsReleaseRequests(value?: Agreement['template']) {
   return ['fixed_unlock', 'progressive_release', 'milestone'].includes(value ?? 'fixed_unlock')
 }
@@ -154,6 +168,7 @@ export default function AgreementDashboard() {
   const { ready, authenticated, getAccessToken } = usePrivy()
   const [agreements, setAgreements] = useState<Agreement[]>([])
   const [activeId, setActiveId] = useState('')
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [actionError, setActionError] = useState('')
@@ -165,6 +180,7 @@ export default function AgreementDashboard() {
   const [deliveryNote, setDeliveryNote] = useState('')
   const [evidenceReference, setEvidenceReference] = useState('')
   const [requestingRelease, setRequestingRelease] = useState(false)
+  const [showAllActivity, setShowAllActivity] = useState(false)
   const splashState = useHashPayStreamSessionSplash(!authenticated)
   const newAgreementTo = useStreamPayPath('/agreements/new')
 
@@ -226,6 +242,10 @@ export default function AgreementDashboard() {
     ? active.checkpoints?.[active.chain?.nextStep ?? 0]
     : undefined
   const currentReleaseRequest = releaseRequestForCurrentStep(active)
+  const visibleActivity = showAllActivity ? activity : activity.slice(0, 3)
+  const activeMilestoneAmount = activeMilestone
+    ? percentageUsdc(active?.chain?.amountUsdcUnits, activeMilestone.percentage)
+    : undefined
 
   useEffect(() => {
     setPayerLink('')
@@ -235,6 +255,7 @@ export default function AgreementDashboard() {
     setEvidenceReference('')
     setActionError('')
     setReleaseError('')
+    setShowAllActivity(false)
   }, [active?.id])
 
   async function rotatePayerLink() {
@@ -260,6 +281,17 @@ export default function AgreementDashboard() {
     } finally {
       setRotatingLink(false)
     }
+  }
+
+  function selectAgreement(agreementId: string) {
+    setActiveId(agreementId)
+    setMobileDetailOpen(true)
+    if (window.matchMedia('(max-width: 1023px)').matches) window.scrollTo({ top: 0, behavior: 'auto' })
+  }
+
+  function closeMobileAgreement() {
+    setMobileDetailOpen(false)
+    window.scrollTo({ top: 0, behavior: 'auto' })
   }
 
   async function copyPayerLink() {
@@ -299,15 +331,6 @@ export default function AgreementDashboard() {
     }
   }
 
-  const totals = useMemo(() => agreements.reduce((result, agreement) => {
-    const chain = agreement.chain
-    if (!chain) return result
-    if (agreement.status === 'active') result.activeProtected += BigInt(chain.remainingUsdcUnits || '0')
-    if (agreement.status === 'expired') result.refundAvailable += BigInt(chain.remainingUsdcUnits || '0')
-    result.released += BigInt(chain.releasedUsdcUnits || '0')
-    return result
-  }, { activeProtected: 0n, released: 0n, refundAvailable: 0n }), [agreements])
-
   if (!authenticated) {
     return <AgreementSignInLanding splashState={splashState} />
   }
@@ -315,7 +338,7 @@ export default function AgreementDashboard() {
   if (!ready || loading) {
     return (
       <section className="flex min-h-[58vh] w-full max-w-5xl items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-gray-300 dark:text-gray-600" />
+        <ArrowPathIcon className="h-5 w-5 animate-spin text-gray-300 dark:text-gray-600" />
       </section>
     )
   }
@@ -324,12 +347,14 @@ export default function AgreementDashboard() {
     <section className="w-full max-w-5xl py-8 sm:py-12">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Arc Testnet</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Agreements</h1>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Protected USDC agreements on Arc.</p>
+          <div className="flex items-center gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Protected payments</p>
+            <span className="rounded-full border border-gray-200 bg-white px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.1em] text-gray-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-500">Arc test network</span>
+          </div>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Agreements</h1>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Manage protected USDC agreements and delivery status.</p>
         </div>
         <div className="flex items-center gap-3">
-          {agreements.length > 0 && <p className="text-xs text-gray-400 dark:text-gray-500">Updates automatically</p>}
           <Link to={newAgreementTo} className="rounded-xl bg-gray-950 px-3.5 py-2.5 text-xs font-semibold text-white dark:bg-white dark:text-gray-950">
             New agreement
           </Link>
@@ -356,26 +381,13 @@ export default function AgreementDashboard() {
         </div>
       ) : !loadError && (
         <>
-          <div className="mt-7 grid grid-cols-3 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[#18181b]">
-            {[
-              ['Active protected', formatUsdc(totals.activeProtected.toString())],
-              ['Released', formatUsdc(totals.released.toString())],
-              ['Refund available', formatUsdc(totals.refundAvailable.toString())],
-            ].map(([label, value], index) => (
-              <div key={label} className={`min-w-0 px-3 py-4 sm:px-5 ${index ? 'border-l border-gray-100 dark:border-white/10' : ''}`}>
-                <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-gray-400">{label}</p>
-                <p className="mt-1 truncate text-sm font-semibold text-gray-950 dark:text-white sm:text-base">{value}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-            <div className={`space-y-2 ${agreements.length === 1 ? 'hidden lg:block' : ''}`}>
+          <div className="mt-7 grid gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+            <div className={`space-y-2 ${mobileDetailOpen ? 'hidden lg:block' : ''}`}>
               {agreements.map(agreement => (
                 <button
                   type="button"
                   key={agreement.id}
-                  onClick={() => setActiveId(agreement.id)}
+                  onClick={() => selectAgreement(agreement.id)}
                   className={`w-full rounded-2xl border p-4 text-left transition-colors ${active?.id === agreement.id
                     ? 'border-gray-950 bg-gray-950 text-white dark:border-white dark:bg-white dark:text-gray-950'
                     : 'border-gray-200 bg-white text-gray-950 hover:border-gray-300 dark:border-white/10 dark:bg-[#18181b] dark:text-white dark:hover:border-white/20'}`}
@@ -396,48 +408,39 @@ export default function AgreementDashboard() {
             </div>
 
             {active && (
-              <article className="rounded-3xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#18181b] sm:p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <StatusBadge status={active.status} />
-                    <h2 className="mt-4 text-xl font-semibold tracking-tight text-gray-950 dark:text-white">{active.title || 'Arc agreement'}</h2>
-                    {active.description && <p className="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">{active.description}</p>}
-                  </div>
-                  {active.chain?.escrow && (
-                    <a
-                      href={`https://testnet.arcscan.app/address/${active.chain.escrow}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label="View escrow on Arcscan"
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition-colors hover:text-gray-950 dark:border-white/10 dark:text-gray-400 dark:hover:text-white"
-                    >
-                      <ArrowUpRight className="h-4 w-4" />
-                    </a>
-                  )}
+              <article className={`${mobileDetailOpen ? '' : 'hidden lg:block'} rounded-3xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#18181b] sm:p-6`}>
+                <button type="button" onClick={closeMobileAgreement} className="mb-5 inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-950 dark:text-gray-400 dark:hover:text-white lg:hidden">
+                  <ChevronLeftIcon className="h-4 w-4" />
+                  All agreements
+                </button>
+                <div>
+                  <StatusBadge status={active.status} />
+                  <h2 className="mt-4 text-xl font-semibold tracking-tight text-gray-950 dark:text-white">{active.title || 'Arc agreement'}</h2>
+                  {active.description && <p className="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">{active.description}</p>}
                 </div>
 
                 <div className="mt-6 grid grid-cols-2 gap-x-5 gap-y-5 border-y border-gray-100 py-5 dark:border-white/10">
-                  <Detail label={active.chain ? 'Protected' : 'Agreement amount'} value={active.chain ? formatUsdc(active.chain.amountUsdcUnits) : `${active.amount || '0'} USDC`} />
+                  <Detail label="Agreement amount" value={active.chain ? formatUsdc(active.chain.amountUsdcUnits) : `${active.amount || '0'} USDC`} />
                   <Detail label="Released" value={formatUsdc(active.chain?.releasedUsdcUnits)} />
                   <Detail label="Remaining" value={formatUsdc(active.chain?.remainingUsdcUnits)} />
-                  <Detail label="Release" value={templateLabel(active.template)} />
-                  <Detail label="Recipient" value={shortAddress(active.recipient)} />
-                  <Detail label="Escrow" value={shortAddress(active.chain?.escrow)} />
+                  <Detail label="Payment plan" value={paymentPlanLabel(active)} />
                 </div>
+
+                <details className="group mt-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-semibold text-gray-700 dark:text-gray-200 [&::-webkit-details-marker]:hidden">
+                    Payment details
+                    <ChevronDownIcon className="h-4 w-4 text-gray-400 transition-transform group-open:rotate-180" />
+                  </summary>
+                  <div className="mt-4 grid grid-cols-2 gap-4 border-t border-gray-200 pt-4 dark:border-white/10">
+                    <Detail label="Recipient" value={shortAddress(active.recipient)} />
+                    <Detail label="Escrow address" value={shortAddress(active.chain?.escrow)} />
+                  </div>
+                  {active.chain?.escrow && <a href={`https://testnet.arcscan.app/address/${active.chain.escrow}`} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 hover:text-gray-950 dark:text-gray-300 dark:hover:text-white">View on Arc Explorer<ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" /></a>}
+                </details>
 
                 {active.receipt ? (
                   <UnifiedReceipt receipt={active.receipt} className="mt-5" />
-                ) : active.chain?.escrow && ['completed', 'cancelled', 'refunded'].includes(active.status) && (
-                  <a
-                    href={`https://testnet.arcscan.app/address/${active.chain.escrow}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 transition-colors hover:text-gray-950 dark:text-gray-300 dark:hover:text-white"
-                  >
-                    View Arc proof
-                    <ArrowUpRight className="h-3.5 w-3.5" />
-                  </a>
-                )}
+                ) : null}
 
                 {active.status === 'expired' && (
                   <div className="mt-5 flex items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-400/20 dark:bg-amber-400/10">
@@ -455,12 +458,12 @@ export default function AgreementDashboard() {
                         <p className="mt-2 text-[11px] leading-5 text-gray-400">The previous payer link no longer works.</p>
                         <div className="mt-3 grid grid-cols-2 gap-2">
                           <button type="button" onClick={() => void copyPayerLink()} className="flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-semibold text-gray-900 dark:border-white/10 dark:bg-[#18181b] dark:text-white">
-                            {linkCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                            {linkCopied ? <CheckIcon className="h-3.5 w-3.5" /> : <ClipboardIcon className="h-3.5 w-3.5" />}
                             {linkCopied ? 'Copied' : 'Copy link'}
                           </button>
                           <a href={payerLink} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 rounded-xl bg-gray-950 px-3 py-2.5 text-xs font-semibold text-white dark:bg-white dark:text-gray-950">
                             Open checkout
-                            <ArrowUpRight className="h-3.5 w-3.5" />
+                            <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
                           </a>
                         </div>
                       </>
@@ -483,11 +486,13 @@ export default function AgreementDashboard() {
                     {activeMilestone && (
                       <div className="mb-4 border-b border-gray-200 pb-4 dark:border-white/10">
                         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400">
-                          Milestone {(active.chain?.nextStep ?? 0) + 1} of {active.milestones?.length ?? 0}
+                          {(active.chain?.nextStep ?? 0) + 1 === (active.milestones?.length ?? 0)
+                            ? 'Final milestone'
+                            : `Milestone ${(active.chain?.nextStep ?? 0) + 1} of ${active.milestones?.length ?? 0}`}
                         </p>
                         <div className="mt-1 flex items-center justify-between gap-3">
                           <p className="text-sm font-semibold text-gray-900 dark:text-white">{activeMilestone.label}</p>
-                          <p className="shrink-0 text-xs font-semibold text-gray-500 dark:text-gray-300">{activeMilestone.percentage}%</p>
+                          <p className="shrink-0 text-xs font-semibold text-gray-500 dark:text-gray-300">{activeMilestoneAmount}</p>
                         </div>
                       </div>
                     )}
@@ -522,7 +527,7 @@ export default function AgreementDashboard() {
                       </div>
                     ) : releaseMode ? (
                       <div>
-                        <p className="text-xs font-medium text-gray-900 dark:text-white">{activeMilestone ? 'Submit milestone' : activeCheckpoint ? 'Submit progress' : 'Submit delivery'}</p>
+                        <p className="text-xs font-medium text-gray-900 dark:text-white">Submit for payer review</p>
                         <p className="mt-1 text-[11px] leading-5 text-gray-400">Tell the payer what was completed and where to review it.</p>
                         <textarea
                           value={deliveryNote}
@@ -549,7 +554,7 @@ export default function AgreementDashboard() {
                             Cancel
                           </button>
                           <button type="button" disabled={requestingRelease || deliveryNote.trim().length < 12 || !evidenceReference.trim().startsWith('https://')} onClick={() => void requestRelease()} className="rounded-xl bg-gray-950 px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-gray-950">
-                            {requestingRelease ? 'Saving…' : 'Submit request'}
+                            {requestingRelease ? 'Submitting…' : 'Submit for review'}
                           </button>
                         </div>
                       </div>
@@ -557,7 +562,7 @@ export default function AgreementDashboard() {
                       <div className="flex items-center justify-between gap-4">
                         <div>
                           <p className="text-xs font-medium text-gray-900 dark:text-white">
-                            {currentReleaseRequest?.status === 'disputed' ? 'Delivery needs an update' : activeMilestone ? 'Milestone complete?' : activeCheckpoint ? 'Progress ready?' : 'Work delivered?'}
+                            {currentReleaseRequest?.status === 'disputed' ? 'Delivery needs an update' : 'Ready for payer review?'}
                           </p>
                           <p className="mt-1 text-[11px] leading-5 text-gray-400">
                             {currentReleaseRequest?.status === 'disputed'
@@ -566,7 +571,7 @@ export default function AgreementDashboard() {
                           </p>
                         </div>
                         <button type="button" onClick={() => { setReleaseError(''); setReleaseMode(true) }} className="shrink-0 rounded-xl bg-gray-950 px-3 py-2.5 text-xs font-semibold text-white dark:bg-white dark:text-gray-950">
-                          {currentReleaseRequest?.status === 'disputed' ? 'Update delivery' : activeMilestone ? 'Submit milestone' : activeCheckpoint ? 'Submit progress' : 'Submit delivery'}
+                          {currentReleaseRequest?.status === 'disputed' ? 'Update delivery' : 'Submit for payer review'}
                         </button>
                       </div>
                     )}
@@ -574,14 +579,14 @@ export default function AgreementDashboard() {
                 )}
 
                 <div className="mt-6">
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">Activity</h3>
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">Recent activity</h3>
                   {activity.length ? (
                     <div className="mt-3 space-y-0">
-                      {activity.map((event, index) => (
+                      {visibleActivity.map((event, index) => (
                         <div key={event.id} className="flex gap-3">
                           <div className="flex w-3 flex-col items-center">
                             <span className="mt-1.5 h-2 w-2 rounded-full bg-blue-600 dark:bg-blue-400" />
-                            {index < activity.length - 1 && <span className="min-h-8 w-px flex-1 bg-gray-200 dark:bg-white/10" />}
+                            {index < visibleActivity.length - 1 && <span className="min-h-8 w-px flex-1 bg-gray-200 dark:bg-white/10" />}
                           </div>
                           <div className="pb-4">
                             <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{EVENT_LABEL[event.event] || 'Agreement updated'}</p>
@@ -589,6 +594,7 @@ export default function AgreementDashboard() {
                           </div>
                         </div>
                       ))}
+                      {activity.length > 3 && <button type="button" onClick={() => setShowAllActivity(current => !current)} className="mt-1 text-xs font-semibold text-blue-600 dark:text-blue-400">{showAllActivity ? 'Show less' : 'View all activity'}</button>}
                     </div>
                   ) : (
                     <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Waiting for the payer to fund this agreement.</p>

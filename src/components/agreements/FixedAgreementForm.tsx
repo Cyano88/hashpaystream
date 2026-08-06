@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
-import { ArrowLeft, ArrowUpRight, Check, Copy, Loader2, LockKeyhole } from 'lucide-react'
+import { ArrowLeftIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, CheckIcon, ClipboardIcon, LockClosedIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { Link } from '../../lib/router'
 import { isAddress } from 'viem'
 import { AuthButton } from '../../lib/AuthButton'
@@ -154,14 +154,14 @@ export default function FixedAgreementForm() {
   }
 
   if (!ready) {
-    return <div className="flex min-h-[58vh] items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-gray-300" /></div>
+    return <div className="flex min-h-[58vh] items-center justify-center"><ArrowPathIcon className="h-5 w-5 animate-spin text-gray-300" /></div>
   }
 
   if (!authenticated) {
     return (
       <section className="flex min-h-[64vh] w-full max-w-md flex-col items-center justify-center text-center">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-950 text-white dark:bg-white dark:text-gray-950">
-          <LockKeyhole className="h-5 w-5" />
+          <LockClosedIcon className="h-5 w-5" />
         </div>
         <h1 className="mt-6 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Create an agreement.</h1>
         <p className="mt-3 text-sm leading-6 text-gray-500 dark:text-gray-400">Sign in to create and manage your agreements.</p>
@@ -180,7 +180,7 @@ export default function FixedAgreementForm() {
       <section className="w-full max-w-xl py-8 sm:py-12">
         <div className="rounded-3xl border border-gray-200 bg-white p-6 dark:border-white/10 dark:bg-[#18181b] sm:p-8">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-white">
-            <Check className="h-5 w-5" />
+            <CheckIcon className="h-5 w-5" />
           </div>
           <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">Agreement ready</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight text-gray-950 dark:text-white">Send this link to the payer.</h1>
@@ -200,7 +200,7 @@ export default function FixedAgreementForm() {
               onClick={() => void copyLink()}
               className="flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-900 dark:border-white/10 dark:text-white"
             >
-              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {copied ? <CheckIcon className="h-4 w-4" /> : <ClipboardIcon className="h-4 w-4" />}
               {copied ? 'Copied' : 'Copy link'}
             </button>
             <a
@@ -210,7 +210,7 @@ export default function FixedAgreementForm() {
               className="flex items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 py-3 text-sm font-semibold text-white dark:bg-white dark:text-gray-950"
             >
               Open checkout
-              <ArrowUpRight className="h-4 w-4" />
+              <ArrowTopRightOnSquareIcon className="h-4 w-4" />
             </a>
           </div>
           <Link to={agreementsTo} className="mt-3 flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-950 dark:text-gray-400 dark:hover:text-white">
@@ -224,10 +224,13 @@ export default function FixedAgreementForm() {
   return (
     <section className="w-full max-w-xl py-8 sm:py-12">
       <Link to={agreementsTo} className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-950 dark:text-gray-400 dark:hover:text-white">
-        <ArrowLeft className="h-4 w-4" />
+        <ArrowLeftIcon className="h-4 w-4" />
         Agreements
       </Link>
-      <p className="mt-8 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Arc Testnet</p>
+      <div className="mt-8 flex items-center gap-2">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Create</p>
+        <span className="rounded-full border border-gray-200 bg-white px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.1em] text-gray-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-500">Arc test network</span>
+      </div>
       <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">New agreement</h1>
       <p className="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">
         {template === 'fixed_unlock'
@@ -242,10 +245,10 @@ export default function FixedAgreementForm() {
         <Field label="Payment structure">
           <div className="grid grid-cols-3 gap-2">
             {([
-              ['fixed_unlock', 'One release'],
-              ['progressive_release', 'Progress'],
-              ['milestone', 'Milestones'],
-            ] as const).map(([value, label]) => (
+              ['fixed_unlock', 'One release', 'One release'],
+              ['progressive_release', 'Progress', 'Progress releases'],
+              ['milestone', 'Milestones', 'Milestones'],
+            ] as const).map(([value, mobileLabel, label]) => (
               <button
                 key={value}
                 type="button"
@@ -254,7 +257,8 @@ export default function FixedAgreementForm() {
                   ? 'border-gray-950 bg-gray-950 text-white dark:border-white dark:bg-white dark:text-gray-950'
                   : 'border-gray-200 text-gray-500 dark:border-white/10 dark:text-gray-400'}`}
               >
-                {label}
+                <span className="sm:hidden">{mobileLabel}</span>
+                <span className="hidden sm:inline">{label}</span>
               </button>
             ))}
           </div>
@@ -272,8 +276,9 @@ export default function FixedAgreementForm() {
               <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-xs font-semibold text-gray-400">USDC</span>
             </div>
           </Field>
-          <Field label="Recipient Arc address">
+          <Field label="Recipient wallet address">
             <input value={recipient} onChange={event => setRecipient(event.target.value.trim())} required placeholder="0x…" className={inputClass} />
+            <span className="mt-2 block text-[11px] text-gray-400">Arc test network only.</span>
           </Field>
         </div>
 
@@ -312,7 +317,7 @@ export default function FixedAgreementForm() {
             </div>
             <div className="mt-3 space-y-2">
               {milestones.map((milestone, index) => (
-                <div key={index} className="grid grid-cols-[minmax(0,1fr)_84px_auto] gap-2">
+                <div key={index} className="grid grid-cols-[minmax(0,1fr)_72px_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_84px_auto]">
                   <input
                     value={milestone.label}
                     onChange={event => setMilestones(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item))}
@@ -337,10 +342,10 @@ export default function FixedAgreementForm() {
                     type="button"
                     disabled={milestones.length <= 2}
                     onClick={() => setMilestones(current => current.filter((_, itemIndex) => itemIndex !== index))}
-                    className="px-2 text-xs font-semibold text-gray-400 disabled:opacity-30"
+                    className="flex h-11 w-10 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-700 disabled:opacity-30 dark:hover:bg-white/[0.04] dark:hover:text-gray-200"
                     aria-label={`Remove milestone ${index + 1}`}
                   >
-                    Remove
+                    <TrashIcon className="h-4 w-4" />
                   </button>
                 </div>
               ))}
@@ -366,7 +371,7 @@ export default function FixedAgreementForm() {
               <option value="604800">7 days</option>
             </select>
           </Field>
-          <Field label="Payer cancellation window">
+          <Field label="Payer cancellation period">
             <select value={cancellationWindowSeconds} onChange={event => setCancellationWindowSeconds(event.target.value)} className={inputClass}>
               <option value="0">No cancellation window</option>
               <option value="900">15 minutes</option>
@@ -382,7 +387,7 @@ export default function FixedAgreementForm() {
           disabled={!formReady || submitting}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 py-3.5 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 dark:bg-white dark:text-gray-950 dark:disabled:bg-white/10 dark:disabled:text-gray-600"
         >
-          {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+          {submitting && <ArrowPathIcon className="h-4 w-4 animate-spin" />}
           Create payer link
         </button>
       </form>

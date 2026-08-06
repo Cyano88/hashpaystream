@@ -5,7 +5,7 @@ import {
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline'
 import { usePrivy } from '@privy-io/react-auth'
-import { Link } from '../lib/router'
+import { Navigate } from '../lib/router'
 import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSplash'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
@@ -18,7 +18,7 @@ const agreementScenes = [
 ]
 
 export default function StreamPayLanding() {
-  const createTo = useStreamPayPath('/agreements/new')
+  const homeTo = useStreamPayPath('/home')
   const { authenticated } = usePrivy()
   const splashState = useHashPayStreamSessionSplash(!authenticated)
   const [activeScene, setActiveScene] = useState(0)
@@ -50,6 +50,8 @@ export default function StreamPayLanding() {
       desktop.removeEventListener('change', startRotation)
     }
   }, [])
+
+  if (authenticated) return <Navigate to={homeTo} replace />
 
   return (
     <div className="relative flex w-full max-w-[1440px] flex-1">
@@ -100,20 +102,7 @@ export default function StreamPayLanding() {
         </div>
 
         <div className="order-1 mx-auto w-full max-w-md lg:order-2 lg:flex lg:h-full lg:items-center">
-          {authenticated ? (
-            <section className="flex min-h-0 w-full flex-col items-center justify-center text-center lg:min-h-[64vh]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Arc Agreements</p>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Create a protected payment.</h1>
-              <p className="mt-3 max-w-sm text-sm leading-6 text-gray-500 dark:text-gray-400">
-                Set the terms and create a payer link for your next agreement.
-              </p>
-              <Link to={createTo} className="mt-7 rounded-xl bg-gray-950 px-3.5 py-2.5 text-xs font-semibold text-white dark:bg-white dark:text-gray-950">
-                New agreement
-              </Link>
-            </section>
-          ) : (
-            <AgreementSignInLanding splashState={splashState} compact />
-          )}
+          <AgreementSignInLanding splashState={splashState} compact />
         </div>
       </section>
 

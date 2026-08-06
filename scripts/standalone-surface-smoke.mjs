@@ -59,6 +59,9 @@ assert.ok(
 
 assert.match(app, /route === '\/'/)
 assert.match(app, /route === '\/docs'/)
+assert.match(app, /route === '\/home'/)
+assert.match(app, /route === '\/activity'/)
+assert.match(app, /route === '\/account'/)
 assert.match(app, /route === '\/agreements'/)
 assert.match(app, /route === '\/agreements\/new'/)
 assert.match(app, /<Navigate to="\/" replace\s*\/>/)
@@ -113,6 +116,8 @@ for (const forbidden of [
 }
 const viteNames = [...browserSource.matchAll(/VITE_[A-Z0-9_]+/g)].map(match => match[0])
 assert.deepEqual([...new Set(viteNames)].sort(), ['VITE_HASH_PAYLINK_BASE_URL', 'VITE_PRIVY_APP_ID'])
+assert.doesNotMatch(browserSource, /from ['"]lucide-react['"]/)
+assert.match(browserSource, /from ['"]@heroicons\/react\/24\/outline['"]/)
 
 const runtimeSource = [
   ...sourceFiles('src'),

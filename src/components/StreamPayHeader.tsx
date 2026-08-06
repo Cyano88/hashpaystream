@@ -1,5 +1,5 @@
 import { Link, useLocation } from '../lib/router'
-import { Moon, Sun } from 'lucide-react'
+import { MoonIcon, SunIcon } from '@heroicons/react/24/outline'
 import { usePrivy } from '@privy-io/react-auth'
 import { useTheme } from '../lib/ThemeContext'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
@@ -16,12 +16,21 @@ export function StreamPayHeader() {
   const { authenticated } = usePrivy()
   const { theme, toggle } = useTheme()
 
-  const agreementsTo = useStreamPayPath('/')
+  const agreementsTo = useStreamPayPath(authenticated ? '/home' : '/')
+  const homeTo = useStreamPayPath('/home')
   const workspaceTo = useStreamPayPath('/agreements')
+  const activityTo = useStreamPayPath('/activity')
+  const accountTo = useStreamPayPath('/account')
   const docsTo = useStreamPayPath('/docs')
-  const newAgreementTo = useStreamPayPath('/agreements/new')
   const telegramMode = isTelegramStreamPay(search)
-  const minimalSignInHeader = pathname.replace(/\/+$/, '') === '/agreements' && !authenticated
+  const route = pathname.replace(/\/+$/, '') || '/'
+  const minimalSignInHeader = route === '/agreements' && !authenticated
+  const navClass = (path: string) => {
+    const active = path === '/agreements' ? route.startsWith('/agreements') : route === path
+    return `rounded-full px-3 py-2 text-xs font-medium transition-colors ${active
+      ? 'bg-gray-100 text-gray-950 dark:bg-white/10 dark:text-white'
+      : 'text-gray-500 hover:text-gray-950 dark:text-gray-400 dark:hover:text-white'}`
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/60 dark:border-white/5 bg-white/80 dark:bg-[#111113]/90 backdrop-blur-xl">
@@ -39,28 +48,21 @@ export function StreamPayHeader() {
               Docs
             </Link>
           )}
-          {!minimalSignInHeader && !telegramMode && (
+          {authenticated && !telegramMode && (
             <nav className="hidden items-center gap-1 md:flex" aria-label="Primary navigation">
-              <Link to={workspaceTo} className="rounded-full px-3 py-2 text-xs font-medium text-gray-500 transition-colors hover:text-gray-950 dark:text-gray-400 dark:hover:text-white">
+              <Link to={homeTo} aria-current={route === '/home' ? 'page' : undefined} className={navClass('/home')}>
+                Home
+              </Link>
+              <Link to={workspaceTo} aria-current={route.startsWith('/agreements') ? 'page' : undefined} className={navClass('/agreements')}>
                 Agreements
               </Link>
-              <Link to={docsTo} className="rounded-full px-3 py-2 text-xs font-medium text-gray-500 transition-colors hover:text-gray-950 dark:text-gray-400 dark:hover:text-white">
-                How it works
+              <Link to={activityTo} aria-current={route === '/activity' ? 'page' : undefined} className={navClass('/activity')}>
+                Activity
+              </Link>
+              <Link to={accountTo} aria-current={route === '/account' ? 'page' : undefined} className={navClass('/account')}>
+                Account
               </Link>
             </nav>
-          )}
-          {!minimalSignInHeader && !telegramMode && (
-            <Link
-              to={newAgreementTo}
-              className="hidden rounded-full bg-gray-950 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-black dark:bg-white dark:text-gray-950 dark:hover:bg-gray-100 sm:inline-flex"
-            >
-              New agreement
-            </Link>
-          )}
-          {!minimalSignInHeader && !telegramMode && (
-            <Link to={workspaceTo} className="rounded-full px-2.5 py-2 text-[11px] font-semibold text-gray-600 dark:text-gray-300 md:hidden">
-              Agreements
-            </Link>
           )}
           <button
             type="button"
@@ -68,7 +70,7 @@ export function StreamPayHeader() {
             title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-[#1c1c20] text-gray-500 dark:text-gray-400 shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
           >
-            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {theme === 'dark' ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
           </button>
         </div>
       </div>

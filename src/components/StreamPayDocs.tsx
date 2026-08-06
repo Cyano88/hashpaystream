@@ -1,4 +1,4 @@
-import { ArrowRight, ExternalLink } from 'lucide-react'
+import { ArrowRightIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline'
 import { Link } from '../lib/router'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 
@@ -39,7 +39,7 @@ export default function StreamPayDocs() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">HashPayStream guide</p>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Protected USDC agreements.</h1>
           <p className="mt-3 text-sm leading-6 text-gray-500 dark:text-gray-400">Everything a payer or recipient needs to use an agreement safely.</p>
-          <Link to={createTo} className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-gray-950 dark:text-white">Create agreement<ArrowRight className="h-4 w-4" /></Link>
+          <Link to={createTo} className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-gray-950 dark:text-white">Create agreement<ArrowRightIcon className="h-4 w-4" /></Link>
         </aside>
 
         <div>
@@ -62,7 +62,7 @@ export default function StreamPayDocs() {
             <p className="text-xs font-semibold text-blue-400 dark:text-blue-600">For developers</p>
             <h2 className="mt-3 text-2xl font-semibold tracking-tight">Build your own agreement experience.</h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-gray-300 dark:text-gray-600">HashPayStream uses Hash PayLink's authenticated Arc Agreement APIs and signed webhooks. Technical contracts, authentication and webhook verification remain in the Hash PayLink developer documentation.</p>
-            <a href="https://app.hashpaylink.com/docs/streampay" target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold">Open developer docs<ExternalLink className="h-4 w-4" /></a>
+            <a href="https://app.hashpaylink.com/docs/streampay" target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold">Open developer docs<ArrowTopRightOnSquareIcon className="h-4 w-4" /></a>
           </section>
         </div>
       </div>

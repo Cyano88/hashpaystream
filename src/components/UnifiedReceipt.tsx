@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, ExternalLink, Eye, Loader2, Share2 } from 'lucide-react'
+import { ArrowPathIcon, ArrowTopRightOnSquareIcon, CheckIcon, EyeIcon, ShareIcon } from '@heroicons/react/24/outline'
 import {
   arcTransactionUrl,
   createPaymentReceiptPdf,
@@ -106,7 +106,7 @@ export default function UnifiedReceipt({ receipt, className = '', label = 'Open 
           disabled={opening || sharing}
           className={`inline-flex items-center justify-center gap-1.5 rounded-full border border-gray-200 bg-white font-bold text-gray-950 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 active:scale-[0.99] disabled:cursor-wait disabled:opacity-70 dark:border-white/10 dark:bg-white/[0.08] dark:text-white dark:hover:bg-white/[0.12] ${compact ? 'min-h-9 px-2.5 text-[11px]' : 'min-h-10 px-3 text-xs'}`}
         >
-          {opening ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : opened ? <Check className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          {opening ? <ArrowPathIcon className="h-3.5 w-3.5 animate-spin" /> : opened ? <CheckIcon className="h-3.5 w-3.5" /> : <EyeIcon className="h-3.5 w-3.5" />}
           {opening ? 'Preparing' : opened ? 'Opened' : label === 'Open receipt PDF' ? 'View details' : label}
         </button>
         <button
@@ -115,7 +115,7 @@ export default function UnifiedReceipt({ receipt, className = '', label = 'Open 
           disabled={opening || sharing}
           className={`inline-flex items-center justify-center gap-1.5 rounded-full bg-gray-950 font-bold text-white shadow-sm transition hover:bg-black active:scale-[0.99] disabled:cursor-wait disabled:opacity-70 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-100 ${compact ? 'min-h-9 px-2.5 text-[11px]' : 'min-h-10 px-3 text-xs'}`}
         >
-          {sharing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Share2 className="h-3.5 w-3.5" />}
+          {sharing ? <ArrowPathIcon className="h-3.5 w-3.5 animate-spin" /> : <ShareIcon className="h-3.5 w-3.5" />}
           {sharing ? 'Preparing' : 'Share receipt'}
         </button>
         {explorerUrl && (
@@ -125,7 +125,7 @@ export default function UnifiedReceipt({ receipt, className = '', label = 'Open 
             rel={'noopener noreferrer'}
             className={'col-span-2 inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 shadow-sm transition hover:text-gray-950 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:text-white'}
           >
-            <ExternalLink className={'h-3.5 w-3.5'} />
+            <ArrowTopRightOnSquareIcon className={'h-3.5 w-3.5'} />
             View on Arc Explorer
           </a>
         )}

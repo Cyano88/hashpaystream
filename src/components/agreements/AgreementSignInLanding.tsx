@@ -1,4 +1,4 @@
-import { ArrowRight, Mail } from 'lucide-react'
+import { ArrowRightIcon, EnvelopeIcon } from '@heroicons/react/24/outline'
 import { AuthButton } from '../../lib/AuthButton'
 import type { HashPayStreamSplashState } from '../../lib/useHashPayStreamSessionSplash'
 import { HashPayStreamMark } from '../HashPayStreamMark'
@@ -24,10 +24,10 @@ export function AgreementSignInLanding({ splashState, compact = false }: { splas
         debugLabel="hashpaystream-agreements"
         className="group relative mt-7 flex min-h-14 w-full items-center justify-center rounded-2xl bg-gray-950 px-16 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-black active:translate-y-0 disabled:cursor-wait disabled:opacity-60 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-100"
       >
-        <Mail className="absolute left-5 h-4 w-4" />
+        <EnvelopeIcon className="absolute left-5 h-4 w-4" />
         <span>Continue with email</span>
         <span className="absolute right-1.5 flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 transition-transform group-hover:translate-x-0.5 dark:bg-black/[0.06]">
-          <ArrowRight className="h-4 w-4" />
+          <ArrowRightIcon className="h-4 w-4" />
         </span>
       </AuthButton>
       <a
