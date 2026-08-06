@@ -31,6 +31,7 @@ const sections = [
 
 export default function StreamPayDocs() {
   const createTo = useStreamPayPath('/agreements/new')
+  const agentDocsTo = useStreamPayPath('/docs/agents')
 
   return (
     <div className="w-full max-w-5xl py-12 sm:py-16">
@@ -63,6 +64,13 @@ export default function StreamPayDocs() {
             <h2 className="mt-3 text-2xl font-semibold tracking-tight">Build your own agreement experience.</h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-gray-300 dark:text-gray-600">HashPayStream uses Hash PayLink's authenticated Arc Agreement APIs and signed webhooks. Technical contracts, authentication and webhook verification remain in the Hash PayLink developer documentation.</p>
             <a href="https://app.hashpaylink.com/docs/streampay" target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold">Open developer docs<ArrowTopRightOnSquareIcon className="h-4 w-4" /></a>
+          </section>
+
+          <section className="mt-4 rounded-3xl border border-gray-200 bg-white p-6 dark:border-white/10 dark:bg-[#18181b] sm:p-8">
+            <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">For autonomous agents</p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-gray-950 dark:text-white">Use the private agent agreement API.</h2>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-gray-500 dark:text-gray-400">The invitation-only pilot lets an agent backend create owned agreements, prepare exact Arc calls, record wallet transactions, and reconcile confirmed lifecycle state.</p>
+            <Link to={agentDocsTo} className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-gray-950 dark:text-white">Open agent guide<ArrowRightIcon className="h-4 w-4" /></Link>
           </section>
         </div>
       </div>

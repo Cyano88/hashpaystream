@@ -24,6 +24,7 @@ const receiptPdf = read('src/lib/paymentReceiptPdf.ts')
 const signInLanding = read('src/components/agreements/AgreementSignInLanding.tsx')
 const sessionSplash = read('src/lib/useHashPayStreamSessionSplash.ts')
 const envExample = read('.env.example')
+const indexHtml = read('index.html')
 const renderBlueprint = read('render.yaml')
 const packageLock = JSON.parse(read('package-lock.json'))
 
@@ -59,6 +60,7 @@ assert.ok(
 
 assert.match(app, /route === '\/'/)
 assert.match(app, /route === '\/docs'/)
+assert.match(app, /route === '\/docs\/agents'/)
 assert.match(app, /route === '\/home'/)
 assert.match(app, /route === '\/activity'/)
 assert.match(app, /route === '\/account'/)
@@ -123,6 +125,9 @@ assert.match(browserSource, /from ['"]@heroicons\/react\/24\/outline['"]/)
 assert.doesNotMatch(browserSource, /hashpaylink\.com\/docs\/(terms|privacy)/)
 assert.match(browserSource, /new URL\('\/terms', window\.location\.origin\)/)
 assert.match(browserSource, /new URL\('\/privacy', window\.location\.origin\)/)
+assert.match(browserSource, /\/api\/hashpaystream\/v1\/agent\/agreements/)
+assert.doesNotMatch(browserSource, /hps_agent_test_[A-Za-z0-9_-]{32,}/)
+assert.match(indexHtml, /href="\/brand\/hashpaystream-mark\.png"/)
 
 const runtimeSource = [
   ...sourceFiles('src'),
