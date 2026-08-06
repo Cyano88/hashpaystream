@@ -1,4 +1,4 @@
-import { ArrowRight, LockKeyhole, Mail } from 'lucide-react'
+import { ArrowRight, Mail } from 'lucide-react'
 import { AuthButton } from '../../lib/AuthButton'
 import type { HashPayStreamSplashState } from '../../lib/useHashPayStreamSessionSplash'
 import { HashPayStreamMark } from '../HashPayStreamMark'
@@ -11,10 +11,11 @@ export function AgreementSignInLanding({ splashState }: { splashState: HashPaySt
 
   return (
     <section className="flex min-h-[64vh] w-full max-w-md flex-col items-center justify-center text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-950 text-white dark:bg-white dark:text-gray-950">
-        <LockKeyhole className="h-5 w-5" />
-      </div>
-      <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Arc Agreements</p>
+      <HashPayStreamMark className="h-14 w-14" title="HashPayStream" />
+      <p className="mt-6 text-sm font-semibold tracking-tight">
+        <span className="text-gray-950 dark:text-white">Hash</span>{' '}
+        <span className="text-blue-600 dark:text-blue-400">PayStream</span>
+      </p>
       <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Your protected payments.</h1>
       <p className="mt-3 max-w-sm text-sm leading-6 text-gray-500 dark:text-gray-400">
         Sign in to view and manage your agreements.
