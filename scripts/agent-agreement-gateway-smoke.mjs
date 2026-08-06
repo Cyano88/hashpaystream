@@ -112,6 +112,15 @@ const shared = {
         },
       }
     }
+    if (input.method === 'POST' && input.body?.action === 'request_release') {
+      return {
+        status: 201,
+        body: {
+          ok: true,
+          releaseRequest: { id: `opa_${'1'.repeat(24)}`, status: 'pending_review' },
+        },
+      }
+    }
     if (input.method === 'POST') {
       return {
         status: 201,
@@ -208,12 +217,30 @@ const foreignRead = await call(handlerB, agentKeyB, 'GET', { query: { id: agreem
 assert.equal(foreignRead.statusCode, 404)
 assert.equal(upstreamCalls.length, callsBeforeForeignRead)
 
-const callsBeforeAction = upstreamCalls.length
-const unsupportedLifecycleAction = await call(handlerA, agentKeyA, 'POST', {
-  body: { action: 'request_release', agreementId },
+const callsBeforeForeignRelease = upstreamCalls.length
+const foreignRelease = await call(handlerB, agentKeyB, 'POST', {
+  body: { action: 'request_release', agreementId, deliveryNote: 'Not the owner.' },
 })
-assert.equal(unsupportedLifecycleAction.statusCode, 409)
-assert.equal(upstreamCalls.length, callsBeforeAction)
+assert.equal(foreignRelease.statusCode, 404)
+assert.equal(upstreamCalls.length, callsBeforeForeignRelease)
+
+const requestedRelease = await call(handlerA, agentKeyA, 'POST', {
+  body: {
+    action: 'request_release',
+    agreementId,
+    deliveryNote: 'Verified research delivered.',
+    evidenceReference: 'https://example.com/evidence',
+  },
+})
+assert.equal(requestedRelease.statusCode, 201)
+assert.equal(requestedRelease.body.agentActivationPilot, true)
+const releaseInput = upstreamCalls.at(-1)
+assert.equal(releaseInput.path, '/api/v2/agreements')
+assert.equal(releaseInput.body.action, 'request_release')
+assert.equal(releaseInput.body.agreementId, agreementId)
+assert.equal(releaseInput.body.deliveryNote, 'Verified research delivered.')
+assert.equal(releaseInput.body.evidenceReference, 'https://example.com/evidence')
+assert.equal('payerReference' in releaseInput.body, false)
 
 const preparedActivation = await call(handlerA, agentKeyA, 'POST', {
   body: {

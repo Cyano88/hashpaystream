@@ -17,6 +17,7 @@ const actions = [
   { action: 'circle-execute', purpose: 'Execute a prepared activation call with the connected Circle Agent Wallet.' },
   { action: 'record', purpose: 'Record the transaction hash broadcast by another compatible agent wallet.' },
   { action: 'status', purpose: 'Reconcile activation against confirmed upstream and Arc state.' },
+  { action: 'request_release', purpose: 'Submit completed work for payer review.' },
   { action: 'review', purpose: 'Read the delivery state that is ready for payer review.' },
   { action: 'delivery-decision', purpose: 'Accept a delivery or report an issue.' },
   { action: 'lifecycle-prepare-call', purpose: 'Prepare an eligible cancellation or refund call.' },

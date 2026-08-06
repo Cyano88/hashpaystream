@@ -374,6 +374,23 @@ export function createHashPayStreamAgreementGateway(
       const action = clean(body.action, 40)
       if (action) {
         if (options.agentActivation) {
+          if (action === 'request_release') {
+            const agreementId = clean(body.agreementId, 80)
+            if (!AGREEMENT_ID.test(agreementId)) throw httpError('Agreement id is invalid.', 400)
+            ownedAgreement(store, agreementId, owner)
+            const upstream = await dependencies.upstream({
+              method: 'POST',
+              path: '/api/v2/agreements',
+              body: {
+                action,
+                agreementId,
+                deliveryNote: body.deliveryNote,
+                evidenceReference: body.evidenceReference,
+              },
+            })
+            if (upstream.status < 200 || upstream.status >= 300 || upstream.body.ok !== true) throw upstreamError(upstream)
+            return res.status(upstream.status).json(gatewayResponse(upstream.body, options))
+          }
           if (![
             'prepare',
             'prepare-call',
