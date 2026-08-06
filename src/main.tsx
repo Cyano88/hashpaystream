@@ -8,6 +8,8 @@ import { ThemeProvider, useTheme } from './lib/ThemeContext'
 
 const appId = String(import.meta.env.VITE_PRIVY_APP_ID || '').trim()
 const logoUrl = new URL('/brand/hashpaystream-logo.png', window.location.origin).toString()
+const termsUrl = new URL('/terms', window.location.origin).toString()
+const privacyUrl = new URL('/privacy', window.location.origin).toString()
 
 function Providers() {
   const { theme } = useTheme()
@@ -28,8 +30,8 @@ function Providers() {
       emailDomain: 'HashPayStream',
     },
     legal: {
-      termsAndConditionsUrl: 'https://hashpaylink.com/docs/terms',
-      privacyPolicyUrl: 'https://hashpaylink.com/docs/privacy',
+      termsAndConditionsUrl: termsUrl,
+      privacyPolicyUrl: privacyUrl,
     },
   }
   return <PrivyProvider appId={appId} config={config}><App /></PrivyProvider>

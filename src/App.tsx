@@ -7,6 +7,7 @@ import StreamPayDocs from './components/StreamPayDocs'
 import StreamPayHome from './components/StreamPayHome'
 import StreamPayActivity from './components/StreamPayActivity'
 import StreamPayAccount from './components/StreamPayAccount'
+import StreamPayLegal from './components/StreamPayLegal'
 import { BrowserRouter, Navigate, useLocation } from './lib/router'
 
 function StreamPayRoute() {
@@ -21,6 +22,8 @@ function StreamPayRoute() {
   else if (route === '/activity') content = <StreamPayActivity />
   else if (route === '/account') content = <StreamPayAccount />
   else if (route === '/docs') content = <StreamPayDocs />
+  else if (route === '/terms') content = <StreamPayLegal page="terms" />
+  else if (route === '/privacy') content = <StreamPayLegal page="privacy" />
   else content = <Navigate to="/" replace />
 
   return <StreamPayLayout>{content}</StreamPayLayout>

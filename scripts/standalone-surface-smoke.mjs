@@ -62,6 +62,8 @@ assert.match(app, /route === '\/docs'/)
 assert.match(app, /route === '\/home'/)
 assert.match(app, /route === '\/activity'/)
 assert.match(app, /route === '\/account'/)
+assert.match(app, /route === '\/terms'/)
+assert.match(app, /route === '\/privacy'/)
 assert.match(app, /route === '\/agreements'/)
 assert.match(app, /route === '\/agreements\/new'/)
 assert.match(app, /<Navigate to="\/" replace\s*\/>/)
@@ -118,6 +120,9 @@ const viteNames = [...browserSource.matchAll(/VITE_[A-Z0-9_]+/g)].map(match => m
 assert.deepEqual([...new Set(viteNames)].sort(), ['VITE_HASH_PAYLINK_BASE_URL', 'VITE_PRIVY_APP_ID'])
 assert.doesNotMatch(browserSource, /from ['"]lucide-react['"]/)
 assert.match(browserSource, /from ['"]@heroicons\/react\/24\/outline['"]/)
+assert.doesNotMatch(browserSource, /hashpaylink\.com\/docs\/(terms|privacy)/)
+assert.match(browserSource, /new URL\('\/terms', window\.location\.origin\)/)
+assert.match(browserSource, /new URL\('\/privacy', window\.location\.origin\)/)
 
 const runtimeSource = [
   ...sourceFiles('src'),
