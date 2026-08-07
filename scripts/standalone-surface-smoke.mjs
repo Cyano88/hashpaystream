@@ -79,6 +79,11 @@ assert.match(app, /Taking longer than expected/)
 assert.match(app, /Check your connection and try again\./)
 assert.match(app, /window\.location\.reload\(\)/)
 assert.match(app, /<ArrowPathIcon className=\{'h-4 w-4 animate-spin/)
+assert.match(
+  app,
+  /<SessionLoadingSurface sessionDelayed=\{false\} onRetry=\{retrySession\} \/>[\s\S]*<HashPayStreamSessionSplash/,
+  'The existing neutral loading surface must remain beneath the fading mobile splash.',
+)
 assert.ok(
   app.indexOf(`if (splashState !== 'idle')`)
     < app.indexOf('if (!ready && authDecisionRoute)'),
