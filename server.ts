@@ -7,6 +7,7 @@ import agentAgreementGateway from './api/agent-agreement-gateway.js'
 import agentArcAgreementWebhook from './api/agent-arc-webhook.js'
 import { rateLimit } from './api/rate-limit.js'
 import readiness from './api/readiness.js'
+import apiTelemetry from './api/request-telemetry.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -43,6 +44,7 @@ app.use('/api/hashpaystream', (_req, res, next) => {
   res.setHeader('Cache-Control', 'no-store')
   next()
 })
+app.use('/api/hashpaystream', apiTelemetry)
 
 app.all(
   '/api/hashpaystream/arc-agreement-webhook',

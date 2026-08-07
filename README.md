@@ -22,6 +22,11 @@ Every `/api/hashpaystream` response is marked `Cache-Control: no-store` so
 authenticated agreement and lifecycle responses are not retained by browsers
 or intermediary caches.
 
+API responses also return a server-generated `X-Request-ID`. Completion logs
+contain only that ID, a fixed route label, normalized method, status, and
+duration. Client request IDs, URLs, query strings, IPs, headers, credentials,
+and payloads are not recorded by this telemetry boundary.
+
 Creator feeds, payroll, x402 checkout, Arena, content gates, and embedded
 Agent Hash UI are intentionally excluded. The server-to-server headless-agent
 agreement pilot below is the only agent surface.
