@@ -36,10 +36,10 @@ function method(value: string): HashPayStreamApiTelemetryEvent['method'] {
 }
 
 function route(path: string): HashPayStreamApiRoute {
-  if (path === '/v2/agreements') return 'human_agreements'
-  if (path === '/arc-agreement-webhook') return 'human_webhook'
-  if (path === '/v1/agent/agreements') return 'agent_agreements'
-  if (path === '/v1/agent/arc-agreement-webhook') return 'agent_webhook'
+  if (path === '/api/hashpaystream/v2/agreements') return 'human_agreements'
+  if (path === '/api/hashpaystream/arc-agreement-webhook') return 'human_webhook'
+  if (path === '/api/hashpaystream/v1/agent/agreements') return 'agent_agreements'
+  if (path === '/api/hashpaystream/v1/agent/arc-agreement-webhook') return 'agent_webhook'
   return 'unmatched'
 }
 

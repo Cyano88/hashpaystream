@@ -25,7 +25,7 @@ const telemetry = createHashPayStreamApiTelemetry({
 const humanResponse = responseRecorder()
 telemetry({
   method: 'GET',
-  path: '/v2/agreements',
+  path: '/api/hashpaystream/v2/agreements',
   headers: { 'x-request-id': 'client-value-must-be-ignored' },
 }, humanResponse, () => { nextCalls += 1 })
 humanResponse.statusCode = 401
@@ -62,13 +62,36 @@ assert.deepEqual(events, [
 assert.equal(JSON.stringify(events).includes('client-value-must-be-ignored'), false)
 assert.equal(JSON.stringify(events).includes('secret-in-path-must-not-be-logged'), false)
 
+const routeEvents = []
+const routeTelemetry = createHashPayStreamApiTelemetry({
+  requestId: () => '44444444-4444-4444-8444-444444444444',
+  now: () => 2_500,
+  log: event => routeEvents.push(event),
+})
+for (const path of [
+  '/api/hashpaystream/v2/agreements',
+  '/api/hashpaystream/arc-agreement-webhook',
+  '/api/hashpaystream/v1/agent/agreements',
+  '/api/hashpaystream/v1/agent/arc-agreement-webhook',
+]) {
+  const response = responseRecorder()
+  routeTelemetry({ method: 'POST', path }, response, () => {})
+  response.emit('finish')
+}
+assert.deepEqual(routeEvents.map(event => event.route), [
+  'human_agreements',
+  'human_webhook',
+  'agent_agreements',
+  'agent_webhook',
+])
+
 const loggerFailure = createHashPayStreamApiTelemetry({
   requestId: () => '33333333-3333-4333-8333-333333333333',
   now: () => 3_000,
   log: () => { throw new Error('logger unavailable') },
 })
 const failureResponse = responseRecorder()
-loggerFailure({ method: 'POST', path: '/v1/agent/agreements' }, failureResponse, () => {})
+loggerFailure({ method: 'POST', path: '/api/hashpaystream/v1/agent/agreements' }, failureResponse, () => {})
 assert.doesNotThrow(() => failureResponse.emit('finish'))
 
 console.log('HashPayStream API request telemetry smoke checks passed.')
