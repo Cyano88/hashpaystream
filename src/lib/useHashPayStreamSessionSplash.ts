@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 const SPLASH_SESSION_KEY = 'hashpaystream_signin_splash_shown_v2'
 const MOBILE_SPLASH_QUERY = '(max-width: 767px)'
 
-export type HashPayStreamSplashState = 'idle' | 'entering' | 'mark' | 'assembling' | 'launching'
+export type HashPayStreamSplashState = 'idle' | 'entering' | 'mark' | 'assembling' | 'holding' | 'launching'
 
 function isPageReload() {
   const navigation = window.performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
@@ -22,7 +22,7 @@ function initialState(enabled: boolean): HashPayStreamSplashState {
   }
 }
 
-export function useHashPayStreamSessionSplash(enabled: boolean) {
+export function useHashPayStreamSessionSplash(enabled: boolean, canLaunch = true) {
   const [state, setState] = useState<HashPayStreamSplashState>(() => initialState(enabled))
   const previousEnabled = useRef(enabled)
 
@@ -51,9 +51,14 @@ export function useHashPayStreamSessionSplash(enabled: boolean) {
 
   useEffect(() => {
     if (state !== 'assembling') return
-    const timer = window.setTimeout(() => setState('launching'), 1_120)
+    const timer = window.setTimeout(() => setState('holding'), 1_120)
     return () => window.clearTimeout(timer)
   }, [state])
+
+  useEffect(() => {
+    if (state !== 'holding' || !canLaunch) return
+    setState('launching')
+  }, [canLaunch, state])
 
   useEffect(() => {
     if (state !== 'launching') return

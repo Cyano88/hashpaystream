@@ -1,5 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
+import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import { StreamPayLayout } from './components/StreamPayLayout'
 import AgreementDashboard from './components/agreements/AgreementDashboard'
 import FixedAgreementForm from './components/agreements/FixedAgreementForm'
@@ -10,18 +11,51 @@ import StreamPayActivity from './components/StreamPayActivity'
 import StreamPayAccount from './components/StreamPayAccount'
 import StreamPayLegal from './components/StreamPayLegal'
 import StreamPayAgentDocs from './components/StreamPayAgentDocs'
+import { HashPayStreamSessionSplash } from './components/HashPayStreamSessionSplash'
 import { BrowserRouter, Navigate, useLocation } from './lib/router'
+import { useHashPayStreamSessionSplash } from './lib/useHashPayStreamSessionSplash'
 
 const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/activity', '/account'])
+const SESSION_READY_TIMEOUT_MS = 12_000
 
 function StreamPayRoute() {
   const { pathname } = useLocation()
   const { ready } = usePrivy()
   const route = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
+  const authDecisionRoute = AUTH_DECISION_ROUTES.has(route)
+  const splashState = useHashPayStreamSessionSplash(authDecisionRoute, ready)
+  const [sessionDelayed, setSessionDelayed] = useState(false)
   let content
 
-  if (!ready && AUTH_DECISION_ROUTES.has(route)) {
-    return <div className={'min-h-screen w-full bg-gray-50 dark:bg-[#111113]'} aria-busy={true} aria-label={'Loading HashPayStream'} />
+  useEffect(() => {
+    setSessionDelayed(false)
+    if (ready || !authDecisionRoute) return
+    const timer = window.setTimeout(() => setSessionDelayed(true), SESSION_READY_TIMEOUT_MS)
+    return () => window.clearTimeout(timer)
+  }, [authDecisionRoute, ready])
+
+  const retrySession = () => window.location.reload()
+
+  if (splashState !== 'idle') {
+    return <HashPayStreamSessionSplash splashState={splashState} sessionDelayed={sessionDelayed} onRetry={retrySession} />
+  }
+
+  if (!ready && authDecisionRoute) {
+    return (
+      <div className={'flex min-h-screen w-full items-center justify-center bg-gray-50 dark:bg-[#111113]'} aria-busy={true} aria-label={'Loading HashPayStream'}>
+        {sessionDelayed ? (
+          <div className={'mx-auto max-w-xs px-6 text-center'} role={'status'} aria-live={'polite'}>
+            <p className={'text-sm font-semibold text-gray-900 dark:text-white'}>Taking longer than expected</p>
+            <p className={'mt-1.5 text-xs leading-5 text-gray-500 dark:text-gray-400'}>Check your connection and try again.</p>
+            <button type={'button'} onClick={retrySession} className={'mt-5 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 dark:focus:ring-offset-[#111113]'}>
+              Retry
+            </button>
+          </div>
+        ) : (
+          <ArrowPathIcon className={'h-4 w-4 animate-spin text-gray-300 dark:text-gray-600'} />
+        )}
+      </div>
+    )
   }
 
   if (route === '/') content = <StreamPayLanding />

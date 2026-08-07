@@ -5,7 +5,7 @@ import { HashPayStreamMark } from '../HashPayStreamMark'
 
 export function AgreementSignInLanding({ splashState, compact = false }: { splashState: HashPayStreamSplashState; compact?: boolean }) {
   const splashActive = splashState !== 'idle'
-  const assembled = splashState === 'assembling' || splashState === 'launching'
+  const assembled = splashState === 'assembling' || splashState === 'holding' || splashState === 'launching'
   const markVisible = splashState !== 'entering'
   const launching = splashState === 'launching'
 
