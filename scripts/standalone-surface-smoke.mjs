@@ -32,6 +32,8 @@ const envExample = read('.env.example')
 const indexHtml = read('index.html')
 const renderBlueprint = read('render.yaml')
 const readinessMonitor = read('.github/workflows/production-readiness.yml')
+const recoveryAudit = read('scripts/database-recovery-audit.mjs')
+const recoveryRunbook = read('docs/database-recovery.md')
 const packageLock = JSON.parse(read('package-lock.json'))
 
 assert.match(server, /app\.get\('\/healthz'/)
@@ -180,6 +182,11 @@ assert.match(renderBlueprint, /maxShutdownDelaySeconds: 30/)
 assert.match(readinessMonitor, /cron: '3-58\/5 \* \* \* \*'/)
 assert.match(readinessMonitor, /https:\/\/hashpaystream\.app\/readyz/)
 assert.match(readinessMonitor, /Production readiness failed three consecutive probes\./)
+assert.match(recoveryAudit, /begin transaction read only/)
+assert.match(recoveryAudit, /unexpectedStoreCount/)
+assert.doesNotMatch(recoveryAudit, /console\.log\([^\n]*(?:store_key|row\.value)/)
+assert.match(recoveryRunbook, /Never test a restore against production\./)
+assert.match(recoveryRunbook, /verifying that no service references it/)
 
 const runtimeSource = [
   ...sourceFiles('src'),
