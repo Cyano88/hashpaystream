@@ -5,6 +5,7 @@ import { agentCredentialRegistryConfig } from './agent-credential-registry.js'
 const DEFAULT_OWNERSHIP_STORE_KEY = 'hashpaystream:agreement-owners:v1'
 
 export type ReadinessDependencies = {
+  isDraining: () => boolean
   hasStore: () => boolean
   read: <T>(key: string) => Promise<T | undefined>
   env: () => NodeJS.ProcessEnv
@@ -16,6 +17,7 @@ export type ReadinessDependencies = {
 }
 
 const defaults: ReadinessDependencies = {
+  isDraining: () => false,
   hasStore: hasRenderDurableStore,
   read: readDurableJson,
   env: () => process.env,
@@ -31,6 +33,9 @@ export function createHashPayStreamReadinessHandler(
     if (req.method !== 'GET') {
       res.setHeader('Allow', 'GET')
       return res.status(405).json({ ok: false, service: 'hashpaystream', status: 'method_not_allowed' })
+    }
+    if (dependencies.isDraining()) {
+      return res.status(503).json({ ok: false, service: 'hashpaystream', status: 'unavailable' })
     }
     try {
       if (!dependencies.hasStore()) throw new Error('Durable store is unavailable.')

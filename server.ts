@@ -6,12 +6,15 @@ import arcAgreementWebhook from './api/arc-agreement-webhook.js'
 import agentAgreementGateway from './api/agent-agreement-gateway.js'
 import agentArcAgreementWebhook from './api/agent-arc-webhook.js'
 import { rateLimit } from './api/rate-limit.js'
-import readiness from './api/readiness.js'
+import { createHashPayStreamReadinessHandler } from './api/readiness.js'
 import apiTelemetry from './api/request-telemetry.js'
+import { createHashPayStreamShutdown } from './api/graceful-shutdown.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
 const root = path.dirname(fileURLToPath(import.meta.url))
+let draining = false
+const readiness = createHashPayStreamReadinessHandler({ isDraining: () => draining })
 
 app.set('trust proxy', 1)
 app.disable('x-powered-by')
@@ -78,4 +81,19 @@ app.use('/api/hashpaystream', (_req, res) => res.status(404).json({ ok: false, e
 app.use(express.static(path.join(root, 'dist'), { index: false, maxAge: '1h' }))
 app.get('*', (_req, res) => res.sendFile(path.join(root, 'dist', 'index.html')))
 
-app.listen(port, () => console.log(`HashPayStream running on port ${port}`))
+const server = app.listen(port, () => console.log(`HashPayStream running on port ${port}`))
+const shutdown = createHashPayStreamShutdown({
+  server,
+  onDraining: () => { draining = true },
+  schedule: setTimeout,
+  cancel: clearTimeout,
+  exit: code => process.exit(code),
+  log: event => {
+    const line = JSON.stringify(event)
+    if (event.event === 'shutdown_failed' || event.event === 'shutdown_forced') console.error(line)
+    else console.log(line)
+  },
+})
+
+process.once('SIGTERM', () => { shutdown('SIGTERM') })
+process.once('SIGINT', () => { shutdown('SIGINT') })

@@ -15,6 +15,7 @@ function sourceFiles(relative) {
 }
 
 const server = read('server.ts')
+const gracefulShutdown = read('api/graceful-shutdown.ts')
 const agentAuth = read('api/agent-auth.ts')
 const agreementGateway = read('api/agreement-gateway.ts')
 const arcWebhook = read('api/arc-agreement-webhook.ts')
@@ -34,6 +35,11 @@ const packageLock = JSON.parse(read('package-lock.json'))
 
 assert.match(server, /app\.get\('\/healthz'/)
 assert.match(server, /app\.get\('\/readyz'/)
+assert.match(server, /createHashPayStreamReadinessHandler\(\{ isDraining: \(\) => draining \}\)/)
+assert.match(server, /process\.once\('SIGTERM'/)
+assert.match(server, /process\.once\('SIGINT'/)
+assert.match(gracefulShutdown, /closeIdleConnections/)
+assert.match(gracefulShutdown, /closeAllConnections/)
 assert.match(server, /app\.use\('\/api\/hashpaystream'[\s\S]*Cache-Control'[\s\S]*no-store/)
 assert.match(server, /app\.use\('\/api\/hashpaystream', apiTelemetry\)/)
 assert.match(agentAuth, /logSecurity\(withHashPayStreamRequestId\(event\)\)/)

@@ -32,6 +32,12 @@ Rejected webhooks record only their bounded error code, status, and request ID.
 Valid duplicate deliveries remain idempotent successes and increment the
 durable duplicate counter instead of being classified as rejections.
 
+On `SIGTERM` or `SIGINT`, the server marks readiness unavailable before it
+stops accepting traffic, closes idle connections, and gives active requests
+up to 25 seconds to finish. It then exits cleanly, or closes remaining
+connections and exits unsuccessfully if the bounded drain expires. Lifecycle
+logs use fixed, payload-free event fields.
+
 Creator feeds, payroll, x402 checkout, Arena, content gates, and embedded
 Agent Hash UI are intentionally excluded. The server-to-server headless-agent
 agreement pilot below is the only agent surface.

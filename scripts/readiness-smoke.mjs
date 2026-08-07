@@ -37,6 +37,18 @@ assert.deepEqual(reads, ['test:hashpaystream:owners', 'test:hashpaystream:creden
 assert.equal(accepted.headers['cache-control'], 'no-store')
 assert.equal(events.length, 0)
 
+let drainingRead = false
+const draining = createHashPayStreamReadinessHandler({
+  isDraining: () => true,
+  hasStore: () => { throw new Error('Dependency checks must not run while draining.') },
+  read: async () => { drainingRead = true },
+  logError: () => { throw new Error('Expected draining must not be logged as a dependency failure.') },
+})
+const drainingResponse = await call(draining)
+assert.equal(drainingResponse.statusCode, 503)
+assert.deepEqual(drainingResponse.body, { ok: false, service: 'hashpaystream', status: 'unavailable' })
+assert.equal(drainingRead, false)
+
 const disabledPilot = createHashPayStreamReadinessHandler({
   hasStore: () => true,
   read: async key => { assert.equal(key, 'hashpaystream:agreement-owners:v1'); return undefined },
