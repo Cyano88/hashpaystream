@@ -26,6 +26,8 @@ API responses also return a server-generated `X-Request-ID`. Completion logs
 contain only that ID, a fixed route label, normalized method, status, and
 duration. Client request IDs, URLs, query strings, IPs, headers, credentials,
 and payloads are not recorded by this telemetry boundary.
+Authentication, gateway, and webhook failure events reuse the same request ID
+while retaining fixed, secret-free event schemas.
 
 Creator feeds, payroll, x402 checkout, Arena, content gates, and embedded
 Agent Hash UI are intentionally excluded. The server-to-server headless-agent

@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
-import { createHashPayStreamApiTelemetry } from '../api/request-telemetry.ts'
+import {
+  createHashPayStreamApiTelemetry,
+  withHashPayStreamRequestId,
+} from '../api/request-telemetry.ts'
 
 function responseRecorder() {
   const response = new EventEmitter()
@@ -23,11 +26,20 @@ const telemetry = createHashPayStreamApiTelemetry({
 })
 
 const humanResponse = responseRecorder()
+let correlatedContext
 telemetry({
   method: 'GET',
   path: '/api/hashpaystream/v2/agreements',
   headers: { 'x-request-id': 'client-value-must-be-ignored' },
-}, humanResponse, () => { nextCalls += 1 })
+}, humanResponse, () => {
+  correlatedContext = Promise.resolve().then(() => withHashPayStreamRequestId({ event: 'inside_request' }))
+  nextCalls += 1
+})
+assert.deepEqual(await correlatedContext, {
+  event: 'inside_request',
+  requestId: '11111111-1111-4111-8111-111111111111',
+})
+assert.deepEqual(withHashPayStreamRequestId({ event: 'outside_request' }), { event: 'outside_request' })
 humanResponse.statusCode = 401
 humanResponse.emit('finish')
 

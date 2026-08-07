@@ -7,6 +7,7 @@ import {
   consumeAgentCredential,
   safeAgentCredentialStore,
 } from './agent-credential-registry.js'
+import { withHashPayStreamRequestId } from './request-telemetry.js'
 
 export type AgentAuthDependencies = {
   hasStore: () => boolean
@@ -21,6 +22,7 @@ export type AgentAuthSecurityEvent = {
   event: 'credential_rejected' | 'credential_rate_limited' | 'credential_store_unavailable'
   status: 401 | 429 | 503
   reason: string
+  requestId?: string
 }
 
 const defaultDependencies: AgentAuthDependencies = {
@@ -46,7 +48,7 @@ function securityFailure(
   metadata: Record<string, number> = {},
 ): never {
   try {
-    dependencies.logSecurity(event)
+    dependencies.logSecurity(withHashPayStreamRequestId(event))
   } catch {
     // Logging must never change the authentication result.
   }

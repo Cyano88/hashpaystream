@@ -6,6 +6,7 @@ import {
   mutateDurableJson,
   readDurableJson,
 } from './durable-store.js'
+import { withHashPayStreamRequestId } from './request-telemetry.js'
 
 const DEFAULT_STORE_KEY = 'hashpaystream:agreement-owners:v1'
 const DEFAULT_EVENT_STORE_KEY = 'hashpaystream:arc-webhooks:v1'
@@ -68,7 +69,13 @@ export type AgreementGatewayDependencies = {
   }) => Promise<UpstreamResponse>
   env: () => NodeJS.ProcessEnv
   now: () => Date
-  logError: (message: string) => void
+  logError: (event: {
+    component: 'hashpaystream-agreement-gateway'
+    event: 'request_failed'
+    mode: 'human' | 'agentic'
+    status: number
+    requestId?: string
+  }) => void
 }
 
 type AgreementGatewayOptions = {
@@ -168,7 +175,7 @@ const defaults: AgreementGatewayDependencies = {
   upstream: input => upstreamRequest(input, process.env),
   env: () => process.env,
   now: () => new Date(),
-  logError: message => console.error('[hashpaystream-agreement-gateway] request failed:', message),
+  logError: event => console.error(JSON.stringify(event)),
 }
 
 function safeStore(current?: OwnershipStore): OwnershipStore {
@@ -539,7 +546,12 @@ export function createHashPayStreamAgreementGateway(
         }
       }
       if (status >= 500 && failure.securityLogged !== 1) {
-        dependencies.logError(error instanceof Error ? error.message : String(error))
+        dependencies.logError(withHashPayStreamRequestId({
+          component: 'hashpaystream-agreement-gateway',
+          event: 'request_failed',
+          mode: options.checkoutMode ?? 'human',
+          status,
+        }))
       }
       return res.status(status).json({
         ok: false,

@@ -4,6 +4,7 @@ import {
   hasRenderDurableStore,
   mutateDurableJson,
 } from './durable-store.js'
+import { withHashPayStreamRequestId } from './request-telemetry.js'
 
 const DEFAULT_STORE_KEY = 'hashpaystream:arc-webhooks:v1'
 const SIGNATURE_TOLERANCE_SECONDS = 300
@@ -47,6 +48,13 @@ export type ArcWebhookDependencies = {
   ) => Promise<HashPayStreamArcWebhookStore>
   env: () => NodeJS.ProcessEnv
   now: () => Date
+  logError: (event: {
+    component: 'hashpaystream-arc-webhook'
+    event: 'request_failed'
+    status: number
+    code: string
+    requestId?: string
+  }) => void
 }
 
 const defaults: ArcWebhookDependencies = {
@@ -54,6 +62,7 @@ const defaults: ArcWebhookDependencies = {
   mutate: (key, update) => mutateDurableJson<HashPayStreamArcWebhookStore>(key, update),
   env: () => process.env,
   now: () => new Date(),
+  logError: event => console.error(JSON.stringify(event)),
 }
 
 class WebhookError extends Error {
@@ -221,7 +230,12 @@ export function createHashPayStreamArcWebhookHandler(dependencies: Partial<ArcWe
       const status = error instanceof WebhookError ? error.status : 503
       const code = error instanceof WebhookError ? error.code : 'WEBHOOK_UNAVAILABLE'
       if (status >= 500) {
-        console.error('[hashpaystream-arc-webhook] request failed:', error instanceof Error ? error.message : String(error))
+        resolved.logError(withHashPayStreamRequestId({
+          component: 'hashpaystream-arc-webhook',
+          event: 'request_failed',
+          status,
+          code,
+        }))
       }
       return res.status(status).json({ ok: false, error: { code } })
     }

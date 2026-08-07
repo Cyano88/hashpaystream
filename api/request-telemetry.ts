@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import type { NextFunction, Request, Response } from 'express'
+
+const requestContext = new AsyncLocalStorage<{ requestId: string }>()
 
 export type HashPayStreamApiRoute =
   | 'human_agreements'
@@ -28,6 +31,11 @@ const defaults: HashPayStreamApiTelemetryDependencies = {
   requestId: randomUUID,
   now: Date.now,
   log: event => console.log(JSON.stringify(event)),
+}
+
+export function withHashPayStreamRequestId<T extends Record<string, unknown>>(event: T) {
+  const requestId = requestContext.getStore()?.requestId
+  return requestId ? { ...event, requestId } : event
 }
 
 function method(value: string): HashPayStreamApiTelemetryEvent['method'] {
@@ -66,7 +74,7 @@ export function createHashPayStreamApiTelemetry(
         // Telemetry must never change an API response.
       }
     })
-    next()
+    requestContext.run({ requestId }, next)
   }
 }
 
