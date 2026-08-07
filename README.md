@@ -18,6 +18,10 @@ upstream agreement, checkout, chain-policy, lifecycle, and receipt provider.
 - `/healthz` dependency-free process liveness
 - `/readyz` aggregate durable-dependency readiness with no configuration details
 
+Every `/api/hashpaystream` response is marked `Cache-Control: no-store` so
+authenticated agreement and lifecycle responses are not retained by browsers
+or intermediary caches.
+
 Creator feeds, payroll, x402 checkout, Arena, content gates, and embedded
 Agent Hash UI are intentionally excluded. The server-to-server headless-agent
 agreement pilot below is the only agent surface.

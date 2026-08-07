@@ -39,6 +39,11 @@ app.use((_req, res, next) => {
   next()
 })
 
+app.use('/api/hashpaystream', (_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store')
+  next()
+})
+
 app.all(
   '/api/hashpaystream/arc-agreement-webhook',
   rateLimit({ name: 'arc-webhook', windowMs: 60_000, max: 120 }),
