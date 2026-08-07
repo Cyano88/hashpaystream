@@ -48,13 +48,15 @@ export type ArcWebhookDependencies = {
   ) => Promise<HashPayStreamArcWebhookStore>
   env: () => NodeJS.ProcessEnv
   now: () => Date
-  logError: (event: {
-    component: 'hashpaystream-arc-webhook'
-    event: 'request_failed'
-    status: number
-    code: string
-    requestId?: string
-  }) => void
+  logEvent: (event: ArcWebhookSecurityEvent) => void
+}
+
+export type ArcWebhookSecurityEvent = {
+  component: 'hashpaystream-arc-webhook'
+  event: 'request_rejected' | 'request_failed'
+  status: number
+  code: string
+  requestId?: string
 }
 
 const defaults: ArcWebhookDependencies = {
@@ -62,7 +64,19 @@ const defaults: ArcWebhookDependencies = {
   mutate: (key, update) => mutateDurableJson<HashPayStreamArcWebhookStore>(key, update),
   env: () => process.env,
   now: () => new Date(),
-  logError: event => console.error(JSON.stringify(event)),
+  logEvent: event => {
+    const line = JSON.stringify(event)
+    if (event.status >= 500) console.error(line)
+    else console.warn(line)
+  },
+}
+
+function logWebhookEvent(dependencies: ArcWebhookDependencies, event: ArcWebhookSecurityEvent) {
+  try {
+    dependencies.logEvent(withHashPayStreamRequestId(event))
+  } catch {
+    // Logging must never change the webhook response.
+  }
 }
 
 class WebhookError extends Error {
@@ -182,6 +196,12 @@ export function createHashPayStreamArcWebhookHandler(dependencies: Partial<ArcWe
     res.setHeader('Cache-Control', 'no-store')
     if (req.method !== 'POST') {
       res.setHeader('Allow', 'POST')
+      logWebhookEvent(resolved, {
+        component: 'hashpaystream-arc-webhook',
+        event: 'request_rejected',
+        status: 405,
+        code: 'METHOD_NOT_ALLOWED',
+      })
       return res.status(405).json({ ok: false, error: { code: 'METHOD_NOT_ALLOWED' } })
     }
     try {
@@ -229,14 +249,12 @@ export function createHashPayStreamArcWebhookHandler(dependencies: Partial<ArcWe
     } catch (error) {
       const status = error instanceof WebhookError ? error.status : 503
       const code = error instanceof WebhookError ? error.code : 'WEBHOOK_UNAVAILABLE'
-      if (status >= 500) {
-        resolved.logError(withHashPayStreamRequestId({
-          component: 'hashpaystream-arc-webhook',
-          event: 'request_failed',
-          status,
-          code,
-        }))
-      }
+      logWebhookEvent(resolved, {
+        component: 'hashpaystream-arc-webhook',
+        event: status >= 500 ? 'request_failed' : 'request_rejected',
+        status,
+        code,
+      })
       return res.status(status).json({ ok: false, error: { code } })
     }
   }

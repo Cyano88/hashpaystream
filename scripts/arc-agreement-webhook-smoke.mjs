@@ -17,6 +17,7 @@ const projectId = 'dev_hashpaystream1234'
 const secret = `whsec_${'a'.repeat(32)}`
 const now = new Date('2026-08-03T12:00:00.000Z')
 let durableState
+const securityEvents = []
 
 const dependencies = {
   hasStore: () => true,
@@ -30,6 +31,7 @@ const dependencies = {
     HASHPAYSTREAM_ARC_WEBHOOK_STORE_KEY: 'test:hashpaystream:webhooks',
   }),
   now: () => now,
+  logEvent: event => securityEvents.push(event),
 }
 
 function signedRequest(input = {}) {
@@ -137,5 +139,31 @@ assert.equal(conflict.body.error.code, 'EVENT_CONFLICT')
 const invalidMethod = await call(restartedHandler, { method: 'GET', headers: {}, body: Buffer.alloc(0) })
 assert.equal(invalidMethod.statusCode, 405)
 assert.equal(invalidMethod.headers.allow, 'POST')
+
+assert.deepEqual(securityEvents.map(event => [event.status, event.code]), [
+  [401, 'INVALID_SIGNATURE'],
+  [401, 'STALE_SIGNATURE'],
+  [403, 'PROJECT_MISMATCH'],
+  [400, 'NETWORK_MISMATCH'],
+  [400, 'UNSUPPORTED_EVENT'],
+  [400, 'INVALID_BODY'],
+  [409, 'EVENT_CONFLICT'],
+  [405, 'METHOD_NOT_ALLOWED'],
+])
+assert.equal(securityEvents.every(event => event.event === 'request_rejected'), true)
+const serializedEvents = JSON.stringify(securityEvents)
+assert.equal(serializedEvents.includes(secret), false)
+assert.equal(serializedEvents.includes('evt_invalidsignature12345'), false)
+assert.equal(serializedEvents.includes('0'.repeat(64)), false)
+
+const loggerFailureHandler = createHashPayStreamArcWebhookHandler({
+  ...dependencies,
+  logEvent: () => { throw new Error('logger unavailable') },
+})
+const loggerFailure = await call(loggerFailureHandler, signedRequest({
+  id: 'evt_loggerfailure1234567',
+  signature: '0'.repeat(64),
+}))
+assert.equal(loggerFailure.statusCode, 401)
 
 console.log('HashPayStream standalone Arc webhook smoke checks passed.')

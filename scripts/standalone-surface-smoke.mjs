@@ -38,7 +38,7 @@ assert.match(server, /app\.use\('\/api\/hashpaystream'[\s\S]*Cache-Control'[\s\S
 assert.match(server, /app\.use\('\/api\/hashpaystream', apiTelemetry\)/)
 assert.match(agentAuth, /logSecurity\(withHashPayStreamRequestId\(event\)\)/)
 assert.match(agreementGateway, /logError\(withHashPayStreamRequestId\(/)
-assert.match(arcWebhook, /logError\(withHashPayStreamRequestId\(/)
+assert.match(arcWebhook, /logEvent\(withHashPayStreamRequestId\(event\)\)/)
 assert.match(server, /app\.get\('\/api\/hashpaystream\/v2\/agreements'/)
 assert.match(server, /app\.post\('\/api\/hashpaystream\/v2\/agreements'/)
 assert.match(server, /app\.get\('\/api\/hashpaystream\/v1\/agent\/agreements'/)

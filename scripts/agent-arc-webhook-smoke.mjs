@@ -22,6 +22,7 @@ const env = {
   HASHPAYSTREAM_AGENT_ARC_WEBHOOK_STORE_KEY: 'test:hashpaystream:agent-webhooks',
 }
 let durableState
+const securityEvents = []
 const handler = createHashPayStreamAgentArcWebhookHandler({
   hasStore: () => true,
   mutate: async (key, update) => {
@@ -31,6 +32,7 @@ const handler = createHashPayStreamAgentArcWebhookHandler({
   },
   env: () => env,
   now: () => now,
+  logEvent: event => securityEvents.push(event),
 })
 
 function request(signingSecret = secret) {
@@ -72,5 +74,12 @@ assert.equal(durableState.events.evt_agentwebhook12345678.projectId, projectId)
 const humanProjectSignature = await call(request(`whsec_${'b'.repeat(32)}`))
 assert.equal(humanProjectSignature.statusCode, 401)
 assert.equal(humanProjectSignature.body.error.code, 'INVALID_SIGNATURE')
+assert.deepEqual(securityEvents, [{
+  component: 'hashpaystream-arc-webhook',
+  event: 'request_rejected',
+  status: 401,
+  code: 'INVALID_SIGNATURE',
+}])
+assert.equal(JSON.stringify(securityEvents).includes(secret), false)
 
 console.log('HashPayStream agent-project signed webhook smoke checks passed.')

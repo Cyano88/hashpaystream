@@ -28,6 +28,9 @@ duration. Client request IDs, URLs, query strings, IPs, headers, credentials,
 and payloads are not recorded by this telemetry boundary.
 Authentication, gateway, and webhook failure events reuse the same request ID
 while retaining fixed, secret-free event schemas.
+Rejected webhooks record only their bounded error code, status, and request ID.
+Valid duplicate deliveries remain idempotent successes and increment the
+durable duplicate counter instead of being classified as rejections.
 
 Creator feeds, payroll, x402 checkout, Arena, content gates, and embedded
 Agent Hash UI are intentionally excluded. The server-to-server headless-agent
