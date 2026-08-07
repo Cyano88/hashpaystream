@@ -52,6 +52,8 @@ function sanitizedRecords(store) {
       status: record.status,
       createdAt: record.createdAt,
       revokedAt: record.revokedAt,
+      lastUsedAt: record.lastUsedAt,
+      acceptedRequestCount: record.acceptedRequestCount,
       requestsPerMinute: record.requestsPerMinute,
     }))
     .sort((left, right) => left.agentId.localeCompare(right.agentId) || left.keyId.localeCompare(right.keyId))

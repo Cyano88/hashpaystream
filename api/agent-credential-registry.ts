@@ -13,6 +13,10 @@ export type AgentCredentialRecord = {
   requestsPerMinute: number
   createdAt: string
   revokedAt?: string
+  lastUsedAt?: string
+  acceptedRequestCount: number
+  rateLimitWindowStartedAt?: string
+  rateLimitWindowRequestCount: number
 }
 
 export type AgentCredentialAuditEvent = {
@@ -65,7 +69,11 @@ export function safeAgentCredentialStore(current: unknown): AgentCredentialStore
       const label = clean(record.label, 80)
       const createdAt = clean(record.createdAt, 40)
       const revokedAt = clean(record.revokedAt, 40)
+      const lastUsedAt = clean(record.lastUsedAt, 40)
+      const rateLimitWindowStartedAt = clean(record.rateLimitWindowStartedAt, 40)
       const requestsPerMinute = Number(record.requestsPerMinute ?? 120)
+      const acceptedRequestCount = Number(record.acceptedRequestCount ?? 0)
+      const rateLimitWindowRequestCount = Number(record.rateLimitWindowRequestCount ?? 0)
       if (
         !/^[a-z0-9]{8,32}$/i.test(keyId)
         || !AGENT_ID_PATTERN.test(agentId)
@@ -74,6 +82,10 @@ export function safeAgentCredentialStore(current: unknown): AgentCredentialStore
         || !Number.isInteger(requestsPerMinute)
         || requestsPerMinute < 1
         || requestsPerMinute > 600
+        || !Number.isSafeInteger(acceptedRequestCount)
+        || acceptedRequestCount < 0
+        || !Number.isSafeInteger(rateLimitWindowRequestCount)
+        || rateLimitWindowRequestCount < 0
         || !createdAt
       ) continue
       credentials[digest] = {
@@ -85,6 +97,12 @@ export function safeAgentCredentialStore(current: unknown): AgentCredentialStore
         requestsPerMinute,
         createdAt,
         ...(record.status === 'revoked' && revokedAt ? { revokedAt } : {}),
+        ...(lastUsedAt && Number.isFinite(Date.parse(lastUsedAt)) ? { lastUsedAt } : {}),
+        acceptedRequestCount,
+        ...(rateLimitWindowStartedAt && Number.isFinite(Date.parse(rateLimitWindowStartedAt))
+          ? { rateLimitWindowStartedAt }
+          : {}),
+        rateLimitWindowRequestCount,
       }
     }
   }
@@ -152,6 +170,8 @@ export function registerAgentCredential(
     status: 'active',
     requestsPerMinute,
     createdAt: input.now,
+    acceptedRequestCount: 0,
+    rateLimitWindowRequestCount: 0,
   }
   next.audit.push({
     id: input.auditId,
@@ -162,6 +182,45 @@ export function registerAgentCredential(
   })
   next.audit = next.audit.slice(-1_000)
   return next
+}
+
+export function consumeAgentCredential(
+  current: unknown,
+  input: { keyDigest: string; now: string },
+) {
+  const next = safeAgentCredentialStore(current)
+  if (!/^[a-f0-9]{64}$/.test(input.keyDigest) || !Number.isFinite(Date.parse(input.now))) {
+    throw new Error('Agent credential usage input is invalid.')
+  }
+  const record = next.credentials[input.keyDigest]
+  if (!record || record.status !== 'active') {
+    return { store: next, status: 'invalid' as const }
+  }
+
+  const nowMs = Date.parse(input.now)
+  const existingWindowMs = record.rateLimitWindowStartedAt
+    ? Date.parse(record.rateLimitWindowStartedAt)
+    : Number.NaN
+  const resetWindow = !Number.isFinite(existingWindowMs)
+    || nowMs < existingWindowMs
+    || nowMs - existingWindowMs >= 60_000
+  const windowStartedAt = resetWindow ? input.now : record.rateLimitWindowStartedAt!
+  const windowStartedMs = resetWindow ? nowMs : existingWindowMs
+  const currentCount = resetWindow ? 0 : record.rateLimitWindowRequestCount
+
+  if (currentCount >= record.requestsPerMinute) {
+    return {
+      store: next,
+      status: 'rate_limited' as const,
+      retryAfterSeconds: Math.max(1, Math.ceil((windowStartedMs + 60_000 - nowMs) / 1_000)),
+    }
+  }
+
+  record.lastUsedAt = input.now
+  record.acceptedRequestCount = Math.min(Number.MAX_SAFE_INTEGER, record.acceptedRequestCount + 1)
+  record.rateLimitWindowStartedAt = windowStartedAt
+  record.rateLimitWindowRequestCount = currentCount + 1
+  return { store: next, status: 'accepted' as const, agentId: record.agentId }
 }
 
 export function revokeAgentCredential(

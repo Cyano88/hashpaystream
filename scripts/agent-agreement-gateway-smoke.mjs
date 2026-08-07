@@ -162,11 +162,16 @@ const registryEnv = {
 }
 const registryAuth = {
   hasStore: () => true,
-  consume: () => true,
   read: async key => {
     assert.equal(key, registryStoreKey)
     return credentialStore
   },
+  mutate: async (key, update) => {
+    assert.equal(key, registryStoreKey)
+    credentialStore = await update(credentialStore)
+    return credentialStore
+  },
+  now: () => new Date('2026-08-04T12:00:00.000Z'),
 }
 const handlerA = createHashPayStreamAgentAgreementGateway({ ...shared, env: () => registryEnv }, registryAuth)
 const handlerB = handlerA

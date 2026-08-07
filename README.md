@@ -50,6 +50,9 @@ Multi-agent pilot credentials are stored as peppered HMAC digests in the
 standalone Postgres database. Configure
 `HASHPAYSTREAM_AGENT_CREDENTIAL_PEPPER` and keep it server-side. Agent access
 fails closed unless the credential registry and durable store are available.
+Per-credential request limits are enforced atomically in Postgres across
+instances. Sanitized metadata tracks only accepted request counts and the last
+successful use time; request payloads and client IP addresses are not stored.
 
 `npm run agent:credentials -- list` returns only sanitized credential
 metadata. Create and revoke commands are dry runs unless
@@ -62,6 +65,11 @@ npm run agent:credentials -- revoke --key-id keyidvalue
 ```
 
 Never commit a generated credential output file.
+
+For a zero-downtime rotation, create a second credential with the same agent
+id, update the agent backend, verify the replacement key's `lastUsedAt`, and
+only then revoke the old key. Multiple active keys for one agent are supported
+specifically for this overlap.
 
 ## Local verification
 

@@ -1,35 +1,25 @@
 import type { Request } from 'express'
-import { hasRenderDurableStore, readDurableJson } from './durable-store.js'
+import { hasRenderDurableStore, mutateDurableJson, readDurableJson } from './durable-store.js'
 import {
   AGENT_API_KEY_PATTERN,
   agentCredentialDigest,
   agentCredentialRegistryConfig,
+  consumeAgentCredential,
   safeAgentCredentialStore,
 } from './agent-credential-registry.js'
 
 export type AgentAuthDependencies = {
   hasStore: () => boolean
   read: <T>(key: string) => Promise<T | undefined>
-  consume: (key: string, limit: number) => boolean
-}
-
-const credentialBuckets = new Map<string, { count: number; resetAt: number }>()
-
-function consumeCredentialRequest(key: string, limit: number) {
-  const now = Date.now()
-  const current = credentialBuckets.get(key)
-  if (!current || current.resetAt <= now) {
-    credentialBuckets.set(key, { count: 1, resetAt: now + 60_000 })
-    return true
-  }
-  current.count += 1
-  return current.count <= limit
+  mutate: <T>(key: string, update: (current: T | undefined) => T | Promise<T>) => Promise<T>
+  now: () => Date
 }
 
 const defaultDependencies: AgentAuthDependencies = {
   hasStore: hasRenderDurableStore,
   read: readDurableJson,
-  consume: consumeCredentialRequest,
+  mutate: mutateDurableJson,
+  now: () => new Date(),
 }
 
 function httpError(message: string, status: number) {
@@ -72,10 +62,25 @@ export async function verifiedPilotAgentIdentity(
   if (!record || record.status !== 'active') {
     throw httpError('A valid HashPayStream agent credential is required.', 401)
   }
-  if (!dependencies.consume(digest, record.requestsPerMinute)) {
+
+  let usage: ReturnType<typeof consumeAgentCredential> | undefined
+  try {
+    const now = dependencies.now()
+    if (!Number.isFinite(now.getTime())) throw new Error('Invalid clock')
+    await dependencies.mutate(registryConfig.storeKey, value => {
+      usage = consumeAgentCredential(value, { keyDigest: digest, now: now.toISOString() })
+      return usage.store
+    })
+  } catch {
+    throw httpError('HashPayStream agent access is unavailable.', 503)
+  }
+  if (!usage || usage.status === 'invalid') {
+    throw httpError('A valid HashPayStream agent credential is required.', 401)
+  }
+  if (usage.status === 'rate_limited') {
     throw httpError('HashPayStream agent request limit exceeded.', 429)
   }
-  return `agent:${record.agentId}`
+  return 'agent:' + usage.agentId
 }
 
 export function agentGatewayEnvironment(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
