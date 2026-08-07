@@ -30,9 +30,10 @@ async function call(handler, credential, method = 'GET', input = {}) {
 
 const agentKeyA = `hps_agent_test_${'a'.repeat(40)}`
 const agentKeyB = `hps_agent_test_${'b'.repeat(40)}`
+const agentIdA = 'agent_pilot_aa'
+const agentIdB = 'agent_pilot_bb'
 const unknownAgentKey = `hps_agent_test_${'z'.repeat(40)}`
 const upstreamKeyA = `hpl_test_${'c'.repeat(32)}`
-const upstreamKeyB = `hpl_test_${'d'.repeat(32)}`
 const baseEnv = {
   HASHPAYSTREAM_APP_OWNERSHIP_SECRET: 'agent-ownership-secret-at-least-32-characters',
   HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY: 'test:hashpaystream:owners',
@@ -40,21 +41,10 @@ const baseEnv = {
 }
 const envA = {
   ...baseEnv,
-  HASHPAYSTREAM_AGENT_ID: 'agent_pilot_aa',
-  HASHPAYSTREAM_AGENT_API_KEY: agentKeyA,
   HASHPAYSTREAM_AGENT_ARC_API_KEY: upstreamKeyA,
   HASHPAYSTREAM_AGENT_ARC_PROJECT_ID: 'dev_agentpilot1234',
   HASHPAYSTREAM_AGENT_ARC_WEBHOOK_SECRET: `whsec_${'e'.repeat(32)}`,
 }
-const envB = {
-  ...baseEnv,
-  HASHPAYSTREAM_AGENT_ID: 'agent_pilot_bb',
-  HASHPAYSTREAM_AGENT_API_KEY: agentKeyB,
-  HASHPAYSTREAM_AGENT_ARC_API_KEY: upstreamKeyB,
-  HASHPAYSTREAM_AGENT_ARC_PROJECT_ID: 'dev_agentpilot5678',
-  HASHPAYSTREAM_AGENT_ARC_WEBHOOK_SECRET: `whsec_${'f'.repeat(32)}`,
-}
-
 const mapped = agentGatewayEnvironment(envA)
 assert.equal(mapped.HASHPAYSTREAM_ARC_API_KEY, upstreamKeyA)
 assert.equal(mapped.HASHPAYSTREAM_ARC_PROJECT_ID, envA.HASHPAYSTREAM_AGENT_ARC_PROJECT_ID)
@@ -145,7 +135,7 @@ const registryStoreKey = 'test:hashpaystream:agent-credentials'
 let credentialStore = registerAgentCredential(undefined, {
   apiKey: agentKeyA,
   pepper: registryPepper,
-  agentId: envA.HASHPAYSTREAM_AGENT_ID,
+  agentId: agentIdA,
   keyId: 'gatewaykeya',
   label: 'Gateway agent A',
   now: '2026-08-04T11:58:00.000Z',
@@ -155,7 +145,7 @@ let credentialStore = registerAgentCredential(undefined, {
 credentialStore = registerAgentCredential(credentialStore, {
   apiKey: agentKeyB,
   pepper: registryPepper,
-  agentId: envB.HASHPAYSTREAM_AGENT_ID,
+  agentId: agentIdB,
   keyId: 'gatewaykeyb',
   label: 'Gateway agent B',
   now: '2026-08-04T11:59:00.000Z',
@@ -358,13 +348,13 @@ assert.equal(upstreamCalls.at(-1).body.transactionHash, `0x${'7'.repeat(64)}`)
 
 const wrongModeHandler = createHashPayStreamAgentAgreementGateway({
   ...shared,
-  env: () => envA,
+  env: () => registryEnv,
   read: async () => undefined,
   upstream: async () => ({
     status: 201,
     body: { ok: true, agreement: { ...agreement, checkoutMode: 'human', id: 'agr_wrongmodepilot1234' } },
   }),
-})
+}, registryAuth)
 const wrongMode = await call(wrongModeHandler, agentKeyA, 'POST', {
   idempotencyKey: 'agent-draft-wrong-mode',
   body: { template: 'fixed_unlock', title: 'Wrong mode' },

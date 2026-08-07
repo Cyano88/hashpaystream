@@ -78,13 +78,10 @@ assert.equal(await verifiedPilotAgentIdentity(request(keyA), env, dependencies),
 assert.equal(await verifiedPilotAgentIdentity(request(keyB), env, dependencies), 'agent:agent_registry_b')
 assert.equal(await status(verifiedPilotAgentIdentity(request(unknownKey), env, dependencies)), 401)
 assert.equal(await status(verifiedPilotAgentIdentity(request(''), env, dependencies)), 401)
-assert.equal(await verifiedPilotAgentIdentity(request(keyA), {
-  HASHPAYSTREAM_AGENT_ID: 'agent_legacy_a',
-  HASHPAYSTREAM_AGENT_API_KEY: keyA,
-}, {
+assert.equal(await status(verifiedPilotAgentIdentity(request(keyA), {}, {
   hasStore: () => false,
   read: async () => undefined,
-}), 'agent:agent_legacy_a')
+})), 503)
 
 store = revokeAgentCredential(store, {
   keyId: 'keyidaaaa',
@@ -93,11 +90,7 @@ store = revokeAgentCredential(store, {
 })
 assert.equal(store.credentials[agentCredentialDigest(keyA, pepper)].status, 'revoked')
 assert.equal(store.audit.at(-1).action, 'credential.revoked')
-assert.equal(await status(verifiedPilotAgentIdentity(request(keyA), {
-  ...env,
-  HASHPAYSTREAM_AGENT_ID: 'agent_registry_a',
-  HASHPAYSTREAM_AGENT_API_KEY: keyA,
-}, dependencies)), 401)
+assert.equal(await status(verifiedPilotAgentIdentity(request(keyA), env, dependencies)), 401)
 assert.equal(await verifiedPilotAgentIdentity(request(keyB), env, dependencies), 'agent:agent_registry_b')
 
 assert.equal(await status(verifiedPilotAgentIdentity(request(keyB), env, {

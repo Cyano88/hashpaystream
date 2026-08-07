@@ -48,24 +48,20 @@ agent route with the human HashPayStream project key or webhook secret.
 
 Multi-agent pilot credentials are stored as peppered HMAC digests in the
 standalone Postgres database. Configure
-`HASHPAYSTREAM_AGENT_CREDENTIAL_PEPPER` and keep it server-side. The existing
-`HASHPAYSTREAM_AGENT_ID` and `HASHPAYSTREAM_AGENT_API_KEY` remain a temporary
-compatibility fallback during migration.
+`HASHPAYSTREAM_AGENT_CREDENTIAL_PEPPER` and keep it server-side. Agent access
+fails closed unless the credential registry and durable store are available.
 
 `npm run agent:credentials -- list` returns only sanitized credential
-metadata. Create, import, and revoke commands are dry runs unless
+metadata. Create and revoke commands are dry runs unless
 `--confirm-agent-credential-write` is supplied. New credentials must be
 written to a new file outside the repository and are never printed:
 
 ```text
 npm run agent:credentials -- create --agent-id agent_example_01 --label "Example" --requests-per-minute 120 --output-file C:\secure\agent-example.json
-npm run agent:credentials -- import-legacy
 npm run agent:credentials -- revoke --key-id keyidvalue
 ```
 
-After confirming the legacy credential is registered and the service is using
-the registry, remove the legacy identity and key from the deployment
-environment. Never commit a generated credential output file.
+Never commit a generated credential output file.
 
 ## Local verification
 
@@ -75,16 +71,6 @@ npm run typecheck
 npm run test:smoke
 npm run build
 ```
-
-Before the first live cutover, temporarily set
-`HASHPAYSTREAM_MIGRATION_OWNER_PRIVY_USER_ID`, run `npm run migrate:owners` as
-a dry run, review the counts, and then run:
-
-```text
-npm run migrate:owners -- --confirm-hashpaystream-owner-import
-```
-
-Remove the temporary migration identity immediately afterwards.
 
 Keep `HASHPAYSTREAM_ARC_API_KEY`, webhook secrets, ownership secrets, and the
 database URL server-side. Never prefix them with `VITE_`.

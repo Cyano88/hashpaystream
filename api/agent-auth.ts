@@ -1,9 +1,7 @@
-import { timingSafeEqual } from 'node:crypto'
 import type { Request } from 'express'
 import { hasRenderDurableStore, readDurableJson } from './durable-store.js'
 import {
   AGENT_API_KEY_PATTERN,
-  AGENT_ID_PATTERN,
   agentCredentialDigest,
   agentCredentialRegistryConfig,
   safeAgentCredentialStore,
@@ -42,12 +40,6 @@ function bearer(req: Pick<Request, 'headers'>) {
   return String(req.headers.authorization ?? '').match(/^Bearer\s+(.+)$/i)?.[1]?.trim() ?? ''
 }
 
-function safeEqual(left: string, right: string) {
-  const leftBuffer = Buffer.from(left)
-  const rightBuffer = Buffer.from(right)
-  return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer)
-}
-
 export async function verifiedPilotAgentIdentity(
   req: Request,
   env: NodeJS.ProcessEnv = process.env,
@@ -65,40 +57,25 @@ export async function verifiedPilotAgentIdentity(
   } catch {
     throw httpError('HashPayStream agent access is unavailable.', 503)
   }
-  if (registryConfig) {
-    if (!dependencies.hasStore()) throw httpError('HashPayStream agent access is unavailable.', 503)
-    let current
-    try {
-      current = await dependencies.read(registryConfig.storeKey)
-    } catch {
-      throw httpError('HashPayStream agent access is unavailable.', 503)
-    }
-    const store = safeAgentCredentialStore(current)
-    const digest = agentCredentialDigest(presentedKey, registryConfig.pepper)
-    const record = store.credentials[digest]
-    if (record) {
-      if (record.status !== 'active') {
-        throw httpError('A valid HashPayStream agent credential is required.', 401)
-      }
-      if (!dependencies.consume(digest, record.requestsPerMinute)) {
-        throw httpError('HashPayStream agent request limit exceeded.', 429)
-      }
-      return `agent:${record.agentId}`
-    }
-  }
-
-  const agentId = String(env.HASHPAYSTREAM_AGENT_ID ?? '').trim()
-  const configuredKey = String(env.HASHPAYSTREAM_AGENT_API_KEY ?? '').trim()
-  if (!AGENT_ID_PATTERN.test(agentId) || !AGENT_API_KEY_PATTERN.test(configuredKey)) {
-    if (registryConfig) {
-      throw httpError('A valid HashPayStream agent credential is required.', 401)
-    }
+  if (!registryConfig || !dependencies.hasStore()) {
     throw httpError('HashPayStream agent access is unavailable.', 503)
   }
-  if (!safeEqual(presentedKey, configuredKey)) {
+  let current
+  try {
+    current = await dependencies.read(registryConfig.storeKey)
+  } catch {
+    throw httpError('HashPayStream agent access is unavailable.', 503)
+  }
+  const store = safeAgentCredentialStore(current)
+  const digest = agentCredentialDigest(presentedKey, registryConfig.pepper)
+  const record = store.credentials[digest]
+  if (!record || record.status !== 'active') {
     throw httpError('A valid HashPayStream agent credential is required.', 401)
   }
-  return `agent:${agentId.toLowerCase()}`
+  if (!dependencies.consume(digest, record.requestsPerMinute)) {
+    throw httpError('HashPayStream agent request limit exceeded.', 429)
+  }
+  return `agent:${record.agentId}`
 }
 
 export function agentGatewayEnvironment(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {

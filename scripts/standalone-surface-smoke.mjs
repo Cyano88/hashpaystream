@@ -185,7 +185,6 @@ for (const serverOnly of [
   'HASHPAYSTREAM_ARC_WEBHOOK_SECRET',
   'HASHPAYSTREAM_APP_OWNERSHIP_SECRET',
   'DATABASE_URL',
-  'HASHPAYSTREAM_AGENT_API_KEY',
   'HASHPAYSTREAM_AGENT_ARC_API_KEY',
   'HASHPAYSTREAM_AGENT_ARC_WEBHOOK_SECRET',
   'HASHPAYSTREAM_AGENT_CREDENTIAL_PEPPER',
@@ -195,8 +194,6 @@ for (const serverOnly of [
 }
 
 for (const agentSetting of [
-  'HASHPAYSTREAM_AGENT_ID',
-  'HASHPAYSTREAM_AGENT_API_KEY',
   'HASHPAYSTREAM_AGENT_ARC_API_KEY',
   'HASHPAYSTREAM_AGENT_ARC_PROJECT_ID',
   'HASHPAYSTREAM_AGENT_ARC_WEBHOOK_SECRET',
@@ -207,6 +204,15 @@ for (const agentSetting of [
   assert.match(envExample, new RegExp('(?:^|\\n)' + agentSetting + '='))
   assert.match(renderBlueprint, new RegExp('- key: ' + agentSetting + '(?:\\n|\\r\\n)'))
   assert.equal(envExample.includes('VITE_' + agentSetting + '='), false)
+}
+
+for (const retiredAgentSetting of [
+  'HASHPAYSTREAM_AGENT_ID',
+  'HASHPAYSTREAM_AGENT_API_KEY',
+]) {
+  assert.doesNotMatch(envExample, new RegExp('(?:^|\\n)' + retiredAgentSetting + '='))
+  assert.doesNotMatch(renderBlueprint, new RegExp('- key: ' + retiredAgentSetting + '(?:\\n|\\r\\n)'))
+  assert.equal(runtimeSource.includes(retiredAgentSetting), false)
 }
 
 const packageEntries = Object.entries(packageLock.packages ?? {})

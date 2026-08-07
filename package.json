@@ -19,8 +19,7 @@
     "test:agent-arc-webhook": "node --import tsx scripts/agent-arc-webhook-smoke.mjs",
     "test:surface": "node scripts/standalone-surface-smoke.mjs",
     "test:smoke": "npm run test:agreement-gateway && npm run test:agent-credentials && npm run test:agent-agreement-gateway && npm run test:arc-webhook && npm run test:agent-arc-webhook && npm run test:surface",
-    "agent:credentials": "node --import tsx scripts/agent-credential-admin.mjs",
-    "migrate:owners": "node --import tsx scripts/owner-migrate.mjs"
+    "agent:credentials": "node --import tsx scripts/agent-credential-admin.mjs"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",

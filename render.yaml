@@ -31,10 +31,6 @@ services:
         sync: false
       - key: HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY
         value: hashpaystream:agreement-owners:v1
-      - key: HASHPAYSTREAM_AGENT_ID
-        sync: false
-      - key: HASHPAYSTREAM_AGENT_API_KEY
-        sync: false
       - key: HASHPAYSTREAM_AGENT_CREDENTIAL_PEPPER
         sync: false
       - key: HASHPAYSTREAM_AGENT_CREDENTIAL_STORE_KEY

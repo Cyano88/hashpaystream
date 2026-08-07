@@ -4,7 +4,6 @@ import path from 'node:path'
 import {
   AGENT_API_KEY_PATTERN,
   AGENT_ID_PATTERN,
-  agentCredentialDigest,
   agentCredentialRegistryConfig,
   registerAgentCredential,
   revokeAgentCredential,
@@ -58,8 +57,8 @@ function sanitizedRecords(store) {
     .sort((left, right) => left.agentId.localeCompare(right.agentId) || left.keyId.localeCompare(right.keyId))
 }
 
-if (!['create', 'import-legacy', 'list', 'revoke'].includes(command)) {
-  throw new Error('Use create, import-legacy, list, or revoke.')
+if (!['create', 'list', 'revoke'].includes(command)) {
+  throw new Error('Use create, list, or revoke.')
 }
 
 const config = requireRegistry()
@@ -112,39 +111,6 @@ if (command === 'create') {
     auditId: auditId(),
   }))
   console.log(JSON.stringify({ ok: true, created: { agentId, keyId, label, outputFile } }, null, 2))
-  process.exit(0)
-}
-
-if (command === 'import-legacy') {
-  const apiKey = String(process.env.HASHPAYSTREAM_AGENT_API_KEY ?? '').trim()
-  const agentId = String(process.env.HASHPAYSTREAM_AGENT_ID ?? '').trim().toLowerCase()
-  if (!AGENT_API_KEY_PATTERN.test(apiKey) || !AGENT_ID_PATTERN.test(agentId)) {
-    throw new Error('The legacy agent credential configuration is invalid.')
-  }
-  const digest = agentCredentialDigest(apiKey, config.pepper)
-  const existing = current.credentials[digest]
-  console.log(JSON.stringify({
-    ok: true,
-    mode: process.argv.includes(CONFIRM) ? 'confirmed' : 'dry_run',
-    action: 'import-legacy',
-    agentId,
-    alreadyRegistered: Boolean(existing),
-  }, null, 2))
-  if (!process.argv.includes(CONFIRM) || existing) process.exit(0)
-  const now = new Date().toISOString()
-  const keyId = `legacy${digest.slice(0, 10)}`
-  await mutateDurableJson(config.storeKey, value => registerAgentCredential(value, {
-    apiKey,
-    pepper: config.pepper,
-    agentId,
-    keyId,
-    label: 'Legacy pilot credential',
-    now,
-    auditId: auditId(),
-    imported: true,
-    requestsPerMinute: 120,
-  }))
-  console.log(JSON.stringify({ ok: true, imported: { agentId, keyId } }, null, 2))
   process.exit(0)
 }
 
