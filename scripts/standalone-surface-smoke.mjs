@@ -31,6 +31,7 @@ const sessionSplash = read('src/lib/useHashPayStreamSessionSplash.ts')
 const envExample = read('.env.example')
 const indexHtml = read('index.html')
 const renderBlueprint = read('render.yaml')
+const readinessMonitor = read('.github/workflows/production-readiness.yml')
 const packageLock = JSON.parse(read('package-lock.json'))
 
 assert.match(server, /app\.get\('\/healthz'/)
@@ -174,6 +175,11 @@ assert.match(browserSource, /new URL\('\/privacy', window\.location\.origin\)/)
 assert.match(browserSource, /\/api\/hashpaystream\/v1\/agent\/agreements/)
 assert.doesNotMatch(browserSource, /hps_agent_test_[A-Za-z0-9_-]{32,}/)
 assert.match(indexHtml, /href="\/brand\/hashpaystream-mark\.png"/)
+assert.match(renderBlueprint, /healthCheckPath: \/readyz/)
+assert.match(renderBlueprint, /maxShutdownDelaySeconds: 30/)
+assert.match(readinessMonitor, /cron: '3-58\/5 \* \* \* \*'/)
+assert.match(readinessMonitor, /https:\/\/hashpaystream\.app\/readyz/)
+assert.match(readinessMonitor, /Production readiness failed three consecutive probes\./)
 
 const runtimeSource = [
   ...sourceFiles('src'),

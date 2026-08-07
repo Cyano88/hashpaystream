@@ -1,0 +1,63 @@
+name: Production readiness monitor
+
+on:
+  schedule:
+    - cron: '3-58/5 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: production-readiness-monitor
+  cancel-in-progress: false
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Probe public readiness boundary
+        env:
+          ENDPOINT: https://hashpaystream.app/readyz
+        shell: bash
+        run: |
+          set -u
+          for attempt in 1 2 3; do
+            headers="$(mktemp)"
+            body="$(mktemp)"
+            status='request_failed'
+            if response_status=$(curl --silent --show-error \
+              --connect-timeout 5 \
+              --max-time 10 \
+              --dump-header "$headers" \
+              --output "$body" \
+              --write-out '%{http_code}' \
+              "$ENDPOINT"); then
+              status="$response_status"
+            fi
+
+            if [ "$status" = '200' ] \
+              && grep --extended-regexp --ignore-case --quiet '^cache-control:.*no-store' "$headers" \
+              && python3 - "$body" <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding='utf-8') as response:
+              payload = json.load(response)
+          expected = {'ok': True, 'service': 'hashpaystream', 'status': 'ready'}
+          if payload != expected:
+              raise SystemExit(1)
+          PY
+            then
+              echo "Readiness probe passed on attempt $attempt."
+              exit 0
+            fi
+
+            ray=$(awk 'BEGIN { IGNORECASE=1 } /^cf-ray:/ { gsub("\r", "", $2); print $2 }' "$headers" | tail -n 1)
+            echo "Readiness probe attempt $attempt failed: status=$status cf_ray=${ray:-unavailable}"
+            rm -f "$headers" "$body"
+            if [ "$attempt" -lt 3 ]; then sleep 15; fi
+          done
+
+          echo 'Production readiness failed three consecutive probes.'
+          exit 1

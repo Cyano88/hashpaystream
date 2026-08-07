@@ -38,6 +38,14 @@ up to 25 seconds to finish. It then exits cleanly, or closes remaining
 connections and exits unsuccessfully if the bounded drain expires. Lifecycle
 logs use fixed, payload-free event fields.
 
+Render continuously probes `/readyz` and reserves 30 seconds for shutdown,
+leaving the application five seconds beyond its own bounded drain. A separate
+GitHub Actions monitor probes the public readiness boundary every five minutes
+and fails only after three consecutive attempts. It records the Cloudflare ray
+identifier when available, without logging response payloads or credentials.
+GitHub Actions email or web notifications must be enabled on the workflow
+owner's GitHub account for failed scheduled runs to generate direct alerts.
+
 Creator feeds, payroll, x402 checkout, Arena, content gates, and embedded
 Agent Hash UI are intentionally excluded. The server-to-server headless-agent
 agreement pilot below is the only agent surface.
