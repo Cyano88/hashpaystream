@@ -69,6 +69,13 @@ assert.match(app, /route === '\/privacy'/)
 assert.match(app, /route === '\/agreements'/)
 assert.match(app, /route === '\/agreements\/new'/)
 assert.match(app, /<Navigate to="\/" replace\s*\/>/)
+assert.match(app, /const AUTH_DECISION_ROUTES = new Set\(\['\/', '\/home', '\/agreements', '\/agreements\/new', '\/activity', '\/account'\]\)/)
+assert.match(app, /const \{ ready \} = usePrivy\(\)/)
+assert.ok(
+  app.indexOf('if (!ready && AUTH_DECISION_ROUTES.has(route))')
+    < app.indexOf(`if (route === '/')`),
+  'Privy readiness must resolve before authentication-sensitive routes can render.',
+)
 assert.match(form, /\/api\/hashpaystream\/v2\/agreements/)
 assert.match(dashboard, /\/api\/hashpaystream\/v2\/agreements/)
 assert.match(dashboard, /\['fixed_unlock', 'progressive_release', 'milestone'\]/)

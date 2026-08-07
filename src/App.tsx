@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { usePrivy } from '@privy-io/react-auth'
 import { StreamPayLayout } from './components/StreamPayLayout'
 import AgreementDashboard from './components/agreements/AgreementDashboard'
 import FixedAgreementForm from './components/agreements/FixedAgreementForm'
@@ -11,10 +12,17 @@ import StreamPayLegal from './components/StreamPayLegal'
 import StreamPayAgentDocs from './components/StreamPayAgentDocs'
 import { BrowserRouter, Navigate, useLocation } from './lib/router'
 
+const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/activity', '/account'])
+
 function StreamPayRoute() {
   const { pathname } = useLocation()
+  const { ready } = usePrivy()
   const route = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
   let content
+
+  if (!ready && AUTH_DECISION_ROUTES.has(route)) {
+    return <div className={'min-h-screen w-full bg-gray-50 dark:bg-[#111113]'} aria-busy={true} aria-label={'Loading HashPayStream'} />
+  }
 
   if (route === '/') content = <StreamPayLanding />
   else if (route === '/home') content = <StreamPayHome />
