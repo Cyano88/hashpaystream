@@ -212,7 +212,9 @@ export function consumeAgentCredential(
     return {
       store: next,
       status: 'rate_limited' as const,
+      limit: record.requestsPerMinute,
       retryAfterSeconds: Math.max(1, Math.ceil((windowStartedMs + 60_000 - nowMs) / 1_000)),
+      resetAtEpochSeconds: Math.ceil((windowStartedMs + 60_000) / 1_000),
     }
   }
 

@@ -81,6 +81,7 @@ assert.throws(() => registerAgentCredential(store, {
 }), /already registered/)
 
 let now = new Date('2026-08-06T12:02:00.000Z')
+const securityEvents = []
 const dependencies = {
   hasStore: () => true,
   read: async key => {
@@ -93,6 +94,7 @@ const dependencies = {
     return store
   },
   now: () => now,
+  logSecurity: event => securityEvents.push(event),
 }
 assert.equal(await verifiedPilotAgentIdentity(request(keyA), env, dependencies), 'agent:agent_registry_a')
 assert.equal(await verifiedPilotAgentIdentity(request(keyB), env, dependencies), 'agent:agent_registry_b')
@@ -108,6 +110,7 @@ assert.equal(store.credentials[agentCredentialDigest(keyB, pepper)].rateLimitWin
 assert.equal(await status(verifiedPilotAgentIdentity(request(unknownKey), env, dependencies)), 401)
 assert.equal(await status(verifiedPilotAgentIdentity(request(''), env, dependencies)), 401)
 assert.equal(await status(verifiedPilotAgentIdentity(request(keyA), {}, {
+  ...dependencies,
   hasStore: () => false,
   read: async () => undefined,
 })), 503)
@@ -123,10 +126,12 @@ assert.equal(await status(verifiedPilotAgentIdentity(request(keyA), env, depende
 assert.equal(await verifiedPilotAgentIdentity(request(replacementKeyA), env, dependencies), 'agent:agent_registry_a')
 
 assert.equal(await status(verifiedPilotAgentIdentity(request(keyB), env, {
+  ...dependencies,
   hasStore: () => false,
   read: async () => undefined,
 })), 503)
 assert.equal(await status(verifiedPilotAgentIdentity(request(keyB), env, {
+  ...dependencies,
   hasStore: () => true,
   read: async () => { throw new Error('storage unavailable') },
 })), 503)
@@ -143,5 +148,10 @@ const safe = safeAgentCredentialStore({
   },
 })
 assert.equal(Object.keys(safe.credentials).length, 3)
+assert.equal(securityEvents.some(event => event.event === 'credential_rate_limited'), true)
+assert.equal(securityEvents.some(event => event.reason === 'registry_read_failed'), true)
+assert.equal(JSON.stringify(securityEvents).includes(keyA), false)
+assert.equal(JSON.stringify(securityEvents).includes(keyB), false)
+assert.equal(JSON.stringify(securityEvents).includes(replacementKeyA), false)
 
 console.log('HashPayStream agent credential registry smoke checks passed.')

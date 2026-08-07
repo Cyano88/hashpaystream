@@ -17,8 +17,9 @@
     "test:agent-credentials": "node --import tsx scripts/agent-credential-registry-smoke.mjs",
     "test:arc-webhook": "node --import tsx scripts/arc-agreement-webhook-smoke.mjs",
     "test:agent-arc-webhook": "node --import tsx scripts/agent-arc-webhook-smoke.mjs",
+    "test:readiness": "node --import tsx scripts/readiness-smoke.mjs",
     "test:surface": "node scripts/standalone-surface-smoke.mjs",
-    "test:smoke": "npm run test:agreement-gateway && npm run test:agent-credentials && npm run test:agent-agreement-gateway && npm run test:arc-webhook && npm run test:agent-arc-webhook && npm run test:surface",
+    "test:smoke": "npm run test:agreement-gateway && npm run test:agent-credentials && npm run test:agent-agreement-gateway && npm run test:arc-webhook && npm run test:agent-arc-webhook && npm run test:readiness && npm run test:surface",
     "agent:credentials": "node --import tsx scripts/agent-credential-admin.mjs"
   },
   "dependencies": {

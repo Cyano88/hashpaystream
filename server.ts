@@ -6,6 +6,7 @@ import arcAgreementWebhook from './api/arc-agreement-webhook.js'
 import agentAgreementGateway from './api/agent-agreement-gateway.js'
 import agentArcAgreementWebhook from './api/agent-arc-webhook.js'
 import { rateLimit } from './api/rate-limit.js'
+import readiness from './api/readiness.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -52,6 +53,7 @@ app.all(
 )
 app.use(express.json({ limit: '64kb' }))
 app.get('/healthz', (_req, res) => res.json({ ok: true, service: 'hashpaystream' }))
+app.get('/readyz', rateLimit({ name: 'readiness', windowMs: 60_000, max: 120 }), readiness)
 app.get('/api/hashpaystream/v2/agreements', rateLimit({ name: 'agreement-read', windowMs: 60_000, max: 120 }), agreementGateway)
 app.post('/api/hashpaystream/v2/agreements', rateLimit({ name: 'agreement-write', windowMs: 60_000, max: 30 }), agreementGateway)
 app.all('/api/hashpaystream/v2/agreements', (_req, res) => {

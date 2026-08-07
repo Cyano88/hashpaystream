@@ -15,6 +15,8 @@ upstream agreement, checkout, chain-policy, lifecycle, and receipt provider.
 - `/api/hashpaystream/arc-agreement-webhook` signed lifecycle receiver
 - `/api/hashpaystream/v1/agent/agreements` authenticated headless-agent gateway
 - `/api/hashpaystream/v1/agent/arc-agreement-webhook` separately signed agent lifecycle receiver
+- `/healthz` dependency-free process liveness
+- `/readyz` aggregate durable-dependency readiness with no configuration details
 
 Creator feeds, payroll, x402 checkout, Arena, content gates, and embedded
 Agent Hash UI are intentionally excluded. The server-to-server headless-agent

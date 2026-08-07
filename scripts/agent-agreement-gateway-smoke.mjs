@@ -30,6 +30,7 @@ async function call(handler, credential, method = 'GET', input = {}) {
 
 const agentKeyA = `hps_agent_test_${'a'.repeat(40)}`
 const agentKeyB = `hps_agent_test_${'b'.repeat(40)}`
+const agentKeyLimited = `hps_agent_test_${'l'.repeat(40)}`
 const agentIdA = 'agent_pilot_aa'
 const agentIdB = 'agent_pilot_bb'
 const unknownAgentKey = `hps_agent_test_${'z'.repeat(40)}`
@@ -152,6 +153,16 @@ credentialStore = registerAgentCredential(credentialStore, {
   auditId: 'audit_gateway_b',
   requestsPerMinute: 120,
 })
+credentialStore = registerAgentCredential(credentialStore, {
+  apiKey: agentKeyLimited,
+  pepper: registryPepper,
+  agentId: 'agent_pilot_limit',
+  keyId: 'gatewaylimit',
+  label: 'Gateway limited agent',
+  now: '2026-08-04T11:59:30.000Z',
+  auditId: 'audit_gateway_limit',
+  requestsPerMinute: 1,
+})
 const registryEnv = {
   ...baseEnv,
   HASHPAYSTREAM_AGENT_ARC_API_KEY: upstreamKeyA,
@@ -160,6 +171,7 @@ const registryEnv = {
   HASHPAYSTREAM_AGENT_CREDENTIAL_PEPPER: registryPepper,
   HASHPAYSTREAM_AGENT_CREDENTIAL_STORE_KEY: registryStoreKey,
 }
+const gatewaySecurityEvents = []
 const registryAuth = {
   hasStore: () => true,
   read: async key => {
@@ -172,6 +184,7 @@ const registryAuth = {
     return credentialStore
   },
   now: () => new Date('2026-08-04T12:00:00.000Z'),
+  logSecurity: event => gatewaySecurityEvents.push(event),
 }
 const handlerA = createHashPayStreamAgentAgreementGateway({ ...shared, env: () => registryEnv }, registryAuth)
 const handlerB = handlerA
@@ -181,6 +194,17 @@ assert.equal(missingCredential.statusCode, 401)
 
 const wrongCredential = await call(handlerA, unknownAgentKey)
 assert.equal(wrongCredential.statusCode, 401)
+
+const limitedFirst = await call(handlerA, agentKeyLimited)
+assert.equal(limitedFirst.statusCode, 200)
+const limitedSecond = await call(handlerA, agentKeyLimited)
+assert.equal(limitedSecond.statusCode, 429)
+assert.equal(limitedSecond.headers['ratelimit-limit'], '1')
+assert.equal(limitedSecond.headers['ratelimit-remaining'], '0')
+assert.equal(limitedSecond.headers['retry-after'], '60')
+assert.match(limitedSecond.headers['ratelimit-reset'], /^\d{10}$/)
+assert.equal(gatewaySecurityEvents.some(event => event.event === 'credential_rate_limited'), true)
+assert.equal(JSON.stringify(gatewaySecurityEvents).includes(agentKeyLimited), false)
 
 const created = await call(handlerA, agentKeyA, 'POST', {
   idempotencyKey: 'agent-draft-0001',

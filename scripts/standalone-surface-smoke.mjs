@@ -30,6 +30,7 @@ const renderBlueprint = read('render.yaml')
 const packageLock = JSON.parse(read('package-lock.json'))
 
 assert.match(server, /app\.get\('\/healthz'/)
+assert.match(server, /app\.get\('\/readyz'/)
 assert.match(server, /app\.get\('\/api\/hashpaystream\/v2\/agreements'/)
 assert.match(server, /app\.post\('\/api\/hashpaystream\/v2\/agreements'/)
 assert.match(server, /app\.get\('\/api\/hashpaystream\/v1\/agent\/agreements'/)

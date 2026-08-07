@@ -515,8 +515,32 @@ export function createHashPayStreamAgreementGateway(
       })
       return res.status(upstream.status).json(gatewayResponse(upstream.body, options))
     } catch (error) {
-      const status = Number((error as Error & { status?: number })?.status) || 500
-      if (status >= 500) dependencies.logError(error instanceof Error ? error.message : String(error))
+      const failure = error as Error & {
+        status?: number
+        rateLimit?: number
+        rateLimitRemaining?: number
+        rateLimitReset?: number
+        retryAfterSeconds?: number
+        securityLogged?: number
+      }
+      const status = Number(failure?.status) || 500
+      if (status === 429) {
+        if (Number.isSafeInteger(failure.rateLimit) && Number(failure.rateLimit) > 0) {
+          res.setHeader('RateLimit-Limit', String(failure.rateLimit))
+        }
+        if (Number.isSafeInteger(failure.rateLimitRemaining) && Number(failure.rateLimitRemaining) >= 0) {
+          res.setHeader('RateLimit-Remaining', String(failure.rateLimitRemaining))
+        }
+        if (Number.isSafeInteger(failure.rateLimitReset) && Number(failure.rateLimitReset) > 0) {
+          res.setHeader('RateLimit-Reset', String(failure.rateLimitReset))
+        }
+        if (Number.isSafeInteger(failure.retryAfterSeconds) && Number(failure.retryAfterSeconds) > 0) {
+          res.setHeader('Retry-After', String(failure.retryAfterSeconds))
+        }
+      }
+      if (status >= 500 && failure.securityLogged !== 1) {
+        dependencies.logError(error instanceof Error ? error.message : String(error))
+      }
       return res.status(status).json({
         ok: false,
         error: status >= 500 ? 'HashPayStream Agreements is temporarily unavailable.' : (error as Error).message,

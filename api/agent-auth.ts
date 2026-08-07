@@ -13,6 +13,14 @@ export type AgentAuthDependencies = {
   read: <T>(key: string) => Promise<T | undefined>
   mutate: <T>(key: string, update: (current: T | undefined) => T | Promise<T>) => Promise<T>
   now: () => Date
+  logSecurity: (event: AgentAuthSecurityEvent) => void
+}
+
+export type AgentAuthSecurityEvent = {
+  component: 'hashpaystream-agent-auth'
+  event: 'credential_rejected' | 'credential_rate_limited' | 'credential_store_unavailable'
+  status: 401 | 429 | 503
+  reason: string
 }
 
 const defaultDependencies: AgentAuthDependencies = {
@@ -20,10 +28,29 @@ const defaultDependencies: AgentAuthDependencies = {
   read: readDurableJson,
   mutate: mutateDurableJson,
   now: () => new Date(),
+  logSecurity: event => {
+    const line = JSON.stringify(event)
+    if (event.status >= 500) console.error(line)
+    else console.warn(line)
+  },
 }
 
-function httpError(message: string, status: number) {
-  return Object.assign(new Error(message), { status })
+function httpError(message: string, status: number, metadata: Record<string, number> = {}) {
+  return Object.assign(new Error(message), { status, ...metadata })
+}
+
+function securityFailure(
+  dependencies: AgentAuthDependencies,
+  message: string,
+  event: AgentAuthSecurityEvent,
+  metadata: Record<string, number> = {},
+): never {
+  try {
+    dependencies.logSecurity(event)
+  } catch {
+    // Logging must never change the authentication result.
+  }
+  throw httpError(message, event.status, { ...metadata, securityLogged: 1 })
 }
 
 function bearer(req: Pick<Request, 'headers'>) {
@@ -38,29 +65,54 @@ export async function verifiedPilotAgentIdentity(
   const dependencies = { ...defaultDependencies, ...overrides }
   const presentedKey = bearer(req)
   if (!AGENT_API_KEY_PATTERN.test(presentedKey)) {
-    throw httpError('A valid HashPayStream agent credential is required.', 401)
+    securityFailure(dependencies, 'A valid HashPayStream agent credential is required.', {
+      component: 'hashpaystream-agent-auth',
+      event: 'credential_rejected',
+      status: 401,
+      reason: 'invalid_format',
+    })
   }
 
   let registryConfig: ReturnType<typeof agentCredentialRegistryConfig>
   try {
     registryConfig = agentCredentialRegistryConfig(env)
   } catch {
-    throw httpError('HashPayStream agent access is unavailable.', 503)
+    securityFailure(dependencies, 'HashPayStream agent access is unavailable.', {
+      component: 'hashpaystream-agent-auth',
+      event: 'credential_store_unavailable',
+      status: 503,
+      reason: 'invalid_registry_configuration',
+    })
   }
   if (!registryConfig || !dependencies.hasStore()) {
-    throw httpError('HashPayStream agent access is unavailable.', 503)
+    securityFailure(dependencies, 'HashPayStream agent access is unavailable.', {
+      component: 'hashpaystream-agent-auth',
+      event: 'credential_store_unavailable',
+      status: 503,
+      reason: !registryConfig ? 'registry_not_configured' : 'durable_store_not_configured',
+    })
   }
   let current
   try {
     current = await dependencies.read(registryConfig.storeKey)
   } catch {
-    throw httpError('HashPayStream agent access is unavailable.', 503)
+    securityFailure(dependencies, 'HashPayStream agent access is unavailable.', {
+      component: 'hashpaystream-agent-auth',
+      event: 'credential_store_unavailable',
+      status: 503,
+      reason: 'registry_read_failed',
+    })
   }
   const store = safeAgentCredentialStore(current)
   const digest = agentCredentialDigest(presentedKey, registryConfig.pepper)
   const record = store.credentials[digest]
   if (!record || record.status !== 'active') {
-    throw httpError('A valid HashPayStream agent credential is required.', 401)
+    securityFailure(dependencies, 'A valid HashPayStream agent credential is required.', {
+      component: 'hashpaystream-agent-auth',
+      event: 'credential_rejected',
+      status: 401,
+      reason: 'credential_not_active',
+    })
   }
 
   let usage: ReturnType<typeof consumeAgentCredential> | undefined
@@ -72,13 +124,33 @@ export async function verifiedPilotAgentIdentity(
       return usage.store
     })
   } catch {
-    throw httpError('HashPayStream agent access is unavailable.', 503)
+    securityFailure(dependencies, 'HashPayStream agent access is unavailable.', {
+      component: 'hashpaystream-agent-auth',
+      event: 'credential_store_unavailable',
+      status: 503,
+      reason: 'usage_mutation_failed',
+    })
   }
   if (!usage || usage.status === 'invalid') {
-    throw httpError('A valid HashPayStream agent credential is required.', 401)
+    securityFailure(dependencies, 'A valid HashPayStream agent credential is required.', {
+      component: 'hashpaystream-agent-auth',
+      event: 'credential_rejected',
+      status: 401,
+      reason: 'credential_revoked_during_request',
+    })
   }
   if (usage.status === 'rate_limited') {
-    throw httpError('HashPayStream agent request limit exceeded.', 429)
+    securityFailure(dependencies, 'HashPayStream agent request limit exceeded.', {
+      component: 'hashpaystream-agent-auth',
+      event: 'credential_rate_limited',
+      status: 429,
+      reason: 'credential_window_exhausted',
+    }, {
+      rateLimit: usage.limit,
+      rateLimitRemaining: 0,
+      rateLimitReset: usage.resetAtEpochSeconds,
+      retryAfterSeconds: usage.retryAfterSeconds,
+    })
   }
   return 'agent:' + usage.agentId
 }
