@@ -2,8 +2,8 @@ import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
 import { withHashPayStreamRequestId } from './request-telemetry.js'
 
-type AnalyticsMode = 'human' | 'agentic'
-type UpstreamResult = { status: number; body: Record<string, unknown>; latencyMs: number }
+export type AnalyticsMode = 'human' | 'agentic'
+export type UpstreamResult = { status: number; body: Record<string, unknown>; latencyMs: number }
 
 export type AdminAnalyticsDependencies = {
   identityEmails: (req: Request, env: NodeJS.ProcessEnv) => Promise<string[]>
@@ -249,6 +249,23 @@ function aggregate(human: Agreement[], agentic: Agreement[], now: Date, sources:
   }
 }
 
+export async function readHashPayStreamAnalytics(
+  env: NodeJS.ProcessEnv,
+  now: Date,
+  upstream: AdminAnalyticsDependencies['upstream'] = upstreamAgreements,
+) {
+  const [human, agentic] = await Promise.all([
+    upstream('human', env),
+    upstream('agentic', env),
+  ])
+  for (const source of [human, agentic]) {
+    if (source.status !== 200 || source.body.ok !== true || !Array.isArray(source.body.agreements)) {
+      throw httpError('Hash PayLink Agreements is temporarily unavailable.', 502)
+    }
+  }
+  return aggregate(records(human.body.agreements), records(agentic.body.agreements), now, { human, agentic })
+}
+
 export function createHashPayStreamAdminAnalytics(overrides: Partial<AdminAnalyticsDependencies> = {}) {
   const dependencies = { ...defaults, ...overrides }
   return async function hashPayStreamAdminAnalytics(req: Request, res: Response) {
@@ -265,18 +282,9 @@ export function createHashPayStreamAdminAnalytics(overrides: Partial<AdminAnalyt
       if (!identities.some(email => allowed.has(email.toLowerCase()))) {
         throw httpError('You do not have access to HashPayStream analytics.', 403)
       }
-      const [human, agentic] = await Promise.all([
-        dependencies.upstream('human', env),
-        dependencies.upstream('agentic', env),
-      ])
-      for (const source of [human, agentic]) {
-        if (source.status !== 200 || source.body.ok !== true || !Array.isArray(source.body.agreements)) {
-          throw httpError('Hash PayLink Agreements is temporarily unavailable.', 502)
-        }
-      }
       return res.json({
         ok: true,
-        analytics: aggregate(records(human.body.agreements), records(agentic.body.agreements), dependencies.now(), { human, agentic }),
+        analytics: await readHashPayStreamAnalytics(env, dependencies.now(), dependencies.upstream),
       })
     } catch (error) {
       const status = Number((error as Error & { status?: number }).status) || 500

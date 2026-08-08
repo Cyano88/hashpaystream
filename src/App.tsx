@@ -14,6 +14,7 @@ import StreamPayAccount from './components/StreamPayAccount'
 import StreamPayLegal from './components/StreamPayLegal'
 import StreamPayAgentDocsPage from './components/docs/StreamPayAgentDocsPage'
 import StreamPayAnalytics from './components/admin/StreamPayAnalytics'
+import StreamPayStats from './components/StreamPayStats'
 import { HashPayStreamSessionSplash } from './components/HashPayStreamSessionSplash'
 import { BrowserRouter, Navigate, useLocation } from './lib/router'
 import { useHashPayStreamSessionSplash } from './lib/useHashPayStreamSessionSplash'
@@ -77,6 +78,7 @@ function StreamPayRoute() {
   else if (route === '/activity') content = <StreamPayActivity />
   else if (route === '/account') content = <StreamPayAccount />
   else if (route === '/admin/analytics') content = <StreamPayAnalytics />
+  else if (route === '/stats') content = <StreamPayStats />
   else if (route === '/docs') content = <StreamPayDocsHome />
   else if (route === '/docs/architecture') content = <Navigate to="/docs#how-it-works" replace />
   else if (route === '/docs/arc-agreements') content = <StreamPayArcAgreementDocs />

@@ -18,6 +18,8 @@ upstream agreement, checkout, chain-policy, lifecycle, and receipt provider.
 - `/api/hashpaystream/v1/agent/arc-agreement-webhook` separately signed agent lifecycle receiver
 - `/admin/analytics` private operator dashboard (server-side admin allowlist)
 - `/api/hashpaystream/v1/admin/analytics` privacy-safe aggregate analytics
+- `/stats` public Arc Testnet product proof
+- `/api/hashpaystream/v1/public/stats` cached public aggregate statistics
 - `/healthz` dependency-free process liveness
 - `/readyz` aggregate durable-dependency readiness with no configuration details
 
@@ -118,6 +120,13 @@ release structures, and upstream latency only. They never contain identities,
 wallet addresses, private payer URLs, agreement IDs, or transaction hashes.
 Circle Marketplace request analytics are labeled as not recorded until a
 separate privacy-reviewed event store is implemented.
+
+The public `/stats` page uses a separate cached API projection. It includes
+only created, funded, and completed agreement counts, Human and Agentic totals,
+test-USDC protected and released totals, release structures, and a link to the
+curated verified operating example. It excludes internal latency, timing,
+status breakdowns, identities, wallets, private links, agreement identifiers,
+and transaction hashes.
 
 ## Local verification
 

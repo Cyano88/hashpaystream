@@ -74,7 +74,7 @@ export default function StreamPayDocsHome() {
         ['04', 'Resolve', 'Approve, revise, cancel or refund only when eligible.'],
       ].map(([number, title, body]) => <div key={number} className="border-t border-gray-200 pt-4 dark:border-white/10"><p className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">{number}</p><p className="mt-2 text-sm font-semibold text-gray-950 dark:text-white">{title}</p><p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{body}</p></div>)}</div>
     </section>
-    <section className="mt-12">
+    <section id="verified-operation" className="mt-12 scroll-mt-24">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Verified operating example</p>
       <div className="mt-3 rounded-3xl border border-gray-200 bg-white p-6 dark:border-white/10 dark:bg-[#18181b] sm:p-8">
         <div className="flex items-start gap-4">

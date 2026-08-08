@@ -6,6 +6,7 @@ import arcAgreementWebhook from './api/arc-agreement-webhook.js'
 import agentAgreementGateway from './api/agent-agreement-gateway.js'
 import agentArcAgreementWebhook from './api/agent-arc-webhook.js'
 import adminAnalytics from './api/admin-analytics.js'
+import publicStats from './api/public-stats.js'
 import { rateLimit } from './api/rate-limit.js'
 import { createHashPayStreamReadinessHandler } from './api/readiness.js'
 import apiTelemetry from './api/request-telemetry.js'
@@ -83,6 +84,15 @@ app.get('/api/hashpaystream/v1/agent/agreements', rateLimit({ name: 'agent-agree
 app.post('/api/hashpaystream/v1/agent/agreements', rateLimit({ name: 'agent-agreement-write', windowMs: 60_000, max: 30 }), agentAgreementGateway)
 app.all('/api/hashpaystream/v1/agent/agreements', (_req, res) => {
   res.setHeader('Allow', 'GET, POST')
+  return res.status(405).json({ ok: false, error: 'Method not allowed.' })
+})
+app.get(
+  '/api/hashpaystream/v1/public/stats',
+  rateLimit({ name: 'public-stats', windowMs: 60_000, max: 120 }),
+  publicStats,
+)
+app.all('/api/hashpaystream/v1/public/stats', (_req, res) => {
+  res.setHeader('Allow', 'GET')
   return res.status(405).json({ ok: false, error: 'Method not allowed.' })
 })
 app.get(

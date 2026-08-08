@@ -2,6 +2,7 @@ import { ArrowRightIcon, EnvelopeIcon } from '@heroicons/react/24/outline'
 import { AuthButton } from '../../lib/AuthButton'
 import type { HashPayStreamSplashState } from '../../lib/useHashPayStreamSessionSplash'
 import { HashPayStreamMark } from '../HashPayStreamMark'
+import { Link } from '../../lib/router'
 
 export function AgreementSignInLanding({ splashState, compact = false }: { splashState: HashPayStreamSplashState; compact?: boolean }) {
   const splashActive = splashState !== 'idle'
@@ -30,14 +31,10 @@ export function AgreementSignInLanding({ splashState, compact = false }: { splas
           <ArrowRightIcon className="h-4 w-4" />
         </span>
       </AuthButton>
-      <a
-        href="https://x.com/Hash_PayLink"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-5 text-xs text-gray-400 transition-colors hover:text-gray-700 dark:hover:text-gray-200"
-      >
-        Support
-      </a>
+      <div className="mt-5 flex items-center gap-4 text-xs text-gray-400">
+        <Link to="/stats" className="transition-colors hover:text-gray-700 dark:hover:text-gray-200">Product stats</Link>
+        <a href="https://x.com/Hash_PayLink" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-700 dark:hover:text-gray-200">Support</a>
+      </div>
       <a
         href="https://testnet.arcscan.app"
         target="_blank"
