@@ -13,11 +13,12 @@ import StreamPayActivity from './components/StreamPayActivity'
 import StreamPayAccount from './components/StreamPayAccount'
 import StreamPayLegal from './components/StreamPayLegal'
 import StreamPayAgentDocsPage from './components/docs/StreamPayAgentDocsPage'
+import StreamPayAnalytics from './components/admin/StreamPayAnalytics'
 import { HashPayStreamSessionSplash } from './components/HashPayStreamSessionSplash'
 import { BrowserRouter, Navigate, useLocation } from './lib/router'
 import { useHashPayStreamSessionSplash } from './lib/useHashPayStreamSessionSplash'
 
-const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/activity', '/account'])
+const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/activity', '/account', '/admin/analytics'])
 const SESSION_READY_TIMEOUT_MS = 12_000
 
 function SessionLoadingSurface({ sessionDelayed, onRetry }: { sessionDelayed: boolean; onRetry: () => void }) {
@@ -75,6 +76,7 @@ function StreamPayRoute() {
   else if (route === '/agreements/new') content = <FixedAgreementForm />
   else if (route === '/activity') content = <StreamPayActivity />
   else if (route === '/account') content = <StreamPayAccount />
+  else if (route === '/admin/analytics') content = <StreamPayAnalytics />
   else if (route === '/docs') content = <StreamPayDocsHome />
   else if (route === '/docs/architecture') content = <Navigate to="/docs#how-it-works" replace />
   else if (route === '/docs/arc-agreements') content = <StreamPayArcAgreementDocs />

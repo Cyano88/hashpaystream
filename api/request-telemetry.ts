@@ -9,6 +9,7 @@ export type HashPayStreamApiRoute =
   | 'human_webhook'
   | 'agent_agreements'
   | 'agent_webhook'
+  | 'admin_analytics'
   | 'unmatched'
 
 export type HashPayStreamApiTelemetryEvent = {
@@ -48,6 +49,7 @@ function route(path: string): HashPayStreamApiRoute {
   if (path === '/api/hashpaystream/arc-agreement-webhook') return 'human_webhook'
   if (path === '/api/hashpaystream/v1/agent/agreements') return 'agent_agreements'
   if (path === '/api/hashpaystream/v1/agent/arc-agreement-webhook') return 'agent_webhook'
+  if (path === '/api/hashpaystream/v1/admin/analytics') return 'admin_analytics'
   return 'unmatched'
 }
 

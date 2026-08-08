@@ -16,6 +16,8 @@ upstream agreement, checkout, chain-policy, lifecycle, and receipt provider.
 - `/api/hashpaystream/v1/agent/agreements` authenticated headless-agent gateway
 - `/api/hashpaystream/v1/circle-marketplace/agreement-plan` Circle Gateway x402 storefront for fixed agreement plans
 - `/api/hashpaystream/v1/agent/arc-agreement-webhook` separately signed agent lifecycle receiver
+- `/admin/analytics` private operator dashboard (server-side admin allowlist)
+- `/api/hashpaystream/v1/admin/analytics` privacy-safe aggregate analytics
 - `/healthz` dependency-free process liveness
 - `/readyz` aggregate durable-dependency readiness with no configuration details
 
@@ -101,6 +103,21 @@ For a zero-downtime rotation, create a second credential with the same agent
 id, update the agent backend, verify the replacement key's `lastUsedAt`, and
 only then revoke the old key. Multiple active keys for one agent are supported
 specifically for this overlap.
+
+## Private analytics
+
+The operator dashboard at `/admin/analytics` is excluded from customer
+navigation. Access requires a valid Privy session whose verified email is in
+the comma-separated, server-only `HASHPAYSTREAM_ADMIN_EMAILS` allowlist.
+Authorization is enforced again by the API; the browser cannot grant access.
+
+Metrics are derived at request time from the Human and Agentic Hash PayLink
+agreement APIs, capped at the newest 100 agreements per project. Responses
+contain aggregate statuses, funnel counts, test-USDC totals, timing averages,
+release structures, and upstream latency only. They never contain identities,
+wallet addresses, private payer URLs, agreement IDs, or transaction hashes.
+Circle Marketplace request analytics are labeled as not recorded until a
+separate privacy-reviewed event store is implemented.
 
 ## Local verification
 

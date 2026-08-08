@@ -85,6 +85,7 @@ for (const path of [
   '/api/hashpaystream/arc-agreement-webhook',
   '/api/hashpaystream/v1/agent/agreements',
   '/api/hashpaystream/v1/agent/arc-agreement-webhook',
+  '/api/hashpaystream/v1/admin/analytics',
 ]) {
   const response = responseRecorder()
   routeTelemetry({ method: 'POST', path }, response, () => {})
@@ -95,6 +96,7 @@ assert.deepEqual(routeEvents.map(event => event.route), [
   'human_webhook',
   'agent_agreements',
   'agent_webhook',
+  'admin_analytics',
 ])
 
 const loggerFailure = createHashPayStreamApiTelemetry({
