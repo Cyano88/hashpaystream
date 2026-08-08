@@ -6,13 +6,14 @@ import AgreementDashboard from './components/agreements/AgreementDashboard'
 import FixedAgreementForm from './components/agreements/FixedAgreementForm'
 import StreamPayLanding from './components/StreamPayLanding'
 import StreamPayDocsHome from './components/docs/StreamPayDocsHome'
+import StreamPayArchitectureDocs from './components/docs/StreamPayArchitectureDocs'
 import StreamPayArcAgreementDocs from './components/docs/StreamPayArcAgreementDocs'
 import StreamPayCircleMarketplaceDocs from './components/docs/StreamPayCircleMarketplaceDocs'
 import StreamPayHome from './components/StreamPayHome'
 import StreamPayActivity from './components/StreamPayActivity'
 import StreamPayAccount from './components/StreamPayAccount'
 import StreamPayLegal from './components/StreamPayLegal'
-import StreamPayAgentDocs from './components/StreamPayAgentDocs'
+import StreamPayAgentDocsPage from './components/docs/StreamPayAgentDocsPage'
 import { HashPayStreamSessionSplash } from './components/HashPayStreamSessionSplash'
 import { BrowserRouter, Navigate, useLocation } from './lib/router'
 import { useHashPayStreamSessionSplash } from './lib/useHashPayStreamSessionSplash'
@@ -76,9 +77,10 @@ function StreamPayRoute() {
   else if (route === '/activity') content = <StreamPayActivity />
   else if (route === '/account') content = <StreamPayAccount />
   else if (route === '/docs') content = <StreamPayDocsHome />
+  else if (route === '/docs/architecture') content = <StreamPayArchitectureDocs />
   else if (route === '/docs/arc-agreements') content = <StreamPayArcAgreementDocs />
   else if (route === '/docs/circle-marketplace') content = <StreamPayCircleMarketplaceDocs />
-  else if (route === '/docs/agents') content = <StreamPayAgentDocs />
+  else if (route === '/docs/agents') content = <StreamPayAgentDocsPage />
   else if (route === '/terms') content = <StreamPayLegal page="terms" />
   else if (route === '/privacy') content = <StreamPayLegal page="privacy" />
   else content = <Navigate to="/" replace />

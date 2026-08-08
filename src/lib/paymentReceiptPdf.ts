@@ -68,7 +68,7 @@ function rows(receipt: PaylinkReceipt): ReceiptRow[] {
 }
 
 export function paymentReceiptFileName(receipt?: PaylinkReceipt) {
-  return `hashpaylink-arc-agreement-receipt-${receipt?.receiptId.slice(0, 10) || 'receipt'}.pdf`
+  return `hashpaystream-agreement-receipt-${receipt?.receiptId.slice(0, 10) || 'receipt'}.pdf`
 }
 
 export async function createPaymentReceiptPdf(receipt: PaylinkReceipt) {
@@ -96,7 +96,7 @@ function drawReceipt(ctx: CanvasRenderingContext2D, receipt: PaylinkReceipt, wid
   ctx.fillRect(0, 0, width, height)
   roundRect(ctx, 34, 32, width - 68, height - 64, 28, '#000000')
 
-  // Canvas-native Hash PayLink mark: crisp at every PDF zoom level and no background tile.
+  // Canvas-native HashPayStream mark: crisp at every PDF zoom level and no background tile.
   ctx.strokeStyle = '#ffffff'
   ctx.lineWidth = 3
   ctx.beginPath()
@@ -109,7 +109,7 @@ function drawReceipt(ctx: CanvasRenderingContext2D, receipt: PaylinkReceipt, wid
 
   ctx.fillStyle = '#ffffff'
   ctx.font = '800 17px Arial'
-  ctx.fillText('Hash_PayLink', 108, 81)
+  ctx.fillText('HashPayStream', 108, 81)
   badge(ctx, 'ARC AGREEMENT', 418, 62)
 
   ctx.font = '800 36px Arial'
@@ -146,7 +146,7 @@ function drawReceipt(ctx: CanvasRenderingContext2D, receipt: PaylinkReceipt, wid
   ctx.setLineDash([])
   ctx.fillStyle = '#707070'
   ctx.font = '700 10px Arial'
-  const footer = 'VERIFIED ARC AGREEMENT RECORD · HASH PAYLINK'
+  const footer = 'VERIFIED ARC AGREEMENT RECORD | HASHPAYSTREAM | POWERED BY HASH PAYLINK'
   ctx.fillText(footer, (width - ctx.measureText(footer).width) / 2, 746)
 }
 

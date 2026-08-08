@@ -78,7 +78,7 @@ export default function UnifiedReceipt({ receipt, className = '', label = 'Open 
       const { resolved, pdf } = await resolvePdf()
       const file = new File([pdf], paymentReceiptFileName(resolved), { type: 'application/pdf' })
       if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
-        await navigator.share({ title: 'Hash PayLink receipt', files: [file] })
+        await navigator.share({ title: 'HashPayStream agreement receipt', files: [file] })
         return
       }
       const url = URL.createObjectURL(pdf)

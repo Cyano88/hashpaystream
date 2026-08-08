@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode, SVGProps } from 'react'
-import { ArrowTopRightOnSquareIcon, Bars3Icon, BookOpenIcon, CodeBracketSquareIcon, CpuChipIcon, DocumentCheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { ArrowTopRightOnSquareIcon, Bars3Icon, BookOpenIcon, CodeBracketSquareIcon, CpuChipIcon, DocumentCheckIcon, RectangleGroupIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { useState } from 'react'
 import { Link } from '../../lib/router'
 
@@ -7,6 +7,7 @@ type Icon = ComponentType<SVGProps<SVGSVGElement>>
 
 const navigation: Array<{ label: string; path: string; icon: Icon }> = [
   { label: 'Overview', path: '/docs', icon: BookOpenIcon },
+  { label: 'Architecture', path: '/docs/architecture', icon: RectangleGroupIcon },
   { label: 'Arc agreements', path: '/docs/arc-agreements', icon: DocumentCheckIcon },
   { label: 'Circle marketplace', path: '/docs/circle-marketplace', icon: CodeBracketSquareIcon },
   { label: 'Agent API', path: '/docs/agents', icon: CpuChipIcon },

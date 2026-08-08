@@ -59,17 +59,19 @@ function CodeBlock({ children }: { children: string }) {
   )
 }
 
-export default function StreamPayAgentDocs() {
+export default function StreamPayAgentDocs({ embedded = false }: { embedded?: boolean }) {
   const docsTo = useStreamPayPath('/docs')
 
   return (
-    <article className="w-full max-w-4xl py-10 sm:py-16">
-      <Link to={docsTo} className="inline-flex items-center gap-2 text-xs font-semibold text-gray-500 transition-colors hover:text-gray-950 dark:text-gray-400 dark:hover:text-white">
-        <ArrowLeftIcon className="h-4 w-4" />
-        Customer guide
-      </Link>
+    <article className={`w-full max-w-4xl ${embedded ? '' : 'py-10 sm:py-16'}`}>
+      {!embedded && (
+        <Link to={docsTo} className="inline-flex items-center gap-2 text-xs font-semibold text-gray-500 transition-colors hover:text-gray-950 dark:text-gray-400 dark:hover:text-white">
+          <ArrowLeftIcon className="h-4 w-4" />
+          Customer guide
+        </Link>
+      )}
 
-      <div className="mt-7 max-w-3xl">
+      <div className={`${embedded ? '' : 'mt-7'} max-w-3xl`}>
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Agent API · Private pilot</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-4xl">Arc Agreements for autonomous agents.</h1>
         <p className="mt-4 text-sm leading-7 text-gray-500 dark:text-gray-400">
