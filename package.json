@@ -19,8 +19,9 @@
     "test:agent-arc-webhook": "node --import tsx scripts/agent-arc-webhook-smoke.mjs",
     "test:readiness": "node --import tsx scripts/readiness-smoke.mjs",
     "test:shutdown": "node --import tsx scripts/graceful-shutdown-smoke.mjs",
+    "test:navigation-context": "node --import tsx scripts/stream-pay-path-smoke.mjs",
     "test:surface": "node scripts/standalone-surface-smoke.mjs",
-    "test:smoke": "npm run test:agreement-gateway && npm run test:agent-credentials && npm run test:agent-agreement-gateway && npm run test:arc-webhook && npm run test:agent-arc-webhook && npm run test:readiness && npm run test:shutdown && npm run test:surface",
+    "test:smoke": "npm run test:agreement-gateway && npm run test:agent-credentials && npm run test:agent-agreement-gateway && npm run test:arc-webhook && npm run test:agent-arc-webhook && npm run test:readiness && npm run test:shutdown && npm run test:navigation-context && npm run test:surface",
     "agent:credentials": "node --import tsx scripts/agent-credential-admin.mjs",
     "audit:database-recovery": "node --import tsx scripts/database-recovery-audit.mjs"
   },
