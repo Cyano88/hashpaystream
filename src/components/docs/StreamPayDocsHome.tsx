@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { ArrowDownIcon, ArrowRightIcon, CheckBadgeIcon, CircleStackIcon, CloudIcon, CodeBracketSquareIcon, CpuChipIcon, DocumentCheckIcon, ShieldCheckIcon, UserGroupIcon } from '@heroicons/react/24/outline'
+import { ArrowDownIcon, ArrowRightIcon, ArrowTopRightOnSquareIcon, CheckBadgeIcon, CircleStackIcon, CloudIcon, CodeBracketSquareIcon, CpuChipIcon, DocumentCheckIcon, ShieldCheckIcon, UserGroupIcon } from '@heroicons/react/24/outline'
 import { Link, useLocation } from '../../lib/router'
 import { DocsCallout, DocsEyebrow, StreamPayDocsShell } from './StreamPayDocsShell'
 
@@ -73,6 +73,29 @@ export default function StreamPayDocsHome() {
         ['03', 'Deliver', 'Submit a delivery note and HTTPS evidence.'],
         ['04', 'Resolve', 'Approve, revise, cancel or refund only when eligible.'],
       ].map(([number, title, body]) => <div key={number} className="border-t border-gray-200 pt-4 dark:border-white/10"><p className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">{number}</p><p className="mt-2 text-sm font-semibold text-gray-950 dark:text-white">{title}</p><p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{body}</p></div>)}</div>
+    </section>
+    <section className="mt-12">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Verified operating example</p>
+      <div className="mt-3 rounded-3xl border border-gray-200 bg-white p-6 dark:border-white/10 dark:bg-[#18181b] sm:p-8">
+        <div className="flex items-start gap-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400"><CheckBadgeIcon className="h-5 w-5" /></span>
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight text-gray-950 dark:text-white">Arc Testnet agreement completed end to end.</h2>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-gray-500 dark:text-gray-400">On 8 August 2026, HashPayStream created and reconciled a fixed agreement funded with 0.1 test USDC. The creator submitted HTTPS delivery evidence, the payer approved the release, and Arc confirmed the full transfer from escrow to the configured recipient.</p>
+          </div>
+        </div>
+        <div className="mt-7 grid gap-3 sm:grid-cols-3">
+          {[
+            ['Agreement', 'agr_927c646e183c4681b925ff2e', 'Fixed · one release'],
+            ['Outcome', '0.1 USDC released', '0 USDC remaining'],
+            ['Arc confirmation', 'Block 55,953,829', 'Success · 8 Aug 2026'],
+          ].map(([label, value, detail]) => <div key={label} className="rounded-2xl bg-gray-50 p-4 dark:bg-white/[0.04]"><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400">{label}</p><p className="mt-2 break-all text-xs font-semibold text-gray-950 dark:text-white">{value}</p><p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{detail}</p></div>)}
+        </div>
+        <div className="mt-6 flex flex-col gap-4 border-t border-gray-200 pt-5 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+          <p className="max-w-2xl text-[11px] leading-5 text-gray-500 dark:text-gray-400">This is a testnet operating verification. It is not evidence of mainnet volume, customer adoption or investment performance.</p>
+          <a href="https://testnet.arcscan.app/tx/0x710c37a00a32df67b3b954309ea51530550e614f6282f968aa79abd44b28fa2b" target="_blank" rel="noreferrer" className="inline-flex shrink-0 items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400">View verified Arc transaction <ArrowTopRightOnSquareIcon className="h-4 w-4" /></a>
+        </div>
+      </div>
     </section>
     <DocsCallout title="Two payments must not be confused" tone="amber">Circle Marketplace's $0.01 x402 payment pays only for the planning response. The agreement's stated USDC amount is separate and requires a later wallet-authorized escrow action through an approved pilot integration.</DocsCallout>
     <section className="mt-12 grid gap-4 sm:grid-cols-2">
