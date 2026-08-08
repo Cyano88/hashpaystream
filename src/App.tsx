@@ -5,7 +5,9 @@ import { StreamPayLayout } from './components/StreamPayLayout'
 import AgreementDashboard from './components/agreements/AgreementDashboard'
 import FixedAgreementForm from './components/agreements/FixedAgreementForm'
 import StreamPayLanding from './components/StreamPayLanding'
-import StreamPayDocs from './components/StreamPayDocs'
+import StreamPayDocsHome from './components/docs/StreamPayDocsHome'
+import StreamPayArcAgreementDocs from './components/docs/StreamPayArcAgreementDocs'
+import StreamPayCircleMarketplaceDocs from './components/docs/StreamPayCircleMarketplaceDocs'
 import StreamPayHome from './components/StreamPayHome'
 import StreamPayActivity from './components/StreamPayActivity'
 import StreamPayAccount from './components/StreamPayAccount'
@@ -73,7 +75,9 @@ function StreamPayRoute() {
   else if (route === '/agreements/new') content = <FixedAgreementForm />
   else if (route === '/activity') content = <StreamPayActivity />
   else if (route === '/account') content = <StreamPayAccount />
-  else if (route === '/docs') content = <StreamPayDocs />
+  else if (route === '/docs') content = <StreamPayDocsHome />
+  else if (route === '/docs/arc-agreements') content = <StreamPayArcAgreementDocs />
+  else if (route === '/docs/circle-marketplace') content = <StreamPayCircleMarketplaceDocs />
   else if (route === '/docs/agents') content = <StreamPayAgentDocs />
   else if (route === '/terms') content = <StreamPayLegal page="terms" />
   else if (route === '/privacy') content = <StreamPayLegal page="privacy" />
