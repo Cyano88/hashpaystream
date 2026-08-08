@@ -6,7 +6,6 @@ import AgreementDashboard from './components/agreements/AgreementDashboard'
 import FixedAgreementForm from './components/agreements/FixedAgreementForm'
 import StreamPayLanding from './components/StreamPayLanding'
 import StreamPayDocsHome from './components/docs/StreamPayDocsHome'
-import StreamPayArchitectureDocs from './components/docs/StreamPayArchitectureDocs'
 import StreamPayArcAgreementDocs from './components/docs/StreamPayArcAgreementDocs'
 import StreamPayCircleMarketplaceDocs from './components/docs/StreamPayCircleMarketplaceDocs'
 import StreamPayHome from './components/StreamPayHome'
@@ -77,7 +76,7 @@ function StreamPayRoute() {
   else if (route === '/activity') content = <StreamPayActivity />
   else if (route === '/account') content = <StreamPayAccount />
   else if (route === '/docs') content = <StreamPayDocsHome />
-  else if (route === '/docs/architecture') content = <StreamPayArchitectureDocs />
+  else if (route === '/docs/architecture') content = <Navigate to="/docs#how-it-works" replace />
   else if (route === '/docs/arc-agreements') content = <StreamPayArcAgreementDocs />
   else if (route === '/docs/circle-marketplace') content = <StreamPayCircleMarketplaceDocs />
   else if (route === '/docs/agents') content = <StreamPayAgentDocsPage />
