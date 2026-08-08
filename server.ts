@@ -9,12 +9,20 @@ import { rateLimit } from './api/rate-limit.js'
 import { createHashPayStreamReadinessHandler } from './api/readiness.js'
 import apiTelemetry from './api/request-telemetry.js'
 import { createHashPayStreamShutdown } from './api/graceful-shutdown.js'
+import {
+  createCircleMarketplacePaymentHandler,
+  createCircleMarketplaceResourceHandler,
+  createCircleMarketplaceValidationHandler,
+} from './api/circle-marketplace.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
 const root = path.dirname(fileURLToPath(import.meta.url))
 let draining = false
 const readiness = createHashPayStreamReadinessHandler({ isDraining: () => draining })
+const circleMarketplaceValidation = createCircleMarketplaceValidationHandler()
+const circleMarketplacePayment = createCircleMarketplacePaymentHandler()
+const circleMarketplaceResource = createCircleMarketplaceResourceHandler()
 
 app.set('trust proxy', 1)
 app.disable('x-powered-by')
@@ -74,6 +82,17 @@ app.get('/api/hashpaystream/v1/agent/agreements', rateLimit({ name: 'agent-agree
 app.post('/api/hashpaystream/v1/agent/agreements', rateLimit({ name: 'agent-agreement-write', windowMs: 60_000, max: 30 }), agentAgreementGateway)
 app.all('/api/hashpaystream/v1/agent/agreements', (_req, res) => {
   res.setHeader('Allow', 'GET, POST')
+  return res.status(405).json({ ok: false, error: 'Method not allowed.' })
+})
+app.post(
+  '/api/hashpaystream/v1/circle-marketplace/agreement-plan',
+  rateLimit({ name: 'circle-marketplace-plan', windowMs: 60_000, max: 30 }),
+  circleMarketplaceValidation,
+  circleMarketplacePayment,
+  circleMarketplaceResource,
+)
+app.all('/api/hashpaystream/v1/circle-marketplace/agreement-plan', (_req, res) => {
+  res.setHeader('Allow', 'POST')
   return res.status(405).json({ ok: false, error: 'Method not allowed.' })
 })
 app.use('/api/hashpaystream', (_req, res) => res.status(404).json({ ok: false, error: 'API route not found.' }))

@@ -14,6 +14,7 @@ upstream agreement, checkout, chain-policy, lifecycle, and receipt provider.
 - `/api/hashpaystream/v2/agreements` server-side Hash PayLink gateway
 - `/api/hashpaystream/arc-agreement-webhook` signed lifecycle receiver
 - `/api/hashpaystream/v1/agent/agreements` authenticated headless-agent gateway
+- `/api/hashpaystream/v1/circle-marketplace/agreement-plan` Circle Gateway x402 storefront for fixed agreement plans
 - `/api/hashpaystream/v1/agent/arc-agreement-webhook` separately signed agent lifecycle receiver
 - `/healthz` dependency-free process liveness
 - `/readyz` aggregate durable-dependency readiness with no configuration details
@@ -112,3 +113,31 @@ npm run build
 
 Keep `HASHPAYSTREAM_ARC_API_KEY`, webhook secrets, ownership secrets, and the
 database URL server-side. Never prefix them with `VITE_`.
+
+### Circle Agent Marketplace storefront
+
+The Circle marketplace route is separate from the private agent agreement API.
+It validates the complete request before presenting a Circle Gateway x402
+payment requirement. A settled request returns a deterministic, machine-readable
+fixed-agreement plan; it does not create or fund an escrow agreement and never
+returns a payer credential. Marketplace payment is the API service fee only.
+
+Configure `HASHPAYSTREAM_CIRCLE_MARKETPLACE_SELLER_ADDRESS` with a non-zero EVM
+seller address. The pilot is restricted to Arc Testnet through
+`HASHPAYSTREAM_CIRCLE_MARKETPLACE_FACILITATOR_URL` and charges the price in
+`HASHPAYSTREAM_CIRCLE_MARKETPLACE_PRICE_USD` (default `0.01`). Keep the seller
+configuration server-side.
+
+Example request body:
+
+```json
+{
+  "template": "fixed_unlock",
+  "title": "Verified research delivery",
+  "description": "Deliver a cited research brief for payer review.",
+  "amount": "0.10",
+  "recipient": "0x1111111111111111111111111111111111111111",
+  "durationSeconds": 86400,
+  "cancellationWindowSeconds": 900
+}
+```

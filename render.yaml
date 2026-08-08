@@ -44,6 +44,12 @@ services:
         sync: false
       - key: HASHPAYSTREAM_AGENT_ARC_WEBHOOK_STORE_KEY
         value: hashpaystream:agent-arc-webhooks:v1
+      - key: HASHPAYSTREAM_CIRCLE_MARKETPLACE_SELLER_ADDRESS
+        sync: false
+      - key: HASHPAYSTREAM_CIRCLE_MARKETPLACE_PRICE_USD
+        value: "0.01"
+      - key: HASHPAYSTREAM_CIRCLE_MARKETPLACE_FACILITATOR_URL
+        value: https://gateway-api-testnet.circle.com
       - key: DATABASE_URL
         fromDatabase:
           name: hashpaystream-db
