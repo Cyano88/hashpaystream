@@ -68,22 +68,20 @@ assert.equal(response.body?.assessment?.decision?.decision, 'ESCALATE')
 assert.equal(response.body?.assessment?.decision?.humanReviewRequired, true)
 assert.equal(response.body?.assessment?.decision?.onchainOffer, undefined)
 
-const verifiedDraft = { ...request.body, requestedAdvanceBps: 4000 }
-const baseVerifiedRequest = buildAgreementIntelligenceRequest({
+const verifiedDraft = { ...request.body, requestedAdvanceBps: 3000 }
+const verifiedRequest = buildAgreementIntelligenceRequest({
   requestId: `uai_${Date.now()}verified`,
   issuedAt: new Date().toISOString(),
   providerIdentity: 'local-e2e-provider',
   providerReferenceSecret: required('HASHPAYSTREAM_APP_OWNERSHIP_SECRET'),
   draft: verifiedDraft,
-})
-const verifiedRequest = {
-  ...baseVerifiedRequest,
-  evidence: {
-    providerHistoryIncluded: true,
-    sources: ['hashpaystream-funded-agreement', 'hashpaystream-provider-history'],
-    dataGaps: [],
+  trustedEvidence: {
+    agreementState: 'funded',
+    providerHistoryIncluded: false,
+    sources: ['hashpaystream-authoritative-agreement', 'arc-funded-agreement'],
+    dataGaps: ['provider-history', 'delivery-history'],
   },
-}
+})
 const intelligenceResponse = await fetch(required('HASHPAYSTREAM_ZEROSCOUT_BASE_URL') + '/api/integrations/agreement-intelligence', {
   method: 'POST',
   headers: { authorization: 'Bearer ' + required('HASHPAYSTREAM_ZEROSCOUT_API_KEY'), 'content-type': 'application/json' },
@@ -92,7 +90,7 @@ const intelligenceResponse = await fetch(required('HASHPAYSTREAM_ZEROSCOUT_BASE_
 const verifiedIntelligence = await intelligenceResponse.json()
 assert.equal(intelligenceResponse.status, 201, verifiedIntelligence?.error ?? 'Verified Agreement Intelligence request failed.')
 assert.equal(verifiedIntelligence.recommendation, 'proceed')
-assert.equal(verifiedIntelligence.evidenceGrade, 'standard')
+assert.equal(verifiedIntelligence.evidenceGrade, 'limited')
 
 const signedDecision = await requestPolyDeskUnderwriting({
   request: verifiedRequest,

@@ -9,6 +9,9 @@ export type AgreementSummary = {
   description?: string
   template?: 'fixed_unlock' | 'progressive_release' | 'milestone'
   amount?: string
+  recipient?: string
+  durationSeconds?: number
+  cancellationWindowSeconds?: number
   status: 'awaiting_start' | 'active' | 'expired' | 'completed' | 'cancelled' | 'refunded'
   chain: null | {
     amountUsdcUnits: string

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHmac } from 'node:crypto'
 import { createHashPayStreamUpfrontAssessmentHandler } from '../api/upfront-assessment.ts'
 import { agreementIntelligenceRequestHash } from '../api/agreement-intelligence-schema.ts'
 
@@ -30,6 +31,8 @@ const env = {
   HASHPAYSTREAM_POLYDESK_EIP712_SIGNER: '0x2222222222222222222222222222222222222222',
   HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS: '0x3333333333333333333333333333333333333333',
   HASHPAYSTREAM_UPFRONT_CHAIN_ID: '1952',
+  HASHPAYSTREAM_ARC_API_KEY: 'hpl_test_1234567890abcdefghijklmnop',
+  HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS: '0x4444444444444444444444444444444444444444',
 }
 const draft = {
   template: 'fixed_unlock',
@@ -117,6 +120,57 @@ assert.equal(assessmentCalls.length, 1)
 const invalid = await call(handler, { ...draft, template: 'milestone' }, 'upfront:user-a:0002')
 assert.equal(invalid.statusCode, 400)
 assert.equal(assessmentCalls.length, 1)
+
+const fundedAgreementId = 'agr_hashpaystream12345678'
+const fundedOwnerHash = createHmac('sha256', env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET).update('hashpaystream.owner\0user-a').digest('hex')
+let fundedStore
+let fundedAssessmentRequest
+const fundedHandler = createHashPayStreamUpfrontAssessmentHandler({
+  identity: async () => 'user-a',
+  mutate: async (_key, update) => { fundedStore = update(fundedStore); return fundedStore },
+  readOwnership: async () => ({ schema: 1, agreements: { [fundedAgreementId]: { agreementId: fundedAgreementId, ownerHash: fundedOwnerHash } } }),
+  agreement: async id => ({
+    id, status: 'active', template: 'fixed_unlock', title: 'Authoritative funded delivery',
+    description: 'Deliver the authoritative funded agreement package to the payer.',
+    recipient: env.HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS, durationSeconds: 86400, cancellationWindowSeconds: 900,
+    chain: { network: 'arc', chainId: 5042002, amountUsdcUnits: '100250000' },
+  }),
+  assess: async request => {
+    fundedAssessmentRequest = request
+    return { status: 201, body: {
+      id: 'zai_funded123456', schema: 'zeroscout.agreement-intelligence.result', schemaVersion: '1.0.0',
+      requestCommitment: agreementIntelligenceRequestHash(request), intelligenceProvider: 'zeroscout-deterministic-evidence-engine',
+      recommendation: 'proceed', confidence: 61, evidenceGrade: 'limited', deliveryClarityScore: 82,
+      recommendedMaxAdvanceBps: 3500, summary: 'The funded agreement can proceed.', riskFlags: [], signals: [],
+      dataGaps: ['provider-history', 'delivery-history'], reasonCodes: ['LIMITED_EVIDENCE', 'NO_PROVIDER_HISTORY'],
+      disclaimer: 'Decision support only.', proof: { contentHash: '0x' + 'b'.repeat(64) }, createdAt: '2026-08-19T12:00:00.000Z',
+    } }
+  },
+  underwrite: async (request, intelligence) => ({
+    schema: 'polydesk.upfront.underwriting.decision', schemaVersion: '1.0.0', policyVersion: 'upfront-policy-test',
+    decisionId: 'pud_funded123456', requestId: request.requestId, issuedAt: '2026-08-19T12:01:00.000Z', expiresAt: '2026-08-19T12:16:00.000Z',
+    termsHash: request.agreement.termsHash, intelligenceCommitment: intelligence.requestCommitment, proofContentHash: intelligence.proof.contentHash,
+    decision: 'APPROVE', maximumAdvanceBps: 3000, reasonCodes: ['POLICY_THRESHOLDS_MET'], humanReviewRequired: false,
+    disclaimer: 'Decision support only.', attestation: { algorithm: 'hmac-sha256', keyId: 'polydesk-test-v1', payloadHash: 'sha256:' + 'c'.repeat(64), signature: 'd'.repeat(64) },
+  }),
+  env: () => env,
+  now: () => new Date('2026-08-19T12:00:00.000Z'),
+  requestId: () => 'uai_funded123456789',
+})
+const funded = await call(fundedHandler, { agreementId: fundedAgreementId, providerPayoutAddress: draft.providerPayoutAddress, requestedAdvanceBps: 3000 }, 'upfront:user-a:funded-0001')
+assert.equal(funded.statusCode, 201)
+assert.equal(funded.body.assessment.decision.decision, 'APPROVE')
+assert.equal(fundedAssessmentRequest.agreement.state, 'funded')
+assert.equal(fundedAssessmentRequest.agreement.title, 'Authoritative funded delivery')
+assert.deepEqual(fundedAssessmentRequest.evidence.sources, ['hashpaystream-authoritative-agreement', 'arc-funded-agreement'])
+assert.deepEqual(fundedAssessmentRequest.evidence.dataGaps, ['provider-history', 'delivery-history'])
+
+const notOwnedHandler = createHashPayStreamUpfrontAssessmentHandler({
+  identity: async () => 'user-a', mutate: async (_key, update) => { fundedStore = update(fundedStore); return fundedStore },
+  readOwnership: async () => ({ schema: 1, agreements: {} }), agreement: async () => { throw new Error('must not fetch') }, env: () => env,
+})
+const notOwned = await call(notOwnedHandler, { agreementId: fundedAgreementId, providerPayoutAddress: draft.providerPayoutAddress, requestedAdvanceBps: 3000 }, 'upfront:user-a:funded-0002')
+assert.equal(notOwned.statusCode, 404)
 
 const disabled = createHashPayStreamUpfrontAssessmentHandler({
   identity: async () => 'user-a',

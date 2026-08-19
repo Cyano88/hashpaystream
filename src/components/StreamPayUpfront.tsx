@@ -3,6 +3,7 @@ import { usePrivy } from '@privy-io/react-auth'
 import { ArrowPathIcon, BanknotesIcon, CheckBadgeIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
 import { isAddress } from 'viem'
 import { AuthButton } from '../lib/AuthButton'
+import { useAgreements } from '../lib/useAgreements'
 
 type Assessment = {
   intelligence: {
@@ -32,20 +33,21 @@ function usdc(units: string) {
 
 export default function StreamPayUpfront() {
   const { ready, authenticated, getAccessToken } = usePrivy()
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [amount, setAmount] = useState('')
+  const { agreements, loading: agreementsLoading, error: agreementsError } = useAgreements()
+  const [agreementId, setAgreementId] = useState('')
   const [providerPayoutAddress, setProviderPayoutAddress] = useState('')
   const [requestedAdvanceBps, setRequestedAdvanceBps] = useState(3000)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [assessment, setAssessment] = useState<Assessment | null>(null)
   const [requestKey, setRequestKey] = useState(idempotencyKey)
-  const valid = useMemo(() => (
-    title.trim().length >= 3 && description.trim().length >= 10
-    && /^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(amount.trim()) && Number(amount) > 0
-    && isAddress(providerPayoutAddress) && !/^0x0{40}$/i.test(providerPayoutAddress)
-  ), [amount, description, providerPayoutAddress, title])
+  const repaymentRouter = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS ?? '0x0CFd91Ea2F476C62fE2008B14A5dFd4A61328CcE').toLowerCase()
+  const eligibleAgreements = useMemo(() => agreements.filter(agreement => (
+    agreement.status === 'active' && agreement.template === 'fixed_unlock' && agreement.chain
+    && (!repaymentRouter || agreement.recipient?.toLowerCase() === repaymentRouter)
+  )), [agreements, repaymentRouter])
+  const selectedAgreement = eligibleAgreements.find(agreement => agreement.id === agreementId)
+  const valid = Boolean(selectedAgreement && isAddress(providerPayoutAddress) && !/^0x0{40}$/i.test(providerPayoutAddress))
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -58,8 +60,7 @@ export default function StreamPayUpfront() {
         method: 'POST', cache: 'no-store',
         headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', 'idempotency-key': requestKey },
         body: JSON.stringify({
-          template: 'fixed_unlock', title, description, amount, durationSeconds: 86400,
-          cancellationWindowSeconds: 900, providerPayoutAddress, requestedAdvanceBps,
+          agreementId, providerPayoutAddress, requestedAdvanceBps,
         }),
       })
       const body = await response.json().catch(() => ({})) as { assessment?: Assessment; error?: string }
@@ -86,17 +87,17 @@ export default function StreamPayUpfront() {
       <div className="max-w-2xl">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">HashPayStream Upfront</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-4xl">Turn clear work into a verifiable advance offer.</h1>
-        <p className="mt-4 text-sm leading-7 text-gray-500 dark:text-gray-400">ZeroScout checks the agreement evidence. PolyDesk applies the advance policy. An approval produces an X Layer testnet offer; this screen does not move funds.</p>
+        <p className="mt-4 text-sm leading-7 text-gray-500 dark:text-gray-400">Choose a funded one-release agreement. HashPayStream verifies its Arc state, ZeroScout checks the evidence, and PolyDesk applies the advance policy. An approval produces an X Layer testnet offer; this screen does not move funds.</p>
       </div>
 
       <form onSubmit={submit} className="mt-8 rounded-3xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#18181b] sm:p-8">
         <div className="grid gap-5 sm:grid-cols-2">
-          <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 sm:col-span-2">Work title<input className={inputClass} value={title} onChange={event => setTitle(event.target.value)} maxLength={140} placeholder="Research brief delivery" /></label>
-          <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 sm:col-span-2">What must be delivered?<textarea className={`${inputClass} min-h-28 resize-y`} value={description} onChange={event => setDescription(event.target.value)} maxLength={800} placeholder="Describe the evidence the payer can review." /></label>
-          <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Protected amount<input className={inputClass} value={amount} onChange={event => setAmount(event.target.value)} inputMode="decimal" placeholder="100.00" /></label>
+          <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 sm:col-span-2">Funded agreement<select className={inputClass} value={agreementId} onChange={event => { setAgreementId(event.target.value); setAssessment(null); setRequestKey(idempotencyKey()) }} disabled={agreementsLoading}><option value="">{agreementsLoading ? 'Loading funded agreements…' : 'Select an agreement'}</option>{eligibleAgreements.map(agreement => <option key={agreement.id} value={agreement.id}>{agreement.title || agreement.id} · {agreement.amount || 'Funded on Arc'}</option>)}</select></label>
           <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Requested advance<select className={inputClass} value={requestedAdvanceBps} onChange={event => setRequestedAdvanceBps(Number(event.target.value))}><option value={2000}>20%</option><option value={3000}>30%</option><option value={4000}>40%</option><option value={5000}>50%</option></select></label>
           <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 sm:col-span-2">Provider payout address on X Layer<input className={inputClass} value={providerPayoutAddress} onChange={event => setProviderPayoutAddress(event.target.value.trim())} placeholder="0x…" /></label>
         </div>
+        {!agreementsLoading && eligibleAgreements.length === 0 && <p className="mt-5 rounded-2xl bg-amber-50 p-4 text-xs leading-5 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">No eligible agreement is funded yet. Create a one-release agreement using the Upfront repayment router as its Arc recipient, then have the payer fund it.</p>}
+        {agreementsError && <p role="alert" className="mt-5 text-sm text-rose-600 dark:text-rose-400">{agreementsError}</p>}
         {error && <p role="alert" className="mt-5 text-sm text-rose-600 dark:text-rose-400">{error}</p>}
         <button disabled={!valid || submitting} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-gray-950">
           {submitting ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <BanknotesIcon className="h-4 w-4" />}

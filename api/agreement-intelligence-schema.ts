@@ -24,7 +24,7 @@ export type AgreementIntelligenceRequest = {
   issuedAt: string
   source: { product: 'hashpaystream'; environment: 'testnet'; providerReference: string }
   agreement: {
-    state: 'draft'; template: 'fixed_unlock'; title: string; deliveryDescription: string
+    state: 'draft' | 'funded'; template: 'fixed_unlock'; title: string; deliveryDescription: string
     amountUsdcUnits: string; durationSeconds: number; cancellationWindowSeconds: number
     releasePercentages: [100]; termsHash: string
   }
@@ -37,9 +37,15 @@ export type AgreementIntelligenceRequest = {
     recipientSelection: 'fixed-repayment-router'; assetBridgeRequired: false
   }
   evidence: {
-    providerHistoryIncluded: false; sources: ['hashpaystream-agreement-draft']
-    dataGaps: ['provider-history', 'payer-funding-confirmation', 'delivery-history']
+    providerHistoryIncluded: boolean; sources: string[]; dataGaps: string[]
   }
+}
+
+export type TrustedAgreementEvidence = {
+  agreementState: 'funded'
+  providerHistoryIncluded: boolean
+  sources: string[]
+  dataGaps: string[]
 }
 
 function clean(value: unknown, maximum: number) {
@@ -94,7 +100,7 @@ export function validateUpfrontDraft(value: unknown): UpfrontDraftInput {
 
 export function buildAgreementIntelligenceRequest(input: {
   requestId: string; issuedAt: string; providerIdentity: string
-  providerReferenceSecret: string; draft: UpfrontDraftInput
+  providerReferenceSecret: string; draft: UpfrontDraftInput; trustedEvidence?: TrustedAgreementEvidence
 }): AgreementIntelligenceRequest {
   const units = parseUsdcUnits(input.draft.amount)
   const terms = {
@@ -116,7 +122,7 @@ export function buildAgreementIntelligenceRequest(input: {
       environment: 'testnet',
       providerReference: 'hps_provider_' + createHmac('sha256', input.providerReferenceSecret).update('upfront\0' + input.providerIdentity).digest('hex').slice(0, 32),
     },
-    agreement: { state: 'draft', ...terms, termsHash: 'sha256:' + createHash('sha256').update(canonical(terms)).digest('hex') },
+    agreement: { state: input.trustedEvidence?.agreementState ?? 'draft', ...terms, termsHash: 'sha256:' + createHash('sha256').update(canonical(terms)).digest('hex') },
     advance: {
       requestedBps: input.draft.requestedAdvanceBps,
       requestedUsdcUnits: (units * BigInt(input.draft.requestedAdvanceBps) / 10_000n).toString(),
@@ -130,7 +136,11 @@ export function buildAgreementIntelligenceRequest(input: {
       recipientSelection: 'fixed-repayment-router',
       assetBridgeRequired: false,
     },
-    evidence: {
+    evidence: input.trustedEvidence ? {
+      providerHistoryIncluded: input.trustedEvidence.providerHistoryIncluded,
+      sources: input.trustedEvidence.sources.map(value => clean(value, 100)).filter(value => value.length >= 3).slice(0, 20),
+      dataGaps: input.trustedEvidence.dataGaps.map(value => clean(value, 100)).filter(value => value.length >= 3).slice(0, 20),
+    } : {
       providerHistoryIncluded: false,
       sources: ['hashpaystream-agreement-draft'],
       dataGaps: ['provider-history', 'payer-funding-confirmation', 'delivery-history'],

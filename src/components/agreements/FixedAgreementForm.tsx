@@ -16,6 +16,8 @@ type MilestoneDraft = { label: string; percentage: string }
 
 const APP_ORIGIN = String(import.meta.env.VITE_HASH_PAYLINK_BASE_URL || 'https://app.hashpaylink.com').replace(/\/$/, '')
 const AGREEMENTS_API = '/api/hashpaystream/v2/agreements'
+const UPFRONT_ENABLED = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ENABLED ?? '').toLowerCase() === 'true'
+const UPFRONT_ARC_ROUTER = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS ?? '0x0CFd91Ea2F476C62fE2008B14A5dFd4A61328CcE')
 
 function newIdempotencyKey() {
   const suffix = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -279,6 +281,7 @@ export default function FixedAgreementForm() {
           <Field label="Recipient wallet address">
             <input value={recipient} onChange={event => setRecipient(event.target.value.trim())} required placeholder="0x…" className={inputClass} />
             <span className="mt-2 block text-[11px] text-gray-400">Arc test network only.</span>
+            {UPFRONT_ENABLED && template === 'fixed_unlock' && <button type="button" onClick={() => setRecipient(UPFRONT_ARC_ROUTER)} className="mt-2 text-left text-[11px] font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400">Use the Upfront repayment router</button>}
           </Field>
         </div>
 

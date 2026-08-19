@@ -1,18 +1,28 @@
-import { createHash } from 'node:crypto'
+import { createHash, createHmac } from 'node:crypto'
 import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
 import { getAddress, type Address } from 'viem'
-import { mutateDurableJson } from './durable-store.js'
+import { mutateDurableJson, readDurableJson } from './durable-store.js'
 import { agreementIntelligencePayloadHash, agreementIntelligenceRequestHash, buildAgreementIntelligenceRequest, validateUpfrontDraft, type AgreementIntelligenceRequest } from './agreement-intelligence-schema.js'
 import { requestPolyDeskUnderwriting, type PolyDeskDecision } from './polydesk-upfront-client.js'
 
 const DEFAULT_STORE_KEY = 'hashpaystream:upfront-assessments:v1'
+const DEFAULT_OWNERSHIP_STORE_KEY = 'hashpaystream:agreement-owners:v1'
+const AGREEMENT_ID = /^agr_[a-z0-9]{12,64}$/i
 type AssessmentRecord = { ownerReference: string; requestHash: string; status: 'pending' | 'completed'; createdAt: string; request?: AgreementIntelligenceRequest; response?: Record<string, unknown> }
 type AssessmentStore = { schema: 1; records: Record<string, AssessmentRecord> }
+type OwnershipStore = { schema: 1; agreements: Record<string, { agreementId: string; ownerHash: string }> }
+type AuthoritativeAgreement = {
+  id: string; status: string; template: string; title: string; description: string
+  recipient: string; durationSeconds: number; cancellationWindowSeconds: number
+  chain?: null | { network: string; chainId: number; amountUsdcUnits: string }
+}
 
 export type UpfrontAssessmentDependencies = {
   identity: (req: Request) => Promise<string>
   mutate: (key: string, update: (current: AssessmentStore | undefined) => AssessmentStore) => Promise<AssessmentStore>
+  readOwnership: (key: string) => Promise<OwnershipStore | undefined>
+  agreement: (id: string, config: { baseUrl: string; apiKey: string }) => Promise<AuthoritativeAgreement>
   assess: (request: AgreementIntelligenceRequest, config: { baseUrl: string; apiKey: string }) => Promise<{ status: number; body: Record<string, unknown> }>
   underwrite: (request: AgreementIntelligenceRequest, intelligence: ReturnType<typeof safeAssessmentResponse>, config: {
     baseUrl: string; serviceToken: string; signingSecret: string; expectedKeyId?: string
@@ -54,14 +64,20 @@ function configuration(env: NodeJS.ProcessEnv) {
   const polyDeskChainId = Number(env.HASHPAYSTREAM_UPFRONT_CHAIN_ID ?? 1952)
   const secret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300)
   const storeKey = clean(env.HASHPAYSTREAM_UPFRONT_STORE_KEY ?? DEFAULT_STORE_KEY, 160)
+  const ownershipStoreKey = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY ?? DEFAULT_OWNERSHIP_STORE_KEY, 160)
+  const arcApiKey = clean(env.HASHPAYSTREAM_ARC_API_KEY, 200)
+  const arcRouter = clean(env.HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS, 42)
   let baseUrl: URL
   let polyDeskBaseUrl: URL
+  let agreementBaseUrl: URL
   try { baseUrl = new URL(clean(env.HASHPAYSTREAM_ZEROSCOUT_BASE_URL, 240)) } catch { throw httpError('ZeroScout Agreement Intelligence is not configured.', 503) }
   try { polyDeskBaseUrl = new URL(clean(env.HASHPAYSTREAM_POLYDESK_BASE_URL, 240)) } catch { throw httpError('PolyDesk Upfront underwriting is not configured.', 503) }
+  try { agreementBaseUrl = new URL(clean(env.HASHPAYSTREAM_HASH_PAYLINK_BASE_URL ?? 'https://app.hashpaylink.com', 240)) } catch { throw httpError('Hash PayLink agreement verification is not configured.', 503) }
   const localHttp = baseUrl.protocol === 'http:' && ['localhost', '127.0.0.1', '::1'].includes(baseUrl.hostname)
   const polyDeskLocalHttp = polyDeskBaseUrl.protocol === 'http:' && ['localhost', '127.0.0.1', '::1'].includes(polyDeskBaseUrl.hostname)
   if ((baseUrl.protocol !== 'https:' && !localHttp) || baseUrl.username || baseUrl.password || baseUrl.search || baseUrl.hash) throw httpError('ZeroScout Agreement Intelligence URL is invalid.', 503)
   if ((polyDeskBaseUrl.protocol !== 'https:' && !polyDeskLocalHttp) || polyDeskBaseUrl.username || polyDeskBaseUrl.password || polyDeskBaseUrl.search || polyDeskBaseUrl.hash) throw httpError('PolyDesk Upfront underwriting URL is invalid.', 503)
+  if (agreementBaseUrl.protocol !== 'https:' || agreementBaseUrl.username || agreementBaseUrl.password || agreementBaseUrl.search || agreementBaseUrl.hash) throw httpError('Hash PayLink agreement verification URL is invalid.', 503)
   if (
     apiKey.length < 16 || secret.length < 32 || polyDeskServiceToken.length < 32 || polyDeskSigningSecret.length < 32 || !storeKey
     || !/^0x[a-fA-F0-9]{40}$/.test(polyDeskExpectedSigner) || /^0x0{40}$/i.test(polyDeskExpectedSigner)
@@ -69,9 +85,56 @@ function configuration(env: NodeJS.ProcessEnv) {
     || !Number.isInteger(polyDeskChainId) || polyDeskChainId < 1
   ) throw httpError('HashPayStream Upfront is not fully configured.', 503)
   return {
-    apiKey, secret, storeKey, baseUrl: baseUrl.origin,
+    apiKey, secret, storeKey, ownershipStoreKey, arcApiKey, arcRouter, baseUrl: baseUrl.origin, agreementBaseUrl: agreementBaseUrl.origin,
     polyDeskBaseUrl: polyDeskBaseUrl.origin, polyDeskServiceToken, polyDeskSigningSecret, polyDeskSigningKeyId,
     polyDeskExpectedSigner: getAddress(polyDeskExpectedSigner), polyDeskEscrowContract: getAddress(polyDeskEscrowContract), polyDeskChainId,
+  }
+}
+
+async function requestAgreement(id: string, config: { baseUrl: string; apiKey: string }) {
+  const response = await fetch(`${config.baseUrl}/api/v2/agreements?id=${encodeURIComponent(id)}`, { cache: 'no-store', headers: { 'x-api-key': config.apiKey, accept: 'application/json' } })
+  const body = await response.json().catch(() => ({})) as { agreement?: AuthoritativeAgreement; error?: string }
+  if (!response.ok || !body.agreement) throw httpError(clean(body.error, 300) || 'Hash PayLink agreement is unavailable.', response.status || 502)
+  return body.agreement
+}
+
+function decimalUsdc(units: string) {
+  if (!/^[1-9]\d{0,18}$/.test(units)) throw httpError('Funded agreement amount is invalid.', 409)
+  const padded = units.padStart(7, '0')
+  return `${padded.slice(0, -6)}.${padded.slice(-6)}`.replace(/0+$/, '').replace(/\.$/, '')
+}
+
+async function fundedAgreementInput(body: Record<string, unknown>, identity: string, config: ReturnType<typeof configuration>, dependencies: UpfrontAssessmentDependencies) {
+  const agreementId = clean(body.agreementId, 80)
+  if (!AGREEMENT_ID.test(agreementId)) throw httpError('Select a valid funded HashPayStream agreement.', 400)
+  if (!config.arcApiKey.startsWith('hpl_test_') || config.arcApiKey.length < 32 || !/^0x[a-fA-F0-9]{40}$/.test(config.arcRouter) || /^0x0{40}$/i.test(config.arcRouter)) {
+    throw httpError('Funded agreement verification is not configured.', 503)
+  }
+  const ownership = await dependencies.readOwnership(config.ownershipStoreKey)
+  const record = ownership?.agreements?.[agreementId]
+  const expectedOwner = createHmac('sha256', config.secret).update(`hashpaystream.owner\0${identity}`).digest('hex')
+  if (!record || record.ownerHash !== expectedOwner) throw httpError('This funded agreement is not available to your HashPayStream account.', 404)
+  const agreement = await dependencies.agreement(agreementId, { baseUrl: config.agreementBaseUrl, apiKey: config.arcApiKey })
+  const units = clean(agreement.chain?.amountUsdcUnits, 32)
+  if (
+    agreement.id !== agreementId || agreement.status !== 'active' || agreement.template !== 'fixed_unlock'
+    || agreement.chain?.network !== 'arc' || agreement.chain.chainId !== 5_042_002
+    || !/^0x[a-fA-F0-9]{40}$/.test(agreement.recipient) || getAddress(agreement.recipient) !== getAddress(config.arcRouter)
+  ) throw httpError('Upfront requires an active one-release Arc agreement routed through the configured repayment contract.', 409)
+  const draft = validateUpfrontDraft({
+    template: 'fixed_unlock', title: agreement.title, description: agreement.description,
+    amount: decimalUsdc(units), durationSeconds: agreement.durationSeconds,
+    cancellationWindowSeconds: agreement.cancellationWindowSeconds,
+    providerPayoutAddress: body.providerPayoutAddress, requestedAdvanceBps: body.requestedAdvanceBps,
+  })
+  return {
+    draft,
+    trustedEvidence: {
+      agreementState: 'funded' as const,
+      providerHistoryIncluded: false,
+      sources: ['hashpaystream-authoritative-agreement', 'arc-funded-agreement'],
+      dataGaps: ['provider-history', 'delivery-history'],
+    },
   }
 }
 
@@ -93,6 +156,8 @@ async function requestAssessment(request: AgreementIntelligenceRequest, config: 
 const defaults: UpfrontAssessmentDependencies = {
   identity: verifiedIdentity,
   mutate: (key, update) => mutateDurableJson<AssessmentStore>(key, update),
+  readOwnership: key => readDurableJson<OwnershipStore>(key),
+  agreement: requestAgreement,
   assess: requestAssessment,
   underwrite: (request, intelligence, config) => requestPolyDeskUnderwriting({ request, intelligence, ...config }),
   env: () => process.env,
@@ -145,11 +210,15 @@ export function createHashPayStreamUpfrontAssessmentHandler(overrides: Partial<U
       const config = configuration(dependencies.env())
       storeKey = config.storeKey
       const identity = await dependencies.identity(req)
-      const draft = validateUpfrontDraft(req.body)
+      const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body as Record<string, unknown> : {}
+      const verified = body.agreementId
+        ? await fundedAgreementInput(body, identity, config, dependencies)
+        : { draft: validateUpfrontDraft(body), trustedEvidence: undefined }
+      const draft = verified.draft
       const idempotencyKey = clean(req.headers['idempotency-key'], 160)
       if (idempotencyKey.length < 16) throw httpError('Idempotency-Key must contain at least 16 characters.', 400)
       const issuedAt = dependencies.now().toISOString()
-      const request = buildAgreementIntelligenceRequest({ requestId: dependencies.requestId(identity, idempotencyKey), issuedAt, providerIdentity: identity, providerReferenceSecret: config.secret, draft })
+      const request = buildAgreementIntelligenceRequest({ requestId: dependencies.requestId(identity, idempotencyKey), issuedAt, providerIdentity: identity, providerReferenceSecret: config.secret, draft, trustedEvidence: verified.trustedEvidence })
       const ownerReference = request.source.providerReference
       const requestHash = agreementIntelligenceRequestHash(request)
       const payloadHash = agreementIntelligencePayloadHash(request)
