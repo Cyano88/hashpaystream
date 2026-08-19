@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "test:agreement-gateway": "node --import tsx scripts/agreement-gateway-smoke.mjs",
     "test:upfront-assessment": "node --import tsx scripts/upfront-assessment-smoke.mjs && node --import tsx scripts/polydesk-upfront-client-smoke.mjs && node --import tsx scripts/upfront-protection-attestation-smoke.mjs && node --import tsx scripts/upfront-protection-handler-smoke.mjs",
+    "test:upfront-local-e2e": "node --import tsx scripts/upfront-local-e2e.mjs",
     "test:agent-agreement-gateway": "node --import tsx scripts/agent-agreement-gateway-smoke.mjs",
     "test:agent-credentials": "node --import tsx scripts/agent-credential-registry-smoke.mjs",
     "test:arc-webhook": "node --import tsx scripts/arc-agreement-webhook-smoke.mjs",
