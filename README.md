@@ -101,6 +101,41 @@ npm run agent:credentials -- revoke --key-id keyidvalue
 
 Never commit a generated credential output file.
 
+## Upfront pilot
+
+Upfront is a disabled-by-default payment option owned by HashPayStream. Its
+first boundary submits a validated, privacy-minimized agreement draft to
+ZeroScout Agreement Intelligence. The request contains the delivery terms
+needed for assessment, an opaque provider reference, requested advance
+parameters, explicit data gaps, and a canonical terms hash. It does not send
+the user Privy identity or treat AI output as a funding decision.
+
+The pilot supports fixed-release drafts only. It models advance funding on X
+Layer testnet and payment protection on Arc testnet without claiming or
+requiring a direct asset bridge. ZeroScout now returns evidence-bound Agreement
+Intelligence and PolyDesk applies the deterministic approve, escalate, or block
+policy. Approved decisions include an EIP-712 offer that HashPayStream verifies
+against the intended X Layer chain, escrow contract, signer, provider, amount,
+terms hash, and intelligence commitment.
+
+The separate `/upfront` assessment surface is compiled into the app only as a
+disabled pilot. It appears in navigation only when
+`VITE_HASHPAYSTREAM_UPFRONT_ENABLED=true`; the server route separately requires
+`HASHPAYSTREAM_UPFRONT_ENABLED=true`. Assessment never moves funds. The matching
+escrow source and tests live in `contracts/`; no contract address is assumed or
+hard-coded until an intentional testnet deployment is completed.
+
+The Arc recipient must be the fixed Upfront repayment router because Hash
+PayLink enforces one configured Arc recipient per project. HashPayStream binds
+the confirmed agreement and its onchain Arc terms hash to the X Layer funder,
+then credits that funder only after the completed repayment is present in the
+router. Draft terms and Arc onchain terms are separate commitments and are
+never treated as interchangeable.
+
+Keep HASHPAYSTREAM_UPFRONT_ENABLED and VITE_HASHPAYSTREAM_UPFRONT_ENABLED false
+until the matching ZeroScout API, PolyDesk decision policy, and testnet
+settlement flow have all passed their end-to-end checks.
+
 For a zero-downtime rotation, create a second credential with the same agent
 id, update the agent backend, verify the replacement key's `lastUsedAt`, and
 only then revoke the old key. Multiple active keys for one agent are supported

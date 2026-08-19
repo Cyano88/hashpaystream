@@ -1,0 +1,11 @@
+{
+  "network": "Arc Testnet",
+  "chainId": 5042002,
+  "repaymentRouter": {
+    "address": "0x0CFd91Ea2F476C62fE2008B14A5dFd4A61328CcE",
+    "transactionHash": "0x0193950d8b7ad11f6fe275a19254403a50e8ef7e21fe273725cc19dbab8caa7c",
+    "asset": "0x3600000000000000000000000000000000000000",
+    "creditSigner": "0x83Bd6A645cBE8d04b5F33f2c2c87A1d1FDD71D5b",
+    "owner": "0x988263A851Afe17F8a827EdA81269F9fb7553cbC"
+  }
+}

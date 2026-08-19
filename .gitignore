@@ -4,3 +4,7 @@ dist/
 .env.local
 *.log
 .playwright-cli/
+contracts/artifacts/
+contracts/cache/
+contracts/coverage/
+contracts/typechain-types/

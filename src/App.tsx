@@ -15,11 +15,13 @@ import StreamPayLegal from './components/StreamPayLegal'
 import StreamPayAgentDocsPage from './components/docs/StreamPayAgentDocsPage'
 import StreamPayAnalytics from './components/admin/StreamPayAnalytics'
 import StreamPayStats from './components/StreamPayStats'
+import StreamPayUpfront from './components/StreamPayUpfront'
 import { HashPayStreamSessionSplash } from './components/HashPayStreamSessionSplash'
 import { BrowserRouter, Navigate, useLocation } from './lib/router'
 import { useHashPayStreamSessionSplash } from './lib/useHashPayStreamSessionSplash'
 
-const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/activity', '/account', '/admin/analytics'])
+const UPFRONT_ENABLED = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ENABLED ?? '').toLowerCase() === 'true'
+const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/upfront', '/activity', '/account', '/admin/analytics'])
 const SESSION_READY_TIMEOUT_MS = 12_000
 
 function SessionLoadingSurface({ sessionDelayed, onRetry }: { sessionDelayed: boolean; onRetry: () => void }) {
@@ -75,6 +77,7 @@ function StreamPayRoute() {
   else if (route === '/home') content = <StreamPayHome />
   else if (route === '/agreements') content = <AgreementDashboard />
   else if (route === '/agreements/new') content = <FixedAgreementForm />
+  else if (route === '/upfront') content = UPFRONT_ENABLED ? <StreamPayUpfront /> : <Navigate to="/home" replace />
   else if (route === '/activity') content = <StreamPayActivity />
   else if (route === '/account') content = <StreamPayAccount />
   else if (route === '/admin/analytics') content = <StreamPayAnalytics />

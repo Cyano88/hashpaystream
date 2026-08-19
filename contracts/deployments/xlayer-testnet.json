@@ -1,0 +1,19 @@
+{
+  "network": "X Layer Testnet",
+  "chainId": 1952,
+  "testUsdc": {
+    "address": "0x0CFd91Ea2F476C62fE2008B14A5dFd4A61328CcE",
+    "transactionHash": "0xc417fb2782e68c21f6e24cd0bac8f3e1072efaa1d02eb30fbe3134d37628f06a",
+    "symbol": "tUSDC",
+    "productionAsset": false
+  },
+  "upfrontEscrow": {
+    "address": "0x0E47e6dD4f86C5Cf1843Dce310b710FaE64c0C16",
+    "transactionHash": "0x046728e9c6e3f9148db49ef4587c44b3f9cca960d6618e7f4e480020faea8100",
+    "asset": "0x0CFd91Ea2F476C62fE2008B14A5dFd4A61328CcE",
+    "arcRepaymentRouter": "0x0CFd91Ea2F476C62fE2008B14A5dFd4A61328CcE",
+    "underwritingSigner": "0xB089C3d5F06074856d7665A1Aa53Dc0d761930aE",
+    "protectionSigner": "0xfd23c4697e41Bb6874d72D5f2b56Af8aB00CAb99",
+    "owner": "0x988263A851Afe17F8a827EdA81269F9fb7553cbC"
+  }
+}

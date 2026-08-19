@@ -1,0 +1,131 @@
+import assert from 'node:assert/strict'
+import { createHashPayStreamUpfrontAssessmentHandler } from '../api/upfront-assessment.ts'
+import { agreementIntelligenceRequestHash } from '../api/agreement-intelligence-schema.ts'
+
+function responseRecorder() {
+  return {
+    statusCode: 200, body: undefined, headers: {},
+    setHeader(name, value) { this.headers[String(name).toLowerCase()] = value; return this },
+    status(code) { this.statusCode = code; return this },
+    json(body) { this.body = body; return this },
+  }
+}
+
+async function call(handler, body, idempotencyKey = 'upfront:user-a:0001') {
+  const response = responseRecorder()
+  await handler({ method: 'POST', body, headers: { authorization: 'Bearer user-a', 'idempotency-key': idempotencyKey } }, response)
+  return response
+}
+
+const env = {
+  HASHPAYSTREAM_UPFRONT_ENABLED: 'true',
+  HASHPAYSTREAM_ZEROSCOUT_BASE_URL: 'https://zeroscout.example',
+  HASHPAYSTREAM_ZEROSCOUT_API_KEY: 'zs_live_test_key_123456789',
+  HASHPAYSTREAM_APP_OWNERSHIP_SECRET: 'standalone-ownership-secret-32-characters',
+  HASHPAYSTREAM_UPFRONT_STORE_KEY: 'test:hashpaystream:upfront',
+  HASHPAYSTREAM_POLYDESK_BASE_URL: 'https://polydesk.example',
+  HASHPAYSTREAM_POLYDESK_SERVICE_TOKEN: 'polydesk-service-token-with-32-characters',
+  HASHPAYSTREAM_POLYDESK_SIGNING_SECRET: 'polydesk-signing-secret-with-32-characters',
+  HASHPAYSTREAM_POLYDESK_SIGNING_KEY_ID: 'polydesk-test-v1',
+  HASHPAYSTREAM_POLYDESK_EIP712_SIGNER: '0x2222222222222222222222222222222222222222',
+  HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS: '0x3333333333333333333333333333333333333333',
+  HASHPAYSTREAM_UPFRONT_CHAIN_ID: '1952',
+}
+const draft = {
+  template: 'fixed_unlock',
+  title: 'Verified research delivery',
+  description: 'Deliver a cited research brief for payer review.',
+  amount: '100.25',
+  durationSeconds: 86400,
+  cancellationWindowSeconds: 900,
+  providerPayoutAddress: '0x1111111111111111111111111111111111111111',
+  requestedAdvanceBps: 5000,
+}
+let store
+const assessmentCalls = []
+const handler = createHashPayStreamUpfrontAssessmentHandler({
+  identity: async () => 'user-a',
+  mutate: async (_key, update) => { store = update(store); return store },
+  assess: async request => {
+    assessmentCalls.push(request)
+    return { status: 201, body: {
+      id: 'zai_assessment1234',
+      schema: 'zeroscout.agreement-intelligence.result',
+      schemaVersion: '1.0.0',
+      requestCommitment: agreementIntelligenceRequestHash(request),
+      intelligenceProvider: 'zeroscout-deterministic-evidence-engine',
+      recommendation: 'review',
+      confidence: 68,
+      evidenceGrade: 'limited',
+      deliveryClarityScore: 82,
+      recommendedMaxAdvanceBps: 4000,
+      summary: 'Terms are clear; provider history is not yet available.',
+      riskFlags: ['No provider history supplied.'],
+      signals: ['Terms are internally consistent.'],
+      dataGaps: ['Payer funding is not yet confirmed.'],
+      reasonCodes: ['NO_PROVIDER_HISTORY'],
+      disclaimer: 'Decision support only.',
+      proof: { contentHash: '0x' + 'a'.repeat(64) },
+      createdAt: '2026-08-19T12:00:00.000Z',
+    } }
+  },
+  underwrite: async (request, intelligence) => ({
+    schema: 'polydesk.upfront.underwriting.decision',
+    schemaVersion: '1.0.0',
+    policyVersion: 'upfront-policy-test',
+    decisionId: 'pud_1234567890abcdef',
+    requestId: request.requestId,
+    issuedAt: '2026-08-19T12:01:00.000Z',
+    expiresAt: '2026-08-19T12:16:00.000Z',
+    termsHash: request.agreement.termsHash,
+    intelligenceCommitment: intelligence.requestCommitment,
+    proofContentHash: intelligence.proof.contentHash,
+    decision: 'APPROVE',
+    maximumAdvanceBps: 4000,
+    reasonCodes: ['POLICY_THRESHOLDS_MET'],
+    humanReviewRequired: false,
+    disclaimer: 'Decision support only.',
+    attestation: { algorithm: 'hmac-sha256', keyId: 'polydesk-test-v1', payloadHash: 'sha256:' + 'd'.repeat(64), signature: 'e'.repeat(64) },
+  }),
+  env: () => env,
+  now: () => new Date('2026-08-19T12:00:00.000Z'),
+  requestId: () => 'uai_1234567890abcdef',
+})
+
+const created = await call(handler, draft)
+assert.equal(created.statusCode, 201)
+assert.equal(created.body.assessment.intelligence.schema, 'zeroscout.agreement-intelligence.result')
+assert.equal(created.body.assessment.decision.decision, 'APPROVE')
+assert.equal(assessmentCalls.length, 1)
+assert.equal(assessmentCalls[0].schema, 'zeroscout.agreement-intelligence.request')
+assert.equal(assessmentCalls[0].agreement.amountUsdcUnits, '100250000')
+assert.equal(assessmentCalls[0].advance.requestedUsdcUnits, '50125000')
+assert.equal(assessmentCalls[0].settlement.assetBridgeRequired, false)
+assert.match(assessmentCalls[0].agreement.termsHash, /^sha256:[a-f0-9]{64}$/)
+assert.match(assessmentCalls[0].source.providerReference, /^hps_provider_[a-f0-9]{32}$/)
+
+const replayed = await call(handler, draft)
+assert.equal(replayed.statusCode, 200)
+assert.equal(replayed.body.replayed, true)
+assert.equal(assessmentCalls.length, 1)
+
+const changedReplay = await call(handler, { ...draft, amount: '101.25' })
+assert.equal(changedReplay.statusCode, 409)
+assert.match(changedReplay.body.error, /different Upfront request/)
+assert.equal(assessmentCalls.length, 1)
+
+const invalid = await call(handler, { ...draft, template: 'milestone' }, 'upfront:user-a:0002')
+assert.equal(invalid.statusCode, 400)
+assert.equal(assessmentCalls.length, 1)
+
+const disabled = createHashPayStreamUpfrontAssessmentHandler({
+  identity: async () => 'user-a',
+  mutate: async (_key, update) => { store = update(store); return store },
+  assess: async () => { throw new Error('must not run') },
+  underwrite: async () => { throw new Error('must not run') },
+  env: () => ({ ...env, HASHPAYSTREAM_UPFRONT_ENABLED: 'false' }),
+})
+const hidden = await call(disabled, draft, 'upfront:user-a:0003')
+assert.equal(hidden.statusCode, 404)
+
+console.log('HashPayStream Upfront assessment smoke checks passed.')

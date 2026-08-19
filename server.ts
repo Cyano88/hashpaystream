@@ -11,6 +11,8 @@ import { rateLimit } from './api/rate-limit.js'
 import { createHashPayStreamReadinessHandler } from './api/readiness.js'
 import apiTelemetry from './api/request-telemetry.js'
 import { createHashPayStreamShutdown } from './api/graceful-shutdown.js'
+import upfrontAssessment from './api/upfront-assessment.js'
+import upfrontProtection from './api/upfront-protection.js'
 import {
   createCircleMarketplacePaymentHandler,
   createCircleMarketplaceResourceHandler,
@@ -78,6 +80,12 @@ app.get('/api/hashpaystream/v2/agreements', rateLimit({ name: 'agreement-read', 
 app.post('/api/hashpaystream/v2/agreements', rateLimit({ name: 'agreement-write', windowMs: 60_000, max: 30 }), agreementGateway)
 app.all('/api/hashpaystream/v2/agreements', (_req, res) => {
   res.setHeader('Allow', 'GET, POST')
+  return res.status(405).json({ ok: false, error: 'Method not allowed.' })
+})
+app.post('/api/hashpaystream/v1/upfront/assessments', rateLimit({ name: 'upfront-assessment', windowMs: 60_000, max: 10 }), upfrontAssessment)
+app.post('/api/hashpaystream/v1/upfront/protection', rateLimit({ name: 'upfront-protection', windowMs: 60_000, max: 10 }), upfrontProtection)
+app.all('/api/hashpaystream/v1/upfront/assessments', (_req, res) => {
+  res.setHeader('Allow', 'POST')
   return res.status(405).json({ ok: false, error: 'Method not allowed.' })
 })
 app.get('/api/hashpaystream/v1/agent/agreements', rateLimit({ name: 'agent-agreement-read', windowMs: 60_000, max: 120 }), agentAgreementGateway)
