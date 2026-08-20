@@ -36,7 +36,7 @@ export function formatUsdc(units: bigint | string = 0n) {
   }
 }
 
-export function useAgreements() {
+export function useAgreements(apiPath = AGREEMENTS_API) {
   const { ready, authenticated, getAccessToken } = usePrivy()
   const [agreements, setAgreements] = useState<AgreementSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -51,7 +51,7 @@ export function useAgreements() {
     try {
       const token = await getAccessToken()
       if (!token) throw new Error('Sign in again to view agreements.')
-      const response = await fetch(AGREEMENTS_API, {
+      const response = await fetch(apiPath, {
         cache: 'no-store',
         headers: { authorization: `Bearer ${token}` },
       })
@@ -64,7 +64,7 @@ export function useAgreements() {
     } finally {
       if (!quiet) setLoading(false)
     }
-  }, [authenticated, getAccessToken])
+  }, [apiPath, authenticated, getAccessToken])
 
   useEffect(() => {
     if (!ready) return

@@ -81,6 +81,8 @@ export type AgreementGatewayDependencies = {
 type AgreementGatewayOptions = {
   checkoutMode?: 'human' | 'agentic'
   agentActivation?: boolean
+  apiKeyEnvironmentVariable?: 'HASHPAYSTREAM_ARC_API_KEY' | 'HASHPAYSTREAM_UPFRONT_ARC_API_KEY'
+  featureFlagEnvironmentVariable?: 'HASHPAYSTREAM_UPFRONT_ENABLED'
 }
 
 function clean(value: unknown, maximum: number) {
@@ -111,8 +113,11 @@ async function verifiedIdentity(req: Request) {
   }
 }
 
-function configuration(env: NodeJS.ProcessEnv) {
-  const apiKey = clean(env.HASHPAYSTREAM_ARC_API_KEY, 200)
+function configuration(
+  env: NodeJS.ProcessEnv,
+  apiKeyEnvironmentVariable: NonNullable<AgreementGatewayOptions['apiKeyEnvironmentVariable']> = 'HASHPAYSTREAM_ARC_API_KEY',
+) {
+  const apiKey = clean(env[apiKeyEnvironmentVariable], 200)
   const ownershipSecret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300)
   const storeKey = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY ?? DEFAULT_STORE_KEY, 160)
   const eventStoreKey = clean(env.HASHPAYSTREAM_ARC_WEBHOOK_STORE_KEY ?? DEFAULT_EVENT_STORE_KEY, 160)
@@ -124,7 +129,12 @@ function configuration(env: NodeJS.ProcessEnv) {
     throw httpError('HashPayStream upstream URL is invalid.', 503)
   }
   if (!apiKey.startsWith('hpl_test_') || apiKey.length < 32) {
-    throw httpError('HashPayStream Arc API key is unavailable.', 503)
+    throw httpError(
+      apiKeyEnvironmentVariable === 'HASHPAYSTREAM_UPFRONT_ARC_API_KEY'
+        ? 'HashPayStream Upfront agreement routing is unavailable.'
+        : 'HashPayStream Arc API key is unavailable.',
+      503,
+    )
   }
   if (ownershipSecret.length < 32) throw httpError('HashPayStream ownership signing is unavailable.', 503)
   if (!storeKey || !eventStoreKey || baseUrl.protocol !== 'https:' || baseUrl.username || baseUrl.password || baseUrl.search || baseUrl.hash) {
@@ -139,8 +149,8 @@ async function upstreamRequest(input: {
   body?: Record<string, unknown>
   idempotencyKey?: string
   timeoutMs?: number
-}, env: NodeJS.ProcessEnv) {
-  const config = configuration(env)
+}, env: NodeJS.ProcessEnv, apiKeyEnvironmentVariable?: AgreementGatewayOptions['apiKeyEnvironmentVariable']) {
+  const config = configuration(env, apiKeyEnvironmentVariable)
   const controller = new AbortController()
   const timeoutMs = Math.max(1_000, Math.min(input.timeoutMs ?? 15_000, 135_000))
   const timer = setTimeout(() => controller.abort(), timeoutMs)
@@ -310,10 +320,13 @@ export function createHashPayStreamAgreementGateway(
   const options: Required<AgreementGatewayOptions> = {
     checkoutMode: inputOptions.checkoutMode ?? 'human',
     agentActivation: inputOptions.agentActivation ?? false,
+    apiKeyEnvironmentVariable: inputOptions.apiKeyEnvironmentVariable ?? 'HASHPAYSTREAM_ARC_API_KEY',
+    featureFlagEnvironmentVariable: inputOptions.featureFlagEnvironmentVariable ?? 'HASHPAYSTREAM_UPFRONT_ENABLED',
   }
+  const featureFlagRequired = Boolean(inputOptions.featureFlagEnvironmentVariable)
   const dependencies = { ...defaults, ...overrides }
   if (!overrides.upstream) {
-    dependencies.upstream = input => upstreamRequest(input, dependencies.env())
+    dependencies.upstream = input => upstreamRequest(input, dependencies.env(), options.apiKeyEnvironmentVariable)
   }
   return async function hashPayStreamAgreementGateway(req: Request, res: Response) {
     res.setHeader('Cache-Control', 'no-store')
@@ -322,8 +335,12 @@ export function createHashPayStreamAgreementGateway(
       return res.status(405).json({ ok: false, error: 'Method not allowed.' })
     }
     try {
+      if (
+        featureFlagRequired
+        && clean(dependencies.env()[options.featureFlagEnvironmentVariable], 20).toLowerCase() !== 'true'
+      ) throw httpError('HashPayStream Upfront is not enabled.', 404)
       if (!dependencies.hasStore()) throw httpError('HashPayStream ownership storage is unavailable.', 503)
-      const config = configuration(dependencies.env())
+      const config = configuration(dependencies.env(), options.apiKeyEnvironmentVariable)
       const userId = await dependencies.identity(req)
       const owner = ownerHash(config.ownershipSecret, userId)
       const store = await dependencies.read(config.storeKey)

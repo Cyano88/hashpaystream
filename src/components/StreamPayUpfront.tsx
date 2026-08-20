@@ -33,7 +33,7 @@ function usdc(units: string) {
 
 export default function StreamPayUpfront() {
   const { ready, authenticated, getAccessToken } = usePrivy()
-  const { agreements, loading: agreementsLoading, error: agreementsError } = useAgreements()
+  const { agreements, loading: agreementsLoading, error: agreementsError } = useAgreements('/api/hashpaystream/v1/upfront/agreements')
   const [agreementId, setAgreementId] = useState('')
   const [providerPayoutAddress, setProviderPayoutAddress] = useState('')
   const [requestedAdvanceBps, setRequestedAdvanceBps] = useState(3000)

@@ -65,7 +65,7 @@ function configuration(env: NodeJS.ProcessEnv) {
   const secret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300)
   const storeKey = clean(env.HASHPAYSTREAM_UPFRONT_STORE_KEY ?? DEFAULT_STORE_KEY, 160)
   const ownershipStoreKey = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY ?? DEFAULT_OWNERSHIP_STORE_KEY, 160)
-  const arcApiKey = clean(env.HASHPAYSTREAM_ARC_API_KEY, 200)
+  const arcApiKey = clean(env.HASHPAYSTREAM_UPFRONT_ARC_API_KEY, 200)
   const arcRouter = clean(env.HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS, 42)
   let baseUrl: URL
   let polyDeskBaseUrl: URL

@@ -30,7 +30,7 @@ function privateKey(value: unknown, label: string) { const text = clean(value, 6
 function configuration(env: NodeJS.ProcessEnv) {
   if (clean(env.HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() !== 'true') failure('HashPayStream Upfront is not enabled.', 404)
   const storeKey = clean(env.HASHPAYSTREAM_UPFRONT_STORE_KEY ?? DEFAULT_STORE_KEY, 160)
-  const apiKey = clean(env.HASHPAYSTREAM_ARC_API_KEY, 200)
+  const apiKey = clean(env.HASHPAYSTREAM_UPFRONT_ARC_API_KEY, 200)
   const ownershipSecret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300)
   const xLayerEscrow = address(env.HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS, 'X Layer escrow contract')
   const arcRouter = address(env.HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS, 'Arc repayment router')

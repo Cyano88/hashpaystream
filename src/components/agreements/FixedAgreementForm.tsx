@@ -16,6 +16,7 @@ type MilestoneDraft = { label: string; percentage: string }
 
 const APP_ORIGIN = String(import.meta.env.VITE_HASH_PAYLINK_BASE_URL || 'https://app.hashpaylink.com').replace(/\/$/, '')
 const AGREEMENTS_API = '/api/hashpaystream/v2/agreements'
+const UPFRONT_AGREEMENTS_API = '/api/hashpaystream/v1/upfront/agreements'
 const UPFRONT_ENABLED = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ENABLED ?? '').toLowerCase() === 'true'
 const UPFRONT_ARC_ROUTER = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS ?? '0x0CFd91Ea2F476C62fE2008B14A5dFd4A61328CcE')
 
@@ -116,7 +117,10 @@ export default function FixedAgreementForm() {
     try {
       const token = await getAccessToken()
       if (!token) throw new Error('Sign in again to create this agreement.')
-      const response = await fetch(AGREEMENTS_API, {
+      const useUpfrontRoute = UPFRONT_ENABLED
+        && template === 'fixed_unlock'
+        && recipient.toLowerCase() === UPFRONT_ARC_ROUTER.toLowerCase()
+      const response = await fetch(useUpfrontRoute ? UPFRONT_AGREEMENTS_API : AGREEMENTS_API, {
         method: 'POST',
         cache: 'no-store',
         headers: {
