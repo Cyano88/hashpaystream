@@ -36,6 +36,12 @@ services:
         value: hashpaystream:agreement-owners:v1
       - key: HASHPAYSTREAM_UPFRONT_ARC_API_KEY
         sync: false
+      - key: HASHPAYSTREAM_UPFRONT_ARC_PROJECT_ID
+        sync: false
+      - key: HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_SECRET
+        sync: false
+      - key: HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_STORE_KEY
+        value: hashpaystream:upfront-arc-webhooks:v1
       - key: HASHPAYSTREAM_AGENT_CREDENTIAL_PEPPER
         sync: false
       - key: HASHPAYSTREAM_AGENT_CREDENTIAL_STORE_KEY

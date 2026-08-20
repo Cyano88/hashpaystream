@@ -9,6 +9,7 @@ export function createHashPayStreamUpfrontAgreementGateway(
   return createHashPayStreamAgreementGateway(overrides, {
     checkoutMode: 'human',
     apiKeyEnvironmentVariable: 'HASHPAYSTREAM_UPFRONT_ARC_API_KEY',
+    webhookStoreEnvironmentVariable: 'HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_STORE_KEY',
     featureFlagEnvironmentVariable: 'HASHPAYSTREAM_UPFRONT_ENABLED',
   })
 }

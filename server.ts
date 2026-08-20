@@ -13,6 +13,7 @@ import apiTelemetry from './api/request-telemetry.js'
 import { createHashPayStreamShutdown } from './api/graceful-shutdown.js'
 import upfrontAssessment from './api/upfront-assessment.js'
 import upfrontAgreementGateway from './api/upfront-agreement-gateway.js'
+import upfrontArcAgreementWebhook from './api/upfront-arc-webhook.js'
 import upfrontProtection from './api/upfront-protection.js'
 import {
   createCircleMarketplacePaymentHandler,
@@ -67,6 +68,12 @@ app.all(
   rateLimit({ name: 'arc-webhook', windowMs: 60_000, max: 120 }),
   express.raw({ type: 'application/json', limit: '64kb' }),
   arcAgreementWebhook,
+)
+app.all(
+  '/api/hashpaystream/v1/upfront/arc-agreement-webhook',
+  rateLimit({ name: 'upfront-arc-webhook', windowMs: 60_000, max: 120 }),
+  express.raw({ type: 'application/json', limit: '64kb' }),
+  upfrontArcAgreementWebhook,
 )
 app.all(
   '/api/hashpaystream/v1/agent/arc-agreement-webhook',
