@@ -184,9 +184,19 @@ export default function StreamPayUpfront() {
   if (!authenticated) return (
     <section className="flex min-h-[64vh] w-full max-w-md flex-col items-center justify-center text-center">
       <ShieldCheckIcon className="h-12 w-12 text-blue-600" />
-      <h1 className="mt-6 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Check an agreement for Upfront.</h1>
-      <p className="mt-3 text-sm leading-6 text-gray-500 dark:text-gray-400">Sign in to request bounded agreement intelligence and underwriting.</p>
-      <AuthButton debugLabel="hashpaystream-upfront" className="mt-7 w-full rounded-xl bg-gray-950 px-4 py-3 text-sm font-semibold text-white dark:bg-white dark:text-gray-950">Continue with email</AuthButton>
+      <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">AI-RWA on X Layer</p>
+      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Turn completed work into upfront liquidity.</h1>
+      <p className="mt-3 text-sm leading-6 text-gray-500 dark:text-gray-400">A funded service agreement becomes a verifiable cash-flow asset: ZeroScout checks the evidence, PolyDesk caps the advance, and X Layer escrows the offer.</p>
+      <div className="mt-6 grid w-full grid-cols-3 gap-2 text-left">
+        <ProofStep number="1" label="Agreement funded" />
+        <ProofStep number="2" label="AI risk checked" />
+        <ProofStep number="3" label="Advance verified" />
+      </div>
+      <AuthButton debugLabel="hashpaystream-upfront" className="mt-6 w-full rounded-xl bg-gray-950 px-4 py-3 text-sm font-semibold text-white dark:bg-white dark:text-gray-950">Open Upfront</AuthButton>
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[11px] font-semibold text-gray-400">
+        <a href="https://www.xlayerscan.com/address/0xa07900cAb0a0BbFBC52FCC95b22c52a22Ff0e1A5" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-blue-600">Mainnet contract</a>
+        <a href="https://github.com/Cyano88/hashpaystream" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-blue-600">Open-source proof</a>
+      </div>
     </section>
   )
 
@@ -235,4 +245,8 @@ export default function StreamPayUpfront() {
 
 function Result({ label, value }: { label: string; value: string }) {
   return <div className="rounded-2xl bg-gray-50 p-4 dark:bg-white/[0.04]"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400">{label}</p><p className="mt-2 text-sm font-semibold capitalize text-gray-950 dark:text-white">{value}</p></div>
+}
+
+function ProofStep({ number, label }: { number: string; label: string }) {
+  return <div className="rounded-2xl border border-gray-200 bg-white p-3 dark:border-white/10 dark:bg-white/[0.04]"><span className="text-[10px] font-semibold text-blue-600">{number}</span><p className="mt-1 text-[11px] font-semibold leading-4 text-gray-700 dark:text-gray-200">{label}</p></div>
 }

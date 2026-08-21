@@ -5,6 +5,14 @@ payments on Arc. It owns its customer experience, identity-to-agreement
 ownership journal, and signed webhook history. Hash PayLink remains the
 upstream agreement, checkout, chain-policy, lifecycle, and receipt provider.
 
+## BuildX AI Season pilot
+
+HashPayStream Upfront turns funded service agreements into AI-underwritten
+cash-flow assets with bounded advance execution on X Layer. The public judge
+entry is https://hashpaystream.app/upfront. Submission copy, architecture, onchain proof, and the 90-second demo script are in
+[`docs/BUILDX_AI_SEASON_SUBMISSION.md`](./docs/BUILDX_AI_SEASON_SUBMISSION.md).
+
+
 ## Product surface
 
 - `/` public product landing
@@ -152,9 +160,10 @@ confirmation (`FUND_XLAYER_TESTNET` or `FUND_XLAYER_MAINNET`). Never use an
 application or signing-service key as the treasury key. Mainnet remains a
 tiny-value, allowlisted technical proof while Arc is testnet.
 
-Keep HASHPAYSTREAM_UPFRONT_ENABLED and VITE_HASHPAYSTREAM_UPFRONT_ENABLED false
-until the matching ZeroScout API, PolyDesk decision policy, selected X Layer
-deployment, and Arc testnet settlement flow have passed end-to-end checks.
+The production pilot is enabled after the ZeroScout API, PolyDesk decision
+policy, X Layer deployments, and Arc agreement lifecycle passed their focused
+verification suites. Execution remains restricted to approved funders; the
+mainnet escrow deploys paused and enforces immutable 1-USDC / 5-USDC caps.
 
 For a zero-downtime rotation, create a second credential with the same agent
 id, update the agent backend, verify the replacement key's `lastUsedAt`, and
