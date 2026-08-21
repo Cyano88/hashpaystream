@@ -41,7 +41,7 @@ function duration(seconds: number) {
 }
 
 export default function StreamPayFundingDesk() {
-  const { ready, authenticated, getAccessToken } = usePrivy()
+  const { ready, authenticated, getAccessToken, logout } = usePrivy()
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [loading, setLoading] = useState(true)
   const [authorized, setAuthorized] = useState(false)
@@ -77,6 +77,12 @@ export default function StreamPayFundingDesk() {
     window.setTimeout(() => setCopied(''), 1800)
   }
 
+  async function useAnotherEmail() {
+    setError('')
+    await logout()
+    window.location.reload()
+  }
+
   if (!ready || loading) return <div className="flex min-h-[58vh] items-center justify-center"><ArrowPathIcon className="h-5 w-5 animate-spin text-gray-300" /></div>
   if (!authenticated) return (
     <section className="flex min-h-[64vh] w-full max-w-md flex-col items-center justify-center text-center">
@@ -98,7 +104,7 @@ export default function StreamPayFundingDesk() {
       <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200"><strong>Mixed-network proof.</strong> Arc remains testnet and its test USDC has no financial value. {XLAYER_MAINNET ? 'Any X Layer advance uses real mainnet USDC and is a restricted technical demonstration, not economically protected collateral.' : 'No mainnet funds are used in this environment.'}</div>
 
       {authorized && (upfrontTreasuryEnabled ? <UpfrontTreasuryWallet /> : <div className="mt-4 rounded-2xl border p-4 text-xs"><strong>Treasury execution is locked.</strong> Reviewing offers cannot move funds.</div>)}
-      {error && <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-300">{error}</div>}
+      {error && <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-300"><p>{error}</p><button type="button" onClick={() => void useAnotherEmail()} className="mt-3 rounded-lg border border-rose-300 px-3 py-2 text-xs font-semibold dark:border-rose-400/30">Use another email</button></div>}
       {!error && opportunities.length === 0 && <div className="mt-7 rounded-3xl border border-gray-200 bg-white px-6 py-12 text-center dark:border-white/10 dark:bg-[#18181b]"><BanknotesIcon className="mx-auto h-8 w-8 text-gray-300" /><h2 className="mt-4 text-lg font-semibold text-gray-950 dark:text-white">No live offers</h2><p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Approved offers appear here after an eligible Arc agreement is funded and assessed.</p></div>}
       {!error && opportunities.length > 0 && <div className="mt-7 grid gap-4 md:grid-cols-2">{opportunities.map(item => {
         const spread = (BigInt(item.protectedUsdcUnits) - BigInt(item.requestedAdvanceUsdcUnits)).toString()

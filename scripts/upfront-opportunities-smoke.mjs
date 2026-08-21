@@ -50,6 +50,14 @@ const forbidden = await call(createUpfrontOpportunitiesHandler({ ...base, identi
 assert.equal(forbidden.statusCode, 403)
 assert.match(forbidden.body.error, /not approved/i)
 
+const walletVisible = await call(createUpfrontOpportunitiesHandler({
+  ...base,
+  identityEmails: async () => ['0x85a530abbe102d1bf4fd084551944b0cdd94dbf4'],
+  env: () => ({ HASHPAYSTREAM_UPFRONT_ENABLED: 'true', HASHPAYSTREAM_UPFRONT_FUNDER_WALLETS: '0x85a530abbe102d1bf4fd084551944b0cdd94dbf4' }),
+}))
+assert.equal(walletVisible.statusCode, 200)
+assert.equal(walletVisible.body.opportunities.length, 1)
+
 const expired = await call(createUpfrontOpportunitiesHandler({ ...base, now: () => new Date('2026-08-21T12:16:00.000Z') }))
 assert.equal(expired.statusCode, 200)
 assert.equal(expired.body.opportunities.length, 0)

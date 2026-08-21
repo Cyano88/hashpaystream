@@ -25,10 +25,12 @@ function bearer(req: Pick<Request, 'headers'>) {
 }
 
 function funderEmails(env: NodeJS.ProcessEnv) {
-  return new Set(String(env.HASHPAYSTREAM_UPFRONT_FUNDER_EMAILS ?? '')
-    .split(',')
+  return new Set([
+    ...String(env.HASHPAYSTREAM_UPFRONT_FUNDER_EMAILS ?? '').split(','),
+    ...String(env.HASHPAYSTREAM_UPFRONT_FUNDER_WALLETS ?? '').split(','),
+  ]
     .map(value => value.trim().toLowerCase())
-    .filter(value => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)))
+    .filter(value => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || /^0x[a-f0-9]{40}$/.test(value)))
 }
 
 async function verifiedIdentityEmails(req: Request, env: NodeJS.ProcessEnv) {
@@ -43,9 +45,11 @@ async function verifiedIdentityEmails(req: Request, env: NodeJS.ProcessEnv) {
     const userId = clean(claims.user_id, 180)
     if (!userId) throw new Error('Privy identity is empty.')
     const user = await privy.users()._get(userId)
-    return user.linked_accounts.flatMap(account => account.type === 'email'
-      ? [account.address.trim().toLowerCase()]
-      : [])
+    return user.linked_accounts.flatMap(account => {
+      if (account.type !== 'email' && account.type !== 'wallet') return []
+      const address = String(account.address ?? '').trim().toLowerCase()
+      return address ? [address] : []
+    })
   } catch (cause) {
     throw Object.assign(failure('Your HashPayStream session is invalid or expired.', 401), { cause })
   }
