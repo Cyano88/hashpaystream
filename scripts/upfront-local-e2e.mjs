@@ -33,6 +33,8 @@ const env = {
   HASHPAYSTREAM_UPFRONT_STORE_KEY: 'local-e2e:hashpaystream:upfront',
 }
 
+const expectedChainId = Number(env.HASHPAYSTREAM_UPFRONT_CHAIN_ID)
+assert.ok([1952, 196].includes(expectedChainId), 'Upfront E2E supports only X Layer testnet or mainnet.')
 let store
 const handler = createHashPayStreamUpfrontAssessmentHandler({
   identity: async () => 'local-e2e-provider',
@@ -101,11 +103,11 @@ const signedDecision = await requestPolyDeskUnderwriting({
   expectedKeyId: required('HASHPAYSTREAM_POLYDESK_SIGNING_KEY_ID'),
   expectedSigner: required('HASHPAYSTREAM_POLYDESK_EIP712_SIGNER'),
   escrowContract: required('HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS'),
-  chainId: Number(process.env.HASHPAYSTREAM_UPFRONT_CHAIN_ID ?? 1952),
+  chainId: expectedChainId,
   now: new Date(),
 })
 assert.equal(signedDecision.decision, 'APPROVE')
-assert.equal(signedDecision.onchainOffer?.domain?.chainId, 1952)
+assert.equal(signedDecision.onchainOffer?.domain?.chainId, expectedChainId)
 assert.equal(signedDecision.onchainOffer?.domain?.verifyingContract?.toLowerCase(), required('HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS').toLowerCase())
 
 console.log(JSON.stringify({
