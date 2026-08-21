@@ -34,3 +34,8 @@ Use `npm run bootstrap:mainnet-deployer` once to create a dedicated mainnet
 deployment identity inside the ignored `contracts/.env`. The command prints
 only its public address and refuses to replace an existing key. Do not reuse the
 Arc, testnet, underwriting, protection, repayment, or application identities.
+
+The gated proof deployment is recorded in
+`deployments/xlayer-mainnet.json`. Run `npm run verify:mainnet` for a read-only
+receipt, bytecode, ownership, cap, and pause-state verification. Deployment does
+not authorize a funder or enable the application.
