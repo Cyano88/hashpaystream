@@ -24,6 +24,7 @@ const protectionTypes = {
     { name: 'termsHash', type: 'bytes32' },
     { name: 'arcRecipient', type: 'address' },
     { name: 'funder', type: 'address' },
+    { name: 'repaymentRecipient', type: 'address' },
     { name: 'provider', type: 'address' },
     { name: 'protectedAmount', type: 'uint256' },
     { name: 'advanceAmount', type: 'uint256' },
@@ -42,7 +43,11 @@ describe('UpfrontAdvanceEscrow', () => {
       underwriter.address,
       protectionSigner.address,
       owner.address,
+      50_000_000n,
+      100_000_000n,
     ]) as unknown as UpfrontAdvanceEscrow
+    await escrow.connect(owner).setFunderAllowed(funder.address, true)
+    await escrow.connect(owner).setPaused(false)
     await token.mint(funder.address, 1_000_000_000n)
     await token.connect(funder).approve(await escrow.getAddress(), ethers.MaxUint256)
     const chainId = (await ethers.provider.getNetwork()).chainId
@@ -52,17 +57,17 @@ describe('UpfrontAdvanceEscrow', () => {
       chainId,
       verifyingContract: await escrow.getAddress(),
     }
-    return { owner, underwriter, protectionSigner, funder, provider, outsider, arcRecipient: outsider.address, token, escrow, domain }
+    return { owner, underwriter, protectionSigner, funder, provider, outsider, arcRecipient: outsider.address, repaymentRecipient: owner.address, token, escrow, domain }
   }
 
-  async function signedOffer(context: Awaited<ReturnType<typeof fixture>>, nonceSeed = 'offer-1') {
+  async function signedOffer(context: Awaited<ReturnType<typeof fixture>>, nonceSeed = 'offer-1', maxAdvanceBps = 3000) {
     const now = await time.latest()
     const offer = {
       provider: context.provider.address,
       termsHash: ethers.keccak256(ethers.toUtf8Bytes('agreement-terms')),
       intelligenceCommitment: ethers.keccak256(ethers.toUtf8Bytes('zeroscout-evidence')),
       protectedAmount: 100_000_000n,
-      maxAdvanceBps: 3000,
+      maxAdvanceBps,
       protectionDeadline: now + 3600,
       underwritingDeadline: now + 600,
       nonce: ethers.keccak256(ethers.toUtf8Bytes(nonceSeed)),
@@ -79,12 +84,13 @@ describe('UpfrontAdvanceEscrow', () => {
     const advanceAmount = 30_000_000n
     const positionId = await context.escrow.hashUnderwritingOffer(offer)
 
-    await expect(context.escrow.connect(context.funder).fundAdvance(offer, advanceAmount, signature))
+    await expect(context.escrow.connect(context.funder).fundAdvance(offer, advanceAmount, context.repaymentRecipient, signature))
       .to.emit(context.escrow, 'AdvanceFunded')
       .withArgs(
         positionId,
         context.funder.address,
         context.provider.address,
+        context.repaymentRecipient,
         offer.protectedAmount,
         advanceAmount,
         offer.termsHash,
@@ -101,6 +107,7 @@ describe('UpfrontAdvanceEscrow', () => {
       termsHash: offer.termsHash,
       arcRecipient: context.arcRecipient,
       funder: context.funder.address,
+      repaymentRecipient: context.repaymentRecipient,
       provider: context.provider.address,
       protectedAmount: offer.protectedAmount,
       advanceAmount,
@@ -108,6 +115,10 @@ describe('UpfrontAdvanceEscrow', () => {
       deadline: observedAt + 600,
     }
     const protectionSignature = await context.protectionSigner.signTypedData(context.domain, protectionTypes, attestation)
+    await context.escrow.connect(context.owner).setPaused(true)
+    await expect(context.escrow.releaseAdvance(attestation, protectionSignature))
+      .to.be.revertedWithCustomError(context.escrow, 'EnforcedPause')
+    await context.escrow.connect(context.owner).setPaused(false)
     await expect(context.escrow.connect(context.outsider).releaseAdvance(attestation, protectionSignature))
       .to.emit(context.escrow, 'AdvanceReleased')
       .withArgs(positionId, attestation.arcAgreementHash, context.provider.address, advanceAmount)
@@ -121,7 +132,7 @@ describe('UpfrontAdvanceEscrow', () => {
   it('rejects an advance above the signed evidence cap', async () => {
     const context = await fixture()
     const { offer, signature } = await signedOffer(context)
-    await expect(context.escrow.connect(context.funder).fundAdvance(offer, 30_000_001n, signature))
+    await expect(context.escrow.connect(context.funder).fundAdvance(offer, 30_000_001n, context.repaymentRecipient, signature))
       .to.be.revertedWithCustomError(context.escrow, 'InvalidAmount')
   })
 
@@ -130,7 +141,7 @@ describe('UpfrontAdvanceEscrow', () => {
     const { offer, signature } = await signedOffer(context)
     const advanceAmount = 20_000_000n
     const positionId = await context.escrow.hashUnderwritingOffer(offer)
-    await context.escrow.connect(context.funder).fundAdvance(offer, advanceAmount, signature)
+    await context.escrow.connect(context.funder).fundAdvance(offer, advanceAmount, context.repaymentRecipient, signature)
 
     const observedAt = await time.latest()
     const attestation = {
@@ -140,6 +151,7 @@ describe('UpfrontAdvanceEscrow', () => {
       termsHash: offer.termsHash,
       arcRecipient: context.arcRecipient,
       funder: context.funder.address,
+      repaymentRecipient: context.repaymentRecipient,
       provider: context.provider.address,
       protectedAmount: offer.protectedAmount,
       advanceAmount,
@@ -156,7 +168,7 @@ describe('UpfrontAdvanceEscrow', () => {
     const { offer, signature } = await signedOffer(context, 'refund-offer')
     const advanceAmount = 25_000_000n
     const positionId = await context.escrow.hashUnderwritingOffer(offer)
-    await context.escrow.connect(context.funder).fundAdvance(offer, advanceAmount, signature)
+    await context.escrow.connect(context.funder).fundAdvance(offer, advanceAmount, context.repaymentRecipient, signature)
     await expect(context.escrow.connect(context.funder).refundAdvance(positionId))
       .to.be.revertedWithCustomError(context.escrow, 'ProtectionNotExpired')
 
@@ -165,5 +177,29 @@ describe('UpfrontAdvanceEscrow', () => {
       .to.emit(context.escrow, 'AdvanceRefunded')
       .withArgs(positionId, context.funder.address, advanceAmount)
     expect((await context.escrow.positions(positionId)).status).to.equal(3)
+  })
+
+  it('starts paused and permits funding only from an allowlisted funder', async () => {
+    const context = await fixture()
+    const { offer, signature } = await signedOffer(context)
+    await context.escrow.connect(context.owner).setPaused(true)
+    await expect(context.escrow.connect(context.funder).fundAdvance(offer, 10_000_000n, context.repaymentRecipient, signature))
+      .to.be.revertedWithCustomError(context.escrow, 'EnforcedPause')
+    await context.escrow.connect(context.owner).setPaused(false)
+    await expect(context.escrow.connect(context.outsider).fundAdvance(offer, 10_000_000n, context.repaymentRecipient, signature))
+      .to.be.revertedWithCustomError(context.escrow, 'FunderNotAllowed')
+  })
+
+  it('enforces the immutable per-advance and lifetime funding caps', async () => {
+    const context = await fixture()
+    const first = await signedOffer(context, 'cap-1', 8000)
+    await expect(context.escrow.connect(context.funder).fundAdvance(first.offer, 50_000_001n, context.repaymentRecipient, first.signature))
+      .to.be.revertedWithCustomError(context.escrow, 'FundingCapExceeded')
+    await context.escrow.connect(context.funder).fundAdvance(first.offer, 50_000_000n, context.repaymentRecipient, first.signature)
+    const second = await signedOffer(context, 'cap-2', 8000)
+    await context.escrow.connect(context.funder).fundAdvance(second.offer, 50_000_000n, context.repaymentRecipient, second.signature)
+    const third = await signedOffer(context, 'cap-3', 8000)
+    await expect(context.escrow.connect(context.funder).fundAdvance(third.offer, 1n, context.repaymentRecipient, third.signature))
+      .to.be.revertedWithCustomError(context.escrow, 'FundingCapExceeded')
   })
 })

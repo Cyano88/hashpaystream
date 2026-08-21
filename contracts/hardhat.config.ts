@@ -24,6 +24,11 @@ const config: HardhatUserConfig = {
       chainId: 1952,
       accounts,
     },
+    xlayerMainnet: {
+      url: process.env.XLAYER_MAINNET_RPC_URL ?? 'https://rpc.xlayer.tech',
+      chainId: 196,
+      accounts,
+    },
     arcTestnet: {
       url: process.env.ARC_TESTNET_RPC_URL ?? 'https://rpc.testnet.arc.network',
       chainId: 5_042_002,

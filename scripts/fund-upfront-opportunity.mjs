@@ -11,7 +11,7 @@ const ESCROW_ABI = [
       { name: 'protectedAmount', type: 'uint256' }, { name: 'maxAdvanceBps', type: 'uint16' }, { name: 'protectionDeadline', type: 'uint48' },
       { name: 'underwritingDeadline', type: 'uint48' }, { name: 'nonce', type: 'bytes32' },
     ] },
-    { name: 'advanceAmount', type: 'uint256' }, { name: 'underwritingSignature', type: 'bytes' },
+    { name: 'advanceAmount', type: 'uint256' }, { name: 'repaymentRecipient', type: 'address' }, { name: 'underwritingSignature', type: 'bytes' },
   ], outputs: [{ name: 'positionId', type: 'bytes32' }] },
 ]
 const ERC20_ABI = [{ type: 'function', name: 'approve', stateMutability: 'nonpayable', inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [{ type: 'bool' }] }]
@@ -49,26 +49,30 @@ const payload = JSON.parse(await readFile(file, 'utf8'))
 const signed = payload.onchainOffer
 if (!signed || signed.primaryType !== 'UnderwritingOffer') throw new Error('The copied PolyDesk offer is invalid.')
 const escrow = getAddress(required('HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS'))
-if (Number(signed.domain?.chainId) !== 1952 || getAddress(signed.domain?.verifyingContract) !== escrow) throw new Error('The offer does not target the configured X Layer escrow.')
+const expectedChainId = Number(required('HASHPAYSTREAM_UPFRONT_CHAIN_ID'))
+if (![1952, 196].includes(expectedChainId)) throw new Error('Only X Layer testnet 1952 or mainnet 196 is supported.')
+if (Number(signed.domain?.chainId) !== expectedChainId || getAddress(signed.domain?.verifyingContract) !== escrow) throw new Error('The offer does not target the configured X Layer escrow.')
 if (signed.domain?.name !== 'HashPayStream Upfront' || signed.domain?.version !== '1') throw new Error('The offer EIP-712 domain is invalid.')
 const message = offerMessage(signed.message)
 const advanceAmount = units(payload.advanceAmountUsdcUnits)
 const maximum = message.protectedAmount * BigInt(message.maxAdvanceBps) / 10_000n
 if (advanceAmount > maximum) throw new Error('The requested funding exceeds the signed PolyDesk maximum.')
 if (!/^0x[a-fA-F0-9]{130}$/.test(String(signed.signature ?? ''))) throw new Error('The PolyDesk EIP-712 signature is invalid.')
-const positionId = hashTypedData({ domain: { name: 'HashPayStream Upfront', version: '1', chainId: 1952, verifyingContract: escrow }, types: TYPES, primaryType: 'UnderwritingOffer', message })
-const rpcUrl = String(process.env.HASHPAYSTREAM_XLAYER_RPC_URL ?? 'https://testrpc.xlayer.tech/terigon').trim()
+const positionId = hashTypedData({ domain: { name: 'HashPayStream Upfront', version: '1', chainId: expectedChainId, verifyingContract: escrow }, types: TYPES, primaryType: 'UnderwritingOffer', message })
+const repaymentRecipient = getAddress(required('HASHPAYSTREAM_UPFRONT_REPAYMENT_RECIPIENT'))
+const rpcUrl = String(process.env.HASHPAYSTREAM_XLAYER_RPC_URL ?? (expectedChainId === 196 ? 'https://rpc.xlayer.tech' : 'https://testrpc.xlayer.tech/terigon')).trim()
 const publicClient = createPublicClient({ transport: http(rpcUrl) })
 const chainId = await publicClient.getChainId()
-if (chainId !== 1952) throw new Error(`Refusing X Layer RPC chain ${chainId}; expected 1952.`)
+if (chainId !== expectedChainId) throw new Error(`Refusing X Layer RPC chain ${chainId}; expected ${expectedChainId}.`)
 const asset = await publicClient.readContract({ address: escrow, abi: ESCROW_ABI, functionName: 'asset' })
 
-console.log(JSON.stringify({ execute, chainId, escrow, asset, positionId, agreementId: payload.agreementId, requestId: payload.requestId, advanceAmountUsdcUnits: advanceAmount.toString(), provider: message.provider }, null, 2))
+console.log(JSON.stringify({ execute, chainId, escrow, asset, positionId, agreementId: payload.agreementId, requestId: payload.requestId, advanceAmountUsdcUnits: advanceAmount.toString(), provider: message.provider, repaymentRecipient }, null, 2))
 if (!execute) {
-  console.log('Dry run only. Re-run with --execute and HASHPAYSTREAM_UPFRONT_FUND_CONFIRM=FUND_XLAYER_TESTNET to submit transactions.')
+  console.log(`Dry run only. Re-run with --execute and HASHPAYSTREAM_UPFRONT_FUND_CONFIRM=${expectedChainId === 196 ? 'FUND_XLAYER_MAINNET' : 'FUND_XLAYER_TESTNET'} to submit transactions.`)
   process.exit(0)
 }
-if (process.env.HASHPAYSTREAM_UPFRONT_FUND_CONFIRM !== 'FUND_XLAYER_TESTNET') throw new Error('Explicit X Layer testnet funding confirmation is missing.')
+const confirmation = expectedChainId === 196 ? 'FUND_XLAYER_MAINNET' : 'FUND_XLAYER_TESTNET'
+if (process.env.HASHPAYSTREAM_UPFRONT_FUND_CONFIRM !== confirmation) throw new Error(`Explicit X Layer funding confirmation ${confirmation} is missing.`)
 const privateKey = required('XLAYER_FUNDER_PRIVATE_KEY')
 if (!/^0x[a-fA-F0-9]{64}$/.test(privateKey)) throw new Error('XLAYER_FUNDER_PRIVATE_KEY is invalid.')
 const account = privateKeyToAccount(privateKey)
@@ -76,7 +80,7 @@ const wallet = createWalletClient({ account, transport: http(rpcUrl) })
 const approve = await publicClient.simulateContract({ account, address: asset, abi: ERC20_ABI, functionName: 'approve', args: [escrow, advanceAmount] })
 const approveHash = await wallet.writeContract(approve.request)
 await publicClient.waitForTransactionReceipt({ hash: approveHash })
-const funding = await publicClient.simulateContract({ account, address: escrow, abi: ESCROW_ABI, functionName: 'fundAdvance', args: [message, advanceAmount, signed.signature] })
+const funding = await publicClient.simulateContract({ account, address: escrow, abi: ESCROW_ABI, functionName: 'fundAdvance', args: [message, advanceAmount, repaymentRecipient, signed.signature] })
 if (funding.result !== positionId) throw new Error('The simulated X Layer position id does not match the signed offer.')
 const fundingHash = await wallet.writeContract(funding.request)
 const receipt = await publicClient.waitForTransactionReceipt({ hash: fundingHash })

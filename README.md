@@ -110,9 +110,11 @@ needed for assessment, an opaque provider reference, requested advance
 parameters, explicit data gaps, and a canonical terms hash. It does not send
 the user Privy identity or treat AI output as a funding decision.
 
-The pilot supports fixed-release drafts only. It models advance funding on X
-Layer testnet and payment protection on Arc testnet without claiming or
-requiring a direct asset bridge. ZeroScout now returns evidence-bound Agreement
+The pilot supports fixed-release drafts only. It can prove restricted advance
+execution on X Layer testnet or mainnet while payment evidence remains on Arc
+testnet; it does not claim or require a direct asset bridge. Arc test USDC has
+no financial value and must never be described as collateral for a real-USDC
+advance. ZeroScout returns evidence-bound Agreement
 Intelligence and PolyDesk applies the deterministic approve, escalate, or block
 policy. Approved decisions include an EIP-712 offer that HashPayStream verifies
 against the intended X Layer chain, escrow contract, signer, provider, amount,
@@ -122,15 +124,16 @@ The separate `/upfront` assessment surface is compiled into the app only as a
 disabled pilot. It appears in navigation only when
 `VITE_HASHPAYSTREAM_UPFRONT_ENABLED=true`; the server route separately requires
 `HASHPAYSTREAM_UPFRONT_ENABLED=true`. Assessment never moves funds. The matching
-escrow source and tests live in `contracts/`; no contract address is assumed or
-hard-coded until an intentional testnet deployment is completed.
+escrow source and tests live in `contracts/`; no contract address is assumed
+until an intentional deployment is completed.
 
 The Arc recipient must be the fixed Upfront repayment router because Hash
 PayLink enforces one configured Arc recipient per project. HashPayStream binds
-the confirmed agreement and its onchain Arc terms hash to the X Layer funder,
-then credits that funder only after the completed repayment is present in the
-router. Draft terms and Arc onchain terms are separate commitments and are
-never treated as interchangeable.
+the confirmed agreement and its onchain Arc terms hash to both the X Layer
+funder and a separately selected Arc repayment recipient. This keeps a Privy
+smart account on X Layer from accidentally owning an unusable Arc repayment.
+Draft terms and Arc onchain terms are separate commitments and are never
+treated as interchangeable.
 
 The pilot begins with a dedicated HashPayStream treasury as the first funder.
 Approved treasury or LP emails can open the private `/upfront/funding` desk;
@@ -142,14 +145,16 @@ file and validate it without moving funds:
 npm run upfront:fund -- ./verified-offer.json
 ```
 
-Submitting X Layer testnet transactions additionally requires `--execute`, a
-dedicated `XLAYER_FUNDER_PRIVATE_KEY`, and
-`HASHPAYSTREAM_UPFRONT_FUND_CONFIRM=FUND_XLAYER_TESTNET`. Never use an
-application or signing-service key as the treasury key.
+Submitting any transaction additionally requires `--execute`, a dedicated
+`XLAYER_FUNDER_PRIVATE_KEY`, an explicit
+`HASHPAYSTREAM_UPFRONT_REPAYMENT_RECIPIENT`, and the network-specific
+confirmation (`FUND_XLAYER_TESTNET` or `FUND_XLAYER_MAINNET`). Never use an
+application or signing-service key as the treasury key. Mainnet remains a
+tiny-value, allowlisted technical proof while Arc is testnet.
 
 Keep HASHPAYSTREAM_UPFRONT_ENABLED and VITE_HASHPAYSTREAM_UPFRONT_ENABLED false
-until the matching ZeroScout API, PolyDesk decision policy, and testnet
-settlement flow have all passed their end-to-end checks.
+until the matching ZeroScout API, PolyDesk decision policy, selected X Layer
+deployment, and Arc testnet settlement flow have passed end-to-end checks.
 
 For a zero-downtime rotation, create a second credential with the same agent
 id, update the agent backend, verify the replacement key's `lastUsedAt`, and

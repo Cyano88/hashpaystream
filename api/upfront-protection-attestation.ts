@@ -8,6 +8,7 @@ export const PROTECTION_TYPES = {
     { name: 'positionId', type: 'bytes32' }, { name: 'arcAgreementHash', type: 'bytes32' },
     { name: 'arcTermsHash', type: 'bytes32' }, { name: 'termsHash', type: 'bytes32' },
     { name: 'arcRecipient', type: 'address' }, { name: 'funder', type: 'address' },
+    { name: 'repaymentRecipient', type: 'address' },
     { name: 'provider', type: 'address' }, { name: 'protectedAmount', type: 'uint256' },
     { name: 'advanceAmount', type: 'uint256' }, { name: 'observedAt', type: 'uint48' },
     { name: 'deadline', type: 'uint48' },
@@ -23,7 +24,7 @@ export const REPAYMENT_TYPES = {
 } as const
 
 export type UpfrontPosition = {
-  positionId: Hex; funder: Address; provider: Address; termsHash: Hex
+  positionId: Hex; funder: Address; repaymentRecipient: Address; provider: Address; termsHash: Hex
   intelligenceCommitment: Hex
   protectedAmount: string; advanceAmount: string; protectionDeadline: number; status: 'Funded' | 'Released' | 'Refunded'
 }
@@ -79,7 +80,8 @@ export async function signProtectionAttestation(input: {
   const message = {
     positionId: input.position.positionId, arcAgreementHash: chain.onchainAgreementId,
     arcTermsHash: chain.termsHash, termsHash: input.position.termsHash, arcRecipient: getAddress(input.arcRouter),
-    funder: getAddress(input.position.funder), provider: getAddress(input.position.provider),
+    funder: getAddress(input.position.funder), repaymentRecipient: getAddress(input.position.repaymentRecipient),
+    provider: getAddress(input.position.provider),
     protectedAmount: BigInt(input.position.protectedAmount), advanceAmount: BigInt(input.position.advanceAmount),
     observedAt, deadline,
   }
@@ -99,7 +101,7 @@ export async function signRepaymentCredit(input: {
   const deadline = observedAt + 600
   const message = {
     arcAgreementHash: chain.onchainAgreementId, arcTermsHash: chain.termsHash,
-    funder: getAddress(input.position.funder), amount: BigInt(input.position.protectedAmount), observedAt, deadline,
+    funder: getAddress(input.position.repaymentRecipient), amount: BigInt(input.position.protectedAmount), observedAt, deadline,
   }
   const account = privateKeyToAccount(input.privateKey)
   const domain = { name: 'HashPayStream Upfront Repayment', version: '1', chainId: 5_042_002, verifyingContract: getAddress(input.arcRouter) } as const

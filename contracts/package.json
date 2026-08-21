@@ -9,8 +9,10 @@
     "bootstrap:keys": "tsx scripts/bootstrap-local-keys.ts",
     "plan:arc-testnet": "hardhat run scripts/plan-arc.ts --network arcTestnet",
     "plan:testnet": "hardhat run scripts/plan-xlayer.ts --network xlayerTestnet",
+    "plan:mainnet": "hardhat run scripts/plan-mainnet.ts --network xlayerMainnet",
     "deploy:test-usdc": "hardhat run scripts/deploy-test-usdc.ts --network xlayerTestnet",
     "deploy:testnet": "hardhat run scripts/deploy.ts --network xlayerTestnet",
+    "deploy:mainnet": "hardhat run scripts/deploy-mainnet.ts --network xlayerMainnet",
     "deploy:arc-testnet": "hardhat run scripts/deploy-arc.ts --network arcTestnet"
   },
   "devDependencies": {

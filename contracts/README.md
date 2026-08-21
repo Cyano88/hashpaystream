@@ -3,7 +3,7 @@
 This workspace contains the non-upgradeable X Layer advance escrow and the Arc
 repayment router. The X Layer contract holds only the advance. The fixed Arc
 router is the Hash PayLink project recipient and credits confirmed repayment to
-the funder; no asset bridge is assumed.
+the Arc repayment recipient bound at funding; no asset bridge is assumed.
 
 ```text
 npm install
@@ -11,8 +11,14 @@ npm run compile
 npm run test:upfront
 ```
 
-Deploy the Arc router first with `npm run deploy:arc-testnet`, configure its
-address as the Hash PayLink project's fixed Arc recipient, then deploy the X
-Layer escrow with `npm run deploy:testnet`. The scripts refuse chains other
-than Arc testnet 5042002 and X Layer testnet 1952 respectively. Never reuse
+Every X Layer escrow starts paused, has an empty funder allowlist, and enforces
+immutable per-advance and lifetime funding caps. Deploy the Arc router first
+with `npm run deploy:arc-testnet` and configure it as Hash PayLink's fixed Arc
+recipient. Use `npm run plan:testnet` / `deploy:testnet` for chain 1952 or
+`npm run plan:mainnet` / `deploy:mainnet` for chain 196. The mainnet path accepts
+only X Layer's approved native USDC address and verifies that it has bytecode.
+
+After deployment, verify the constructor values and ownership before separately
+allowlisting a treasury and unpausing. Arc remains testnet: its test USDC has no
+financial value and is not collateral for a mainnet advance. Never reuse
 application secrets as signer keys and never commit the local `.env`.

@@ -9,7 +9,7 @@ import { signProtectionAttestation, signRepaymentCredit, type AuthoritativeArcAg
 
 const DEFAULT_STORE_KEY = 'hashpaystream:upfront-assessments:v1'
 const POSITION_ABI = [{ type: 'function', name: 'positions', stateMutability: 'view', inputs: [{ name: 'positionId', type: 'bytes32' }], outputs: [
-  { name: 'funder', type: 'address' }, { name: 'provider', type: 'address' }, { name: 'protectionSigner', type: 'address' },
+  { name: 'funder', type: 'address' }, { name: 'repaymentRecipient', type: 'address' }, { name: 'provider', type: 'address' }, { name: 'protectionSigner', type: 'address' },
   { name: 'termsHash', type: 'bytes32' }, { name: 'intelligenceCommitment', type: 'bytes32' }, { name: 'arcAgreementHash', type: 'bytes32' },
   { name: 'protectedAmount', type: 'uint256' }, { name: 'advanceAmount', type: 'uint256' }, { name: 'protectionDeadline', type: 'uint48' }, { name: 'status', type: 'uint8' },
 ] }] as const
@@ -38,12 +38,13 @@ function configuration(env: NodeJS.ProcessEnv) {
   const repaymentKey = privateKey(env.HASHPAYSTREAM_UPFRONT_REPAYMENT_PRIVATE_KEY, 'Repayment signer')
   const protectionSigner = address(env.HASHPAYSTREAM_UPFRONT_PROTECTION_SIGNER, 'Protection signer address')
   const repaymentSigner = address(env.HASHPAYSTREAM_UPFRONT_REPAYMENT_SIGNER, 'Repayment signer address')
+  const xLayerChainId = Number(clean(env.HASHPAYSTREAM_UPFRONT_CHAIN_ID ?? '1952', 20))
   if (privateKeyToAccount(protectionKey).address !== protectionSigner || privateKeyToAccount(repaymentKey).address !== repaymentSigner) failure('Upfront signer configuration does not match its private key.', 503)
-  if (!storeKey || ownershipSecret.length < 32 || !apiKey.startsWith('hpl_test_') || apiKey.length < 32) failure('HashPayStream Upfront protection is not fully configured.', 503)
+  if (!storeKey || ownershipSecret.length < 32 || !apiKey.startsWith('hpl_test_') || apiKey.length < 32 || ![1952, 196].includes(xLayerChainId)) failure('HashPayStream Upfront protection is not fully configured.', 503)
   let baseUrl: URL; let rpcUrl: URL
   try { baseUrl = new URL(clean(env.HASHPAYSTREAM_HASH_PAYLINK_BASE_URL ?? 'https://app.hashpaylink.com', 240)); rpcUrl = new URL(clean(env.HASHPAYSTREAM_XLAYER_RPC_URL ?? 'https://testrpc.xlayer.tech/terigon', 240)) } catch { failure('Upfront network configuration is invalid.', 503) }
   if (baseUrl!.protocol !== 'https:' || rpcUrl!.protocol !== 'https:' || baseUrl!.username || rpcUrl!.username) failure('Upfront network configuration is invalid.', 503)
-  return { storeKey, apiKey, ownershipSecret, baseUrl: baseUrl!.origin, rpcUrl: rpcUrl!.toString(), xLayerEscrow, arcRouter, protectionKey, repaymentKey, xLayerChainId: 1952 }
+  return { storeKey, apiKey, ownershipSecret, baseUrl: baseUrl!.origin, rpcUrl: rpcUrl!.toString(), xLayerEscrow, arcRouter, protectionKey, repaymentKey, xLayerChainId }
 }
 
 async function identity(req: Request) {
@@ -64,9 +65,9 @@ async function agreement(id: string, config: Config) {
 async function position(id: Hex, config: Config): Promise<UpfrontPosition> {
   const client = createPublicClient({ transport: http(config.rpcUrl) })
   const value = await client.readContract({ address: config.xLayerEscrow, abi: POSITION_ABI, functionName: 'positions', args: [id] })
-  const [funder, provider, , termsHash, intelligenceCommitment, , protectedAmount, advanceAmount, protectionDeadline, status] = value
+  const [funder, repaymentRecipient, provider, , termsHash, intelligenceCommitment, , protectedAmount, advanceAmount, protectionDeadline, status] = value
   const statusName = status === 1 ? 'Funded' : status === 2 ? 'Released' : status === 3 ? 'Refunded' : failure('X Layer position is not funded.', 409)
-  return { positionId: id, funder, provider, termsHash, intelligenceCommitment, protectedAmount: protectedAmount.toString(), advanceAmount: advanceAmount.toString(), protectionDeadline: Number(protectionDeadline), status: statusName }
+  return { positionId: id, funder, repaymentRecipient, provider, termsHash, intelligenceCommitment, protectedAmount: protectedAmount.toString(), advanceAmount: advanceAmount.toString(), protectionDeadline: Number(protectionDeadline), status: statusName }
 }
 
 const defaults: Dependencies = { identity, readStore: key => readDurableJson<Store>(key), agreement, position, env: () => process.env, now: () => new Date() }

@@ -6,6 +6,12 @@ function address(name: string) {
   return ethers.getAddress(value)
 }
 
+function units(name: string) {
+  const value = String(process.env[name] ?? '').trim()
+  if (!/^[1-9]\d{0,30}$/.test(value)) throw new Error(name + ' must be positive integer asset units.')
+  return BigInt(value)
+}
+
 async function main() {
   const network = await ethers.provider.getNetwork()
   if (network.chainId !== 1952n) throw new Error('Expected X Layer testnet 1952.')
@@ -19,6 +25,8 @@ async function main() {
   const underwritingSigner = address('UPFRONT_UNDERWRITING_SIGNER')
   const protectionSigner = address('UPFRONT_PROTECTION_SIGNER')
   const owner = address('UPFRONT_CONTRACT_OWNER')
+  const maxAdvanceAmount = units('UPFRONT_MAX_ADVANCE_USDC_UNITS')
+  const maxTotalFunded = units('UPFRONT_MAX_TOTAL_FUNDED_USDC_UNITS')
 
   const tokenFactory = await ethers.getContractFactory('MockUSDC')
   const tokenTransaction = await tokenFactory.getDeployTransaction()
@@ -31,6 +39,8 @@ async function main() {
     underwritingSigner,
     protectionSigner,
     owner,
+    maxAdvanceAmount,
+    maxTotalFunded,
   )
   const escrowGas = await ethers.provider.estimateGas({ from: deployer.address, data: escrowTransaction.data })
   const fee = await ethers.provider.getFeeData()
@@ -58,6 +68,9 @@ async function main() {
           underwritingSigner,
           protectionSigner,
           owner,
+          maxAdvanceAmount: maxAdvanceAmount.toString(),
+          maxTotalFunded: maxTotalFunded.toString(),
+          startsPaused: true,
         },
         gasEstimate: escrowGas.toString(),
         maximumEstimatedNativeCost: ethers.formatEther(escrowGas * gasPrice),
