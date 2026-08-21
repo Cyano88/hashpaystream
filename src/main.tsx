@@ -1,10 +1,12 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { PrivyProvider, type PrivyClientConfig } from '@privy-io/react-auth'
+import { SmartWalletsProvider } from '@privy-io/react-auth/smart-wallets'
 import '@fontsource/inter/latin.css'
 import './index.css'
 import App from './App'
 import { ThemeProvider, useTheme } from './lib/ThemeContext'
+import { upfrontSmartWalletEnabled, upfrontXLayerChain } from './lib/upfrontChains'
 
 const appId = String(import.meta.env.VITE_PRIVY_APP_ID || '').trim()
 const logoUrl = new URL('/brand/hashpaystream-logo.png', window.location.origin).toString()
@@ -21,6 +23,10 @@ function Providers() {
     allowOAuthInEmbeddedBrowsers: true,
     embeddedWallets: { ethereum: { createOnLogin: 'off' } },
     externalWallets: { disableAllExternalWallets: true },
+    ...(upfrontSmartWalletEnabled ? {
+      defaultChain: upfrontXLayerChain,
+      supportedChains: [upfrontXLayerChain],
+    } : {}),
     appearance: {
       theme: theme === 'dark' ? 'dark' : 'light',
       accentColor: '#2563eb',
@@ -34,7 +40,11 @@ function Providers() {
       privacyPolicyUrl: privacyUrl,
     },
   }
-  return <PrivyProvider appId={appId} config={config}><App /></PrivyProvider>
+  return (
+    <PrivyProvider appId={appId} config={config}>
+      {upfrontSmartWalletEnabled ? <SmartWalletsProvider><App /></SmartWalletsProvider> : <App />}
+    </PrivyProvider>
+  )
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

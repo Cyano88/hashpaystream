@@ -234,7 +234,7 @@ for (const forbidden of [
   assert.equal(browserSource.includes(forbidden), false, `Browser source contains forbidden server secret name: ${forbidden}`)
 }
 const viteNames = [...browserSource.matchAll(/VITE_[A-Z0-9_]+/g)].map(match => match[0])
-assert.deepEqual([...new Set(viteNames)].sort(), ['VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS', 'VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID', 'VITE_HASHPAYSTREAM_UPFRONT_ENABLED', 'VITE_HASH_PAYLINK_BASE_URL', 'VITE_PRIVY_APP_ID'])
+assert.deepEqual([...new Set(viteNames)].sort(), ['VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS', 'VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID', 'VITE_HASHPAYSTREAM_UPFRONT_ENABLED', 'VITE_HASHPAYSTREAM_UPFRONT_SMART_WALLET_ENABLED', 'VITE_HASH_PAYLINK_BASE_URL', 'VITE_PRIVY_APP_ID'])
 assert.doesNotMatch(browserSource, /from ['"]lucide-react['"]/)
 assert.match(browserSource, /from ['"]@heroicons\/react\/24\/outline['"]/)
 assert.doesNotMatch(browserSource, /hashpaylink\.com\/docs\/(terms|privacy)/)
