@@ -21,4 +21,4 @@ export const upfrontXLayerChain = String(import.meta.env.VITE_HASHPAYSTREAM_UPFR
   ? xLayerMainnet
   : xLayerTestnet
 
-export const upfrontSmartWalletEnabled = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_SMART_WALLET_ENABLED ?? 'false').toLowerCase() === 'true'
+export const upfrontTreasuryEnabled = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED ?? 'false').toLowerCase() === 'true'

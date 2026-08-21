@@ -72,7 +72,7 @@ services:
         value: "1952"
       - key: VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID
         value: "1952"
-      - key: VITE_HASHPAYSTREAM_UPFRONT_SMART_WALLET_ENABLED
+      - key: VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED
         value: "false"
       - key: HASHPAYSTREAM_XLAYER_RPC_URL
         value: https://testrpc.xlayer.tech/terigon
