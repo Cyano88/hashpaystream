@@ -6,6 +6,7 @@ import { Link } from '../lib/router'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { upfrontTreasuryEnabled } from '../lib/upfrontChains'
 import UpfrontTreasuryWallet from './UpfrontTreasuryWallet'
+import UpfrontFundButton from './UpfrontFundButton'
 
 type Opportunity = {
   id: string
@@ -105,8 +106,9 @@ export default function StreamPayFundingDesk() {
           <div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-600">Verified offer</p><h2 className="mt-2 text-lg font-semibold text-gray-950 dark:text-white">{item.title}</h2></div><span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-semibold text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">{XLAYER_MAINNET ? 'X Layer mainnet' : 'X Layer testnet'}</span></div>
           <div className="mt-5 grid grid-cols-2 gap-4 border-y border-gray-100 py-4 dark:border-white/10"><Metric label="Advance" value={usdc(item.requestedAdvanceUsdcUnits)} /><Metric label="Protected" value={usdc(item.protectedUsdcUnits)} /><Metric label="Gross spread" value={usdc(spread)} /><Metric label="Term" value={duration(item.durationSeconds)} /></div>
           <div className="mt-4 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400"><span>{item.evidenceGrade} evidence · {item.confidence}% confidence</span><span>{short(item.providerPayoutAddress)}</span></div>
-          <p className="mt-3 text-[11px] text-gray-400">Offer expires {new Date(item.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Funding execution remains operator-controlled during the pilot.</p>
+          <p className="mt-3 text-[11px] text-gray-400">Offer expires {new Date(item.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Every advance requires explicit confirmation from the approved treasury wallet.</p>
           <button type="button" onClick={() => void copyOffer(item)} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 py-3 text-xs font-semibold text-white dark:bg-white dark:text-gray-950"><ClipboardIcon className="h-4 w-4" />{copied === item.id ? 'Offer copied' : 'Copy verified offer'}</button>
+          <UpfrontFundButton opportunity={item} />
         </article>
       })}</div>}
     </section>
