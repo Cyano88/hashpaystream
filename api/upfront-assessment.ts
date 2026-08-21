@@ -9,8 +9,9 @@ import { requestPolyDeskUnderwriting, type PolyDeskDecision } from './polydesk-u
 const DEFAULT_STORE_KEY = 'hashpaystream:upfront-assessments:v1'
 const DEFAULT_OWNERSHIP_STORE_KEY = 'hashpaystream:agreement-owners:v1'
 const AGREEMENT_ID = /^agr_[a-z0-9]{12,64}$/i
-type AssessmentRecord = { ownerReference: string; requestHash: string; status: 'pending' | 'completed'; createdAt: string; request?: AgreementIntelligenceRequest; response?: Record<string, unknown> }
-type AssessmentStore = { schema: 1; records: Record<string, AssessmentRecord> }
+export type UpfrontAssessmentRecord = { ownerReference: string; requestHash: string; agreementId?: string; status: 'pending' | 'completed'; createdAt: string; request?: AgreementIntelligenceRequest; response?: Record<string, unknown> }
+export type UpfrontAssessmentStore = { schema: 1; records: Record<string, UpfrontAssessmentRecord> }
+type AssessmentStore = UpfrontAssessmentStore
 type OwnershipStore = { schema: 1; agreements: Record<string, { agreementId: string; ownerHash: string }> }
 type AuthoritativeAgreement = {
   id: string; status: string; template: string; title: string; description: string
@@ -128,6 +129,7 @@ async function fundedAgreementInput(body: Record<string, unknown>, identity: str
     providerPayoutAddress: body.providerPayoutAddress, requestedAdvanceBps: body.requestedAdvanceBps,
   })
   return {
+    agreementId,
     draft,
     trustedEvidence: {
       agreementState: 'funded' as const,
@@ -213,7 +215,7 @@ export function createHashPayStreamUpfrontAssessmentHandler(overrides: Partial<U
       const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body as Record<string, unknown> : {}
       const verified = body.agreementId
         ? await fundedAgreementInput(body, identity, config, dependencies)
-        : { draft: validateUpfrontDraft(body), trustedEvidence: undefined }
+        : { agreementId: undefined, draft: validateUpfrontDraft(body), trustedEvidence: undefined }
       const draft = verified.draft
       const idempotencyKey = clean(req.headers['idempotency-key'], 160)
       if (idempotencyKey.length < 16) throw httpError('Idempotency-Key must contain at least 16 characters.', 400)
@@ -234,7 +236,7 @@ export function createHashPayStreamUpfrontAssessmentHandler(overrides: Partial<U
           else throw httpError('This Upfront assessment is already processing.', 409)
           return next
         }
-        next.records[replayKey] = { ownerReference, requestHash: payloadHash, status: 'pending', createdAt: issuedAt, request }
+        next.records[replayKey] = { ownerReference, requestHash: payloadHash, agreementId: verified.agreementId, status: 'pending', createdAt: issuedAt, request }
         return next
       })
       if (replay) return res.json({ ok: true, assessment: replay, replayed: true })
@@ -256,7 +258,7 @@ export function createHashPayStreamUpfrontAssessmentHandler(overrides: Partial<U
       const combinedAssessment = { intelligence: response, decision: underwriting }
       await dependencies.mutate(storeKey, current => {
         const next = safeStore(current)
-        next.records[replayKey] = { ownerReference, requestHash: payloadHash, status: 'completed', createdAt: issuedAt, request, response: combinedAssessment }
+        next.records[replayKey] = { ownerReference, requestHash: payloadHash, agreementId: verified.agreementId, status: 'completed', createdAt: issuedAt, request, response: combinedAssessment }
         return next
       })
       return res.status(201).json({ ok: true, assessment: combinedAssessment, replayed: false })

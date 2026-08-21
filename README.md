@@ -132,6 +132,21 @@ then credits that funder only after the completed repayment is present in the
 router. Draft terms and Arc onchain terms are separate commitments and are
 never treated as interchangeable.
 
+The pilot begins with a dedicated HashPayStream treasury as the first funder.
+Approved treasury or LP emails can open the private `/upfront/funding` desk;
+only customer-funded, unexpired, PolyDesk-approved offers are returned. Funding
+execution remains operator-controlled. Copy the verified offer to a local JSON
+file and validate it without moving funds:
+
+```text
+npm run upfront:fund -- ./verified-offer.json
+```
+
+Submitting X Layer testnet transactions additionally requires `--execute`, a
+dedicated `XLAYER_FUNDER_PRIVATE_KEY`, and
+`HASHPAYSTREAM_UPFRONT_FUND_CONFIRM=FUND_XLAYER_TESTNET`. Never use an
+application or signing-service key as the treasury key.
+
 Keep HASHPAYSTREAM_UPFRONT_ENABLED and VITE_HASHPAYSTREAM_UPFRONT_ENABLED false
 until the matching ZeroScout API, PolyDesk decision policy, and testnet
 settlement flow have all passed their end-to-end checks.

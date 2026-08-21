@@ -41,6 +41,7 @@ export default function FixedAgreementForm() {
   const [description, setDescription] = useState('')
   const [amount, setAmount] = useState('')
   const [recipient, setRecipient] = useState('')
+  const [useUpfront, setUseUpfront] = useState(false)
   const [durationSeconds, setDurationSeconds] = useState('86400')
   const [cancellationWindowSeconds, setCancellationWindowSeconds] = useState('900')
   const [idempotencyKey] = useState(newIdempotencyKey)
@@ -54,6 +55,7 @@ export default function FixedAgreementForm() {
     { label: '', percentage: '50' },
   ])
   const agreementsTo = useStreamPayPath('/agreements')
+  const effectiveRecipient = useUpfront ? UPFRONT_ARC_ROUTER : recipient
 
   const payerUrl = created?.payerReviewPath ? `${APP_ORIGIN}${created.payerReviewPath}` : ''
   const milestoneShares = milestones.map(item => Number(item.percentage))
@@ -82,8 +84,8 @@ export default function FixedAgreementForm() {
     title.replace(/\s+/g, ' ').trim().length >= 3
     && description.replace(/\s+/g, ' ').trim().length >= 10
     && validAmount(amount)
-    && isAddress(recipient)
-    && !/^0x0{40}$/i.test(recipient)
+    && isAddress(effectiveRecipient)
+    && !/^0x0{40}$/i.test(effectiveRecipient)
     && Number.isInteger(duration)
     && duration >= 3_600
     && Number.isInteger(cancellationWindow)
@@ -117,9 +119,7 @@ export default function FixedAgreementForm() {
     try {
       const token = await getAccessToken()
       if (!token) throw new Error('Sign in again to create this agreement.')
-      const useUpfrontRoute = UPFRONT_ENABLED
-        && template === 'fixed_unlock'
-        && recipient.toLowerCase() === UPFRONT_ARC_ROUTER.toLowerCase()
+      const useUpfrontRoute = UPFRONT_ENABLED && useUpfront && template === 'fixed_unlock'
       const response = await fetch(useUpfrontRoute ? UPFRONT_AGREEMENTS_API : AGREEMENTS_API, {
         method: 'POST',
         cache: 'no-store',
@@ -133,7 +133,7 @@ export default function FixedAgreementForm() {
           title,
           description,
           amount,
-          recipient,
+          recipient: effectiveRecipient,
           durationSeconds: Number(durationSeconds),
           cancellationWindowSeconds: Number(cancellationWindowSeconds),
           ...(template === 'progressive_release' ? { checkpoints } : {}),
@@ -199,6 +199,7 @@ export default function FixedAgreementForm() {
             <p className="mt-2 break-all text-xs leading-5 text-gray-600 dark:text-gray-300">{payerUrl}</p>
           </div>
           <p className="mt-3 text-xs leading-5 text-gray-400">The signed-in payer who starts the agreement controls its funding, approvals, cancellation, and refund.</p>
+          {useUpfront && <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-xs leading-5 text-blue-800 dark:border-blue-400/20 dark:bg-blue-400/10 dark:text-blue-200">After the payer funds this agreement, return to HashPayStream and request an X Layer advance. The Arc repayment router was assigned automatically.</div>}
 
           <div className="mt-6 grid grid-cols-2 gap-2">
             <button
@@ -258,7 +259,7 @@ export default function FixedAgreementForm() {
               <button
                 key={value}
                 type="button"
-                onClick={() => { setTemplate(value); setError('') }}
+                onClick={() => { setTemplate(value); if (value !== 'fixed_unlock') setUseUpfront(false); setError('') }}
                 className={`rounded-xl border px-3 py-3 text-sm font-semibold transition-colors ${template === value
                   ? 'border-gray-950 bg-gray-950 text-white dark:border-white dark:bg-white dark:text-gray-950'
                   : 'border-gray-200 text-gray-500 dark:border-white/10 dark:text-gray-400'}`}
@@ -269,6 +270,20 @@ export default function FixedAgreementForm() {
             ))}
           </div>
         </Field>
+        {UPFRONT_ENABLED && template === 'fixed_unlock' && (
+          <Field label="Payment option">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button type="button" aria-pressed={!useUpfront} onClick={() => setUseUpfront(false)} className={'rounded-xl border p-3 text-left transition-colors ' + (!useUpfront ? 'border-gray-950 bg-gray-950 text-white dark:border-white dark:bg-white dark:text-gray-950' : 'border-gray-200 text-gray-600 dark:border-white/10 dark:text-gray-300')}>
+                <span className="block text-sm font-semibold">Protected payment</span>
+                <span className="mt-1 block text-[11px] leading-5 opacity-70">Receive USDC on Arc after approval.</span>
+              </button>
+              <button type="button" aria-pressed={useUpfront} onClick={() => setUseUpfront(true)} className={'rounded-xl border p-3 text-left transition-colors ' + (useUpfront ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 text-gray-600 dark:border-white/10 dark:text-gray-300')}>
+                <span className="block text-sm font-semibold">Get paid early</span>
+                <span className="mt-1 block text-[11px] leading-5 opacity-70">Request an X Layer advance after payer funding.</span>
+              </button>
+            </div>
+          </Field>
+        )}
         <Field label="Agreement title">
           <input value={title} onChange={event => setTitle(event.target.value)} required minLength={3} maxLength={140} placeholder="Website design delivery" className={inputClass} />
         </Field>
@@ -282,11 +297,17 @@ export default function FixedAgreementForm() {
               <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-xs font-semibold text-gray-400">USDC</span>
             </div>
           </Field>
+          {useUpfront ? (
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-400/20 dark:bg-blue-400/10">
+              <p className="text-xs font-semibold text-blue-900 dark:text-blue-100">Upfront repayment routing</p>
+              <p className="mt-1 text-[11px] leading-5 text-blue-700 dark:text-blue-200">The customer payment is protected on Arc and settles the advance after approved delivery. You never need to enter the router address.</p>
+            </div>
+          ) : (
           <Field label="Recipient wallet address">
             <input value={recipient} onChange={event => setRecipient(event.target.value.trim())} required placeholder="0x…" className={inputClass} />
             <span className="mt-2 block text-[11px] text-gray-400">Arc test network only.</span>
-            {UPFRONT_ENABLED && template === 'fixed_unlock' && <button type="button" onClick={() => setRecipient(UPFRONT_ARC_ROUTER)} className="mt-2 text-left text-[11px] font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400">Use the Upfront repayment router</button>}
           </Field>
+          )}
         </div>
 
         {template === 'progressive_release' && (
