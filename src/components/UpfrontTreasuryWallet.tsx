@@ -66,7 +66,7 @@ export default function UpfrontTreasuryWallet() {
       {knownTreasuries.length > 1 && <p className="mt-3 text-xs leading-5 text-rose-700">Multiple embedded wallets are linked to this identity. Treasury selection is locked until an operator verifies the correct address.</p>}
       {treasury && <div className="mt-3 text-[11px]"><Row label="Treasury address" address={treasury} /><button type="button" onClick={() => void copyTreasury()} className="mt-2 rounded-lg border border-blue-200 bg-white px-3 py-2 font-semibold text-blue-700">{copied ? 'Address copied' : 'Copy full address'}</button></div>}
       {walletKnownButConnectorPending && <p className="mt-2 text-[11px] leading-5 text-amber-800">Treasury address recovered. The signing connection is still loading, so transactions remain locked.</p>}
-      {treasury && <p className="mt-3 text-[11px] leading-5 text-blue-800/80 dark:text-blue-200/80">This address needs only the limited USDC demo amount. X Layer execution is gas-free. Funding remains locked while the escrow is paused.</p>}
+      {treasury && <p className="mt-3 text-[11px] leading-5 text-blue-800/80 dark:text-blue-200/80">This address needs only the limited USDC demo amount. X Layer execution is gas-free. Every advance still requires a live verified offer and explicit wallet confirmation.</p>}
       {error && <p className="mt-3 text-xs text-rose-700">{error}</p>}
     </div></div>
   </div>
