@@ -18,7 +18,7 @@ async function main() {
   const network = await ethers.provider.getNetwork()
   if (network.chainId !== 196n) throw new Error(`Expected X Layer mainnet 196; received ${network.chainId}.`)
   const [deployer] = await ethers.getSigners()
-  if (!deployer) throw new Error('XLAYER_DEPLOYER_PRIVATE_KEY is unavailable.')
+  if (!deployer) throw new Error('XLAYER_MAINNET_DEPLOYER_PRIVATE_KEY is unavailable.')
   const asset = address('XLAYER_MAINNET_USDC_ADDRESS')
   if (asset !== ethers.getAddress(OFFICIAL_XLAYER_USDC)) throw new Error('XLAYER_MAINNET_USDC_ADDRESS is not the approved native USDC contract.')
   if (await ethers.provider.getCode(asset) === '0x') throw new Error('The configured X Layer mainnet USDC contract has no bytecode.')
@@ -44,9 +44,14 @@ async function main() {
   const gasEstimate = await ethers.provider.estimateGas({ from: deployer.address, data: transaction.data })
   const fee = await ethers.provider.getFeeData()
   const gasPrice = fee.maxFeePerGas ?? fee.gasPrice ?? 0n
+  const predictedContract = ethers.getCreateAddress({ from: deployer.address, nonce: await ethers.provider.getTransactionCount(deployer.address) })
+  const reservedAddresses = [constructor.asset, constructor.arcRepaymentRouter, constructor.underwritingSigner, constructor.protectionSigner, constructor.owner]
+  const addressCollision = reservedAddresses.includes(predictedContract)
   console.log(JSON.stringify({
     dryRun: true, chainId: network.chainId.toString(), deployer: deployer.address,
-    predictedContract: ethers.getCreateAddress({ from: deployer.address, nonce: await ethers.provider.getTransactionCount(deployer.address) }),
+    deployerNativeBalance: (await ethers.provider.getBalance(deployer.address)).toString(),
+    predictedContract, addressCollision, deployable: !addressCollision,
+    ownerIsDeployer: constructor.owner === deployer.address,
     constructor: { ...constructor, maxAdvanceAmount: constructor.maxAdvanceAmount.toString(), maxTotalFunded: constructor.maxTotalFunded.toString(), startsPaused: true, allowlistedFunders: [] },
     gasEstimate: gasEstimate.toString(), maximumEstimatedNativeCost: ethers.formatEther(gasEstimate * gasPrice),
   }, null, 2))

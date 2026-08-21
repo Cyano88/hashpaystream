@@ -18,7 +18,9 @@ async function main() {
   const network = await ethers.provider.getNetwork()
   if (network.chainId !== 196n) throw new Error(`Refusing to deploy on chain ${network.chainId}; expected X Layer mainnet 196.`)
   const [deployer] = await ethers.getSigners()
-  if (!deployer) throw new Error('XLAYER_DEPLOYER_PRIVATE_KEY is unavailable.')
+  if (!deployer) throw new Error('XLAYER_MAINNET_DEPLOYER_PRIVATE_KEY is unavailable.')
+  if (process.env.UPFRONT_OWNER_CONTROL_CONFIRM !== 'CONTROLLED_MAINNET_OWNER') throw new Error('Explicit confirmation that UPFRONT_CONTRACT_OWNER is controlled is missing.')
+  if (process.env.UPFRONT_MAINNET_DEPLOY_CONFIRM !== 'DEPLOY_PAUSED_XLAYER_MAINNET') throw new Error('Explicit paused X Layer mainnet deployment confirmation is missing.')
 
   const configuredAsset = address('XLAYER_MAINNET_USDC_ADDRESS')
   if (configuredAsset !== ethers.getAddress(OFFICIAL_XLAYER_USDC)) throw new Error('XLAYER_MAINNET_USDC_ADDRESS is not the approved native USDC contract.')
@@ -36,6 +38,12 @@ async function main() {
   const owner = address('UPFRONT_CONTRACT_OWNER')
   const maxAdvanceAmount = units('UPFRONT_MAX_ADVANCE_USDC_UNITS')
   const maxTotalFunded = units('UPFRONT_MAX_TOTAL_FUNDED_USDC_UNITS')
+  if (maxAdvanceAmount > 1_000_000n || maxTotalFunded > 5_000_000n || maxTotalFunded < maxAdvanceAmount) {
+    throw new Error('Mainnet proof caps must not exceed 1 USDC per advance or 5 USDC lifetime.')
+  }
+  const predictedContract = ethers.getCreateAddress({ from: deployer.address, nonce: await ethers.provider.getTransactionCount(deployer.address) })
+  const reservedAddresses = [configuredAsset, arcRepaymentRouter, underwritingSigner, protectionSigner, owner]
+  if (reservedAddresses.includes(predictedContract)) throw new Error(`Predicted escrow address ${predictedContract} collides with a configured protocol address.`)
   const escrow = await ethers.deployContract('UpfrontAdvanceEscrow', [
     configuredAsset, arcRepaymentRouter, underwritingSigner, protectionSigner, owner, maxAdvanceAmount, maxTotalFunded,
   ])
@@ -44,7 +52,7 @@ async function main() {
     chainId: network.chainId.toString(), contract: await escrow.getAddress(), asset: configuredAsset,
     arcRepaymentRouter, underwritingSigner, protectionSigner, owner,
     maxAdvanceAmount: maxAdvanceAmount.toString(), maxTotalFunded: maxTotalFunded.toString(), paused: true,
-    allowlistedFunders: [], deployer: deployer.address, transactionHash: escrow.deploymentTransaction()?.hash,
+    allowlistedFunders: [], deployer: deployer.address, predictedContract, transactionHash: escrow.deploymentTransaction()?.hash,
   }, null, 2))
 }
 

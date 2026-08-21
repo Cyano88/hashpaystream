@@ -22,3 +22,15 @@ After deployment, verify the constructor values and ownership before separately
 allowlisting a treasury and unpausing. Arc remains testnet: its test USDC has no
 financial value and is not collateral for a mainnet advance. Never reuse
 application secrets as signer keys and never commit the local `.env`.
+
+The mainnet deployment script additionally refuses protocol-address collisions,
+caps above 1 USDC per advance or 5 USDC lifetime, and execution without both
+`UPFRONT_OWNER_CONTROL_CONFIRM=CONTROLLED_MAINNET_OWNER` and
+`UPFRONT_MAINNET_DEPLOY_CONFIRM=DEPLOY_PAUSED_XLAYER_MAINNET`. These values are
+deployment acknowledgements, not secrets; set them only after human review of
+the read-only plan.
+
+Use `npm run bootstrap:mainnet-deployer` once to create a dedicated mainnet
+deployment identity inside the ignored `contracts/.env`. The command prints
+only its public address and refuses to replace an existing key. Do not reuse the
+Arc, testnet, underwriting, protection, repayment, or application identities.

@@ -4,6 +4,8 @@ import 'dotenv/config'
 
 const rawKey = process.env.XLAYER_DEPLOYER_PRIVATE_KEY?.trim()
 const accounts = rawKey ? ['0x' + rawKey.replace(/^0x/, '')] : []
+const rawMainnetKey = process.env.XLAYER_MAINNET_DEPLOYER_PRIVATE_KEY?.trim()
+const mainnetAccounts = rawMainnetKey ? ['0x' + rawMainnetKey.replace(/^0x/, '')] : []
 const rawArcKey = process.env.ARC_DEPLOYER_PRIVATE_KEY?.trim()
 const arcAccounts = rawArcKey ? ['0x' + rawArcKey.replace(/^0x/, '')] : []
 
@@ -27,7 +29,7 @@ const config: HardhatUserConfig = {
     xlayerMainnet: {
       url: process.env.XLAYER_MAINNET_RPC_URL ?? 'https://rpc.xlayer.tech',
       chainId: 196,
-      accounts,
+      accounts: mainnetAccounts,
     },
     arcTestnet: {
       url: process.env.ARC_TESTNET_RPC_URL ?? 'https://rpc.testnet.arc.network',
