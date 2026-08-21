@@ -35,9 +35,9 @@ services:
       - key: HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY
         value: hashpaystream:agreement-owners:v1
       - key: HASHPAYSTREAM_UPFRONT_ENABLED
-        value: "false"
+        value: "true"
       - key: VITE_HASHPAYSTREAM_UPFRONT_ENABLED
-        value: "false"
+        value: "true"
       - key: VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS
         sync: false
       - key: HASHPAYSTREAM_UPFRONT_STORE_KEY
@@ -69,13 +69,13 @@ services:
       - key: HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS
         sync: false
       - key: HASHPAYSTREAM_UPFRONT_CHAIN_ID
-        value: "1952"
+        value: "196"
       - key: VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID
-        value: "1952"
+        value: "196"
       - key: VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED
-        value: "false"
+        value: "true"
       - key: HASHPAYSTREAM_XLAYER_RPC_URL
-        value: https://testrpc.xlayer.tech/terigon
+        value: https://rpc.xlayer.tech
       - key: HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY
         sync: false
       - key: HASHPAYSTREAM_UPFRONT_PROTECTION_SIGNER
