@@ -40,6 +40,43 @@ function validFunderAllowlist(env: NodeJS.ProcessEnv) {
     .some(value => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || /^0x[a-f0-9]{40}$/.test(value))
 }
 
+function missingUpfrontEnvironmentNames(env: NodeJS.ProcessEnv) {
+  if (clean(env.HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() !== 'true') return []
+  const required = [
+    'PRIVY_APP_SECRET',
+    'HASHPAYSTREAM_APP_OWNERSHIP_SECRET',
+    'HASHPAYSTREAM_UPFRONT_ARC_API_KEY',
+    'HASHPAYSTREAM_UPFRONT_ARC_PROJECT_ID',
+    'HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_SECRET',
+    'HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_STORE_KEY',
+    'HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS',
+    'VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS',
+    'HASHPAYSTREAM_ZEROSCOUT_BASE_URL',
+    'HASHPAYSTREAM_ZEROSCOUT_API_KEY',
+    'HASHPAYSTREAM_POLYDESK_BASE_URL',
+    'HASHPAYSTREAM_POLYDESK_SERVICE_TOKEN',
+    'HASHPAYSTREAM_POLYDESK_SIGNING_SECRET',
+    'HASHPAYSTREAM_POLYDESK_EIP712_SIGNER',
+    'HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS',
+    'VITE_HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS',
+    'VITE_HASHPAYSTREAM_UPFRONT_REPAYMENT_RECIPIENT',
+    'HASHPAYSTREAM_UPFRONT_CHAIN_ID',
+    'VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID',
+    'HASHPAYSTREAM_XLAYER_RPC_URL',
+    'HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY',
+    'HASHPAYSTREAM_UPFRONT_PROTECTION_SIGNER',
+    'HASHPAYSTREAM_UPFRONT_REPAYMENT_PRIVATE_KEY',
+    'HASHPAYSTREAM_UPFRONT_REPAYMENT_SIGNER',
+    'VITE_HASHPAYSTREAM_UPFRONT_ENABLED',
+    'VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED',
+    'HASHPAYSTREAM_DIRECT_ARC_ENABLED',
+    'VITE_HASHPAYSTREAM_DIRECT_ARC_ENABLED',
+  ].filter(name => !clean(env[name], 300))
+  if (!clean(env.PRIVY_APP_ID ?? env.VITE_PRIVY_APP_ID, 180)) required.push('PRIVY_APP_ID_OR_VITE_PRIVY_APP_ID')
+  if (!validFunderAllowlist(env)) required.push('HASHPAYSTREAM_UPFRONT_FUNDER_EMAILS_OR_WALLETS')
+  return required.sort()
+}
+
 function upfrontConfigurationReady(env: NodeJS.ProcessEnv) {
   if (clean(env.HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() !== 'true') return true
   const address = (value: unknown) => /^0x[a-fA-F0-9]{40}$/.test(clean(value, 42)) && !/^0x0{40}$/i.test(clean(value, 42))
@@ -111,6 +148,7 @@ export type ReadinessDependencies = {
     component: 'hashpaystream-readiness'
     event: 'dependency_unavailable'
     status: 503
+    missingEnvironment?: string[]
   }) => void
 }
 
@@ -135,9 +173,10 @@ export function createHashPayStreamReadinessHandler(
     if (dependencies.isDraining()) {
       return res.status(503).json({ ok: false, service: 'hashpaystream', status: 'unavailable' })
     }
+    let env: NodeJS.ProcessEnv = {}
     try {
       if (!dependencies.hasStore()) throw new Error('Durable store is unavailable.')
-      const env = dependencies.env()
+      env = dependencies.env()
       if (!upfrontConfigurationReady(env)) throw new Error('Upfront configuration is incomplete.')
       const ownershipStoreKey = String(
         env.HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY ?? DEFAULT_OWNERSHIP_STORE_KEY,
@@ -151,10 +190,12 @@ export function createHashPayStreamReadinessHandler(
       return res.status(200).json({ ok: true, service: 'hashpaystream', status: 'ready' })
     } catch {
       try {
+        const missingEnvironment = missingUpfrontEnvironmentNames(env)
         dependencies.logError({
           component: 'hashpaystream-readiness',
           event: 'dependency_unavailable',
           status: 503,
+          ...(missingEnvironment.length > 0 ? { missingEnvironment } : {}),
         })
       } catch {
         // Logging must never change the readiness response.

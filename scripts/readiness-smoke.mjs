@@ -61,6 +61,10 @@ const incompleteUpfront = createHashPayStreamReadinessHandler({
   hasStore: () => true,
   read: async () => undefined,
   env: () => ({ HASHPAYSTREAM_UPFRONT_ENABLED: 'true' }),
+  logError: event => {
+    assert.equal(event.missingEnvironment.includes('HASHPAYSTREAM_ZEROSCOUT_API_KEY'), true)
+    assert.equal(event.missingEnvironment.includes('HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY'), true)
+  },
 })
 assert.equal((await call(incompleteUpfront)).statusCode, 503)
 
