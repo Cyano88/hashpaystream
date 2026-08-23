@@ -64,6 +64,8 @@ const incompleteUpfront = createHashPayStreamReadinessHandler({
   logError: event => {
     assert.equal(event.missingEnvironment.includes('HASHPAYSTREAM_ZEROSCOUT_API_KEY'), true)
     assert.equal(event.missingEnvironment.includes('HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY'), true)
+    assert.equal(event.configurationIssues.includes('ZEROSCOUT_CONFIGURATION_INVALID'), true)
+    assert.equal(event.configurationIssues.includes('SIGNER_CONFIGURATION_INVALID'), true)
   },
 })
 assert.equal((await call(incompleteUpfront)).statusCode, 503)

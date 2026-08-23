@@ -139,6 +139,43 @@ function upfrontConfigurationReady(env: NodeJS.ProcessEnv) {
   )
 }
 
+function upfrontConfigurationIssueCodes(env: NodeJS.ProcessEnv) {
+  if (clean(env.HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() !== 'true') return []
+  const issues: string[] = []
+  const address = (value: unknown) => /^0x[a-fA-F0-9]{40}$/.test(clean(value, 42)) && !/^0x0{40}$/i.test(clean(value, 42))
+  const serverRouter = clean(env.HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS, 42)
+  const browserRouter = clean(env.VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS, 42)
+  const serverEscrow = clean(env.HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS, 42)
+  const browserEscrow = clean(env.VITE_HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS, 42)
+  const serverChainId = Number(env.HASHPAYSTREAM_UPFRONT_CHAIN_ID)
+  const browserChainId = Number(env.VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID)
+  if (!clean(env.PRIVY_APP_ID ?? env.VITE_PRIVY_APP_ID, 180) || clean(env.PRIVY_APP_SECRET, 300).length < 16) issues.push('PRIVY_CONFIGURATION_INVALID')
+  if (clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300).length < 32) issues.push('OWNERSHIP_SECRET_INVALID')
+  if (!clean(env.HASHPAYSTREAM_UPFRONT_ARC_API_KEY, 200).startsWith('hpl_test_') || clean(env.HASHPAYSTREAM_UPFRONT_ARC_API_KEY, 200).length < 32) issues.push('ARC_API_KEY_INVALID')
+  if (clean(env.HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_SECRET, 300).length < 32) issues.push('ARC_WEBHOOK_CONFIGURATION_INVALID')
+  if (!address(serverRouter) || !address(browserRouter)) issues.push('ARC_ROUTER_INVALID')
+  else if (getAddress(serverRouter) !== getAddress(browserRouter)) issues.push('ARC_ROUTER_MISMATCH')
+  if (!validHttpsOrigin(env.HASHPAYSTREAM_HASH_PAYLINK_BASE_URL ?? 'https://app.hashpaylink.com')) issues.push('HASH_PAYLINK_URL_INVALID')
+  if (!validHttpsOrigin(env.HASHPAYSTREAM_ZEROSCOUT_BASE_URL) || clean(env.HASHPAYSTREAM_ZEROSCOUT_API_KEY, 300).length < 16) issues.push('ZEROSCOUT_CONFIGURATION_INVALID')
+  if (!validHttpsOrigin(env.HASHPAYSTREAM_POLYDESK_BASE_URL) || clean(env.HASHPAYSTREAM_POLYDESK_SERVICE_TOKEN, 300).length < 32 || clean(env.HASHPAYSTREAM_POLYDESK_SIGNING_SECRET, 300).length < 32 || !address(env.HASHPAYSTREAM_POLYDESK_EIP712_SIGNER)) issues.push('POLYDESK_CONFIGURATION_INVALID')
+  if (!address(serverEscrow) || !address(browserEscrow)) issues.push('ESCROW_ADDRESS_INVALID')
+  else if (getAddress(serverEscrow) !== getAddress(browserEscrow)) issues.push('ESCROW_ADDRESS_MISMATCH')
+  if (!address(env.VITE_HASHPAYSTREAM_UPFRONT_REPAYMENT_RECIPIENT)) issues.push('REPAYMENT_RECIPIENT_INVALID')
+  if (![1952, 196].includes(serverChainId) || serverChainId !== browserChainId) issues.push('XLAYER_CHAIN_CONFIGURATION_INVALID')
+  if (!validHttpsUrl(env.HASHPAYSTREAM_XLAYER_RPC_URL)) issues.push('XLAYER_RPC_URL_INVALID')
+  const protectionKey = validPrivateKey(env.HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY)
+  const repaymentKey = validPrivateKey(env.HASHPAYSTREAM_UPFRONT_REPAYMENT_PRIVATE_KEY)
+  try {
+    if (!protectionKey || !repaymentKey || !address(env.HASHPAYSTREAM_UPFRONT_PROTECTION_SIGNER) || !address(env.HASHPAYSTREAM_UPFRONT_REPAYMENT_SIGNER) || privateKeyToAccount(protectionKey).address !== getAddress(clean(env.HASHPAYSTREAM_UPFRONT_PROTECTION_SIGNER, 42)) || privateKeyToAccount(repaymentKey).address !== getAddress(clean(env.HASHPAYSTREAM_UPFRONT_REPAYMENT_SIGNER, 42))) issues.push('SIGNER_CONFIGURATION_INVALID')
+  } catch {
+    issues.push('SIGNER_CONFIGURATION_INVALID')
+  }
+  if (!validFunderAllowlist(env)) issues.push('FUNDER_ALLOWLIST_INVALID')
+  if (clean(env.VITE_HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() !== 'true' || clean(env.VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED, 20).toLowerCase() !== 'true') issues.push('UPFRONT_BROWSER_FLAGS_INVALID')
+  if (clean(env.HASHPAYSTREAM_DIRECT_ARC_ENABLED, 20).toLowerCase() !== 'false' || clean(env.VITE_HASHPAYSTREAM_DIRECT_ARC_ENABLED, 20).toLowerCase() !== 'false') issues.push('DIRECT_ARC_FLAGS_INVALID')
+  return [...new Set(issues)].sort()
+}
+
 export type ReadinessDependencies = {
   isDraining: () => boolean
   hasStore: () => boolean
@@ -149,6 +186,7 @@ export type ReadinessDependencies = {
     event: 'dependency_unavailable'
     status: 503
     missingEnvironment?: string[]
+    configurationIssues?: string[]
   }) => void
 }
 
@@ -191,11 +229,13 @@ export function createHashPayStreamReadinessHandler(
     } catch {
       try {
         const missingEnvironment = missingUpfrontEnvironmentNames(env)
+        const configurationIssues = upfrontConfigurationIssueCodes(env)
         dependencies.logError({
           component: 'hashpaystream-readiness',
           event: 'dependency_unavailable',
           status: 503,
           ...(missingEnvironment.length > 0 ? { missingEnvironment } : {}),
+          ...(configurationIssues.length > 0 ? { configurationIssues } : {}),
         })
       } catch {
         // Logging must never change the readiness response.
