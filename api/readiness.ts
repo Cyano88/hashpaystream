@@ -1,8 +1,106 @@
 import type { Request, Response } from 'express'
+import { getAddress, type Hex } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import { hasRenderDurableStore, readDurableJson } from './durable-store.js'
 import { agentCredentialRegistryConfig } from './agent-credential-registry.js'
 
 const DEFAULT_OWNERSHIP_STORE_KEY = 'hashpaystream:agreement-owners:v1'
+
+function clean(value: unknown, maximum: number) {
+  return String(value ?? '').trim().slice(0, maximum)
+}
+
+function validHttpsOrigin(value: unknown) {
+  try {
+    const url = new URL(clean(value, 240))
+    return url.protocol === 'https:' && !url.username && !url.password && !url.search && !url.hash
+  } catch {
+    return false
+  }
+}
+
+function validHttpsUrl(value: unknown) {
+  try {
+    const url = new URL(clean(value, 240))
+    return url.protocol === 'https:' && !url.username && !url.password && !url.hash
+  } catch {
+    return false
+  }
+}
+
+function validPrivateKey(value: unknown) {
+  const text = clean(value, 66)
+  return /^0x[a-fA-F0-9]{64}$/.test(text) ? text as Hex : undefined
+}
+
+function validFunderAllowlist(env: NodeJS.ProcessEnv) {
+  return [env.HASHPAYSTREAM_UPFRONT_FUNDER_EMAILS, env.HASHPAYSTREAM_UPFRONT_FUNDER_WALLETS]
+    .flatMap(value => String(value ?? '').split(','))
+    .map(value => value.trim().toLowerCase())
+    .some(value => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || /^0x[a-f0-9]{40}$/.test(value))
+}
+
+function upfrontConfigurationReady(env: NodeJS.ProcessEnv) {
+  if (clean(env.HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() !== 'true') return true
+  const address = (value: unknown) => /^0x[a-fA-F0-9]{40}$/.test(clean(value, 42)) && !/^0x0{40}$/i.test(clean(value, 42))
+  const serverRouter = clean(env.HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS, 42)
+  const browserRouter = clean(env.VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS, 42)
+  const serverEscrow = clean(env.HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS, 42)
+  const browserEscrow = clean(env.VITE_HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS, 42)
+  const serverChainId = Number(env.HASHPAYSTREAM_UPFRONT_CHAIN_ID)
+  const browserChainId = Number(env.VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID)
+  const protectionKey = validPrivateKey(env.HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY)
+  const repaymentKey = validPrivateKey(env.HASHPAYSTREAM_UPFRONT_REPAYMENT_PRIVATE_KEY)
+  const protectionSigner = clean(env.HASHPAYSTREAM_UPFRONT_PROTECTION_SIGNER, 42)
+  const repaymentSigner = clean(env.HASHPAYSTREAM_UPFRONT_REPAYMENT_SIGNER, 42)
+  let signerKeysMatch = false
+  try {
+    signerKeysMatch = Boolean(
+      protectionKey
+      && repaymentKey
+      && address(protectionSigner)
+      && address(repaymentSigner)
+      && privateKeyToAccount(protectionKey).address === getAddress(protectionSigner)
+      && privateKeyToAccount(repaymentKey).address === getAddress(repaymentSigner)
+    )
+  } catch {
+    signerKeysMatch = false
+  }
+  return Boolean(
+    clean(env.PRIVY_APP_ID ?? env.VITE_PRIVY_APP_ID, 180)
+    && clean(env.PRIVY_APP_SECRET, 300).length >= 16
+    && clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300).length >= 32
+    && clean(env.HASHPAYSTREAM_UPFRONT_STORE_KEY ?? 'hashpaystream:upfront-assessments:v1', 160)
+    && clean(env.HASHPAYSTREAM_UPFRONT_ARC_API_KEY, 200).startsWith('hpl_test_')
+    && clean(env.HASHPAYSTREAM_UPFRONT_ARC_API_KEY, 200).length >= 32
+    && clean(env.HASHPAYSTREAM_UPFRONT_ARC_PROJECT_ID, 180)
+    && clean(env.HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_SECRET, 300).length >= 32
+    && clean(env.HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_STORE_KEY, 160)
+    && address(serverRouter)
+    && address(browserRouter)
+    && getAddress(serverRouter) === getAddress(browserRouter)
+    && validHttpsOrigin(env.HASHPAYSTREAM_HASH_PAYLINK_BASE_URL ?? 'https://app.hashpaylink.com')
+    && validHttpsOrigin(env.HASHPAYSTREAM_ZEROSCOUT_BASE_URL)
+    && clean(env.HASHPAYSTREAM_ZEROSCOUT_API_KEY, 300).length >= 16
+    && validHttpsOrigin(env.HASHPAYSTREAM_POLYDESK_BASE_URL)
+    && clean(env.HASHPAYSTREAM_POLYDESK_SERVICE_TOKEN, 300).length >= 32
+    && clean(env.HASHPAYSTREAM_POLYDESK_SIGNING_SECRET, 300).length >= 32
+    && address(env.HASHPAYSTREAM_POLYDESK_EIP712_SIGNER)
+    && address(serverEscrow)
+    && address(browserEscrow)
+    && getAddress(serverEscrow) === getAddress(browserEscrow)
+    && address(env.VITE_HASHPAYSTREAM_UPFRONT_REPAYMENT_RECIPIENT)
+    && [1952, 196].includes(serverChainId)
+    && serverChainId === browserChainId
+    && validHttpsUrl(env.HASHPAYSTREAM_XLAYER_RPC_URL)
+    && signerKeysMatch
+    && validFunderAllowlist(env)
+    && clean(env.VITE_HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() === 'true'
+    && clean(env.VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED, 20).toLowerCase() === 'true'
+    && clean(env.HASHPAYSTREAM_DIRECT_ARC_ENABLED, 20).toLowerCase() === 'false'
+    && clean(env.VITE_HASHPAYSTREAM_DIRECT_ARC_ENABLED, 20).toLowerCase() === 'false'
+  )
+}
 
 export type ReadinessDependencies = {
   isDraining: () => boolean
@@ -40,6 +138,7 @@ export function createHashPayStreamReadinessHandler(
     try {
       if (!dependencies.hasStore()) throw new Error('Durable store is unavailable.')
       const env = dependencies.env()
+      if (!upfrontConfigurationReady(env)) throw new Error('Upfront configuration is incomplete.')
       const ownershipStoreKey = String(
         env.HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY ?? DEFAULT_OWNERSHIP_STORE_KEY,
       ).trim()

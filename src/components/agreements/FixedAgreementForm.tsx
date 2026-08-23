@@ -1,10 +1,12 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
-import { ArrowLeftIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, CheckIcon, ClipboardIcon, LockClosedIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, ArrowTopRightOnSquareIcon, CheckIcon, ClipboardIcon, LockClosedIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { Link } from '../../lib/router'
 import { isAddress } from 'viem'
-import { AuthButton } from '../../lib/AuthButton'
 import { useStreamPayPath } from '../../lib/useStreamPayPath'
+import { LoadingRing } from '../ui/LoadingRing'
+import { StreamPayEmailLogin } from '../auth/StreamPayEmailLogin'
+import { AgreementProgress } from '../ui/AgreementProgress'
 
 type CreatedAgreement = {
   agreement: { id: string; title: string; amount: string; recipient: string; template?: AgreementTemplate }
@@ -18,6 +20,7 @@ const APP_ORIGIN = String(import.meta.env.VITE_HASH_PAYLINK_BASE_URL || 'https:/
 const AGREEMENTS_API = '/api/hashpaystream/v2/agreements'
 const UPFRONT_AGREEMENTS_API = '/api/hashpaystream/v1/upfront/agreements'
 const UPFRONT_ENABLED = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ENABLED ?? '').toLowerCase() === 'true'
+const DIRECT_ARC_ENABLED = String(import.meta.env.VITE_HASHPAYSTREAM_DIRECT_ARC_ENABLED ?? '').toLowerCase() === 'true'
 const UPFRONT_ARC_ROUTER = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS ?? '0x0CFd91Ea2F476C62fE2008B14A5dFd4A61328CcE')
 
 function newIdempotencyKey() {
@@ -41,7 +44,7 @@ export default function FixedAgreementForm() {
   const [description, setDescription] = useState('')
   const [amount, setAmount] = useState('')
   const [recipient, setRecipient] = useState('')
-  const [useUpfront, setUseUpfront] = useState(false)
+  const [useUpfront, setUseUpfront] = useState(UPFRONT_ENABLED)
   const [durationSeconds, setDurationSeconds] = useState('86400')
   const [cancellationWindowSeconds, setCancellationWindowSeconds] = useState('900')
   const [idempotencyKey] = useState(newIdempotencyKey)
@@ -160,7 +163,7 @@ export default function FixedAgreementForm() {
   }
 
   if (!ready) {
-    return <div className="flex min-h-[58vh] items-center justify-center"><ArrowPathIcon className="h-5 w-5 animate-spin text-gray-300" /></div>
+    return <div className="flex min-h-[58vh] items-center justify-center"><LoadingRing className="h-5 w-5 text-gray-300" /></div>
   }
 
   if (!authenticated) {
@@ -171,12 +174,7 @@ export default function FixedAgreementForm() {
         </div>
         <h1 className="mt-6 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Create an agreement.</h1>
         <p className="mt-3 text-sm leading-6 text-gray-500 dark:text-gray-400">Sign in to create and manage your agreements.</p>
-        <AuthButton
-          debugLabel="hashpaystream-create-agreement"
-          className="mt-7 w-full rounded-xl bg-gray-950 px-4 py-3 text-sm font-semibold text-white dark:bg-white dark:text-gray-950"
-        >
-          Continue with email
-        </AuthButton>
+        <StreamPayEmailLogin className="mt-7 w-full" />
       </section>
     )
   }
@@ -247,9 +245,27 @@ export default function FixedAgreementForm() {
             : 'Protect the full payment and release it as each milestone is approved.'}
       </p>
       <p className="mt-2 text-xs leading-5 text-gray-400">You create the terms. The payer funds the agreement and approves each release.</p>
+      <div className="mt-6">
+        <AgreementProgress
+          current={1}
+          steps={useUpfront
+            ? [
+                { label: 'Create terms', detail: 'Describe the job' },
+                { label: 'Customer funds', detail: 'Test USDC on Arc' },
+                { label: 'Request advance', detail: 'AI checks the risk' },
+                { label: 'Funder sends', detail: 'USDC on X Layer' },
+              ]
+            : [
+                { label: 'Create terms', detail: 'Describe the payment' },
+                { label: 'Customer funds', detail: 'Test USDC on Arc' },
+                { label: 'Complete work', detail: 'Submit delivery proof' },
+                { label: 'Customer releases', detail: 'Approve payment' },
+              ]}
+        />
+      </div>
 
       <form onSubmit={submit} className="mt-7 space-y-5 rounded-3xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#18181b] sm:p-7">
-        <Field label="Payment structure">
+        {DIRECT_ARC_ENABLED && <Field label="Payment structure">
           <div className="grid grid-cols-3 gap-2">
             {([
               ['fixed_unlock', 'One release', 'One release'],
@@ -269,19 +285,19 @@ export default function FixedAgreementForm() {
               </button>
             ))}
           </div>
-        </Field>
+        </Field>}
         {UPFRONT_ENABLED && template === 'fixed_unlock' && (
           <Field label="Payment option">
-            <div className="grid gap-2 sm:grid-cols-2">
+            {DIRECT_ARC_ENABLED ? <div className="grid gap-2 sm:grid-cols-2">
               <button type="button" aria-pressed={!useUpfront} onClick={() => setUseUpfront(false)} className={'rounded-xl border p-3 text-left transition-colors ' + (!useUpfront ? 'border-gray-950 bg-gray-950 text-white dark:border-white dark:bg-white dark:text-gray-950' : 'border-gray-200 text-gray-600 dark:border-white/10 dark:text-gray-300')}>
-                <span className="block text-sm font-semibold">Protected payment</span>
-                <span className="mt-1 block text-[11px] leading-5 opacity-70">Receive USDC on Arc after approval.</span>
+                <span className="block text-sm font-bold">Arc protected payment</span>
+                <span className="mt-1 block text-[11px] leading-5 opacity-70">Customer protects test USDC on Arc and releases it after delivery.</span>
               </button>
               <button type="button" aria-pressed={useUpfront} onClick={() => setUseUpfront(true)} className={'rounded-xl border p-3 text-left transition-colors ' + (useUpfront ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 text-gray-600 dark:border-white/10 dark:text-gray-300')}>
-                <span className="block text-sm font-semibold">Get paid early</span>
-                <span className="mt-1 block text-[11px] leading-5 opacity-70">Request an X Layer advance after payer funding.</span>
+                <span className="block text-sm font-bold">X Layer early payment</span>
+                <span className="mt-1 block text-[11px] leading-5 opacity-70">After Arc funding, request an AI-assessed advance on X Layer.</span>
               </button>
-            </div>
+            </div> : <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-400/20 dark:bg-blue-400/10"><p className="text-sm font-bold text-blue-950 dark:text-blue-100">Get paid early on X Layer</p><p className="mt-1 text-[11px] leading-5 text-blue-800 dark:text-blue-200">Your customer first protects test USDC on Arc. After funding, AI checks the agreement before an approved funder can send your advance.</p></div>}
           </Field>
         )}
         <Field label="Agreement title">
@@ -302,12 +318,12 @@ export default function FixedAgreementForm() {
               <p className="text-xs font-semibold text-blue-900 dark:text-blue-100">Upfront repayment routing</p>
               <p className="mt-1 text-[11px] leading-5 text-blue-700 dark:text-blue-200">The customer payment is protected on Arc and settles the advance after approved delivery. You never need to enter the router address.</p>
             </div>
-          ) : (
+          ) : DIRECT_ARC_ENABLED ? (
           <Field label="Recipient wallet address">
             <input value={recipient} onChange={event => setRecipient(event.target.value.trim())} required placeholder="0x…" className={inputClass} />
             <span className="mt-2 block text-[11px] text-gray-400">Arc test network only.</span>
           </Field>
-          )}
+          ) : null}
         </div>
 
         {template === 'progressive_release' && (
@@ -415,8 +431,8 @@ export default function FixedAgreementForm() {
           disabled={!formReady || submitting}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 py-3.5 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 dark:bg-white dark:text-gray-950 dark:disabled:bg-white/10 dark:disabled:text-gray-600"
         >
-          {submitting && <ArrowPathIcon className="h-4 w-4 animate-spin" />}
-          Create payer link
+          {submitting && <LoadingRing className="h-4 w-4" label="Creating agreement" />}
+          Create private payer link
         </button>
       </form>
     </section>

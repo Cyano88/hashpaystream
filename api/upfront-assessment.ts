@@ -21,6 +21,7 @@ type AuthoritativeAgreement = {
 
 export type UpfrontAssessmentDependencies = {
   identity: (req: Request) => Promise<string>
+  providerWallets: (identity: string, env: NodeJS.ProcessEnv) => Promise<Address[]>
   mutate: (key: string, update: (current: AssessmentStore | undefined) => AssessmentStore) => Promise<AssessmentStore>
   readOwnership: (key: string) => Promise<OwnershipStore | undefined>
   agreement: (id: string, config: { baseUrl: string; apiKey: string }) => Promise<AuthoritativeAgreement>
@@ -51,6 +52,28 @@ async function verifiedIdentity(req: Request) {
     return userId
   } catch (cause) {
     throw Object.assign(httpError('Your HashPayStream session is invalid or expired.', 401), { cause })
+  }
+}
+
+async function verifiedProviderWallets(identity: string, env: NodeJS.ProcessEnv) {
+  const appId = clean(env.PRIVY_APP_ID ?? env.VITE_PRIVY_APP_ID, 180)
+  const appSecret = clean(env.PRIVY_APP_SECRET, 300)
+  if (!appId || !appSecret) throw httpError('HashPayStream authentication is unavailable.', 503)
+  try {
+    const user = await new PrivyClient({ appId, appSecret }).users()._get(identity)
+    return [...new Set(user.linked_accounts.flatMap(account => {
+      if (
+        account.type !== 'wallet'
+        || account.chain_type !== 'ethereum'
+        || account.wallet_client_type !== 'privy'
+        || account.connector_type !== 'embedded'
+        || !/^0x[a-fA-F0-9]{40}$/.test(account.address)
+        || /^0x0{40}$/i.test(account.address)
+      ) return []
+      return [getAddress(account.address)]
+    }))]
+  } catch (cause) {
+    throw Object.assign(httpError('Your X Layer payout wallet could not be verified.', 503), { cause })
   }
 }
 
@@ -157,6 +180,7 @@ async function requestAssessment(request: AgreementIntelligenceRequest, config: 
 
 const defaults: UpfrontAssessmentDependencies = {
   identity: verifiedIdentity,
+  providerWallets: verifiedProviderWallets,
   mutate: (key, update) => mutateDurableJson<AssessmentStore>(key, update),
   readOwnership: key => readDurableJson<OwnershipStore>(key),
   agreement: requestAgreement,
@@ -213,6 +237,16 @@ export function createHashPayStreamUpfrontAssessmentHandler(overrides: Partial<U
       storeKey = config.storeKey
       const identity = await dependencies.identity(req)
       const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body as Record<string, unknown> : {}
+      const requestedPayoutAddress = clean(body.providerPayoutAddress, 42)
+      if (!/^0x[a-fA-F0-9]{40}$/.test(requestedPayoutAddress) || /^0x0{40}$/i.test(requestedPayoutAddress)) {
+        throw httpError('Create your X Layer payout wallet before requesting an advance.', 400)
+      }
+      const providerWallets = await dependencies.providerWallets(identity, dependencies.env())
+      if (providerWallets.length === 0) throw httpError('Create your X Layer payout wallet before requesting an advance.', 409)
+      if (providerWallets.length > 1) throw httpError('Multiple embedded payout wallets are linked to this account. Contact support before requesting an advance.', 409)
+      if (providerWallets[0] !== getAddress(requestedPayoutAddress)) {
+        throw httpError('The X Layer payout wallet does not belong to your signed-in account.', 403)
+      }
       const verified = body.agreementId
         ? await fundedAgreementInput(body, identity, config, dependencies)
         : { agreementId: undefined, draft: validateUpfrontDraft(body), trustedEvidence: undefined }

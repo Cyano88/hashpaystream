@@ -38,6 +38,10 @@ services:
         value: "true"
       - key: VITE_HASHPAYSTREAM_UPFRONT_ENABLED
         value: "true"
+      - key: HASHPAYSTREAM_DIRECT_ARC_ENABLED
+        value: "false"
+      - key: VITE_HASHPAYSTREAM_DIRECT_ARC_ENABLED
+        value: "false"
       - key: VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS
         sync: false
       - key: HASHPAYSTREAM_UPFRONT_STORE_KEY

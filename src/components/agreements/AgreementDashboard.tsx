@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
-import { ArrowPathIcon, ArrowTopRightOnSquareIcon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, ClipboardIcon } from '@heroicons/react/24/outline'
+import { ArrowTopRightOnSquareIcon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, ClipboardIcon } from '@heroicons/react/24/outline'
 import { Link } from '../../lib/router'
 import { useHashPayStreamSessionSplash } from '../../lib/useHashPayStreamSessionSplash'
 import UnifiedReceipt from '../UnifiedReceipt'
 import { AgreementSignInLanding } from './AgreementSignInLanding'
 import type { PaylinkReceipt } from '../../lib/paymentReceiptPdf'
+import { LoadingRing } from '../ui/LoadingRing'
 import { useStreamPayPath } from '../../lib/useStreamPayPath'
 
 const AGREEMENTS_API = '/api/hashpaystream/v2/agreements'
@@ -338,7 +339,7 @@ export default function AgreementDashboard() {
   if (!ready || loading) {
     return (
       <section className="flex min-h-[58vh] w-full max-w-5xl items-center justify-center">
-        <ArrowPathIcon className="h-5 w-5 animate-spin text-gray-300 dark:text-gray-600" />
+        <LoadingRing className="h-5 w-5 text-gray-300 dark:text-gray-600" />
       </section>
     )
   }

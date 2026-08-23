@@ -1,5 +1,4 @@
 import {
-  ArrowPathIcon,
   ArrowUturnLeftIcon,
   ArrowUpTrayIcon,
   BanknotesIcon,
@@ -14,6 +13,7 @@ import { Fragment, useMemo, useState } from 'react'
 import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSplash'
 import { useAgreements } from '../lib/useAgreements'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
+import { LoadingRing } from './ui/LoadingRing'
 
 const EVENT_PRESENTATION = {
   'agreement.activated': { label: 'Agreement funded', Icon: BanknotesIcon, tone: 'text-emerald-600 dark:text-emerald-400' },
@@ -49,7 +49,7 @@ export default function StreamPayActivity() {
   const visibleActivity = showAll ? activity : activity.slice(0, 10)
 
   if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
-  if (!ready || loading) return <section className="flex min-h-[58vh] items-center"><ArrowPathIcon className="h-5 w-5 animate-spin text-gray-300" /></section>
+  if (!ready || loading) return <section className="flex min-h-[58vh] items-center"><LoadingRing className="h-5 w-5 text-gray-300" /></section>
 
   return (
     <section className="w-full max-w-3xl py-7 sm:py-12">

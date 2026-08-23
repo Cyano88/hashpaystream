@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { privateKeyToAccount } from 'viem/accounts'
 import { createHashPayStreamReadinessHandler } from '../api/readiness.ts'
 
 function responseRecorder() {
@@ -55,6 +56,76 @@ const disabledPilot = createHashPayStreamReadinessHandler({
   env: () => ({}),
 })
 assert.equal((await call(disabledPilot)).statusCode, 200)
+
+const incompleteUpfront = createHashPayStreamReadinessHandler({
+  hasStore: () => true,
+  read: async () => undefined,
+  env: () => ({ HASHPAYSTREAM_UPFRONT_ENABLED: 'true' }),
+})
+assert.equal((await call(incompleteUpfront)).statusCode, 503)
+
+const protectionKey = `0x${'1'.repeat(64)}`
+const repaymentKey = `0x${'2'.repeat(64)}`
+const completeUpfrontEnvironment = {
+  HASHPAYSTREAM_UPFRONT_ENABLED: 'true',
+  VITE_HASHPAYSTREAM_UPFRONT_ENABLED: 'true',
+  HASHPAYSTREAM_DIRECT_ARC_ENABLED: 'false',
+  VITE_HASHPAYSTREAM_DIRECT_ARC_ENABLED: 'false',
+  PRIVY_APP_ID: 'privy-test-app',
+  PRIVY_APP_SECRET: 'privy-test-secret-long-enough',
+  HASHPAYSTREAM_APP_OWNERSHIP_SECRET: 'ownership-secret-longer-than-thirty-two-characters',
+  HASHPAYSTREAM_UPFRONT_STORE_KEY: 'test:hashpaystream:upfront',
+  HASHPAYSTREAM_UPFRONT_ARC_API_KEY: 'hpl_test_12345678901234567890123456789012',
+  HASHPAYSTREAM_UPFRONT_ARC_PROJECT_ID: 'project-upfront-test',
+  HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_SECRET: 'webhook-secret-longer-than-thirty-two-characters',
+  HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_STORE_KEY: 'test:hashpaystream:upfront-webhooks',
+  HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS: '0x1111111111111111111111111111111111111111',
+  VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS: '0x1111111111111111111111111111111111111111',
+  HASHPAYSTREAM_HASH_PAYLINK_BASE_URL: 'https://app.hashpaylink.com',
+  HASHPAYSTREAM_ZEROSCOUT_BASE_URL: 'https://zeroscout.example',
+  HASHPAYSTREAM_ZEROSCOUT_API_KEY: 'zeroscout-test-key-long-enough',
+  HASHPAYSTREAM_POLYDESK_BASE_URL: 'https://polydesk.example',
+  HASHPAYSTREAM_POLYDESK_SERVICE_TOKEN: 'polydesk-service-token-longer-than-thirty-two-characters',
+  HASHPAYSTREAM_POLYDESK_SIGNING_SECRET: 'polydesk-signing-secret-longer-than-thirty-two-characters',
+  HASHPAYSTREAM_POLYDESK_EIP712_SIGNER: '0x2222222222222222222222222222222222222222',
+  HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS: '0x3333333333333333333333333333333333333333',
+  VITE_HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS: '0x3333333333333333333333333333333333333333',
+  VITE_HASHPAYSTREAM_UPFRONT_REPAYMENT_RECIPIENT: '0x4444444444444444444444444444444444444444',
+  HASHPAYSTREAM_UPFRONT_CHAIN_ID: '196',
+  VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID: '196',
+  HASHPAYSTREAM_XLAYER_RPC_URL: 'https://rpc.xlayer.tech',
+  HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY: protectionKey,
+  HASHPAYSTREAM_UPFRONT_PROTECTION_SIGNER: privateKeyToAccount(protectionKey).address,
+  HASHPAYSTREAM_UPFRONT_REPAYMENT_PRIVATE_KEY: repaymentKey,
+  HASHPAYSTREAM_UPFRONT_REPAYMENT_SIGNER: privateKeyToAccount(repaymentKey).address,
+  HASHPAYSTREAM_UPFRONT_FUNDER_EMAILS: 'funder@example.com',
+  VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED: 'true',
+}
+const completeUpfront = createHashPayStreamReadinessHandler({
+  hasStore: () => true,
+  read: async () => undefined,
+  env: () => completeUpfrontEnvironment,
+})
+assert.equal((await call(completeUpfront)).statusCode, 200)
+
+for (const requiredName of [
+  'HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_SECRET',
+  'HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY',
+  'HASHPAYSTREAM_UPFRONT_REPAYMENT_PRIVATE_KEY',
+  'HASHPAYSTREAM_UPFRONT_FUNDER_EMAILS',
+  'VITE_HASHPAYSTREAM_UPFRONT_REPAYMENT_RECIPIENT',
+]) {
+  const environment = { ...completeUpfrontEnvironment, [requiredName]: '' }
+  const missingDependency = createHashPayStreamReadinessHandler({ hasStore: () => true, read: async () => undefined, env: () => environment })
+  assert.equal((await call(missingDependency)).statusCode, 503, `${requiredName} must be required for readiness`)
+}
+
+const signerMismatch = createHashPayStreamReadinessHandler({
+  hasStore: () => true,
+  read: async () => undefined,
+  env: () => ({ ...completeUpfrontEnvironment, HASHPAYSTREAM_UPFRONT_PROTECTION_SIGNER: completeUpfrontEnvironment.HASHPAYSTREAM_UPFRONT_REPAYMENT_SIGNER }),
+})
+assert.equal((await call(signerMismatch)).statusCode, 503)
 
 const unavailableEvents = []
 const unavailable = createHashPayStreamReadinessHandler({

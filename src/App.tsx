@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
-import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import { StreamPayLayout } from './components/StreamPayLayout'
 import AgreementDashboard from './components/agreements/AgreementDashboard'
 import FixedAgreementForm from './components/agreements/FixedAgreementForm'
@@ -20,6 +19,7 @@ import StreamPayFundingDesk from './components/StreamPayFundingDesk'
 import { HashPayStreamSessionSplash } from './components/HashPayStreamSessionSplash'
 import { BrowserRouter, Navigate, useLocation } from './lib/router'
 import { useHashPayStreamSessionSplash } from './lib/useHashPayStreamSessionSplash'
+import { LoadingRing } from './components/ui/LoadingRing'
 
 const UPFRONT_ENABLED = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ENABLED ?? '').toLowerCase() === 'true'
 const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/upfront', '/upfront/funding', '/activity', '/account', '/admin/analytics'])
@@ -37,7 +37,7 @@ function SessionLoadingSurface({ sessionDelayed, onRetry }: { sessionDelayed: bo
           </button>
         </div>
       ) : (
-        <ArrowPathIcon className={'h-4 w-4 animate-spin text-gray-300 dark:text-gray-600'} />
+        <LoadingRing className="h-4 w-4 text-gray-300 dark:text-gray-600" />
       )}
     </div>
   )

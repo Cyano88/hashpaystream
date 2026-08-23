@@ -1,10 +1,14 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
-import { ArrowPathIcon, BanknotesIcon, CheckBadgeIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
+import { BanknotesIcon, CheckBadgeIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
 import { isAddress } from 'viem'
 import { AuthButton } from '../lib/AuthButton'
 import { Link } from '../lib/router'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
+import { LoadingRing } from './ui/LoadingRing'
+import { StreamPayEmailLogin } from './auth/StreamPayEmailLogin'
+import { AgreementProgress } from './ui/AgreementProgress'
+import { ProviderPayoutWallet } from './ProviderPayoutWallet'
 
 type Assessment = {
   intelligence: {
@@ -181,19 +185,22 @@ export default function StreamPayUpfront() {
     }
   }
 
-  if (!ready) return <div className="flex min-h-[58vh] items-center justify-center"><ArrowPathIcon className="h-5 w-5 animate-spin text-gray-300" /></div>
+  if (!ready) return <div className="flex min-h-[58vh] items-center justify-center"><LoadingRing className="h-5 w-5 text-gray-300" /></div>
   if (!authenticated) return (
-    <section className="flex min-h-[64vh] w-full max-w-md flex-col items-center justify-center text-center">
+    <section className="flex min-h-[64vh] w-full max-w-xl flex-col items-center justify-center text-center">
       <ShieldCheckIcon className="h-12 w-12 text-blue-600" />
-      <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">AI-RWA on X Layer</p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Turn completed work into upfront liquidity.</h1>
-      <p className="mt-3 text-sm leading-6 text-gray-500 dark:text-gray-400">A funded service agreement becomes a verifiable cash-flow asset: ZeroScout checks the evidence, PolyDesk caps the advance, and X Layer escrows the offer.</p>
-      <div className="mt-6 grid w-full grid-cols-3 gap-2 text-left">
-        <ProofStep number="1" label="Agreement funded" />
-        <ProofStep number="2" label="AI risk checked" />
-        <ProofStep number="3" label="Advance verified" />
+      <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Get paid early on X Layer</p>
+      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Get paid before the job is finished.</h1>
+      <p className="mt-3 max-w-lg text-sm leading-6 text-gray-500 dark:text-gray-400">Your customer first protects the job payment on Arc. ZeroScout checks the agreement, PolyDesk sets a safe limit, and an approved funder can pay you early on X Layer.</p>
+      <div className="mt-6 w-full text-left">
+        <AgreementProgress current={1} steps={[
+          { label: 'Create terms', detail: 'Agree on the job and price' },
+          { label: 'Customer protects', detail: 'USDC is protected on Arc' },
+          { label: 'AI checks', detail: 'A safe advance limit is set' },
+          { label: 'Funder pays', detail: 'You receive USDC on X Layer' },
+        ]} />
       </div>
-      <AuthButton debugLabel="hashpaystream-upfront" className="mt-6 w-full rounded-xl bg-gray-950 px-4 py-3 text-sm font-semibold text-white dark:bg-white dark:text-gray-950">Open Upfront</AuthButton>
+      <StreamPayEmailLogin className="mt-6 w-full" />
       <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[11px] font-semibold text-gray-400">
         <a href="https://www.xlayerscan.com/address/0xa07900cAb0a0BbFBC52FCC95b22c52a22Ff0e1A5" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-blue-600">Mainnet contract</a>
         <a href="https://github.com/Cyano88/hashpaystream" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-blue-600">Open-source proof</a>
@@ -205,27 +212,35 @@ export default function StreamPayUpfront() {
     <section className="w-full max-w-3xl py-8 sm:py-12">
       <div className="max-w-2xl">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">HashPayStream Upfront</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-4xl">Turn clear work into a verifiable advance offer.</h1>
-        <p className="mt-4 text-sm leading-7 text-gray-500 dark:text-gray-400">Select a customer-funded Arc agreement. ZeroScout verifies the evidence and PolyDesk sets the maximum X Layer advance before it can be shown to a funder.</p>
-        <Link to={fundingDeskTo} className="mt-5 inline-flex rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs font-semibold text-gray-700 hover:border-gray-300 dark:border-white/10 dark:text-gray-200">Open private funding desk</Link>
+        <h1 className="mt-3 text-3xl font-bold tracking-[-0.035em] text-gray-950 dark:text-white sm:text-4xl">Get paid before the job is finished.</h1>
+        <p className="mt-4 text-sm leading-7 text-gray-500 dark:text-gray-400">Choose a customer-funded agreement. HashPayStream verifies your payout wallet, then ZeroScout and PolyDesk calculate a safe advance limit.</p>
+        <Link to={fundingDeskTo} className="mt-5 inline-flex min-h-11 items-center rounded-full border border-gray-200 px-4 text-xs font-bold text-gray-700 hover:border-gray-300 dark:border-white/10 dark:text-gray-200">Funder sign-in</Link>
+      </div>
+      <div className="mt-7">
+        <AgreementProgress current={selectedAgreement ? assessment ? 4 : 3 : 2} steps={[
+          { label: 'Create terms', detail: 'You and the customer agree' },
+          { label: 'Customer funds', detail: 'Test USDC is protected on Arc' },
+          { label: 'AI assessment', detail: 'ZeroScout and PolyDesk set the limit' },
+          { label: 'Funder reviews', detail: 'Approved funder sends on X Layer' },
+        ]} />
       </div>
 
       <form onSubmit={submit} className="mt-8 rounded-3xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#18181b] sm:p-8">
         <div className="grid gap-5 sm:grid-cols-2">
           <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 sm:col-span-2">Funded Arc agreement<select className={inputClass} value={agreementId} disabled={loadingAgreements || agreements.length === 0} onChange={event => selectAgreement(event.target.value)}><option value="">{loadingAgreements ? 'Loading funded agreements…' : agreements.length ? 'Select an agreement' : 'No eligible funded agreements'}</option>{agreements.map(item => <option key={item.id} value={item.id}>{item.title || item.id} · {decimalUsdc(item.chain?.amountUsdcUnits)} USDC</option>)}</select></label>
-          {!loadingAgreements && agreements.length === 0 && <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200 sm:col-span-2"><p><strong>No funded agreement belongs to this identity.</strong> Sign in with the account that created the agreement, or create and fund a new protected agreement first.</p><div className="mt-3 flex flex-wrap gap-2"><Link to={newAgreementTo} className="rounded-lg bg-amber-900 px-3 py-2 font-semibold text-white dark:bg-amber-200 dark:text-amber-950">Create protected agreement</Link><AuthButton debugLabel="upfront-switch-creator" className="rounded-lg border border-amber-300 px-3 py-2 font-semibold dark:border-amber-400/30">Use agreement creator account</AuthButton></div></div>}
+          {!loadingAgreements && agreements.length === 0 && <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200 sm:col-span-2"><p className="font-bold">Nothing is ready for an advance yet.</p><p className="mt-1">First create an X Layer early-payment agreement, then ask the customer to fund its private Arc checkout.</p><div className="mt-3 flex flex-wrap gap-2"><Link to={newAgreementTo} className="rounded-full bg-amber-900 px-4 py-2 font-bold text-white dark:bg-amber-200 dark:text-amber-950">Create early-payment agreement</Link><AuthButton debugLabel="upfront-switch-creator" className="rounded-full border border-amber-300 px-4 py-2 font-bold dark:border-amber-400/30">Use another creator email</AuthButton></div></div>}
           <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 sm:col-span-2">Agreement title<input className={inputClass} value={title} readOnly /></label>
           <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 sm:col-span-2">What will be delivered?<textarea className={`${inputClass} resize-none`} value={description} readOnly rows={3} /></label>
-          <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Protected on Arc<input className={inputClass} value={amount ? `${amount} USDC` : ''} readOnly /></label>
-          <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Requested advance<select className={inputClass} value={requestedAdvanceBps} disabled={!selectedAgreement} onChange={event => changeDraft(() => setRequestedAdvanceBps(Number(event.target.value)))}><option value={2000}>20%</option><option value={3000}>30%</option><option value={4000}>40%</option><option value={5000}>50%</option></select></label>
+          <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Customer protected on Arc<input className={inputClass} value={amount ? `${amount} test USDC` : ''} readOnly /></label>
+          <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Advance you want on X Layer<select className={inputClass} value={requestedAdvanceBps} disabled={!selectedAgreement} onChange={event => changeDraft(() => setRequestedAdvanceBps(Number(event.target.value)))}><option value={2000}>20% of protected amount</option><option value={3000}>30% of protected amount</option><option value={4000}>40% of protected amount</option><option value={5000}>50% of protected amount</option></select></label>
           <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Delivery period<select className={inputClass} value={durationSeconds} disabled><option value={7200}>2 hours</option><option value={86400}>1 day</option><option value={259200}>3 days</option><option value={604800}>7 days</option><option value={2592000}>30 days</option></select></label>
           <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Payer cancellation period<select className={inputClass} value={cancellationWindowSeconds} disabled><option value={0}>None</option><option value={900}>15 minutes</option><option value={3600}>1 hour</option></select></label>
-          <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 sm:col-span-2">Provider payout address on X Layer<input className={inputClass} value={providerPayoutAddress} disabled={!selectedAgreement} onChange={event => changeDraft(() => setProviderPayoutAddress(event.target.value.trim()))} placeholder="0x..." /></label>
+          <ProviderPayoutWallet value={providerPayoutAddress} onChange={setProviderPayoutAddress} />
         </div>
         {error && <p role="alert" className="mt-5 text-sm text-rose-600 dark:text-rose-400">{error}</p>}
         <button disabled={!valid || submitting} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-gray-950">
-          {submitting ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <BanknotesIcon className="h-4 w-4" />}
-          {submitting ? 'Checking agreement' : 'Create funding opportunity'}
+          {submitting ? <LoadingRing className="h-4 w-4" label="Checking agreement" /> : <BanknotesIcon className="h-4 w-4" />}
+          {submitting ? 'Checking agreement' : 'Check my advance'}
         </button>
       </form>
 
@@ -247,8 +262,4 @@ export default function StreamPayUpfront() {
 
 function Result({ label, value }: { label: string; value: string }) {
   return <div className="rounded-2xl bg-gray-50 p-4 dark:bg-white/[0.04]"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400">{label}</p><p className="mt-2 text-sm font-semibold capitalize text-gray-950 dark:text-white">{value}</p></div>
-}
-
-function ProofStep({ number, label }: { number: string; label: string }) {
-  return <div className="rounded-2xl border border-gray-200 bg-white p-3 dark:border-white/10 dark:bg-white/[0.04]"><span className="text-[10px] font-semibold text-blue-600">{number}</span><p className="mt-1 text-[11px] font-semibold leading-4 text-gray-700 dark:text-gray-200">{label}</p></div>
 }

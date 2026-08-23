@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowPathIcon, ArrowRightIcon, BanknotesIcon, ChartBarIcon, CheckBadgeIcon, CheckCircleIcon, CpuChipIcon, DocumentCheckIcon, ShieldCheckIcon, UserGroupIcon } from '@heroicons/react/24/outline'
+import { ArrowRightIcon, BanknotesIcon, ChartBarIcon, CheckBadgeIcon, CheckCircleIcon, CpuChipIcon, DocumentCheckIcon, ShieldCheckIcon, UserGroupIcon } from '@heroicons/react/24/outline'
 import { Link } from '../lib/router'
+import { LoadingRing } from './ui/LoadingRing'
 
 const STATS_API = '/api/hashpaystream/v1/public/stats'
 type Stats = {
@@ -53,7 +54,7 @@ export default function StreamPayStats() {
   }, [])
   useEffect(() => { void load() }, [load])
 
-  if (loading) return <section className='flex min-h-[58vh] items-center'><ArrowPathIcon className='h-5 w-5 animate-spin text-gray-300' /></section>
+  if (loading) return <section className='flex min-h-[58vh] items-center'><LoadingRing className='h-5 w-5 text-gray-300' /></section>
   if (!stats) return <section className='w-full max-w-3xl py-12'><div className='rounded-3xl border border-gray-200 bg-white px-6 py-12 text-center dark:border-white/10 dark:bg-[#18181b]'>
     <ChartBarIcon className='mx-auto h-7 w-7 text-gray-400' /><h1 className='mt-4 text-xl font-semibold text-gray-950 dark:text-white'>Product statistics are refreshing</h1>
     <p className='mx-auto mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400'>{error}</p><button type='button' onClick={() => void load()} className='mt-6 rounded-full bg-gray-950 px-4 py-2.5 text-xs font-semibold text-white dark:bg-white dark:text-gray-950'>Try again</button>

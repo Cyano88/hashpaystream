@@ -27,6 +27,7 @@ async function call(handler, userId, method = 'GET', input = {}) {
 }
 
 const env = {
+  HASHPAYSTREAM_DIRECT_ARC_ENABLED: 'true',
   HASHPAYSTREAM_ARC_API_KEY: `hpl_test_${'a'.repeat(32)}`,
   HASHPAYSTREAM_APP_OWNERSHIP_SECRET: 'standalone-ownership-secret-32-characters',
   HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY: 'test:hashpaystream:owners',
@@ -250,5 +251,18 @@ assert.equal(ownerAction.body.releaseRequest.status, 'awaiting_review')
 const invalidMethod = await call(handler, 'user-a', 'DELETE')
 assert.equal(invalidMethod.statusCode, 405)
 assert.equal(invalidMethod.headers.allow, 'GET, POST')
+
+const restrictedHandler = createHashPayStreamAgreementGateway({
+  ...dependencies,
+  env: () => ({ ...env, HASHPAYSTREAM_DIRECT_ARC_ENABLED: 'false' }),
+})
+const restrictedCreate = await call(restrictedHandler, 'user-a', 'POST', {
+  idempotencyKey: 'agreement:user-a:restricted',
+  body: { template: 'fixed_unlock', title: 'Must not create' },
+})
+assert.equal(restrictedCreate.statusCode, 404)
+assert.match(restrictedCreate.body.error, /Use X Layer early payment/)
+const restrictedExistingRead = await call(restrictedHandler, 'user-a', 'GET', { query: { id: agreementId } })
+assert.equal(restrictedExistingRead.statusCode, 200)
 
 console.log('HashPayStream standalone agreement gateway smoke checks passed.')

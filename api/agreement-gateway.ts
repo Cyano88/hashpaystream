@@ -497,6 +497,12 @@ export function createHashPayStreamAgreementGateway(
         return res.status(upstream.status).json(upstream.body)
       }
 
+      if (
+        !options.agentActivation
+        && options.checkoutMode === 'human'
+        && options.apiKeyEnvironmentVariable === 'HASHPAYSTREAM_ARC_API_KEY'
+        && clean(dependencies.env().HASHPAYSTREAM_DIRECT_ARC_ENABLED, 20).toLowerCase() !== 'true'
+      ) throw httpError('Direct Arc agreement creation is not available in this release. Use X Layer early payment.', 404)
       const idempotencyKey = clean(req.headers['idempotency-key'], 160)
       if (idempotencyKey.length < 8) throw httpError('Idempotency-Key must contain at least 8 characters.', 400)
       const scopedKey = scopedIdempotency(owner, idempotencyKey)

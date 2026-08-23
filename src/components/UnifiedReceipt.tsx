@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { ArrowPathIcon, ArrowTopRightOnSquareIcon, CheckIcon, EyeIcon, ShareIcon } from '@heroicons/react/24/outline'
+import { ArrowTopRightOnSquareIcon, CheckIcon, EyeIcon, ShareIcon } from '@heroicons/react/24/outline'
 import {
   arcTransactionUrl,
   createPaymentReceiptPdf,
   paymentReceiptFileName,
   type PaylinkReceipt,
 } from '../lib/paymentReceiptPdf'
+import { LoadingRing } from './ui/LoadingRing'
 
 type UnifiedReceiptProps = {
   receipt?: PaylinkReceipt
@@ -106,7 +107,7 @@ export default function UnifiedReceipt({ receipt, className = '', label = 'Open 
           disabled={opening || sharing}
           className={`inline-flex items-center justify-center gap-1.5 rounded-full border border-gray-200 bg-white font-bold text-gray-950 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 active:scale-[0.99] disabled:cursor-wait disabled:opacity-70 dark:border-white/10 dark:bg-white/[0.08] dark:text-white dark:hover:bg-white/[0.12] ${compact ? 'min-h-9 px-2.5 text-[11px]' : 'min-h-10 px-3 text-xs'}`}
         >
-          {opening ? <ArrowPathIcon className="h-3.5 w-3.5 animate-spin" /> : opened ? <CheckIcon className="h-3.5 w-3.5" /> : <EyeIcon className="h-3.5 w-3.5" />}
+          {opening ? <LoadingRing className="h-3.5 w-3.5" label="Opening receipt" /> : opened ? <CheckIcon className="h-3.5 w-3.5" /> : <EyeIcon className="h-3.5 w-3.5" />}
           {opening ? 'Preparing' : opened ? 'Opened' : label === 'Open receipt PDF' ? 'View details' : label}
         </button>
         <button
@@ -115,7 +116,7 @@ export default function UnifiedReceipt({ receipt, className = '', label = 'Open 
           disabled={opening || sharing}
           className={`inline-flex items-center justify-center gap-1.5 rounded-full bg-gray-950 font-bold text-white shadow-sm transition hover:bg-black active:scale-[0.99] disabled:cursor-wait disabled:opacity-70 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-100 ${compact ? 'min-h-9 px-2.5 text-[11px]' : 'min-h-10 px-3 text-xs'}`}
         >
-          {sharing ? <ArrowPathIcon className="h-3.5 w-3.5 animate-spin" /> : <ShareIcon className="h-3.5 w-3.5" />}
+          {sharing ? <LoadingRing className="h-3.5 w-3.5" label="Sharing receipt" /> : <ShareIcon className="h-3.5 w-3.5" />}
           {sharing ? 'Preparing' : 'Share receipt'}
         </button>
         {explorerUrl && (

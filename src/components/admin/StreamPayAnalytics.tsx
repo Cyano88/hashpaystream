@@ -3,6 +3,7 @@ import { usePrivy } from '@privy-io/react-auth'
 import { ArrowPathIcon, BanknotesIcon, ChartBarIcon, CheckCircleIcon, ClockIcon, CpuChipIcon, LockClosedIcon, Squares2X2Icon } from '@heroicons/react/24/outline'
 import { useHashPayStreamSessionSplash } from '../../lib/useHashPayStreamSessionSplash'
 import { AgreementSignInLanding } from '../agreements/AgreementSignInLanding'
+import { LoadingRing } from '../ui/LoadingRing'
 
 const API = '/api/hashpaystream/v1/admin/analytics'
 type Analytics = {
@@ -58,7 +59,7 @@ export default function StreamPayAnalytics() {
   useEffect(() => { if (ready) void load() }, [load, ready])
   const maximum = useMemo(() => Math.max(1, ...(data?.daily.flatMap(item => [item.created, item.completed]) ?? [1])), [data])
   if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
-  if (!ready || loading) return <section className='flex min-h-[58vh] items-center'><ArrowPathIcon className='h-5 w-5 animate-spin text-gray-300' /></section>
+  if (!ready || loading) return <section className='flex min-h-[58vh] items-center'><LoadingRing className='h-5 w-5 text-gray-300' /></section>
   if (!data) return <section className='w-full max-w-3xl py-12'><div className='rounded-3xl border border-gray-200 bg-white px-6 py-12 text-center dark:border-white/10 dark:bg-[#18181b]'>
     <LockClosedIcon className='mx-auto h-7 w-7 text-gray-400' />
     <h1 className='mt-4 text-xl font-semibold text-gray-950 dark:text-white'>Private analytics</h1>

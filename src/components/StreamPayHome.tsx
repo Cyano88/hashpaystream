@@ -1,10 +1,11 @@
-import { ArrowPathIcon, ArrowRightIcon, ChevronDownIcon, PlusIcon } from '@heroicons/react/24/outline'
+import { ArrowRightIcon, ChevronDownIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { useState } from 'react'
 import { Link } from '../lib/router'
 import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSplash'
 import { formatUsdc, useAgreements } from '../lib/useAgreements'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
+import { LoadingRing } from './ui/LoadingRing'
 
 const STATUS_LABEL = {
   awaiting_start: 'Waiting for funding',
@@ -23,7 +24,7 @@ export default function StreamPayHome() {
   const [openAgreementId, setOpenAgreementId] = useState('')
 
   if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
-  if (!ready || loading) return <section className="flex min-h-[58vh] items-center"><ArrowPathIcon className="h-5 w-5 animate-spin text-gray-300" /></section>
+  if (!ready || loading) return <section className="flex min-h-[58vh] items-center"><LoadingRing className="h-5 w-5 text-gray-300" /></section>
 
   return (
     <section className="w-full max-w-5xl py-7 sm:py-12">
