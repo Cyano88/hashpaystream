@@ -71,7 +71,7 @@ services:
       - key: HASHPAYSTREAM_POLYDESK_EIP712_SIGNER
         sync: false
       - key: HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS
-        sync: false
+        value: "0xa07900cAb0a0BbFBC52FCC95b22c52a22Ff0e1A5"
       - key: HASHPAYSTREAM_UPFRONT_CHAIN_ID
         value: "196"
       - key: VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID
