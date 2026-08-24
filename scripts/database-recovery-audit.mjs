@@ -10,6 +10,8 @@ const expectedStoreKeys = new Set([
   'hashpaystream:agent-credentials:v1',
   'hashpaystream:agreement-owners:v1',
   'hashpaystream:arc-webhooks:v1',
+  'hashpaystream:upfront-assessments:v1',
+  'hashpaystream:upfront-arc-webhooks:v1',
 ])
 
 function fail() {

@@ -17,15 +17,15 @@ async function call(handler, method = 'GET') {
 
 const analytics = {
   generatedAt: '2026-08-08T18:00:00.000Z', environment: 'Arc Testnet',
-  scope: { limitPerProject: 100, projects: ['human', 'agentic'] },
+  scope: { ownedAgreements: 8, projects: ['human', 'upfront', 'agentic'] },
   totals: { agreements: 8, awaitingFunding: 1, active: 2, completed: 4, cancelled: 1, refunded: 0, refundAvailable: 0 },
-  modes: { human: 6, agentic: 2 },
+  modes: { human: 5, upfront: 1, agentic: 2 },
   funnel: { created: 8, funded: 7, deliverySubmitted: 5, releaseApproved: 4, completed: 4 },
   structures: [{ template: 'fixed_unlock', count: 4 }, { template: 'progressive_release', count: 2 }, { template: 'milestone', count: 2 }],
   testUsdc: { protected: '0.18', released: '0.12', remaining: '0.06' },
   performance: { fundedCompletionRate: 57.1, averageFundingHours: 1, averageDeliveryReviewHours: 2 },
   daily: [{ date: '2026-08-08', created: 1, completed: 1 }],
-  infrastructure: { hashPayLink: { human: { reachable: true, latencyMs: 12 }, agentic: { reachable: true, latencyMs: 18 } }, latestLifecycleAt: '2026-08-08T17:00:00.000Z' },
+  infrastructure: { hashPayLink: { human: { reachable: true, latencyMs: 12 }, upfront: { reachable: true, latencyMs: 15 }, agentic: { reachable: true, latencyMs: 18 } }, latestLifecycleAt: '2026-08-08T17:00:00.000Z' },
   circleMarketplace: { requestAnalyticsRecorded: false, note: 'Not recorded.' }, privacy: 'private',
 }
 const privateValues = ['owner@example.com', '0x1111111111111111111111111111111111111111', 'agr_private123456', 'https://private.example/review', '0xtransactionhash']
@@ -34,7 +34,7 @@ const response = await call(handler)
 assert.equal(response.statusCode, 200)
 assert.match(response.headers['cache-control'], /^public, max-age=60, s-maxage=300/)
 assert.deepEqual(response.body.stats.agreements, { created: 8, funded: 7, completed: 4 })
-assert.deepEqual(response.body.stats.participation, { human: 6, agentic: 2 })
+assert.deepEqual(response.body.stats.participation, { human: 5, upfront: 1, agentic: 2 })
 assert.deepEqual(response.body.stats.testUsdc, { protected: '0.18', released: '0.12' })
 assert.equal(response.body.stats.verifiedOperation.available, true)
 const serialized = JSON.stringify(response.body)

@@ -29,10 +29,10 @@ const human = [{
     { event: 'delivery.release_approved', createdAt: '2026-08-07T13:00:00.000Z' },
   ],
 }, {
-  status: 'awaiting_start', template: 'milestone', createdAt: '2026-08-08T09:00:00.000Z', timeline: [], deliveryTimeline: [],
+  id: 'agr_waiting123456', status: 'awaiting_start', template: 'milestone', createdAt: '2026-08-08T09:00:00.000Z', timeline: [], deliveryTimeline: [],
 }]
 const agentic = [{
-  status: 'active', template: 'progressive_release', createdAt: '2026-08-08T10:00:00.000Z',
+  id: 'agr_agentic123456', status: 'active', template: 'progressive_release', createdAt: '2026-08-08T10:00:00.000Z',
   chain: { amountUsdcUnits: '200000', releasedUsdcUnits: '50000', remainingUsdcUnits: '150000' },
   timeline: [{ event: 'agreement.activated', createdAt: '2026-08-08T10:30:00.000Z' }], deliveryTimeline: [],
 }]
@@ -42,16 +42,17 @@ const handler = createHashPayStreamAdminAnalytics({
   env: () => env,
   now: () => new Date('2026-08-08T15:00:00.000Z'),
   identityEmails: async () => [privateValues[0]],
+  ownership: async () => ({ schema: 1, agreements: Object.fromEntries([...human, ...agentic].map(agreement => [agreement.id, { agreementId: agreement.id }])) }),
   upstream: async mode => {
     modes.push(mode)
-    return { status: 200, body: { ok: true, agreements: mode === 'human' ? human : agentic }, latencyMs: mode === 'human' ? 12 : 18 }
+    return { status: 200, body: { ok: true, agreements: mode === 'human' ? human : mode === 'agentic' ? agentic : [] }, latencyMs: mode === 'human' ? 12 : mode === 'upfront' ? 15 : 18 }
   },
   logError: () => {},
 })
 const allowed = await call(handler)
 assert.equal(allowed.statusCode, 200)
 assert.equal(allowed.headers['cache-control'], 'no-store')
-assert.deepEqual(modes.sort(), ['agentic', 'human'])
+assert.deepEqual(modes.sort(), ['agentic', 'human', 'upfront'])
 assert.equal(allowed.body.analytics.totals.agreements, 3)
 assert.equal(allowed.body.analytics.totals.completed, 1)
 assert.equal(allowed.body.analytics.totals.awaitingFunding, 1)

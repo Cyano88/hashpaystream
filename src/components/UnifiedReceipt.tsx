@@ -21,7 +21,7 @@ function openPreparingWindow() {
   if (!preview) return null
   preview.opener = null
   preview.document.title = 'Preparing receipt'
-  preview.document.body.style.cssText = 'margin:0;display:grid;min-height:100vh;place-items:center;background:#f5f5f7;color:#6b7280;font:600 13px Inter,Arial,sans-serif'
+  preview.document.body.style.cssText = 'margin:0;display:grid;min-height:100vh;place-items:center;background:#f5f5f7;color:#6b7280;font:600 13px \'Plus Jakarta Sans\',Arial,sans-serif'
   preview.document.body.textContent = 'Preparing receipt PDF...'
   return preview
 }

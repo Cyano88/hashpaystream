@@ -35,7 +35,7 @@
   },
   "dependencies": {
     "@circle-fin/x402-batching": "^3.3.0",
-    "@fontsource/inter": "^5.3.0",
+    "@fontsource/plus-jakarta-sans": "^5.2.8",
     "@heroicons/react": "^2.2.0",
     "@privy-io/node": "0.28.0",
     "@privy-io/react-auth": "3.28.0",

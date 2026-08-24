@@ -1,13 +1,20 @@
 import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
 import { withHashPayStreamRequestId } from './request-telemetry.js'
+import { readDurableJson } from './durable-store.js'
 
-export type AnalyticsMode = 'human' | 'agentic'
+export type AnalyticsMode = 'human' | 'upfront' | 'agentic'
 export type UpstreamResult = { status: number; body: Record<string, unknown>; latencyMs: number }
+
+type OwnershipStore = {
+  schema?: number
+  agreements?: Record<string, { agreementId?: string }>
+}
 
 export type AdminAnalyticsDependencies = {
   identityEmails: (req: Request, env: NodeJS.ProcessEnv) => Promise<string[]>
-  upstream: (mode: AnalyticsMode, env: NodeJS.ProcessEnv) => Promise<UpstreamResult>
+  ownership: (key: string) => Promise<OwnershipStore | undefined>
+  upstream: (mode: AnalyticsMode, env: NodeJS.ProcessEnv, agreementIds: string[]) => Promise<UpstreamResult>
   env: () => NodeJS.ProcessEnv
   now: () => Date
   logError: (event: {
@@ -68,7 +75,14 @@ async function verifiedIdentityEmails(req: Request, env: NodeJS.ProcessEnv) {
 }
 
 function upstreamConfiguration(mode: AnalyticsMode, env: NodeJS.ProcessEnv) {
-  const apiKey = clean(mode === 'human' ? env.HASHPAYSTREAM_ARC_API_KEY : env.HASHPAYSTREAM_AGENT_ARC_API_KEY, 200)
+  const apiKey = clean(
+    mode === 'human'
+      ? env.HASHPAYSTREAM_ARC_API_KEY
+      : mode === 'upfront'
+        ? env.HASHPAYSTREAM_UPFRONT_ARC_API_KEY
+        : env.HASHPAYSTREAM_AGENT_ARC_API_KEY,
+    200,
+  )
   const rawBaseUrl = clean(env.HASHPAYSTREAM_HASH_PAYLINK_BASE_URL ?? 'https://app.hashpaylink.com', 240)
   let baseUrl: URL
   try {
@@ -85,13 +99,16 @@ function upstreamConfiguration(mode: AnalyticsMode, env: NodeJS.ProcessEnv) {
   return { apiKey, baseUrl: baseUrl.origin }
 }
 
-async function upstreamAgreements(mode: AnalyticsMode, env: NodeJS.ProcessEnv): Promise<UpstreamResult> {
+async function upstreamAgreements(mode: AnalyticsMode, env: NodeJS.ProcessEnv, agreementIds: string[]): Promise<UpstreamResult> {
   const config = upstreamConfiguration(mode, env)
   const startedAt = Date.now()
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 15_000)
   try {
-    const response = await fetch(`${config.baseUrl}/api/v2/agreements?limit=100`, {
+    const query = agreementIds.length
+      ? `ids=${encodeURIComponent(agreementIds.join(','))}`
+      : 'limit=1'
+    const response = await fetch(`${config.baseUrl}/api/v2/agreements?${query}`, {
       cache: 'no-store',
       signal: controller.signal,
       headers: { 'x-api-key': config.apiKey, accept: 'application/json' },
@@ -107,6 +124,7 @@ async function upstreamAgreements(mode: AnalyticsMode, env: NodeJS.ProcessEnv): 
 
 const defaults: AdminAnalyticsDependencies = {
   identityEmails: verifiedIdentityEmails,
+  ownership: key => readDurableJson<OwnershipStore>(key),
   upstream: upstreamAgreements,
   env: () => process.env,
   now: () => new Date(),
@@ -158,9 +176,10 @@ function day(value: string) {
   return value.slice(0, 10)
 }
 
-function aggregate(human: Agreement[], agentic: Agreement[], now: Date, sources: Record<AnalyticsMode, UpstreamResult>) {
+function aggregate(human: Agreement[], upfront: Agreement[], agentic: Agreement[], now: Date, sources: Record<AnalyticsMode, UpstreamResult>) {
   const tagged = [
     ...human.map(agreement => ({ mode: 'human' as const, agreement })),
+    ...upfront.map(agreement => ({ mode: 'upfront' as const, agreement })),
     ...agentic.map(agreement => ({ mode: 'agentic' as const, agreement })),
   ]
   const status = (name: string) => tagged.filter(item => clean(item.agreement.status, 40) === name).length
@@ -204,7 +223,7 @@ function aggregate(human: Agreement[], agentic: Agreement[], now: Date, sources:
   return {
     generatedAt: now.toISOString(),
     environment: 'Arc Testnet',
-    scope: { limitPerProject: 100, projects: ['human', 'agentic'] },
+    scope: { ownedAgreements: tagged.length, projects: ['human', 'upfront', 'agentic'] },
     totals: {
       agreements: tagged.length,
       awaitingFunding: status('awaiting_start'),
@@ -214,7 +233,7 @@ function aggregate(human: Agreement[], agentic: Agreement[], now: Date, sources:
       refunded: status('refunded'),
       refundAvailable: status('expired'),
     },
-    modes: { human: human.length, agentic: agentic.length },
+    modes: { human: human.length, upfront: upfront.length, agentic: agentic.length },
     funnel: {
       created: tagged.length,
       funded: funded.length,
@@ -237,6 +256,7 @@ function aggregate(human: Agreement[], agentic: Agreement[], now: Date, sources:
     infrastructure: {
       hashPayLink: {
         human: { reachable: true, latencyMs: sources.human.latencyMs },
+        upfront: { reachable: true, latencyMs: sources.upfront.latencyMs },
         agentic: { reachable: true, latencyMs: sources.agentic.latencyMs },
       },
       latestLifecycleAt,
@@ -253,17 +273,31 @@ export async function readHashPayStreamAnalytics(
   env: NodeJS.ProcessEnv,
   now: Date,
   upstream: AdminAnalyticsDependencies['upstream'] = upstreamAgreements,
+  ownership: AdminAnalyticsDependencies['ownership'] = key => readDurableJson<OwnershipStore>(key),
 ) {
-  const [human, agentic] = await Promise.all([
-    upstream('human', env),
-    upstream('agentic', env),
+  const ownershipKey = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY ?? 'hashpaystream:agreement-owners:v1', 160)
+  if (!ownershipKey) throw httpError('HashPayStream ownership scope is unavailable.', 503)
+  const owned = await ownership(ownershipKey)
+  const agreementIds = Object.entries(owned?.agreements ?? {}).flatMap(([key, record]) => {
+    const id = clean(record?.agreementId ?? key, 80)
+    return /^agr_[a-z0-9]{12,64}$/i.test(id) ? [id] : []
+  }).slice(0, 100)
+  const ownedSet = new Set(agreementIds)
+  const [human, upfront, agentic] = await Promise.all([
+    upstream('human', env, agreementIds),
+    upstream('upfront', env, agreementIds),
+    upstream('agentic', env, agreementIds),
   ])
-  for (const source of [human, agentic]) {
+  for (const source of [human, upfront, agentic]) {
     if (source.status !== 200 || source.body.ok !== true || !Array.isArray(source.body.agreements)) {
       throw httpError('Hash PayLink Agreements is temporarily unavailable.', 502)
     }
   }
-  return aggregate(records(human.body.agreements), records(agentic.body.agreements), now, { human, agentic })
+  const scoped = (source: UpstreamResult) => records(source.body.agreements).filter(agreement => {
+    const id = clean(agreement.id ?? agreement.agreementId, 80)
+    return ownedSet.has(id)
+  })
+  return aggregate(scoped(human), scoped(upfront), scoped(agentic), now, { human, upfront, agentic })
 }
 
 export function createHashPayStreamAdminAnalytics(overrides: Partial<AdminAnalyticsDependencies> = {}) {
@@ -284,7 +318,7 @@ export function createHashPayStreamAdminAnalytics(overrides: Partial<AdminAnalyt
       }
       return res.json({
         ok: true,
-        analytics: await readHashPayStreamAnalytics(env, dependencies.now(), dependencies.upstream),
+        analytics: await readHashPayStreamAnalytics(env, dependencies.now(), dependencies.upstream, dependencies.ownership),
       })
     } catch (error) {
       const status = Number((error as Error & { status?: number }).status) || 500

@@ -34,6 +34,7 @@ function publicProjection(analytics: AnalyticsSnapshot) {
     },
     participation: {
       human: analytics.modes.human,
+      upfront: analytics.modes.upfront,
       agentic: analytics.modes.agentic,
     },
     testUsdc: {
@@ -46,7 +47,7 @@ function publicProjection(analytics: AnalyticsSnapshot) {
       documentationPath: '/docs#verified-operation',
       explorerNetwork: 'Arc Testnet',
     },
-    methodology: 'Aggregated from the newest 100 agreements in each HashPayStream Human and Agentic Hash PayLink project.',
+    methodology: 'Aggregated only from agreements owned by HashPayStream across Human, Upfront, and Agentic Hash PayLink projects.',
     disclaimer: 'Testnet operating activity only. Not evidence of mainnet volume, customer adoption, or investment performance.',
     privacy: 'No identities, wallets, private links, agreement identifiers, transaction hashes, timing metrics, or operational diagnostics.',
   }
