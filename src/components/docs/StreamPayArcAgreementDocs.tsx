@@ -11,7 +11,7 @@ export default function StreamPayArcAgreementDocs() {
       { Icon: WalletIcon, title: 'Payer', body: 'Reviews the exact terms, funds with their own wallet and controls payer decisions.' },
       { Icon: ShieldCheckIcon, title: 'HashPayStream', body: 'Presents the experience and reconciles authoritative Hash PayLink and Arc state.' },
     ].map(({ Icon, title, body }) => <div key={title} className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#18181b]"><Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" /><h2 className="mt-4 text-sm font-semibold text-gray-950 dark:text-white">{title}</h2><p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{body}</p></div>)}</div>
-    <DocsCallout title="Use two distinct sessions" tone="blue">The recipient should not fund the agreement they created. Send the private payer path to the person responsible for payment and ask them to use their own email and wallet session.</DocsCallout>
+    <DocsCallout title="Customer email is enforced" tone="blue">Enter the customer&apos;s email when creating a human agreement. Only that verified email can open the private payer path, connect its Circle Arc wallet, and fund or review the agreement.</DocsCallout>
     <section className="mt-12"><h2 className="text-xl font-semibold text-gray-950 dark:text-white">Supported release structures</h2><div className="mt-5 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[#18181b]">{[
       ['fixed_unlock', 'One release', 'The full protected amount becomes eligible after one reviewed delivery.'],
       ['progressive_release', 'Progress releases', 'Predetermined increasing checkpoints end at 100 percent.'],

@@ -146,6 +146,7 @@ const created = await call(handler, 'user-a', 'POST', {
     title: 'Private user agreement',
     description: 'A protected private delivery.',
     amount: '0.1',
+    payerEmail: 'customer@example.com',
     recipient: '0x1111111111111111111111111111111111111111',
     externalId: 'browser-must-not-control-this',
     resourceId: 'browser-must-not-control-this',
@@ -156,6 +157,7 @@ assert.equal(created.body.agreement.id, agreementId)
 assert.match(created.body.payerReviewPath, /#access=agrp_/)
 assert.match(upstreamCalls[0].body.externalId, /^hps-[a-f0-9]{24}$/)
 assert.match(upstreamCalls[0].body.resourceId, /^agreement:[a-f0-9]{24}$/)
+assert.equal(upstreamCalls[0].body.payerEmail, 'customer@example.com')
 assert.notEqual(upstreamCalls[0].body.externalId, 'browser-must-not-control-this')
 
 const replayed = await call(handler, 'user-a', 'POST', {

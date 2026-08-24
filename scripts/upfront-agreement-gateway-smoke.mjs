@@ -37,12 +37,14 @@ const env = {
 }
 let store
 let observedApiKey = ''
+let observedPayerEmail = ''
 let fetchCalls = 0
 const agreementId = 'agr_upfrontisolated1234'
 const originalFetch = globalThis.fetch
 globalThis.fetch = async (_url, init = {}) => {
   fetchCalls += 1
   observedApiKey = String(init.headers?.['x-api-key'] ?? '')
+  observedPayerEmail = String(JSON.parse(String(init.body ?? '{}')).payerEmail ?? '')
   return new Response(JSON.stringify({
     ok: true,
     agreement: { id: agreementId, checkoutMode: 'human', status: 'draft' },
@@ -73,6 +75,7 @@ try {
       title: 'Isolated Upfront agreement',
       description: 'Deliver the verified Upfront integration package.',
       amount: '0.01',
+      payerEmail: 'customer@example.com',
       recipient: '0x0CFd91Ea2F476C62fE2008B14A5dFd4A61328CcE',
       durationSeconds: 86400,
       cancellationWindowSeconds: 900,
@@ -81,6 +84,7 @@ try {
   assert.equal(created.statusCode, 201)
   assert.equal(observedApiKey, upfrontKey)
   assert.notEqual(observedApiKey, normalKey)
+  assert.equal(observedPayerEmail, 'customer@example.com')
   assert.equal(store.agreements[agreementId].agreementId, agreementId)
   console.log('Isolated Upfront agreement gateway smoke checks passed')
 } finally {

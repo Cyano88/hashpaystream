@@ -43,6 +43,7 @@ export default function FixedAgreementForm() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [amount, setAmount] = useState('')
+  const [payerEmail, setPayerEmail] = useState('')
   const [recipient, setRecipient] = useState('')
   const [useUpfront, setUseUpfront] = useState(UPFRONT_ENABLED)
   const [durationSeconds, setDurationSeconds] = useState('86400')
@@ -83,10 +84,12 @@ export default function FixedAgreementForm() {
   )
   const duration = Number(durationSeconds)
   const cancellationWindow = Number(cancellationWindowSeconds)
+  const normalizedPayerEmail = payerEmail.trim().toLowerCase()
   const formReady = (
     title.replace(/\s+/g, ' ').trim().length >= 3
     && description.replace(/\s+/g, ' ').trim().length >= 10
     && validAmount(amount)
+    && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedPayerEmail)
     && isAddress(effectiveRecipient)
     && !/^0x0{40}$/i.test(effectiveRecipient)
     && Number.isInteger(duration)
@@ -136,6 +139,7 @@ export default function FixedAgreementForm() {
           title,
           description,
           amount,
+          payerEmail: normalizedPayerEmail,
           recipient: effectiveRecipient,
           durationSeconds: Number(durationSeconds),
           cancellationWindowSeconds: Number(cancellationWindowSeconds),
@@ -187,7 +191,7 @@ export default function FixedAgreementForm() {
             <CheckIcon className="h-5 w-5" />
           </div>
           <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">Agreement ready</p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-gray-950 dark:text-white">Send this link to the payer.</h1>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-gray-950 dark:text-white">Send this link to your customer.</h1>
           <p className="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">
             {created.agreement.amount} USDC · {created.agreement.title}
           </p>
@@ -196,7 +200,7 @@ export default function FixedAgreementForm() {
             <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-gray-400">Private payer link</p>
             <p className="mt-2 break-all text-xs leading-5 text-gray-600 dark:text-gray-300">{payerUrl}</p>
           </div>
-          <p className="mt-3 text-xs leading-5 text-gray-400">The signed-in payer who starts the agreement controls its funding, approvals, cancellation, and refund.</p>
+          <p className="mt-3 text-xs leading-5 text-gray-400">Only {normalizedPayerEmail} can open, fund, approve, cancel, or refund this agreement.</p>
           {useUpfront && <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-xs leading-5 text-blue-800 dark:border-blue-400/20 dark:bg-blue-400/10 dark:text-blue-200">After the payer funds this agreement, return to HashPayStream and request an X Layer advance. The Arc repayment router was assigned automatically.</div>}
 
           <div className="mt-6 grid grid-cols-2 gap-2">
@@ -305,6 +309,10 @@ export default function FixedAgreementForm() {
         </Field>
         <Field label="What is being delivered?">
           <textarea value={description} onChange={event => setDescription(event.target.value)} required minLength={10} maxLength={800} rows={3} placeholder="Describe the work or product covered by this payment." className={`${inputClass} resize-none`} />
+        </Field>
+        <Field label="Customer email">
+          <input value={payerEmail} onChange={event => { setPayerEmail(event.target.value); setError('') }} required type="email" inputMode="email" autoComplete="email" spellCheck={false} placeholder="customer@example.com" className={inputClass} />
+          <span className="mt-2 block text-[11px] leading-5 text-gray-400">Only this email can open and fund the private agreement.</span>
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Amount">

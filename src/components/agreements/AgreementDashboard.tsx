@@ -23,6 +23,7 @@ type Agreement = {
   recipient?: string
   durationSeconds?: number
   cancellationWindowSeconds?: number
+  payerEmailMasked?: string
   checkpoints?: Array<{ label?: string; percentage: number }>
   milestones?: Array<{ label: string; percentage: number }>
   status: AgreementStatus
@@ -425,6 +426,7 @@ export default function AgreementDashboard() {
                   <Detail label="Released" value={formatUsdc(active.chain?.releasedUsdcUnits)} />
                   <Detail label="Remaining" value={formatUsdc(active.chain?.remainingUsdcUnits)} />
                   <Detail label="Payment plan" value={paymentPlanLabel(active)} />
+                  <Detail label="Customer" value={active.payerEmailMasked || 'Legacy private link'} />
                 </div>
 
                 <details className="group mt-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
