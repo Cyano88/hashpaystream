@@ -4,6 +4,7 @@ import {
   createPublicClient,
   createWalletClient,
   custom,
+  formatEther,
   getAddress,
   http,
   isAddress,
@@ -14,6 +15,7 @@ import { upfrontXLayerChain } from '../lib/upfrontChains'
 
 type Opportunity = {
   id: string
+  providerPayoutAddress: string
   requestedAdvanceUsdcUnits: string
   onchainOffer: Record<string, unknown>
 }
@@ -145,6 +147,9 @@ export default function UpfrontFundButton({ opportunity }: { opportunity: Opport
       if (!ready || !signer) throw new Error('The Privy treasury signing connection is not ready. Refresh this page and try again.')
       if (!isAddress(REPAYMENT_RECIPIENT)) throw new Error('The Arc repayment recipient is not configured.')
       const offer = parseOffer(opportunity)
+      if (!isAddress(opportunity.providerPayoutAddress) || getAddress(opportunity.providerPayoutAddress) !== offer.message.provider) {
+        throw new Error('The displayed payout address does not match the signed underwriting offer.')
+      }
       const account = getAddress(signer.address)
       if (amount <= 0n || amount > offer.message.protectedAmount * BigInt(offer.message.maxAdvanceBps) / 10_000n) {
         throw new Error('The requested advance exceeds the signed PolyDesk limit.')
@@ -153,17 +158,21 @@ export default function UpfrontFundButton({ opportunity }: { opportunity: Opport
 
       setStage('Checking escrow controls...')
       const publicClient = createPublicClient({ chain: upfrontXLayerChain, transport: http() })
-      const [asset, paused, allowed, maxAdvance, maxTotal, totalFunded] = await Promise.all([
+      const [asset, paused, allowed, maxAdvance, maxTotal, totalFunded, gasBalance, gasPrice] = await Promise.all([
         publicClient.readContract({ address: offer.escrow, abi: ESCROW_ABI, functionName: 'asset' }),
         publicClient.readContract({ address: offer.escrow, abi: ESCROW_ABI, functionName: 'paused' }),
         publicClient.readContract({ address: offer.escrow, abi: ESCROW_ABI, functionName: 'allowedFunders', args: [account] }),
         publicClient.readContract({ address: offer.escrow, abi: ESCROW_ABI, functionName: 'maxAdvanceAmount' }),
         publicClient.readContract({ address: offer.escrow, abi: ESCROW_ABI, functionName: 'maxTotalFunded' }),
         publicClient.readContract({ address: offer.escrow, abi: ESCROW_ABI, functionName: 'totalFunded' }),
+        publicClient.getBalance({ address: account }),
+        publicClient.getGasPrice(),
       ])
       if (paused) throw new Error('The X Layer escrow is paused.')
       if (!allowed) throw new Error('This treasury is not allowlisted by the escrow owner.')
       if (amount > maxAdvance || totalFunded + amount > maxTotal) throw new Error('This funding would exceed the immutable escrow caps.')
+      const gasReserve = gasPrice * 600_000n
+      if (gasBalance < gasReserve) throw new Error(`Treasury needs at least ${formatEther(gasReserve)} OKB for X Layer gas before funding.`)
       const [balance, allowance] = await Promise.all([
         publicClient.readContract({ address: asset, abi: ERC20_ABI, functionName: 'balanceOf', args: [account] }),
         publicClient.readContract({ address: asset, abi: ERC20_ABI, functionName: 'allowance', args: [account, offer.escrow] }),

@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { ArrowDownIcon, ArrowRightIcon, ArrowTopRightOnSquareIcon, CheckBadgeIcon, CircleStackIcon, CloudIcon, CodeBracketSquareIcon, CpuChipIcon, DocumentCheckIcon, ShieldCheckIcon, UserGroupIcon } from '@heroicons/react/24/outline'
+import { ArrowDownIcon, ArrowRightIcon, ArrowTopRightOnSquareIcon, BanknotesIcon, CheckBadgeIcon, CircleStackIcon, CloudIcon, CodeBracketSquareIcon, CpuChipIcon, DocumentCheckIcon, ShieldCheckIcon, UserGroupIcon } from '@heroicons/react/24/outline'
 import { Link, useLocation } from '../../lib/router'
 import { DocsCallout, DocsEyebrow, StreamPayDocsShell } from './StreamPayDocsShell'
 
@@ -9,6 +9,7 @@ const useCases = [
   { Icon: CheckBadgeIcon, title: 'Named milestones', body: 'Define two to five deliverables whose whole-number shares total exactly 100%.' },
   { Icon: CpuChipIcon, title: 'Agent agreements', body: 'Create, execute, record and reconcile bounded actions from an invited agent backend.' },
   { Icon: CodeBracketSquareIcon, title: 'x402 planning', body: 'Buy a deterministic fixed-agreement plan from the Circle Agent Marketplace endpoint.' },
+  { Icon: BanknotesIcon, title: 'Upfront public test', body: 'Request a restricted AI-assessed advance paid in real USDC on X Layer Mainnet after an Arc Testnet agreement is funded.' },
   { Icon: ShieldCheckIcon, title: 'Verified lifecycle', body: 'Track confirmed activation, release, completion, cancellation and refund events.' },
 ]
 
@@ -17,6 +18,7 @@ const operatingLayers = [
   { Icon: DocumentCheckIcon, eyebrow: 'Standalone application', title: 'HashPayStream', body: 'Owns the product experience, identity mapping, agreement ownership, agent access and documentation.' },
   { Icon: CodeBracketSquareIcon, eyebrow: 'Exclusive API provider', title: 'Hash PayLink APIs', body: 'Provide agreement creation, policy, prepared chain actions, lifecycle reconciliation, signed webhooks and authoritative receipts.' },
   { Icon: CircleStackIcon, eyebrow: 'Settlement infrastructure', title: 'Circle and Arc', body: 'Provide compatible wallet infrastructure, USDC payment capabilities and confirmed Arc transaction state.' },
+  { Icon: BanknotesIcon, eyebrow: 'Assessment and advance', title: 'ZeroScout, PolyDesk and X Layer', body: 'Assess agreement evidence, sign a bounded offer and execute an approved advance through the gated Mainnet contract.' },
 ]
 
 export default function StreamPayDocsHome() {
@@ -33,8 +35,9 @@ export default function StreamPayDocsHome() {
   return <StreamPayDocsShell active="/docs"><article>
     <DocsEyebrow>Standalone documentation</DocsEyebrow>
     <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-4xl">Protected USDC agreements for people and agents.</h1>
-    <p className="mt-4 max-w-3xl text-sm leading-7 text-gray-500 dark:text-gray-400">HashPayStream is the standalone agreements experience powered exclusively by Hash PayLink APIs. It separates agreement terms, wallet-authorized funding, delivery review, and confirmed Arc lifecycle records.</p>
+    <p className="mt-4 max-w-3xl text-sm leading-7 text-gray-500 dark:text-gray-400">HashPayStream is a standalone agreements experience. Hash PayLink APIs remain authoritative for agreement infrastructure; the restricted Upfront public test additionally uses ZeroScout, PolyDesk, and a gated X Layer Mainnet contract.</p>
     <div className="mt-9 grid gap-3 sm:grid-cols-2">{useCases.map(({ Icon, title, body }) => <div key={title} className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#18181b]"><Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" /><h2 className="mt-4 text-sm font-semibold text-gray-950 dark:text-white">{title}</h2><p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{body}</p></div>)}</div>
+    <DocsCallout title="Upfront public test boundary" tone="amber">Arc uses test USDC with no financial value. An approved advance uses real USDC on X Layer Mainnet, requires OKB gas, and is not guaranteed. <Link to="/upfront" className="font-semibold underline underline-offset-2">Open the Upfront test</Link>.</DocsCallout>
     <section id="how-it-works" className="mt-12 scroll-mt-24">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">How we operate</p>
       <h2 className="mt-3 text-xl font-semibold tracking-tight text-gray-950 dark:text-white">How HashPayStream works</h2>
@@ -63,7 +66,7 @@ export default function StreamPayDocsHome() {
           <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">Agreement policy, prepared Arc actions, lifecycle controls, reconciliation, signed webhooks and authoritative receipt data.</p>
         </div>
       </div>
-      <DocsCallout title="One source of agreement truth" tone="blue">HashPayStream does not treat a browser redirect, message or local database update as proof of funding or release. Confirmed Hash PayLink and Arc lifecycle state remains authoritative.</DocsCallout>
+      <DocsCallout title="Authoritative state by layer" tone="blue">HashPayStream does not treat a browser redirect, message or local database update as proof. Confirmed Hash PayLink and Arc state is authoritative for agreements; PolyDesk signed offers and confirmed X Layer contract state are authoritative for Upfront advances.</DocsCallout>
     </section>
     <section className="mt-12">
       <h2 className="text-xl font-semibold tracking-tight text-gray-950 dark:text-white">Agreement lifecycle</h2>

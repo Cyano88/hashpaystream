@@ -90,7 +90,8 @@ export default function StreamPayFundingDesk() {
     <section className="flex min-h-[64vh] w-full max-w-md flex-col items-center justify-center text-center">
       <LockClosedIcon className="h-12 w-12 text-blue-600" />
       <h1 className="mt-6 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Fund verified work early.</h1>
-      <p className="mt-3 text-sm leading-6 text-gray-500 dark:text-gray-400">Sign in with an approved funder email to review AI-checked agreements and send an early payment on X Layer.</p>
+      <p className="mt-3 text-sm leading-6 text-gray-500 dark:text-gray-400">Sign in with an approved funder identity to review AI-checked agreements and send an early payment on X Layer.</p>
+      <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-xs leading-5 text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200">X Layer Mainnet uses real USDC. The approved treasury also needs a small OKB balance for network gas.</p>
       <StreamPayEmailLogin className="mt-7 w-full" />
     </section>
   )

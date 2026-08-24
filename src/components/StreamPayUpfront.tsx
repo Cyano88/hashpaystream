@@ -192,15 +192,16 @@ export default function StreamPayUpfront() {
       <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Get paid early on X Layer</p>
       <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Get paid before the job is finished.</h1>
       <p className="mt-3 max-w-lg text-sm leading-6 text-gray-500 dark:text-gray-400">Your customer first protects the job payment on Arc. ZeroScout checks the agreement, PolyDesk sets a safe limit, and an approved funder can pay you early on X Layer.</p>
+      <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-xs leading-5 text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200"><strong>Public test boundary.</strong> Arc uses test USDC with no financial value. An approved advance uses real USDC on X Layer Mainnet and is not guaranteed.</p>
+      <StreamPayEmailLogin className="mt-5 w-full" />
       <div className="mt-6 w-full text-left">
         <AgreementProgress current={1} steps={[
           { label: 'Create terms', detail: 'Agree on the job and price' },
-          { label: 'Customer protects', detail: 'USDC is protected on Arc' },
+          { label: 'Customer protects', detail: 'Test USDC on Arc Testnet' },
           { label: 'AI checks', detail: 'A safe advance limit is set' },
           { label: 'Funder pays', detail: 'You receive USDC on X Layer' },
         ]} />
       </div>
-      <StreamPayEmailLogin className="mt-6 w-full" />
       <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[11px] font-semibold text-gray-400">
         <a href="https://www.xlayerscan.com/address/0xa07900cAb0a0BbFBC52FCC95b22c52a22Ff0e1A5" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-blue-600">Mainnet contract</a>
         <a href="https://github.com/Cyano88/hashpaystream" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-blue-600">Open-source proof</a>

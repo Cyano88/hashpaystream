@@ -12,19 +12,23 @@ const content: Record<LegalPage, {
   terms: {
     eyebrow: 'Service terms',
     title: 'HashPayStream terms of use',
-    introduction: 'These terms apply when you use HashPayStream to create, review, and manage protected USDC agreements.',
+    introduction: 'These terms apply when you use HashPayStream to create, review, and manage protected USDC agreements or participate in the restricted Upfront public test.',
     sections: [
       {
         title: 'The service',
-        body: 'HashPayStream provides the customer experience for Arc Agreements. Hash PayLink separately provides agreement policy, payer checkout, escrow execution, chain reconciliation, signed lifecycle updates, and authoritative receipts.',
+        body: 'HashPayStream provides the customer experience for Arc Agreements and the restricted Upfront public test. Hash PayLink separately provides agreement policy, payer checkout, escrow execution, chain reconciliation, signed lifecycle updates, and authoritative receipts. ZeroScout and PolyDesk provide bounded agreement assessment and underwriting inputs for Upfront.',
       },
       {
         title: 'Your responsibilities',
         body: 'You must provide accurate agreement terms, use an address you control or are authorized to use, review payer links before sharing them, and submit truthful delivery information. A payer must independently review an agreement before funding or approving a release.',
       },
       {
-        title: 'Test network',
-        body: 'The current Arc Agreement pilot operates on Arc Testnet. Testnet assets and transactions are for testing and may not represent production availability or value.',
+        title: 'Pilot network boundary',
+        body: 'The Arc Agreement and protection side of the current pilot operates on Arc Testnet using test USDC with no financial value. When Upfront is enabled, an approved funder may send real USDC through the restricted X Layer Mainnet contract. Arc test funds must not be treated as real collateral.',
+      },
+      {
+        title: 'Upfront public test',
+        body: 'An assessment or approved limit is not a promise that an advance will be funded. Mainnet wallet actions are irreversible and require explicit confirmation from an approved funder. Funders must review the recipient, amount, signed offer, contract, network, available USDC, and required OKB gas before confirming a transaction. Use only the limited test amount you are prepared to risk.',
       },
       {
         title: 'Agreement outcomes',
@@ -43,7 +47,7 @@ const content: Record<LegalPage, {
     sections: [
       {
         title: 'Identity',
-        body: 'HashPayStream uses Privy for email-based authentication. Privy is configured as an identity provider only; HashPayStream does not create an embedded wallet or enable external-wallet connection through its sign-in flow.',
+        body: 'HashPayStream uses Privy for email-based authentication. Signing in does not automatically create a wallet, and external-wallet connection is disabled. If you choose an Upfront payout or approved-funder action, HashPayStream can create or recover a Privy embedded EVM wallet for that signed-in account.',
       },
       {
         title: 'Agreement records',
@@ -51,11 +55,11 @@ const content: Record<LegalPage, {
       },
       {
         title: 'Service providers',
-        body: 'HashPayStream uses service providers for authentication, hosting, database storage, and the authenticated Hash PayLink APIs and signed webhooks required to operate Arc Agreements.',
+        body: 'HashPayStream uses service providers for authentication, hosting, database storage, and the authenticated Hash PayLink APIs and signed webhooks required to operate Arc Agreements. For Upfront, bounded agreement and payout details are also sent to ZeroScout and PolyDesk for assessment and underwriting.',
       },
       {
         title: 'Wallet security',
-        body: 'HashPayStream does not ask for or store wallet private keys. Never send a private key, recovery phrase, login code, or server credential through an agreement or support message.',
+        body: 'HashPayStream does not receive or store your wallet private key or recovery phrase. Privy manages embedded-wallet key material, and each fund-moving action still requires the approved wallet connection and explicit confirmation. Never send a private key, recovery phrase, login code, or server credential through an agreement or support message.',
       },
       {
         title: 'Questions and requests',
@@ -74,7 +78,7 @@ export default function StreamPayLegal({ page }: { page: LegalPage }) {
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">{document.eyebrow}</p>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-4xl">{document.title}</h1>
       <p className="mt-4 max-w-2xl text-sm leading-7 text-gray-500 dark:text-gray-400">{document.introduction}</p>
-      <p className="mt-3 text-xs text-gray-400">Last updated 6 August 2026</p>
+      <p className="mt-3 text-xs text-gray-400">Last updated 24 August 2026</p>
 
       <div className="mt-9 divide-y divide-gray-200 border-y border-gray-200 dark:divide-white/10 dark:border-white/10">
         {document.sections.map(section => (

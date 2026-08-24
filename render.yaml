@@ -43,7 +43,7 @@ services:
       - key: VITE_HASHPAYSTREAM_DIRECT_ARC_ENABLED
         value: "false"
       - key: VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS
-        sync: false
+        value: "0x0CFd91Ea2F476C62fE2008B14A5dFd4A61328CcE"
       - key: HASHPAYSTREAM_UPFRONT_STORE_KEY
         value: hashpaystream:upfront-assessments:v1
       - key: HASHPAYSTREAM_UPFRONT_ARC_API_KEY
@@ -55,7 +55,7 @@ services:
       - key: HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_STORE_KEY
         value: hashpaystream:upfront-arc-webhooks:v1
       - key: HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS
-        sync: false
+        value: "0x0CFd91Ea2F476C62fE2008B14A5dFd4A61328CcE"
       - key: HASHPAYSTREAM_ZEROSCOUT_BASE_URL
         sync: false
       - key: HASHPAYSTREAM_ZEROSCOUT_API_KEY
@@ -69,7 +69,7 @@ services:
       - key: HASHPAYSTREAM_POLYDESK_SIGNING_KEY_ID
         sync: false
       - key: HASHPAYSTREAM_POLYDESK_EIP712_SIGNER
-        sync: false
+        value: "0xB089C3d5F06074856d7665A1Aa53Dc0d761930aE"
       - key: HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS
         value: "0xa07900cAb0a0BbFBC52FCC95b22c52a22Ff0e1A5"
       - key: HASHPAYSTREAM_UPFRONT_CHAIN_ID
@@ -87,11 +87,11 @@ services:
       - key: HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY
         sync: false
       - key: HASHPAYSTREAM_UPFRONT_PROTECTION_SIGNER
-        sync: false
+        value: "0xfd23c4697e41Bb6874d72D5f2b56Af8aB00CAb99"
       - key: HASHPAYSTREAM_UPFRONT_REPAYMENT_PRIVATE_KEY
         sync: false
       - key: HASHPAYSTREAM_UPFRONT_REPAYMENT_SIGNER
-        sync: false
+        value: "0x83Bd6A645cBE8d04b5F33f2c2c87A1d1FDD71D5b"
       - key: HASHPAYSTREAM_UPFRONT_FUNDER_EMAILS
         sync: false
       - key: HASHPAYSTREAM_UPFRONT_FUNDER_WALLETS
