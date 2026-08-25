@@ -17,6 +17,7 @@ import upfrontArcAgreementWebhook from './api/upfront-arc-webhook.js'
 import upfrontProtection from './api/upfront-protection.js'
 import upfrontOpportunities from './api/upfront-opportunities.js'
 import fundingPartners from './api/funding-partners.js'
+import streamAccounts from './api/stream-accounts.js'
 import {
   createCircleMarketplacePaymentHandler,
   createCircleMarketplaceResourceHandler,
@@ -104,6 +105,12 @@ app.get('/api/hashpaystream/v1/upfront/opportunities', rateLimit({ name: 'upfron
 app.get('/api/hashpaystream/v1/funding-partners', rateLimit({ name: 'funding-partner-read', windowMs: 60_000, max: 60 }), fundingPartners)
 app.post('/api/hashpaystream/v1/funding-partners', rateLimit({ name: 'funding-partner-write', windowMs: 60_000, max: 10 }), fundingPartners)
 app.all('/api/hashpaystream/v1/funding-partners', (_req, res) => {
+  res.setHeader('Allow', 'GET, POST')
+  return res.status(405).json({ ok: false, error: 'Method not allowed.' })
+})
+app.get('/api/hashpaystream/v1/accounts', rateLimit({ name: 'account-read', windowMs: 60_000, max: 120 }), streamAccounts)
+app.post('/api/hashpaystream/v1/accounts', rateLimit({ name: 'account-write', windowMs: 60_000, max: 30 }), streamAccounts)
+app.all('/api/hashpaystream/v1/accounts', (_req, res) => {
   res.setHeader('Allow', 'GET, POST')
   return res.status(405).json({ ok: false, error: 'Method not allowed.' })
 })

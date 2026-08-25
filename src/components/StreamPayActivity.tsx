@@ -1,83 +1,74 @@
-import {
-  ArrowUturnLeftIcon,
-  ArrowUpTrayIcon,
-  BanknotesIcon,
-  CheckBadgeIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  ExclamationTriangleIcon,
-  PencilSquareIcon,
-  XCircleIcon,
-} from '@heroicons/react/24/outline'
-import { Fragment, useMemo, useState } from 'react'
+import { ArrowDownLeftIcon, ArrowUpRightIcon, BanknotesIcon, CheckBadgeIcon, CheckCircleIcon, ClockIcon, XCircleIcon } from '@heroicons/react/24/outline'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSplash'
-import { useAgreements } from '../lib/useAgreements'
+import { formatUsdc, useAgreements } from '../lib/useAgreements'
+import { useStreamAccount } from '../lib/streamAccount'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
 import { LoadingRing } from './ui/LoadingRing'
 
-const EVENT_PRESENTATION = {
-  'agreement.activated': { label: 'Agreement funded', Icon: BanknotesIcon, tone: 'text-emerald-600 dark:text-emerald-400' },
-  'agreement.step_released': { label: 'Release confirmed', Icon: CheckBadgeIcon, tone: 'text-blue-600 dark:text-blue-400' },
-  'agreement.expired': { label: 'Refund available', Icon: ClockIcon, tone: 'text-amber-600 dark:text-amber-400' },
-  'agreement.completed': { label: 'Agreement completed', Icon: CheckCircleIcon, tone: 'text-emerald-600 dark:text-emerald-400' },
-  'agreement.cancelled': { label: 'Agreement cancelled', Icon: XCircleIcon, tone: 'text-gray-500 dark:text-gray-400' },
-  'agreement.refunded': { label: 'Remaining USDC returned', Icon: ArrowUturnLeftIcon, tone: 'text-amber-600 dark:text-amber-400' },
-  'delivery.submitted': { label: 'Delivery submitted', Icon: ArrowUpTrayIcon, tone: 'text-blue-600 dark:text-blue-400' },
-  'delivery.updated': { label: 'Delivery updated', Icon: PencilSquareIcon, tone: 'text-blue-600 dark:text-blue-400' },
-  'delivery.issue_reported': { label: 'Issue reported', Icon: ExclamationTriangleIcon, tone: 'text-red-600 dark:text-red-400' },
-  'delivery.release_approved': { label: 'Release approved', Icon: CheckBadgeIcon, tone: 'text-blue-600 dark:text-blue-400' },
-}
+const EVENTS = {
+  'agreement.activated': { label: 'Agreement funded', Icon: BanknotesIcon, tone: 'text-emerald-600' },
+  'agreement.step_released': { label: 'Release confirmed', Icon: CheckBadgeIcon, tone: 'text-blue-600' },
+  'agreement.expired': { label: 'Refund available', Icon: ClockIcon, tone: 'text-amber-600' },
+  'agreement.completed': { label: 'Agreement completed', Icon: CheckCircleIcon, tone: 'text-emerald-600' },
+  'agreement.cancelled': { label: 'Agreement cancelled', Icon: XCircleIcon, tone: 'text-gray-500' },
+  'agreement.refunded': { label: 'USDC returned', Icon: ArrowDownLeftIcon, tone: 'text-amber-600' },
+  'delivery.submitted': { label: 'Work submitted', Icon: ArrowUpRightIcon, tone: 'text-blue-600' },
+  'delivery.updated': { label: 'Work updated', Icon: ArrowUpRightIcon, tone: 'text-blue-600' },
+  'delivery.issue_reported': { label: 'Issue reported', Icon: XCircleIcon, tone: 'text-red-600' },
+  'delivery.release_approved': { label: 'Release approved', Icon: CheckBadgeIcon, tone: 'text-blue-600' },
+} as const
 
-function eventDate(value: string) {
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? 'Date unavailable' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date)
-}
-
-function eventTime(value: string) {
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(date)
-}
+function date(value: string) { const parsed = new Date(value); return Number.isNaN(parsed.getTime()) ? 'Date unavailable' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(parsed) }
+function time(value: string) { const parsed = new Date(value); return Number.isNaN(parsed.getTime()) ? '' : new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(parsed) }
+function short(value: string) { return value.length > 14 ? `${value.slice(0, 7)}…${value.slice(-5)}` : value }
 
 export default function StreamPayActivity() {
   const { ready, authenticated, agreements, loading, error } = useAgreements()
+  const account = useStreamAccount(true)
   const [showAll, setShowAll] = useState(false)
   const splashState = useHashPayStreamSessionSplash(!authenticated)
-  const activity = useMemo(() => agreements.flatMap(agreement => [
-    ...(agreement.timeline ?? []).map(event => ({ id: `${agreement.id}:${event.id}`, event: event.event, occurredAt: event.createdAt || event.receivedAt, title: agreement.title })),
-    ...(agreement.deliveryTimeline ?? []).map(event => ({ id: `${agreement.id}:${event.id}`, event: event.event, occurredAt: event.createdAt, title: agreement.title })),
-  ]).filter(item => item.occurredAt).sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)), [agreements])
-  const visibleActivity = showAll ? activity : activity.slice(0, 10)
-
+  useEffect(() => {
+    const pending = window.localStorage.getItem('hashpaystream.pendingArcTransfer')
+    if (!authenticated || !pending) return
+    void account.recordTransfer(pending).then(() => {
+      window.localStorage.removeItem('hashpaystream.pendingArcTransfer')
+      return account.refresh()
+    }).catch(() => undefined)
+  }, [authenticated, account.recordTransfer, account.refresh])
+  const activity = useMemo(() => {
+    const agreementRows = agreements.flatMap(agreement => [
+      ...(agreement.timeline ?? []).map(event => ({ id: `${agreement.id}:${event.id}`, event: event.event, occurredAt: event.createdAt || event.receivedAt, title: agreement.title || 'Agreement', detail: 'Protected payment' })),
+      ...(agreement.deliveryTimeline ?? []).map(event => ({ id: `${agreement.id}:${event.id}`, event: event.event, occurredAt: event.createdAt, title: agreement.title || 'Agreement', detail: 'Delivery update' })),
+    ])
+    const transferRows = account.activity.map(item => ({
+      id: item.id, event: item.direction === 'sent' ? 'wallet.sent' : 'wallet.received', occurredAt: item.createdAt,
+      title: item.direction === 'sent' ? 'USDC sent' : 'USDC received',
+      detail: `${formatUsdc(item.amountUsdcUnits)} · ${item.counterpartyPocketId ? `ID ${item.counterpartyPocketId}` : short(item.counterpartyAddress)}`,
+      txHash: item.txHash,
+    }))
+    return [...agreementRows, ...transferRows].filter(item => item.occurredAt).sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
+  }, [account.activity, agreements])
+  const visible = showAll ? activity : activity.slice(0, 20)
   if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
-  if (!ready || loading) return <section className="flex min-h-[58vh] items-center"><LoadingRing className="h-5 w-5 text-gray-300" /></section>
+  if (!ready || loading || account.loading) return <section className="flex min-h-[58vh] items-center"><LoadingRing className="h-5 w-5 text-gray-300" /></section>
 
-  return (
-    <section className="w-full max-w-3xl py-7 sm:py-12">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">History</p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Activity</h1>
-      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Confirmed agreement and delivery updates.</p>
-      {error && <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300">{error}</div>}
-      {!error && <div className="mt-7 overflow-hidden rounded-3xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[#18181b]">
-        {visibleActivity.map((item, index) => {
-          const presentation = EVENT_PRESENTATION[item.event as keyof typeof EVENT_PRESENTATION]
-          const Icon = presentation?.Icon ?? ClockIcon
-          const date = eventDate(item.occurredAt)
-          const previousDate = index ? eventDate(visibleActivity[index - 1].occurredAt) : ''
-          return <Fragment key={item.id}>
-            {date !== previousDate && <p className={`${index ? 'border-t border-gray-100 dark:border-white/10' : ''} bg-gray-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400 dark:bg-white/[0.025] sm:px-5`}>{date}</p>}
-            <div className="flex min-h-16 items-center gap-3 border-t border-gray-100 px-4 py-3 dark:border-white/10 sm:px-5">
-              <span className={`flex h-8 w-8 shrink-0 items-center justify-center ${presentation?.tone ?? 'text-gray-500 dark:text-gray-400'}`}><Icon className="h-5 w-5" /></span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-gray-950 dark:text-white">{presentation?.label ?? 'Agreement updated'}</p>
-                <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">{item.title || 'Untitled agreement'}</p>
-              </div>
-              <time dateTime={item.occurredAt} className="shrink-0 text-[11px] text-gray-400">{eventTime(item.occurredAt)}</time>
-            </div>
-          </Fragment>
-        })}
-        {activity.length > 10 && <button type="button" onClick={() => setShowAll(current => !current)} className="w-full border-t border-gray-100 px-5 py-3.5 text-xs font-semibold text-blue-600 dark:border-white/10 dark:text-blue-400">{showAll ? 'Show recent activity' : 'View earlier activity'}</button>}
-        {activity.length === 0 && <p className="px-5 py-12 text-center text-sm text-gray-500 dark:text-gray-400">Agreement activity will appear here.</p>}
-      </div>}
-    </section>
-  )
+  return <section className="w-full max-w-md py-5 sm:py-8">
+    <h1 className="text-2xl font-extrabold tracking-tight text-gray-950 dark:text-white">Activity</h1>
+    <p className="mt-1 text-xs leading-5 text-gray-400">Transfers, agreements, delivery and releases in one place.</p>
+    {(error || account.error) && <p className="mt-4 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700 dark:bg-red-400/10 dark:text-red-200">{error || account.error}</p>}
+    <div className="mt-5 overflow-hidden rounded-[24px] border border-gray-100 bg-white shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035]">
+      {visible.map((item, index) => {
+        const transfer = item.event === 'wallet.sent' || item.event === 'wallet.received'
+        const presentation = transfer ? { label: item.title, Icon: item.event === 'wallet.sent' ? ArrowUpRightIcon : ArrowDownLeftIcon, tone: item.event === 'wallet.sent' ? 'text-blue-600' : 'text-emerald-600' } : EVENTS[item.event as keyof typeof EVENTS]
+        const Icon = presentation?.Icon ?? ClockIcon
+        const group = date(item.occurredAt)
+        const previous = index ? date(visible[index - 1].occurredAt) : ''
+        const row = <div className="flex min-h-[68px] items-center gap-3 border-t border-gray-100 px-4 py-3 dark:border-white/[0.07]"><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-white/[0.06] ${presentation?.tone || 'text-gray-500'}`}><Icon className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-gray-950 dark:text-white">{presentation?.label || 'Updated'}</span><span className="mt-0.5 block truncate text-[11px] text-gray-400">{item.detail || item.title}</span></span><time className="text-[10px] font-semibold text-gray-400">{time(item.occurredAt)}</time></div>
+        return <Fragment key={item.id}>{group !== previous && <p className={`${index ? 'border-t border-gray-100 dark:border-white/[0.07]' : ''} bg-gray-50 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:bg-white/[0.025]`}>{group}</p>}{'txHash' in item && item.txHash ? <a href={`https://testnet.arcscan.app/tx/${item.txHash}`} target="_blank" rel="noreferrer">{row}</a> : row}</Fragment>
+      })}
+      {activity.length > 20 && <button type="button" onClick={() => setShowAll(current => !current)} className="w-full border-t border-gray-100 px-5 py-4 text-xs font-bold text-blue-600 dark:border-white/[0.07]">{showAll ? 'Show recent activity' : 'View earlier activity'}</button>}
+      {!activity.length && <p className="px-6 py-14 text-center text-sm leading-6 text-gray-400">Your confirmed activity will appear here.</p>}
+    </div>
+  </section>
 }

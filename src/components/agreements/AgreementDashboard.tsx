@@ -13,7 +13,7 @@ const AGREEMENTS_API = '/api/hashpaystream/v2/agreements'
 const HASH_PAYLINK_ORIGIN = String(import.meta.env.VITE_HASH_PAYLINK_BASE_URL || 'https://app.hashpaylink.com').replace(/\/$/, '')
 
 type AgreementStatus = 'awaiting_start' | 'active' | 'expired' | 'completed' | 'cancelled' | 'refunded'
-type AgreementFilter = 'needs_action' | 'ongoing' | 'completed'
+type AgreementFilter = 'ongoing' | 'completed'
 
 type Agreement = {
   id: string
@@ -170,7 +170,7 @@ function StatusBadge({ status }: { status: AgreementStatus }) {
 export default function AgreementDashboard() {
   const { ready, authenticated, getAccessToken } = usePrivy()
   const [agreements, setAgreements] = useState<Agreement[]>([])
-  const [filter, setFilter] = useState<AgreementFilter>('needs_action')
+  const [filter, setFilter] = useState<AgreementFilter>('ongoing')
   const [activeId, setActiveId] = useState('')
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -228,8 +228,7 @@ export default function AgreementDashboard() {
   }, [authenticated, load, ready])
 
   const filteredAgreements = useMemo(() => agreements.filter(agreement => {
-    if (filter === 'needs_action') return agreement.status === 'awaiting_start' || agreement.status === 'expired'
-    if (filter === 'ongoing') return agreement.status === 'active'
+    if (filter === 'ongoing') return ['awaiting_start', 'active', 'expired'].includes(agreement.status)
     return ['completed', 'cancelled', 'refunded'].includes(agreement.status)
   }), [agreements, filter])
   const active = useMemo(
@@ -388,13 +387,12 @@ export default function AgreementDashboard() {
       )}
 
       {!loadError && agreements.length > 0 && (
-        <div className="mt-6 grid grid-cols-3 rounded-2xl bg-gray-200/60 p-1 dark:bg-white/[0.06]" aria-label="Agreement status filters">
+        <div className="mt-6 grid grid-cols-2 rounded-full bg-gray-200/60 p-1 dark:bg-white/[0.06]" aria-label="Agreement status filters">
           {([
-            ['needs_action', 'Needs action'],
             ['ongoing', 'Ongoing'],
             ['completed', 'Completed'],
           ] as const).map(([value, label]) => (
-            <button key={value} type="button" onClick={() => chooseFilter(value)} className={`rounded-xl px-2 py-2.5 text-[11px] font-bold transition ${filter === value ? 'bg-white text-gray-950 shadow-sm dark:bg-white dark:text-gray-950' : 'text-gray-500 dark:text-gray-400'}`}>{label}</button>
+            <button key={value} type="button" onClick={() => chooseFilter(value)} className={`rounded-full px-2 py-2.5 text-[11px] font-bold transition ${filter === value ? 'bg-white text-gray-950 shadow-sm dark:bg-white dark:text-gray-950' : 'text-gray-500 dark:text-gray-400'}`}>{label}</button>
           ))}
         </div>
       )}

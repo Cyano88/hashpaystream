@@ -7,6 +7,7 @@ import { useStreamPayPath } from '../../lib/useStreamPayPath'
 import { LoadingRing } from '../ui/LoadingRing'
 import { StreamPayEmailLogin } from '../auth/StreamPayEmailLogin'
 import { AgreementProgress } from '../ui/AgreementProgress'
+import { StreamSelect } from '../ui/StreamSelect'
 
 type CreatedAgreement = {
   agreement: { id: string; title: string; amount: string; recipient: string; template?: AgreementTemplate }
@@ -416,19 +417,10 @@ export default function FixedAgreementForm() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Protection period">
-            <select value={durationSeconds} onChange={event => setDurationSeconds(event.target.value)} className={inputClass}>
-              <option value="7200">2 hours</option>
-              <option value="86400">1 day</option>
-              <option value="259200">3 days</option>
-              <option value="604800">7 days</option>
-            </select>
+            <StreamSelect label="Protection period" value={durationSeconds} onChange={setDurationSeconds} options={[{ value: '7200', label: '2 hours' }, { value: '86400', label: '1 day' }, { value: '259200', label: '3 days' }, { value: '604800', label: '7 days' }]} />
           </Field>
           <Field label="Early cancellation">
-            <select value={cancellationWindowSeconds} onChange={event => setCancellationWindowSeconds(event.target.value)} className={inputClass}>
-              <option value="0">No cancellation window</option>
-              <option value="900">15 minutes</option>
-              <option value="3600">1 hour</option>
-            </select>
+            <StreamSelect label="Early cancellation" value={cancellationWindowSeconds} onChange={setCancellationWindowSeconds} options={[{ value: '0', label: 'No cancellation window' }, { value: '900', label: '15 minutes' }, { value: '3600', label: '1 hour' }]} />
           </Field>
         </div>
         <p className="text-[11px] leading-5 text-gray-400">

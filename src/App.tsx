@@ -17,13 +17,15 @@ import StreamPayOperations from './components/admin/StreamPayOperations'
 import StreamPayStats from './components/StreamPayStats'
 import StreamPayUpfront from './components/StreamPayUpfront'
 import StreamPayFunding from './components/StreamPayFunding'
+import StreamPaySend from './components/StreamPaySend'
+import StreamPayReceive from './components/StreamPayReceive'
 import { HashPayStreamSessionSplash } from './components/HashPayStreamSessionSplash'
 import { BrowserRouter, Navigate, useLocation } from './lib/router'
 import { useHashPayStreamSessionSplash } from './lib/useHashPayStreamSessionSplash'
 import { LoadingRing } from './components/ui/LoadingRing'
 
 const UPFRONT_ENABLED = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ENABLED ?? '').toLowerCase() === 'true'
-const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/upfront', '/funding', '/activity', '/account', '/operations', '/admin/analytics'])
+const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/upfront', '/funding', '/send', '/receive', '/activity', '/account', '/operations', '/admin/analytics'])
 const SESSION_READY_TIMEOUT_MS = 12_000
 
 function SessionLoadingSurface({ sessionDelayed, onRetry }: { sessionDelayed: boolean; onRetry: () => void }) {
@@ -81,6 +83,8 @@ function StreamPayRoute() {
   else if (route === '/agreements/new') content = <FixedAgreementForm />
   else if (route === '/upfront') content = UPFRONT_ENABLED ? <StreamPayUpfront /> : <Navigate to="/home" replace />
   else if (route === '/funding') content = <StreamPayFunding />
+  else if (route === '/send') content = <StreamPaySend />
+  else if (route === '/receive') content = <StreamPayReceive />
   else if (route === '/upfront/funding') content = <Navigate to="/funding" replace />
   else if (route === '/activity') content = <StreamPayActivity />
   else if (route === '/account') content = <StreamPayAccount />

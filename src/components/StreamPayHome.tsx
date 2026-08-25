@@ -1,5 +1,7 @@
 import {
   ArrowRightIcon,
+  ArrowDownTrayIcon,
+  PaperAirplaneIcon,
   ArrowUpTrayIcon,
   ArrowUturnLeftIcon,
   BanknotesIcon,
@@ -7,7 +9,6 @@ import {
   CheckCircleIcon,
   ClockIcon,
   DocumentPlusIcon,
-  DocumentTextIcon,
   ExclamationTriangleIcon,
   PencilSquareIcon,
   SparklesIcon,
@@ -20,6 +21,9 @@ import { formatUsdc, useAgreements } from '../lib/useAgreements'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
 import { LoadingRing } from './ui/LoadingRing'
+import { HashPayStreamMark } from './HashPayStreamMark'
+import { useArcWallet } from '../lib/arcWallet'
+import { useStreamAccount } from '../lib/streamAccount'
 
 const EVENT_PRESENTATION = {
   'agreement.activated': { label: 'Agreement funded', Icon: BanknotesIcon, tone: 'text-emerald-600 dark:text-emerald-400' },
@@ -41,17 +45,17 @@ function activityDate(value: string) {
     : new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date)
 }
 
-function usdcAmount(units: bigint | string) {
-  return formatUsdc(units).replace(/ USDC$/, '')
-}
-
 export default function StreamPayHome() {
   const { ready, authenticated, agreements, totals, loading, error } = useAgreements()
+  const wallet = useArcWallet()
+  const account = useStreamAccount()
   const splashState = useHashPayStreamSessionSplash(!authenticated)
-  const agreementsTo = useStreamPayPath('/agreements')
   const createTo = useStreamPayPath('/agreements/new')
   const upfrontTo = useStreamPayPath('/upfront')
   const activityTo = useStreamPayPath('/activity')
+  const sendTo = useStreamPayPath('/send')
+  const receiveTo = useStreamPayPath('/receive')
+  const accountTo = useStreamPayPath('/account')
   const recentActivity = useMemo(() => agreements.flatMap(agreement => [
     ...(Array.isArray(agreement.timeline) ? agreement.timeline : []).map(event => ({
       id: `${agreement.id}:${event.id}`,
@@ -75,34 +79,38 @@ export default function StreamPayHome() {
 
   const actions = [
     { label: 'New', Icon: DocumentPlusIcon, to: createTo },
-    { label: 'Manage', Icon: DocumentTextIcon, to: agreementsTo },
     { label: 'Early pay', Icon: SparklesIcon, to: upfrontTo },
-    { label: 'Activity', Icon: ClockIcon, to: activityTo },
+    { label: 'Send', Icon: PaperAirplaneIcon, to: sendTo },
+    { label: 'Deposit', Icon: ArrowDownTrayIcon, to: receiveTo },
   ]
 
   return (
-    <section className="w-full max-w-xl space-y-4 py-6 sm:py-10">
+    <section className="w-full max-w-md space-y-4 py-5 sm:py-8">
       <h1 className="sr-only">Agreements</h1>
+      <div className="flex items-center justify-between px-1">
+        <span className="flex items-center gap-2"><HashPayStreamMark className="h-7 w-7 text-gray-950 dark:text-white" /><span className="text-sm font-extrabold tracking-tight text-gray-950 dark:text-white">HashPay<span className="text-blue-600">Stream</span></span></span>
+        <Link to={accountTo} aria-label="Open account" className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-950 text-sm font-extrabold uppercase text-white shadow-sm dark:bg-white dark:text-gray-950">{account.profile?.displayName?.[0] || account.profile?.email?.[0] || 'H'}</Link>
+      </div>
       {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300">{error}</div>}
 
       <section className="overflow-hidden rounded-[26px] bg-gray-950 px-5 py-5 text-white shadow-[0_18px_48px_rgba(15,23,42,0.14)] dark:bg-white dark:text-gray-950">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50 dark:text-gray-500">Currently protected</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50 dark:text-gray-500">Arc wallet</p>
             <p className="mt-1.5 min-w-0 text-[clamp(1.75rem,9vw,2.5rem)] font-bold tabular-nums tracking-tight">
-              {usdcAmount(totals.activeProtected)} <span className="text-xs font-medium tracking-normal opacity-50">USDC</span>
+              {wallet.loadingBalance ? '—' : wallet.balance} <span className="text-xs font-medium tracking-normal opacity-50">USDC</span>
             </p>
           </div>
           <span className="shrink-0 rounded-full border border-white/15 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white/55 dark:border-gray-200 dark:text-gray-500">Arc testnet</span>
         </div>
         <div className="mt-5 grid grid-cols-2 gap-4 border-t border-white/10 pt-4 dark:border-gray-950/10">
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/45 dark:text-gray-500">Released</p>
-            <p className="mt-1 text-sm font-semibold tabular-nums">{formatUsdc(totals.released)}</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/45 dark:text-gray-500">Protected</p>
+            <p className="mt-1 text-sm font-semibold tabular-nums">{formatUsdc(totals.activeProtected)}</p>
           </div>
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/45 dark:text-gray-500">Refund available</p>
-            <p className="mt-1 text-sm font-semibold tabular-nums">{formatUsdc(totals.refundAvailable)}</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/45 dark:text-gray-500">Released</p>
+            <p className="mt-1 text-sm font-semibold tabular-nums">{formatUsdc(totals.released)}</p>
           </div>
         </div>
       </section>

@@ -10,6 +10,7 @@ import './index.css'
 import App from './App'
 import { ThemeProvider, useTheme } from './lib/ThemeContext'
 import { upfrontTreasuryEnabled, upfrontXLayerChain } from './lib/upfrontChains'
+import { arcTestnet } from './lib/arcWallet'
 
 const appId = String(import.meta.env.VITE_PRIVY_APP_ID || '').trim()
 const logoUrl = new URL('/brand/hashpaystream-logo.png', window.location.origin).toString()
@@ -28,8 +29,8 @@ function Providers() {
     externalWallets: { disableAllExternalWallets: true },
     ...(upfrontTreasuryEnabled ? {
       defaultChain: upfrontXLayerChain,
-      supportedChains: [upfrontXLayerChain],
-    } : {}),
+      supportedChains: [arcTestnet, upfrontXLayerChain],
+    } : { defaultChain: arcTestnet, supportedChains: [arcTestnet] }),
     appearance: {
       theme: theme === 'dark' ? 'dark' : 'light',
       accentColor: '#2563eb',

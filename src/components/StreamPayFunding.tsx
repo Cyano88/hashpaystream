@@ -5,9 +5,10 @@ import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSpl
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
 import StreamPayFundingDesk from './StreamPayFundingDesk'
 import { LoadingRing } from './ui/LoadingRing'
+import { StreamSelect } from './ui/StreamSelect'
 
 const API = '/api/hashpaystream/v1/funding-partners'
-const inputClass = 'mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm text-gray-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 dark:border-white/10 dark:bg-white/[0.04] dark:text-white'
+const inputClass = 'mt-1.5 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm text-gray-950 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-white/[0.04] dark:text-white'
 
 type Profile = {
   email: string
@@ -22,6 +23,7 @@ export default function StreamPayFunding() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [formOpen, setFormOpen] = useState(false)
   const [form, setForm] = useState({ name: '', country: '', applicantType: 'individual', experience: 'new', expectedFundingRange: '' })
 
   const request = useCallback(async (body?: Record<string, unknown>) => {
@@ -77,16 +79,21 @@ export default function StreamPayFunding() {
     </section>
   )
 
-  return (
-    <section className="w-full max-w-2xl py-7 sm:py-12">
-      <div className="rounded-[28px] bg-gray-950 p-6 text-white shadow-[0_20px_55px_rgba(15,23,42,.16)] sm:p-8">
-        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10"><BanknotesIcon className="h-5 w-5" /></span>
-        <p className="mt-7 text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">Funding partners</p>
-        <h1 className="mt-2 max-w-lg text-3xl font-bold tracking-tight">Fund approved agreements early.</h1>
-        <p className="mt-3 max-w-lg text-sm leading-6 text-white/60">Earn the return stated on each agreement you choose to fund. Every opportunity is reviewed before it reaches the marketplace.</p>
-      </div>
+  if (!formOpen) return (
+    <section className="flex min-h-[72vh] w-full max-w-md flex-col items-center justify-center px-3 text-center">
+      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-400/10 dark:text-blue-300"><BanknotesIcon className="h-7 w-7" /></span>
+      <p className="mt-6 text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">Funding partners</p>
+      <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-gray-950 dark:text-white">Fund good work early.</h1>
+      <p className="mt-3 max-w-sm text-sm leading-6 text-gray-500 dark:text-gray-400">Apply to review approved agreements and earn the return shown on each opportunity you choose.</p>
+      <button type="button" onClick={() => setFormOpen(true)} className="mt-7 w-full rounded-full bg-gray-950 px-6 py-4 text-sm font-bold text-white shadow-sm dark:bg-white dark:text-gray-950">Apply to be a funding partner</button>
+      <p className="mt-3 text-[10px] leading-4 text-gray-400">Your existing HashPayStream account is used. No second sign-in.</p>
+    </section>
+  )
 
-      <div className="mt-4 rounded-[24px] border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035] sm:p-6">
+  return (
+    <section className="w-full max-w-md py-5 sm:py-8">
+      <button type="button" onClick={() => setFormOpen(false)} className="mb-4 text-xs font-bold text-gray-500">← Funding partners</button>
+      <div className="rounded-[24px] border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035]">
         <div className="flex items-start gap-3">
           <CheckBadgeIcon className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
           <div><h2 className="text-base font-bold text-gray-950 dark:text-white">Apply with your HashPayStream account</h2><p className="mt-1 text-xs leading-5 text-gray-500">Your verified email is {profile?.email || 'connected to this account'}. KYC will be required before live-money access.</p></div>
@@ -94,9 +101,9 @@ export default function StreamPayFunding() {
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Full name or company name<input className={inputClass} value={form.name} onChange={event => setForm(current => ({ ...current, name: event.target.value }))} autoComplete="name" /></label>
           <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Country<input className={inputClass} value={form.country} onChange={event => setForm(current => ({ ...current, country: event.target.value }))} autoComplete="country-name" /></label>
-          <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Applicant type<select className={inputClass} value={form.applicantType} onChange={event => setForm(current => ({ ...current, applicantType: event.target.value }))}><option value="individual">Individual</option><option value="company">Company</option></select></label>
-          <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Funding experience<select className={inputClass} value={form.experience} onChange={event => setForm(current => ({ ...current, experience: event.target.value }))}><option value="new">New to private funding</option><option value="some">Some experience</option><option value="experienced">Experienced</option></select></label>
-          <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 sm:col-span-2">Expected funding range<select className={inputClass} value={form.expectedFundingRange} onChange={event => setForm(current => ({ ...current, expectedFundingRange: event.target.value }))}><option value="">Select a range</option><option value="under_1k">Under 1,000 USDC</option><option value="1k_10k">1,000–10,000 USDC</option><option value="10k_plus">More than 10,000 USDC</option></select></label>
+          <label className="space-y-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">Applicant type<StreamSelect label="Applicant type" value={form.applicantType} options={[{ value: 'individual', label: 'Individual' }, { value: 'company', label: 'Company' }]} onChange={applicantType => setForm(current => ({ ...current, applicantType }))} /></label>
+          <label className="space-y-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">Funding experience<StreamSelect label="Funding experience" value={form.experience} options={[{ value: 'new', label: 'New to private funding' }, { value: 'some', label: 'Some experience' }, { value: 'experienced', label: 'Experienced' }]} onChange={experience => setForm(current => ({ ...current, experience }))} /></label>
+          <label className="space-y-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 sm:col-span-2">Expected funding range<StreamSelect label="Expected funding range" value={form.expectedFundingRange} options={[{ value: '', label: 'Select a range' }, { value: 'under_1k', label: 'Under 1,000 USDC' }, { value: '1k_10k', label: '1,000–10,000 USDC' }, { value: '10k_plus', label: 'More than 10,000 USDC' }]} onChange={expectedFundingRange => setForm(current => ({ ...current, expectedFundingRange }))} /></label>
         </div>
         {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-xs text-red-700 dark:bg-red-400/10 dark:text-red-300">{error}</p>}
         <button type="button" disabled={submitting || form.name.trim().length < 2 || form.country.trim().length < 2 || !form.expectedFundingRange} onClick={() => void apply()} className="mt-6 flex w-full items-center justify-center rounded-xl bg-gray-950 px-4 py-3.5 text-sm font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950">{submitting ? 'Submitting…' : 'Submit for team review'}</button>
