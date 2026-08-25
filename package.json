@@ -21,6 +21,7 @@
     "test:customer-requests": "node --import tsx scripts/customer-requests-smoke.mjs",
     "test:notifications": "node --import tsx scripts/stream-notifications-smoke.mjs",
     "test:upfront-local-e2e": "node --import tsx scripts/upfront-local-e2e.mjs",
+    "audit:upfront-mainnet": "node scripts/upfront-mainnet-readiness.mjs",
     "upfront:fund": "node scripts/fund-upfront-opportunity.mjs",
     "test:agent-agreement-gateway": "node --import tsx scripts/agent-agreement-gateway-smoke.mjs",
     "test:agent-credentials": "node --import tsx scripts/agent-credential-registry-smoke.mjs",

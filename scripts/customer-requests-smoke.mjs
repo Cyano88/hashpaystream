@@ -6,7 +6,7 @@ const agreementId = 'agr_1234567890abcdef'
 const secret = 's'.repeat(48)
 const payerEmail = 'customer@example.com'
 const payerHash = createHmac('sha256', secret).update(`hashpaystream.payer\0${payerEmail}`).digest('hex')
-let store = {
+let humanStore = {
   schema: 1,
   agreements: {
     [agreementId]: {
@@ -14,13 +14,14 @@ let store = {
       ownerHash: 'owner-hash',
       payerHash,
       payerReviewPath: `/agreements/${agreementId}#access=private-capability`,
-      source: 'direct',
+      source: 'human',
       createdAt: '2026-08-25T08:00:00.000Z',
       updatedAt: '2026-08-25T08:00:00.000Z',
     },
   },
   idempotency: {},
 }
+let upfrontStore = { schema: 1, agreements: {}, idempotency: {} }
 let revoked = 0
 const fetcher = async (_url, init = {}) => {
   if (init.method === 'POST') {
@@ -31,11 +32,14 @@ const fetcher = async (_url, init = {}) => {
   return new Response(JSON.stringify({ ok: true, agreements: [{ id: agreementId, title: 'Landing page', description: 'Design and build a landing page.', amount: '100000', status: 'awaiting_start' }] }), { status: 200, headers: { 'content-type': 'application/json' } })
 }
 const handler = createCustomerRequestsHandler({
-  env: () => ({ HASHPAYSTREAM_APP_OWNERSHIP_SECRET: secret, HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY: 'requests-test', HASHPAYSTREAM_ARC_API_KEY: `hpl_test_${'a'.repeat(40)}`, HASHPAYSTREAM_UPFRONT_ARC_API_KEY: `hpl_test_${'b'.repeat(40)}` }),
+  env: () => ({ HASHPAYSTREAM_APP_OWNERSHIP_SECRET: secret, HASHPAYSTREAM_HUMAN_AGREEMENT_STORE_KEY: 'requests-human-test', HASHPAYSTREAM_UPFRONT_AGREEMENT_STORE_KEY: 'requests-upfront-test', HASHPAYSTREAM_ARC_API_KEY: `hpl_test_${'a'.repeat(40)}`, HASHPAYSTREAM_UPFRONT_ARC_API_KEY: `hpl_test_${'b'.repeat(40)}` }),
   identity: async () => payerEmail,
   hasStore: () => true,
-  read: async () => store,
-  mutate: async (_key, update) => { store = await update(store); return store },
+  read: async key => key === 'requests-human-test' ? humanStore : upfrontStore,
+  mutate: async (key, update) => {
+    if (key === 'requests-human-test') return (humanStore = await update(humanStore))
+    return (upfrontStore = await update(upfrontStore))
+  },
   fetcher,
   now: () => new Date('2026-08-25T09:00:00.000Z'),
 })
@@ -59,7 +63,7 @@ const declined = await call('POST', { action: 'decline', agreementId })
 assert.equal(declined.statusCode, 200)
 assert.equal(declined.body.decision, 'declined')
 assert.equal(revoked, 1)
-assert.equal(store.agreements[agreementId].declinedAt, '2026-08-25T09:00:00.000Z')
+assert.equal(humanStore.agreements[agreementId].declinedAt, '2026-08-25T09:00:00.000Z')
 
 const replay = await call('POST', { action: 'decline', agreementId })
 assert.equal(replay.statusCode, 200)

@@ -8,12 +8,6 @@ function address(name: string) {
   return ethers.getAddress(value)
 }
 
-function units(name: string) {
-  const value = String(process.env[name] ?? '').trim()
-  if (!/^[1-9]\d{0,30}$/.test(value)) throw new Error(`${name} must be positive integer asset units.`)
-  return BigInt(value)
-}
-
 async function main() {
   const network = await ethers.provider.getNetwork()
   if (network.chainId !== 196n) throw new Error(`Refusing to deploy on chain ${network.chainId}; expected X Layer mainnet 196.`)
@@ -27,32 +21,33 @@ async function main() {
   if (await ethers.provider.getCode(configuredAsset) === '0x') throw new Error('The configured X Layer mainnet USDC contract has no bytecode.')
 
   const existing = String(process.env.POLYDESK_UPFRONT_MAINNET_ESCROW_CONTRACT_ADDRESS ?? '').trim()
+  let replacedLegacyEscrow: string | undefined
   if (existing) {
     const deployedAddress = address('POLYDESK_UPFRONT_MAINNET_ESCROW_CONTRACT_ADDRESS')
-    if (await ethers.provider.getCode(deployedAddress) !== '0x') throw new Error('A mainnet Upfront escrow is already recorded. Refusing duplicate deployment.')
+    if (await ethers.provider.getCode(deployedAddress) !== '0x') {
+      const legacy = new ethers.Contract(deployedAddress, ['function maxAdvanceAmount() view returns (uint256)'], ethers.provider)
+      const legacyCap = await legacy.maxAdvanceAmount().catch(() => undefined)
+      if (legacyCap === undefined) throw new Error('A production Upfront escrow is already recorded. Refusing duplicate deployment.')
+      replacedLegacyEscrow = deployedAddress
+    }
   }
 
   const arcRepaymentRouter = address('ARC_REPAYMENT_ROUTER_ADDRESS')
   const underwritingSigner = address('UPFRONT_UNDERWRITING_SIGNER')
   const protectionSigner = address('UPFRONT_PROTECTION_SIGNER')
   const owner = address('UPFRONT_CONTRACT_OWNER')
-  const maxAdvanceAmount = units('UPFRONT_MAX_ADVANCE_USDC_UNITS')
-  const maxTotalFunded = units('UPFRONT_MAX_TOTAL_FUNDED_USDC_UNITS')
-  if (maxAdvanceAmount > 1_000_000n || maxTotalFunded > 5_000_000n || maxTotalFunded < maxAdvanceAmount) {
-    throw new Error('Mainnet proof caps must not exceed 1 USDC per advance or 5 USDC lifetime.')
-  }
   const predictedContract = ethers.getCreateAddress({ from: deployer.address, nonce: await ethers.provider.getTransactionCount(deployer.address) })
   const reservedAddresses = [configuredAsset, arcRepaymentRouter, underwritingSigner, protectionSigner, owner]
   if (reservedAddresses.includes(predictedContract)) throw new Error(`Predicted escrow address ${predictedContract} collides with a configured protocol address.`)
   const escrow = await ethers.deployContract('UpfrontAdvanceEscrow', [
-    configuredAsset, arcRepaymentRouter, underwritingSigner, protectionSigner, owner, maxAdvanceAmount, maxTotalFunded,
+    configuredAsset, arcRepaymentRouter, underwritingSigner, protectionSigner, owner,
   ])
   await escrow.waitForDeployment()
   console.log(JSON.stringify({
     chainId: network.chainId.toString(), contract: await escrow.getAddress(), asset: configuredAsset,
-    arcRepaymentRouter, underwritingSigner, protectionSigner, owner,
-    maxAdvanceAmount: maxAdvanceAmount.toString(), maxTotalFunded: maxTotalFunded.toString(), paused: true,
-    allowlistedFunders: [], deployer: deployer.address, predictedContract, transactionHash: escrow.deploymentTransaction()?.hash,
+    arcRepaymentRouter, underwritingSigner, protectionSigner, owner, paused: true,
+    allowlistedFunders: [], deployer: deployer.address, predictedContract, replacedLegacyEscrow,
+    transactionHash: escrow.deploymentTransaction()?.hash,
   }, null, 2))
 }
 

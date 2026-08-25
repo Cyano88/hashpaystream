@@ -8,12 +8,6 @@ function address(name: string) {
   return ethers.getAddress(value)
 }
 
-function units(name: string) {
-  const value = String(process.env[name] ?? '').trim()
-  if (!/^[1-9]\d{0,30}$/.test(value)) throw new Error(`${name} must be positive integer asset units.`)
-  return BigInt(value)
-}
-
 async function main() {
   const network = await ethers.provider.getNetwork()
   if (network.chainId !== 196n) throw new Error(`Expected X Layer mainnet 196; received ${network.chainId}.`)
@@ -28,8 +22,6 @@ async function main() {
     underwritingSigner: address('UPFRONT_UNDERWRITING_SIGNER'),
     protectionSigner: address('UPFRONT_PROTECTION_SIGNER'),
     owner: address('UPFRONT_CONTRACT_OWNER'),
-    maxAdvanceAmount: units('UPFRONT_MAX_ADVANCE_USDC_UNITS'),
-    maxTotalFunded: units('UPFRONT_MAX_TOTAL_FUNDED_USDC_UNITS'),
   }
   const factory = await ethers.getContractFactory('UpfrontAdvanceEscrow')
   const transaction = await factory.getDeployTransaction(
@@ -38,8 +30,6 @@ async function main() {
     constructor.underwritingSigner,
     constructor.protectionSigner,
     constructor.owner,
-    constructor.maxAdvanceAmount,
-    constructor.maxTotalFunded,
   )
   const gasEstimate = await ethers.provider.estimateGas({ from: deployer.address, data: transaction.data })
   const fee = await ethers.provider.getFeeData()
@@ -52,7 +42,7 @@ async function main() {
     deployerNativeBalance: (await ethers.provider.getBalance(deployer.address)).toString(),
     predictedContract, addressCollision, deployable: !addressCollision,
     ownerIsDeployer: constructor.owner === deployer.address,
-    constructor: { ...constructor, maxAdvanceAmount: constructor.maxAdvanceAmount.toString(), maxTotalFunded: constructor.maxTotalFunded.toString(), startsPaused: true, allowlistedFunders: [] },
+    constructor: { ...constructor, startsPaused: true, allowlistedFunders: [] },
     gasEstimate: gasEstimate.toString(), maximumEstimatedNativeCost: ethers.formatEther(gasEstimate * gasPrice),
   }, null, 2))
 }

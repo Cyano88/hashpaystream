@@ -6,12 +6,6 @@ function address(name: string) {
   return ethers.getAddress(value)
 }
 
-function units(name: string) {
-  const value = String(process.env[name] ?? '').trim()
-  if (!/^[1-9]\d{0,30}$/.test(value)) throw new Error(`${name} must be positive integer asset units.`)
-  return BigInt(value)
-}
-
 async function main() {
   const network = await ethers.provider.getNetwork()
   if (network.chainId !== 1952n) throw new Error(`Refusing to deploy on chain ${network.chainId}; expected X Layer testnet 1952.`)
@@ -29,14 +23,11 @@ async function main() {
   const underwritingSigner = address('UPFRONT_UNDERWRITING_SIGNER')
   const protectionSigner = address('UPFRONT_PROTECTION_SIGNER')
   const owner = address('UPFRONT_CONTRACT_OWNER')
-  const maxAdvanceAmount = units('UPFRONT_MAX_ADVANCE_USDC_UNITS')
-  const maxTotalFunded = units('UPFRONT_MAX_TOTAL_FUNDED_USDC_UNITS')
-  const escrow = await ethers.deployContract('UpfrontAdvanceEscrow', [asset, arcRepaymentRouter, underwritingSigner, protectionSigner, owner, maxAdvanceAmount, maxTotalFunded])
+  const escrow = await ethers.deployContract('UpfrontAdvanceEscrow', [asset, arcRepaymentRouter, underwritingSigner, protectionSigner, owner])
   await escrow.waitForDeployment()
   console.log(JSON.stringify({
     chainId: network.chainId.toString(), contract: await escrow.getAddress(), asset,
-    arcRepaymentRouter, underwritingSigner, protectionSigner, owner, maxAdvanceAmount: maxAdvanceAmount.toString(),
-    maxTotalFunded: maxTotalFunded.toString(), paused: true, deployer: deployer.address,
+    arcRepaymentRouter, underwritingSigner, protectionSigner, owner, paused: true, deployer: deployer.address,
     transactionHash: escrow.deploymentTransaction()?.hash,
   }, null, 2))
 }

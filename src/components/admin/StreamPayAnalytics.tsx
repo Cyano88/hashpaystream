@@ -14,6 +14,7 @@ import { Link } from '../../lib/router'
 import { useHashPayStreamSessionSplash } from '../../lib/useHashPayStreamSessionSplash'
 import { AgreementSignInLanding } from '../agreements/AgreementSignInLanding'
 import { LoadingRing } from '../ui/LoadingRing'
+import FundingPartnerReviewPanel from './FundingPartnerReviewPanel'
 
 const API = '/api/hashpaystream/v1/admin/analytics'
 
@@ -131,9 +132,9 @@ export default function StreamPayAnalytics() {
 
   const attention = data.totals.awaitingFunding + data.totals.active + data.totals.refundAvailable
   const paths = [
-    ['Agreements', data.modes.human],
-    ['Upfront', data.modes.upfront],
-    ['Agentic', data.modes.agentic],
+    ['Human standard', data.modes.human],
+    ['Human Upfront', data.modes.upfront],
+    ['Agent API', data.modes.agentic],
   ] as const
   const sources = [
     ['Agreements API', data.infrastructure.hashPayLink.human.latencyMs],
@@ -158,6 +159,7 @@ export default function StreamPayAnalytics() {
             <Link to="/agreements" className="block rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.05]">Agreements</Link>
             <Link to="/upfront" className="block rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.05]">Upfront</Link>
             <Link to="/activity" className="block rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.05]">Activity</Link>
+            <a href="#funding-partners" className="block rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.05]">Funding partners</a>
           </div>
           <div className="mt-3 rounded-xl border border-gray-200 p-3 dark:border-white/10">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">Environment</p>
@@ -173,8 +175,8 @@ export default function StreamPayAnalytics() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-600 dark:text-blue-300">Overview</p>
-              <h1 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-gray-950 dark:text-white">Public test operations</h1>
-              <p className="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">One view of agreements created and owned by HashPayStream.</p>
+               <h1 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-gray-950 dark:text-white">Operations</h1>
+               <p className="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">Human and agent agreements use separate projects, routes, credentials, and ownership stores.</p>
             </div>
             <button type="button" onClick={() => void load()} className="flex h-10 w-fit items-center gap-2 rounded-full border border-gray-200 px-4 text-xs font-semibold text-gray-600 dark:border-white/10 dark:text-gray-300">
               <ArrowPathIcon className="h-4 w-4" /> Refresh
@@ -182,7 +184,7 @@ export default function StreamPayAnalytics() {
           </div>
 
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            <Metric label="Owned agreements" value={String(data.scope.ownedAgreements)} detail={paths.map(([name, count]) => `${count} ${name.toLowerCase()}`).join(' / ')} Icon={DocumentTextIcon} />
+             <Metric label="Agreement records" value={String(data.scope.ownedAgreements)} detail={paths.map(([name, count]) => `${name}: ${count}`).join(' / ')} Icon={DocumentTextIcon} />
             <Metric label="Protected test USDC" value={data.testUsdc.protected} detail={`${data.testUsdc.remaining} remaining / ${data.testUsdc.released} released`} Icon={BanknotesIcon} />
             <Metric label="Needs attention" value={String(attention)} detail={`${data.totals.awaitingFunding} funding / ${data.totals.active} active / ${data.totals.refundAvailable} refundable`} Icon={ClockIcon} />
           </div>
@@ -221,6 +223,8 @@ export default function StreamPayAnalytics() {
               <p className="mt-4 text-[11px] leading-5 text-gray-500 dark:text-gray-400">Latest lifecycle event: {when(data.infrastructure.latestLifecycleAt)}</p>
             </article>
           </div>
+
+          <FundingPartnerReviewPanel />
 
           <p className="mt-5 text-center text-[10px] leading-5 text-gray-400">{data.privacy}</p>
         </main>

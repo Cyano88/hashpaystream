@@ -15,7 +15,6 @@ import StreamPayAccount from './components/StreamPayAccount'
 import StreamPayLegal from './components/StreamPayLegal'
 import StreamPayAgentDocsPage from './components/docs/StreamPayAgentDocsPage'
 import StreamPayAnalytics from './components/admin/StreamPayAnalytics'
-import StreamPayOperations from './components/admin/StreamPayOperations'
 import StreamPayStats from './components/StreamPayStats'
 import StreamPayUpfront from './components/StreamPayUpfront'
 import StreamPayFunding from './components/StreamPayFunding'
@@ -93,7 +92,7 @@ function StreamPayRoute() {
   else if (route === '/notifications') content = <StreamPayNotifications />
   else if (route === '/requests') content = <StreamPayRequests />
   else if (route === '/account') content = <StreamPayAccount />
-  else if (route === '/operations') content = <StreamPayOperations />
+  else if (route === '/operations') content = <Navigate to="/admin/analytics#funding-partners" replace />
   else if (route === '/admin/analytics') content = <StreamPayAnalytics />
   else if (route === '/stats') content = <StreamPayStats />
   else if (route === '/docs') content = <StreamPayDocsHome />

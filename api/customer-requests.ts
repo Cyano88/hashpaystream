@@ -3,9 +3,10 @@ import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
 import { hasRenderDurableStore, mutateDurableJson, readDurableJson } from './durable-store.js'
 
-const DEFAULT_STORE_KEY = 'hashpaystream:agreement-owners:v1'
+const DEFAULT_HUMAN_STORE_KEY = 'hashpaystream:human-agreement-owners:v1'
+const DEFAULT_UPFRONT_STORE_KEY = 'hashpaystream:upfront-agreement-owners:v1'
 const AGREEMENT_ID = /^agr_[a-z0-9]{12,64}$/i
-type RecordItem = { agreementId: string; ownerHash: string; payerHash?: string; payerReviewPath?: string; source?: 'direct' | 'upfront'; declinedAt?: string; createdAt: string; updatedAt: string }
+type RecordItem = { agreementId: string; ownerHash: string; payerHash?: string; payerReviewPath?: string; source?: 'human' | 'upfront'; declinedAt?: string; createdAt: string; updatedAt: string }
 type Store = { schema: 1; agreements: Record<string, RecordItem>; idempotency: Record<string, string> }
 type Dependencies = {
   env: () => NodeJS.ProcessEnv
@@ -40,14 +41,15 @@ async function identity(req: Request, env: NodeJS.ProcessEnv) {
 
 function configuration(env: NodeJS.ProcessEnv) {
   const ownershipSecret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300)
-  const storeKey = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY ?? DEFAULT_STORE_KEY, 160)
+  const humanStoreKey = clean(env.HASHPAYSTREAM_HUMAN_AGREEMENT_STORE_KEY ?? DEFAULT_HUMAN_STORE_KEY, 160)
+  const upfrontStoreKey = clean(env.HASHPAYSTREAM_UPFRONT_AGREEMENT_STORE_KEY ?? DEFAULT_UPFRONT_STORE_KEY, 160)
   const directKey = clean(env.HASHPAYSTREAM_ARC_API_KEY, 240)
   const upfrontKey = clean(env.HASHPAYSTREAM_UPFRONT_ARC_API_KEY, 240)
   const rawBase = clean(env.HASHPAYSTREAM_HASH_PAYLINK_BASE_URL ?? 'https://app.hashpaylink.com', 300)
   let origin = ''
   try { const url = new URL(rawBase); if (url.protocol === 'https:' && !url.username && !url.password) origin = url.origin } catch { /* handled below */ }
-  if (ownershipSecret.length < 32 || !storeKey || !origin) fail('Customer requests are temporarily unavailable.', 503)
-  return { ownershipSecret, storeKey, directKey, upfrontKey, origin }
+  if (ownershipSecret.length < 32 || !humanStoreKey || !upfrontStoreKey || humanStoreKey === upfrontStoreKey || !origin) fail('Customer requests are temporarily unavailable.', 503)
+  return { ownershipSecret, humanStoreKey, upfrontStoreKey, directKey, upfrontKey, origin }
 }
 
 async function upstream(config: ReturnType<typeof configuration>, source: 'direct' | 'upfront', ids: string[], fetcher: typeof fetch) {
@@ -97,10 +99,12 @@ export function createCustomerRequestsHandler(overrides: Partial<Dependencies> =
       const config = configuration(env)
       const email = await dependencies.identity(req, env)
       const payerHash = hash(config.ownershipSecret, email)
-      const store = await dependencies.read(config.storeKey)
-      const owned = Object.values(store?.agreements ?? {}).filter(item => item.payerHash === payerHash && AGREEMENT_ID.test(item.agreementId)).slice(0, 100)
-      const direct = await upstream(config, 'direct', owned.filter(item => item.source !== 'upfront').map(item => item.agreementId), dependencies.fetcher)
-      const upfront = await upstream(config, 'upfront', owned.filter(item => item.source === 'upfront').map(item => item.agreementId), dependencies.fetcher)
+      const [humanStore, upfrontStore] = await Promise.all([dependencies.read(config.humanStoreKey), dependencies.read(config.upfrontStoreKey)])
+      const humanOwned = Object.values(humanStore?.agreements ?? {}).filter(item => item.payerHash === payerHash && AGREEMENT_ID.test(item.agreementId)).slice(0, 100)
+      const upfrontOwned = Object.values(upfrontStore?.agreements ?? {}).filter(item => item.payerHash === payerHash && AGREEMENT_ID.test(item.agreementId)).slice(0, 100)
+      const owned = [...humanOwned.map(item => ({ ...item, source: 'human' as const })), ...upfrontOwned.map(item => ({ ...item, source: 'upfront' as const }))]
+      const direct = await upstream(config, 'direct', humanOwned.map(item => item.agreementId), dependencies.fetcher)
+      const upfront = await upstream(config, 'upfront', upfrontOwned.map(item => item.agreementId), dependencies.fetcher)
       const byId = new Map([...direct, ...upfront].map(item => [clean(item.id, 80), item]))
       if (req.method === 'POST') {
         const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body as Record<string, unknown> : {}
@@ -112,7 +116,8 @@ export function createCustomerRequestsHandler(overrides: Partial<Dependencies> =
         if (record.declinedAt) return res.json({ ok: true, agreementId, decision: 'declined', declinedAt: record.declinedAt })
         await revokePayerLink(config, record.source === 'upfront' ? 'upfront' : 'direct', agreementId, dependencies.fetcher)
         const declinedAt = dependencies.now().toISOString()
-        await dependencies.mutate(config.storeKey, current => {
+        const storeKey = record.source === 'upfront' ? config.upfrontStoreKey : config.humanStoreKey
+        await dependencies.mutate(storeKey, current => {
           const next: Store = current?.schema === 1 ? { schema: 1, agreements: { ...current.agreements }, idempotency: { ...current.idempotency } } : { schema: 1, agreements: {}, idempotency: {} }
           const existing = next.agreements[agreementId]
           if (!existing || existing.payerHash !== payerHash) fail('Request was not found.', 404)

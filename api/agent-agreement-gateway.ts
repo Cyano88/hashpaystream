@@ -18,6 +18,7 @@ export function createHashPayStreamAgentAgreementGateway(
   }, {
     checkoutMode: 'agentic',
     agentActivation: true,
+    ownershipStoreEnvironmentVariable: 'HASHPAYSTREAM_AGENT_AGREEMENT_STORE_KEY',
   })
 }
 

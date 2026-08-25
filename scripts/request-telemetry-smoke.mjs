@@ -29,7 +29,7 @@ const humanResponse = responseRecorder()
 let correlatedContext
 telemetry({
   method: 'GET',
-  path: '/api/hashpaystream/v2/agreements',
+  path: '/api/hashpaystream/v1/human/agreements',
   headers: { 'x-request-id': 'client-value-must-be-ignored' },
 }, humanResponse, () => {
   correlatedContext = Promise.resolve().then(() => withHashPayStreamRequestId({ event: 'inside_request' }))
@@ -81,7 +81,7 @@ const routeTelemetry = createHashPayStreamApiTelemetry({
   log: event => routeEvents.push(event),
 })
 for (const path of [
-  '/api/hashpaystream/v2/agreements',
+  '/api/hashpaystream/v1/human/agreements',
   '/api/hashpaystream/arc-agreement-webhook',
   '/api/hashpaystream/v1/agent/agreements',
   '/api/hashpaystream/v1/agent/arc-agreement-webhook',

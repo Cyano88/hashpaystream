@@ -37,7 +37,7 @@ const unknownAgentKey = `hps_agent_test_${'z'.repeat(40)}`
 const upstreamKeyA = `hpl_test_${'c'.repeat(32)}`
 const baseEnv = {
   HASHPAYSTREAM_APP_OWNERSHIP_SECRET: 'agent-ownership-secret-at-least-32-characters',
-  HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY: 'test:hashpaystream:owners',
+  HASHPAYSTREAM_AGENT_AGREEMENT_STORE_KEY: 'test:hashpaystream:agent-owners',
   HASHPAYSTREAM_HASH_PAYLINK_BASE_URL: 'https://app.hashpaylink.com',
 }
 const envA = {

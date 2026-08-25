@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 
-const AGREEMENTS_API = '/api/hashpaystream/v2/agreements'
+const AGREEMENTS_API = '/api/hashpaystream/v1/human/agreements'
 
 export type AgreementSummary = {
   id: string

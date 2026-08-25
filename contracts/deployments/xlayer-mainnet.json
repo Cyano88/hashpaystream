@@ -1,20 +1,20 @@
 {
   "network": "xlayer-mainnet",
   "chainId": 196,
-  "purpose": "gated-mainnet-technical-proof",
-  "contract": "0xa07900cAb0a0BbFBC52FCC95b22c52a22Ff0e1A5",
-  "transactionHash": "0x76931905b13a3ca068f7088286d25d50f2ca3297936e75b09de03bcaee10057d",
-  "blockNumber": 68555546,
+  "purpose": "production-upfront-escrow",
+  "contract": "0x790605cee123a37C16BB71fB9c12a33E72Eff41D",
+  "transactionHash": "0xb9aa248620a65bf127c1281e1b6aa5301e1fbf29ff42c8a26892fd783b890dbf",
+  "blockNumber": 68919073,
   "asset": "0x74b7F16337b8972027F6196A17a631aC6dE26d22",
   "arcRepaymentRouter": "0x0CFd91Ea2F476C62fE2008B14A5dFd4A61328CcE",
   "underwritingSigner": "0xB089C3d5F06074856d7665A1Aa53Dc0d761930aE",
   "protectionSigner": "0xfd23c4697e41Bb6874d72D5f2b56Af8aB00CAb99",
   "owner": "0x988263A851Afe17F8a827EdA81269F9fb7553cbC",
-  "maxAdvanceAmount": "1000000",
-  "maxTotalFunded": "5000000",
-  "totalFundedAtVerification": "0",
+  "globalSpendingCap": false,
   "pausedAtVerification": true,
   "allowlistedFundersAtVerification": [],
+  "replacesLegacyEscrow": "0xa07900cAb0a0BbFBC52FCC95b22c52a22Ff0e1A5",
   "arcEnvironment": "testnet-only-no-financial-value",
-  "sourceCommit": "58b129f"
+  "sourceCommitBase": "adf98a7",
+  "sourceTreeDirtyAtDeployment": true
 }

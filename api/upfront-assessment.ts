@@ -7,7 +7,7 @@ import { agreementIntelligencePayloadHash, agreementIntelligenceRequestHash, bui
 import { requestPolyDeskUnderwriting, type PolyDeskDecision } from './polydesk-upfront-client.js'
 
 const DEFAULT_STORE_KEY = 'hashpaystream:upfront-assessments:v1'
-const DEFAULT_OWNERSHIP_STORE_KEY = 'hashpaystream:agreement-owners:v1'
+const DEFAULT_OWNERSHIP_STORE_KEY = 'hashpaystream:upfront-agreement-owners:v1'
 const AGREEMENT_ID = /^agr_[a-z0-9]{12,64}$/i
 export type UpfrontAssessmentRecord = { ownerReference: string; requestHash: string; agreementId?: string; status: 'pending' | 'completed'; createdAt: string; request?: AgreementIntelligenceRequest; response?: Record<string, unknown> }
 export type UpfrontAssessmentStore = { schema: 1; records: Record<string, UpfrontAssessmentRecord> }
@@ -88,7 +88,7 @@ function configuration(env: NodeJS.ProcessEnv) {
   const polyDeskChainId = Number(env.HASHPAYSTREAM_UPFRONT_CHAIN_ID ?? 1952)
   const secret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300)
   const storeKey = clean(env.HASHPAYSTREAM_UPFRONT_STORE_KEY ?? DEFAULT_STORE_KEY, 160)
-  const ownershipStoreKey = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY ?? DEFAULT_OWNERSHIP_STORE_KEY, 160)
+  const ownershipStoreKey = clean(env.HASHPAYSTREAM_UPFRONT_AGREEMENT_STORE_KEY ?? DEFAULT_OWNERSHIP_STORE_KEY, 160)
   const arcApiKey = clean(env.HASHPAYSTREAM_UPFRONT_ARC_API_KEY, 200)
   const arcRouter = clean(env.HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS, 42)
   let baseUrl: URL

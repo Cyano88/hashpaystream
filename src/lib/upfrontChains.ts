@@ -17,6 +17,15 @@ export const xLayerTestnet = defineChain({
   testnet: true,
 })
 
+export const arcTestnet = defineChain({
+  id: 5_042_002,
+  name: 'Arc Testnet',
+  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+  rpcUrls: { default: { http: ['https://rpc.testnet.arc.network'] } },
+  blockExplorers: { default: { name: 'Arcscan', url: 'https://testnet.arcscan.app' } },
+  testnet: true,
+})
+
 export const upfrontXLayerChain = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID ?? '1952') === '196'
   ? xLayerMainnet
   : xLayerTestnet

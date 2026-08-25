@@ -10,6 +10,7 @@ export function createHashPayStreamUpfrontAgreementGateway(
     checkoutMode: 'human',
     apiKeyEnvironmentVariable: 'HASHPAYSTREAM_UPFRONT_ARC_API_KEY',
     webhookStoreEnvironmentVariable: 'HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_STORE_KEY',
+    ownershipStoreEnvironmentVariable: 'HASHPAYSTREAM_UPFRONT_AGREEMENT_STORE_KEY',
     featureFlagEnvironmentVariable: 'HASHPAYSTREAM_UPFRONT_ENABLED',
   })
 }

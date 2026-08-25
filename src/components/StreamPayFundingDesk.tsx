@@ -5,6 +5,7 @@ import { Navigate } from '../lib/router'
 import { upfrontTreasuryEnabled } from '../lib/upfrontChains'
 import UpfrontTreasuryWallet from './UpfrontTreasuryWallet'
 import UpfrontFundButton from './UpfrontFundButton'
+import UpfrontLifecycleButton from './UpfrontLifecycleButton'
 import { LoadingRing } from './ui/LoadingRing'
 import { AgreementProgress } from './ui/AgreementProgress'
 
@@ -21,6 +22,10 @@ type Opportunity = {
   confidence: number
   expiresAt: string
   onchainOffer: Record<string, unknown>
+  positionId: `0x${string}`
+  positionStatus: 'available' | 'funded' | 'released' | 'refunded'
+  funder?: string
+  repaymentRecipient?: string
 }
 
 const API = '/api/hashpaystream/v1/upfront/opportunities'
@@ -108,7 +113,9 @@ export default function StreamPayFundingDesk() {
           <div className="mt-4 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400"><span>{item.evidenceGrade} evidence · {item.confidence}% confidence</span><span>{short(item.providerPayoutAddress)}</span></div>
           <p className="mt-3 text-[11px] text-gray-400">Offer expires {new Date(item.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Every advance requires explicit confirmation from the approved treasury wallet.</p>
           <button type="button" onClick={() => void copyOffer(item)} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 py-3 text-xs font-semibold text-white dark:bg-white dark:text-gray-950"><ClipboardIcon className="h-4 w-4" />{copied === item.id ? 'Offer copied' : 'Copy verified offer'}</button>
-          <UpfrontFundButton opportunity={item} />
+          {item.positionStatus === 'available'
+            ? <UpfrontFundButton opportunity={item} onFunded={load} />
+            : <UpfrontLifecycleButton opportunity={{ ...item, positionStatus: item.positionStatus }} onUpdated={load} />}
         </article>
       })}</div>}
     </section>

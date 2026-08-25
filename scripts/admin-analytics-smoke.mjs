@@ -36,13 +36,21 @@ const agentic = [{
   chain: { amountUsdcUnits: '200000', releasedUsdcUnits: '50000', remainingUsdcUnits: '150000' },
   timeline: [{ event: 'agreement.activated', createdAt: '2026-08-08T10:30:00.000Z' }], deliveryTimeline: [],
 }]
-const env = { HASHPAYSTREAM_ADMIN_EMAILS: 'OWNER@example.com' }
+const env = {
+  HASHPAYSTREAM_ADMIN_EMAILS: 'OWNER@example.com',
+  HASHPAYSTREAM_HUMAN_AGREEMENT_STORE_KEY: 'test:human:owners',
+  HASHPAYSTREAM_UPFRONT_AGREEMENT_STORE_KEY: 'test:upfront:owners',
+  HASHPAYSTREAM_AGENT_AGREEMENT_STORE_KEY: 'test:agent:owners',
+}
 const modes = []
 const handler = createHashPayStreamAdminAnalytics({
   env: () => env,
   now: () => new Date('2026-08-08T15:00:00.000Z'),
   identityEmails: async () => [privateValues[0]],
-  ownership: async () => ({ schema: 1, agreements: Object.fromEntries([...human, ...agentic].map(agreement => [agreement.id, { agreementId: agreement.id }])) }),
+  ownership: async key => ({
+    schema: 1,
+    agreements: Object.fromEntries((key === 'test:human:owners' ? human : key === 'test:agent:owners' ? agentic : []).map(agreement => [agreement.id, { agreementId: agreement.id }])),
+  }),
   upstream: async mode => {
     modes.push(mode)
     return { status: 200, body: { ok: true, agreements: mode === 'human' ? human : mode === 'agentic' ? agentic : [] }, latencyMs: mode === 'human' ? 12 : mode === 'upfront' ? 15 : 18 }

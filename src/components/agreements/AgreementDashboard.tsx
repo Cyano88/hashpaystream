@@ -9,7 +9,7 @@ import type { PaylinkReceipt } from '../../lib/paymentReceiptPdf'
 import { LoadingRing } from '../ui/LoadingRing'
 import { StreamPayLoadingState } from '../ui/StreamPayLoadingState'
 
-const AGREEMENTS_API = '/api/hashpaystream/v2/agreements'
+const AGREEMENTS_API = '/api/hashpaystream/v1/human/agreements'
 const HASH_PAYLINK_ORIGIN = String(import.meta.env.VITE_HASH_PAYLINK_BASE_URL || 'https://app.hashpaylink.com').replace(/\/$/, '')
 
 type AgreementStatus = 'awaiting_start' | 'active' | 'expired' | 'completed' | 'cancelled' | 'refunded'

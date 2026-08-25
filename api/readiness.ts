@@ -4,7 +4,11 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { hasRenderDurableStore, readDurableJson } from './durable-store.js'
 import { agentCredentialRegistryConfig } from './agent-credential-registry.js'
 
-const DEFAULT_OWNERSHIP_STORE_KEY = 'hashpaystream:agreement-owners:v1'
+const DEFAULT_OWNERSHIP_STORE_KEYS = [
+  'hashpaystream:human-agreement-owners:v1',
+  'hashpaystream:upfront-agreement-owners:v1',
+  'hashpaystream:agent-agreement-owners:v1',
+] as const
 
 function clean(value: unknown, maximum: number) {
   return String(value ?? '').trim().slice(0, maximum)
@@ -69,7 +73,6 @@ function missingUpfrontEnvironmentNames(env: NodeJS.ProcessEnv) {
     'HASHPAYSTREAM_POLYDESK_EIP712_SIGNER',
     'HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS',
     'VITE_HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS',
-    'VITE_HASHPAYSTREAM_UPFRONT_REPAYMENT_RECIPIENT',
     'HASHPAYSTREAM_UPFRONT_CHAIN_ID',
     'VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID',
     'HASHPAYSTREAM_XLAYER_RPC_URL',
@@ -135,7 +138,6 @@ function upfrontConfigurationReady(env: NodeJS.ProcessEnv) {
     && address(serverEscrow)
     && address(browserEscrow)
     && getAddress(serverEscrow) === getAddress(browserEscrow)
-    && address(env.VITE_HASHPAYSTREAM_UPFRONT_REPAYMENT_RECIPIENT)
     && [1952, 196].includes(serverChainId)
     && serverChainId === browserChainId
     && validHttpsUrl(env.HASHPAYSTREAM_XLAYER_RPC_URL)
@@ -168,7 +170,6 @@ function upfrontConfigurationIssueCodes(env: NodeJS.ProcessEnv) {
   if (!validHttpsOrigin(env.HASHPAYSTREAM_POLYDESK_BASE_URL) || clean(env.HASHPAYSTREAM_POLYDESK_SERVICE_TOKEN, 300).length < 32 || clean(env.HASHPAYSTREAM_POLYDESK_SIGNING_SECRET, 300).length < 32 || !address(env.HASHPAYSTREAM_POLYDESK_EIP712_SIGNER)) issues.push('POLYDESK_CONFIGURATION_INVALID')
   if (!address(serverEscrow) || !address(browserEscrow)) issues.push('ESCROW_ADDRESS_INVALID')
   else if (getAddress(serverEscrow) !== getAddress(browserEscrow)) issues.push('ESCROW_ADDRESS_MISMATCH')
-  if (!address(env.VITE_HASHPAYSTREAM_UPFRONT_REPAYMENT_RECIPIENT)) issues.push('REPAYMENT_RECIPIENT_INVALID')
   if (![1952, 196].includes(serverChainId) || serverChainId !== browserChainId) issues.push('XLAYER_CHAIN_CONFIGURATION_INVALID')
   if (!validHttpsUrl(env.HASHPAYSTREAM_XLAYER_RPC_URL)) issues.push('XLAYER_RPC_URL_INVALID')
   const protectionKey = validPrivateKey(env.HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY)
@@ -225,13 +226,15 @@ export function createHashPayStreamReadinessHandler(
       env = dependencies.env()
       if (!circleWalletConfigurationReady(env)) throw new Error('Circle wallet configuration is incomplete.')
       if (!upfrontConfigurationReady(env)) throw new Error('Upfront configuration is incomplete.')
-      const ownershipStoreKey = String(
-        env.HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY ?? DEFAULT_OWNERSHIP_STORE_KEY,
-      ).trim()
-      if (!ownershipStoreKey || ownershipStoreKey.length > 160) {
+      const ownershipStoreKeys = [
+        String(env.HASHPAYSTREAM_HUMAN_AGREEMENT_STORE_KEY ?? DEFAULT_OWNERSHIP_STORE_KEYS[0]).trim(),
+        String(env.HASHPAYSTREAM_UPFRONT_AGREEMENT_STORE_KEY ?? DEFAULT_OWNERSHIP_STORE_KEYS[1]).trim(),
+        String(env.HASHPAYSTREAM_AGENT_AGREEMENT_STORE_KEY ?? DEFAULT_OWNERSHIP_STORE_KEYS[2]).trim(),
+      ]
+      if (new Set(ownershipStoreKeys).size !== 3 || ownershipStoreKeys.some(key => !key || key.length > 160)) {
         throw new Error('Ownership store configuration is invalid.')
       }
-      await dependencies.read(ownershipStoreKey)
+      await Promise.all(ownershipStoreKeys.map(key => dependencies.read(key)))
       const registryConfig = agentCredentialRegistryConfig(env)
       if (registryConfig) await dependencies.read(registryConfig.storeKey)
       return res.status(200).json({ ok: true, service: 'hashpaystream', status: 'ready' })

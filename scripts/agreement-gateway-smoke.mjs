@@ -30,7 +30,7 @@ const env = {
   HASHPAYSTREAM_DIRECT_ARC_ENABLED: 'true',
   HASHPAYSTREAM_ARC_API_KEY: `hpl_test_${'a'.repeat(32)}`,
   HASHPAYSTREAM_APP_OWNERSHIP_SECRET: 'standalone-ownership-secret-32-characters',
-  HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY: 'test:hashpaystream:owners',
+  HASHPAYSTREAM_HUMAN_AGREEMENT_STORE_KEY: 'test:hashpaystream:human-owners',
   HASHPAYSTREAM_ARC_WEBHOOK_STORE_KEY: 'test:hashpaystream:webhooks',
   HASHPAYSTREAM_HASH_PAYLINK_BASE_URL: 'https://app.hashpaylink.com',
 }

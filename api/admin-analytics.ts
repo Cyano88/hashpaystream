@@ -275,29 +275,46 @@ export async function readHashPayStreamAnalytics(
   upstream: AdminAnalyticsDependencies['upstream'] = upstreamAgreements,
   ownership: AdminAnalyticsDependencies['ownership'] = key => readDurableJson<OwnershipStore>(key),
 ) {
-  const ownershipKey = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY ?? 'hashpaystream:agreement-owners:v1', 160)
-  if (!ownershipKey) throw httpError('HashPayStream ownership scope is unavailable.', 503)
-  const owned = await ownership(ownershipKey)
-  const agreementIds = Object.entries(owned?.agreements ?? {}).flatMap(([key, record]) => {
+  const ownershipKeys: Record<AnalyticsMode, string> = {
+    human: clean(env.HASHPAYSTREAM_HUMAN_AGREEMENT_STORE_KEY ?? 'hashpaystream:human-agreement-owners:v1', 160),
+    upfront: clean(env.HASHPAYSTREAM_UPFRONT_AGREEMENT_STORE_KEY ?? 'hashpaystream:upfront-agreement-owners:v1', 160),
+    agentic: clean(env.HASHPAYSTREAM_AGENT_AGREEMENT_STORE_KEY ?? 'hashpaystream:agent-agreement-owners:v1', 160),
+  }
+  if (new Set(Object.values(ownershipKeys)).size !== 3 || Object.values(ownershipKeys).some(key => !key)) {
+    throw httpError('Human, Upfront, and agent agreement ownership stores must be separate.', 503)
+  }
+  const [humanOwned, upfrontOwned, agentOwned] = await Promise.all([
+    ownership(ownershipKeys.human), ownership(ownershipKeys.upfront), ownership(ownershipKeys.agentic),
+  ])
+  const agreementIds = (owned: OwnershipStore | undefined) => Object.entries(owned?.agreements ?? {}).flatMap(([key, record]) => {
     const id = clean(record?.agreementId ?? key, 80)
     return /^agr_[a-z0-9]{12,64}$/i.test(id) ? [id] : []
   }).slice(0, 100)
-  const ownedSet = new Set(agreementIds)
+  const idsByMode = {
+    human: agreementIds(humanOwned),
+    upfront: agreementIds(upfrontOwned),
+    agentic: agreementIds(agentOwned),
+  }
+  const allIds = [...idsByMode.human, ...idsByMode.upfront, ...idsByMode.agentic]
+  if (new Set(allIds).size !== allIds.length) throw httpError('Agreement ownership is duplicated across human and agent stores.', 503)
   const [human, upfront, agentic] = await Promise.all([
-    upstream('human', env, agreementIds),
-    upstream('upfront', env, agreementIds),
-    upstream('agentic', env, agreementIds),
+    upstream('human', env, idsByMode.human),
+    upstream('upfront', env, idsByMode.upfront),
+    upstream('agentic', env, idsByMode.agentic),
   ])
   for (const source of [human, upfront, agentic]) {
     if (source.status !== 200 || source.body.ok !== true || !Array.isArray(source.body.agreements)) {
       throw httpError('Hash PayLink Agreements is temporarily unavailable.', 502)
     }
   }
-  const scoped = (source: UpstreamResult) => records(source.body.agreements).filter(agreement => {
+  const scoped = (source: UpstreamResult, ids: string[]) => {
+    const ownedSet = new Set(ids)
+    return records(source.body.agreements).filter(agreement => {
     const id = clean(agreement.id ?? agreement.agreementId, 80)
     return ownedSet.has(id)
-  })
-  return aggregate(scoped(human), scoped(upfront), scoped(agentic), now, { human, upfront, agentic })
+    })
+  }
+  return aggregate(scoped(human, idsByMode.human), scoped(upfront, idsByMode.upfront), scoped(agentic, idsByMode.agentic), now, { human, upfront, agentic })
 }
 
 export function createHashPayStreamAdminAnalytics(overrides: Partial<AdminAnalyticsDependencies> = {}) {

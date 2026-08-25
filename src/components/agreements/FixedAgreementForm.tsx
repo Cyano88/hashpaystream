@@ -14,8 +14,8 @@ type CreatedAgreement = {
 }
 
 const APP_ORIGIN = String(import.meta.env.VITE_HASH_PAYLINK_BASE_URL || 'https://app.hashpaylink.com').replace(/\/$/, '')
-const AGREEMENTS_API = '/api/hashpaystream/v2/agreements'
-const UPFRONT_AGREEMENTS_API = '/api/hashpaystream/v1/upfront/agreements'
+const AGREEMENTS_API = '/api/hashpaystream/v1/human/agreements'
+const UPFRONT_AGREEMENTS_API = '/api/hashpaystream/v1/human/upfront/agreements'
 const UPFRONT_ARC_ROUTER = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS || '0x0CFd91Ea2F476C62fE2008B14A5dFd4A61328CcE')
 
 function newIdempotencyKey() {

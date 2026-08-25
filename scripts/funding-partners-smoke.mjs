@@ -52,6 +52,9 @@ assert.equal(reviewQueue.statusCode, 200)
 assert.equal(reviewQueue.body.applications.length, 1)
 assert.equal(reviewQueue.body.applications[0].accountKey, undefined)
 
+const unauthorizedQueue = await call(handler, { query: { review: '1' } })
+assert.equal(unauthorizedQueue.statusCode, 403)
+
 const duplicate = await call(handler, { method: 'POST', body: {
   action: 'apply', name: 'Member One', country: 'Nigeria', applicantType: 'individual', experience: 'some', expectedFundingRange: '1k_10k',
 } })
@@ -67,6 +70,14 @@ assert.equal(approved.body.application.status, 'approved')
 const profile = await call(handler)
 assert.equal(profile.body.profile.status, 'approved')
 assert.equal(profile.body.profile.application.accountKey, undefined)
+
+const restricted = await call(handler, { method: 'POST', token: 'admin', body: { action: 'review', applicationId: applied.body.profile.application.id, status: 'restricted' } })
+assert.equal(restricted.statusCode, 200)
+assert.equal((await call(handler)).body.profile.status, 'restricted')
+
+const restored = await call(handler, { method: 'POST', token: 'admin', body: { action: 'review', applicationId: applied.body.profile.application.id, status: 'approved' } })
+assert.equal(restored.statusCode, 200)
+assert.equal((await call(handler)).body.profile.status, 'approved')
 
 const approvedReapply = await call(handler, { method: 'POST', body: {
   action: 'apply', name: 'Member One', country: 'Nigeria', applicantType: 'individual', experience: 'some', expectedFundingRange: '1k_10k',

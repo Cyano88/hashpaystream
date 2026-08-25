@@ -6,6 +6,7 @@ const requestContext = new AsyncLocalStorage<{ requestId: string }>()
 
 export type HashPayStreamApiRoute =
   | 'human_agreements'
+  | 'human_upfront_agreements'
   | 'human_webhook'
   | 'upfront_webhook'
   | 'agent_agreements'
@@ -48,7 +49,8 @@ function method(value: string): HashPayStreamApiTelemetryEvent['method'] {
 }
 
 function route(path: string): HashPayStreamApiRoute {
-  if (path === '/api/hashpaystream/v2/agreements') return 'human_agreements'
+  if (path === '/api/hashpaystream/v1/human/agreements') return 'human_agreements'
+  if (path === '/api/hashpaystream/v1/human/upfront/agreements') return 'human_upfront_agreements'
   if (path === '/api/hashpaystream/arc-agreement-webhook') return 'human_webhook'
   if (path === '/api/hashpaystream/v1/upfront/arc-agreement-webhook') return 'upfront_webhook'
   if (path === '/api/hashpaystream/v1/agent/agreements') return 'agent_agreements'

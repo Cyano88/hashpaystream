@@ -7,10 +7,14 @@ const databaseUrl = String(process.env.DATABASE_URL ?? process.env.POSTGRES_URL 
 const expectedFingerprint = String(process.env.HASHPAYSTREAM_RECOVERY_EXPECTED_FINGERPRINT ?? '').trim().toLowerCase()
 const expectedStoreKeys = new Set([
   'hashpaystream:agent-arc-webhooks:v1',
+  'hashpaystream:agent-agreement-owners:v1',
   'hashpaystream:agent-credentials:v1',
-  'hashpaystream:agreement-owners:v1',
+  'hashpaystream:accounts:v1',
   'hashpaystream:arc-webhooks:v1',
+  'hashpaystream:funding-partners:v1',
+  'hashpaystream:human-agreement-owners:v1',
   'hashpaystream:upfront-assessments:v1',
+  'hashpaystream:upfront-agreement-owners:v1',
   'hashpaystream:upfront-arc-webhooks:v1',
 ])
 

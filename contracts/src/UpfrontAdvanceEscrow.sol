@@ -77,10 +77,6 @@ contract UpfrontAdvanceEscrow is EIP712, Ownable2Step, Pausable, ReentrancyGuard
     address public immutable arcRepaymentRouter;
     address public underwritingSigner;
     address public protectionSigner;
-    uint256 public immutable maxAdvanceAmount;
-    uint256 public immutable maxTotalFunded;
-    uint256 public totalFunded;
-
     mapping(bytes32 positionId => Position) public positions;
     mapping(address funder => bool) public allowedFunders;
 
@@ -96,7 +92,6 @@ contract UpfrontAdvanceEscrow is EIP712, Ownable2Step, Pausable, ReentrancyGuard
     error ProtectionNotExpired();
     error UnsupportedTransferFee();
     error FunderNotAllowed();
-    error FundingCapExceeded();
 
     event UnderwritingSignerUpdated(address indexed previousSigner, address indexed newSigner);
     event ProtectionSignerUpdated(address indexed previousSigner, address indexed newSigner);
@@ -120,9 +115,7 @@ contract UpfrontAdvanceEscrow is EIP712, Ownable2Step, Pausable, ReentrancyGuard
         address arcRepaymentRouter_,
         address underwritingSigner_,
         address protectionSigner_,
-        address initialOwner,
-        uint256 maxAdvanceAmount_,
-        uint256 maxTotalFunded_
+        address initialOwner
     ) EIP712('HashPayStream Upfront', '1') Ownable(initialOwner) {
         if (
             address(asset_) == address(0)
@@ -131,13 +124,10 @@ contract UpfrontAdvanceEscrow is EIP712, Ownable2Step, Pausable, ReentrancyGuard
                 || protectionSigner_ == address(0)
                 || initialOwner == address(0)
         ) revert InvalidAddress();
-        if (maxAdvanceAmount_ == 0 || maxTotalFunded_ < maxAdvanceAmount_) revert InvalidAmount();
         asset = asset_;
         arcRepaymentRouter = arcRepaymentRouter_;
         underwritingSigner = underwritingSigner_;
         protectionSigner = protectionSigner_;
-        maxAdvanceAmount = maxAdvanceAmount_;
-        maxTotalFunded = maxTotalFunded_;
         _pause();
     }
 
@@ -213,8 +203,6 @@ contract UpfrontAdvanceEscrow is EIP712, Ownable2Step, Pausable, ReentrancyGuard
                 || offer.protectionDeadline > block.timestamp + MAX_PROTECTION_WINDOW
         ) revert InvalidDeadline();
         if (advanceAmount > offer.protectedAmount * offer.maxAdvanceBps / BPS_DENOMINATOR) revert InvalidAmount();
-        if (advanceAmount > maxAdvanceAmount || totalFunded + advanceAmount > maxTotalFunded) revert FundingCapExceeded();
-
         positionId = hashUnderwritingOffer(offer);
         if (positions[positionId].status != Status.None) revert OfferAlreadyUsed();
         if (ECDSA.recover(positionId, underwritingSignature) != underwritingSigner) revert InvalidSignature();
@@ -232,8 +220,6 @@ contract UpfrontAdvanceEscrow is EIP712, Ownable2Step, Pausable, ReentrancyGuard
             protectionDeadline: offer.protectionDeadline,
             status: Status.Funded
         });
-        totalFunded += advanceAmount;
-
         uint256 balanceBefore = asset.balanceOf(address(this));
         asset.safeTransferFrom(msg.sender, address(this), advanceAmount);
         if (asset.balanceOf(address(this)) - balanceBefore != advanceAmount) revert UnsupportedTransferFee();

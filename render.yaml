@@ -36,8 +36,12 @@ services:
         value: hashpaystream:arc-webhooks:v1
       - key: HASHPAYSTREAM_APP_OWNERSHIP_SECRET
         sync: false
-      - key: HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY
-        value: hashpaystream:agreement-owners:v1
+      - key: HASHPAYSTREAM_HUMAN_AGREEMENT_STORE_KEY
+        value: hashpaystream:human-agreement-owners:v1
+      - key: HASHPAYSTREAM_UPFRONT_AGREEMENT_STORE_KEY
+        value: hashpaystream:upfront-agreement-owners:v1
+      - key: HASHPAYSTREAM_AGENT_AGREEMENT_STORE_KEY
+        value: hashpaystream:agent-agreement-owners:v1
       - key: HASHPAYSTREAM_UPFRONT_ENABLED
         value: "true"
       - key: VITE_HASHPAYSTREAM_UPFRONT_ENABLED
@@ -75,15 +79,13 @@ services:
       - key: HASHPAYSTREAM_POLYDESK_EIP712_SIGNER
         value: "0xB089C3d5F06074856d7665A1Aa53Dc0d761930aE"
       - key: HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS
-        value: "0xa07900cAb0a0BbFBC52FCC95b22c52a22Ff0e1A5"
+        value: "0x790605cee123a37C16BB71fB9c12a33E72Eff41D"
       - key: HASHPAYSTREAM_UPFRONT_CHAIN_ID
         value: "196"
       - key: VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID
         value: "196"
       - key: VITE_HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS
-        value: "0xa07900cAb0a0BbFBC52FCC95b22c52a22Ff0e1A5"
-      - key: VITE_HASHPAYSTREAM_UPFRONT_REPAYMENT_RECIPIENT
-        value: "0x295177803fd02e1880d661Be3b66F6124787f978"
+        value: "0x790605cee123a37C16BB71fB9c12a33E72Eff41D"
       - key: VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED
         value: "true"
       - key: HASHPAYSTREAM_XLAYER_RPC_URL

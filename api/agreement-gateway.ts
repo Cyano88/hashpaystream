@@ -8,7 +8,7 @@ import {
 } from './durable-store.js'
 import { withHashPayStreamRequestId } from './request-telemetry.js'
 
-const DEFAULT_STORE_KEY = 'hashpaystream:agreement-owners:v1'
+const DEFAULT_HUMAN_STORE_KEY = 'hashpaystream:human-agreement-owners:v1'
 const DEFAULT_EVENT_STORE_KEY = 'hashpaystream:arc-webhooks:v1'
 const AGREEMENT_ID = /^agr_[a-z0-9]{12,64}$/i
 const EVENT_ID = /^evt_[a-z0-9]{12,64}$/i
@@ -27,7 +27,7 @@ type OwnedAgreement = {
   ownerHash: string
   payerHash?: string
   payerReviewPath?: string
-  source?: 'direct' | 'upfront'
+  source?: 'human' | 'upfront' | 'agent'
   declinedAt?: string
   createdAt: string
   updatedAt: string
@@ -87,6 +87,7 @@ type AgreementGatewayOptions = {
   agentActivation?: boolean
   apiKeyEnvironmentVariable?: 'HASHPAYSTREAM_ARC_API_KEY' | 'HASHPAYSTREAM_UPFRONT_ARC_API_KEY'
   webhookStoreEnvironmentVariable?: 'HASHPAYSTREAM_ARC_WEBHOOK_STORE_KEY' | 'HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_STORE_KEY'
+  ownershipStoreEnvironmentVariable?: 'HASHPAYSTREAM_HUMAN_AGREEMENT_STORE_KEY' | 'HASHPAYSTREAM_UPFRONT_AGREEMENT_STORE_KEY' | 'HASHPAYSTREAM_AGENT_AGREEMENT_STORE_KEY'
   featureFlagEnvironmentVariable?: 'HASHPAYSTREAM_UPFRONT_ENABLED'
 }
 
@@ -126,10 +127,11 @@ function configuration(
   env: NodeJS.ProcessEnv,
   apiKeyEnvironmentVariable: NonNullable<AgreementGatewayOptions['apiKeyEnvironmentVariable']> = 'HASHPAYSTREAM_ARC_API_KEY',
   webhookStoreEnvironmentVariable: NonNullable<AgreementGatewayOptions['webhookStoreEnvironmentVariable']> = 'HASHPAYSTREAM_ARC_WEBHOOK_STORE_KEY',
+  ownershipStoreEnvironmentVariable: NonNullable<AgreementGatewayOptions['ownershipStoreEnvironmentVariable']> = 'HASHPAYSTREAM_HUMAN_AGREEMENT_STORE_KEY',
 ) {
   const apiKey = clean(env[apiKeyEnvironmentVariable], 200)
   const ownershipSecret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300)
-  const storeKey = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY ?? DEFAULT_STORE_KEY, 160)
+  const storeKey = clean(env[ownershipStoreEnvironmentVariable] ?? DEFAULT_HUMAN_STORE_KEY, 160)
   const eventStoreKey = clean(env[webhookStoreEnvironmentVariable] ?? DEFAULT_EVENT_STORE_KEY, 160)
   const rawBaseUrl = clean(env.HASHPAYSTREAM_HASH_PAYLINK_BASE_URL ?? 'https://app.hashpaylink.com', 240)
   let baseUrl: URL
@@ -344,6 +346,7 @@ export function createHashPayStreamAgreementGateway(
     agentActivation: inputOptions.agentActivation ?? false,
     apiKeyEnvironmentVariable: inputOptions.apiKeyEnvironmentVariable ?? 'HASHPAYSTREAM_ARC_API_KEY',
     webhookStoreEnvironmentVariable: inputOptions.webhookStoreEnvironmentVariable ?? 'HASHPAYSTREAM_ARC_WEBHOOK_STORE_KEY',
+    ownershipStoreEnvironmentVariable: inputOptions.ownershipStoreEnvironmentVariable ?? 'HASHPAYSTREAM_HUMAN_AGREEMENT_STORE_KEY',
     featureFlagEnvironmentVariable: inputOptions.featureFlagEnvironmentVariable ?? 'HASHPAYSTREAM_UPFRONT_ENABLED',
   }
   const featureFlagRequired = Boolean(inputOptions.featureFlagEnvironmentVariable)
@@ -363,7 +366,7 @@ export function createHashPayStreamAgreementGateway(
         && clean(dependencies.env()[options.featureFlagEnvironmentVariable], 20).toLowerCase() !== 'true'
       ) throw httpError('HashPayStream Upfront is not enabled.', 404)
       if (!dependencies.hasStore()) throw httpError('HashPayStream ownership storage is unavailable.', 503)
-      const config = configuration(dependencies.env(), options.apiKeyEnvironmentVariable, options.webhookStoreEnvironmentVariable)
+      const config = configuration(dependencies.env(), options.apiKeyEnvironmentVariable, options.webhookStoreEnvironmentVariable, options.ownershipStoreEnvironmentVariable)
       const userId = await dependencies.identity(req)
       const owner = ownerHash(config.ownershipSecret, userId)
       const store = await dependencies.read(config.storeKey)
@@ -579,7 +582,7 @@ export function createHashPayStreamAgreementGateway(
           ownerHash: owner,
           ...(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail) ? { payerHash: payerHash(config.ownershipSecret, payerEmail) } : {}),
           ...(payerReviewPath.startsWith('/') ? { payerReviewPath } : {}),
-          source: options.apiKeyEnvironmentVariable === 'HASHPAYSTREAM_UPFRONT_ARC_API_KEY' ? 'upfront' : 'direct',
+          source: options.agentActivation ? 'agent' : options.apiKeyEnvironmentVariable === 'HASHPAYSTREAM_UPFRONT_ARC_API_KEY' ? 'upfront' : 'human',
           createdAt: existing?.createdAt ?? timestamp,
           updatedAt: timestamp,
         }

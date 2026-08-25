@@ -25,7 +25,9 @@ const ready = createHashPayStreamReadinessHandler({
   hasStore: () => true,
   read: async key => { reads.push(key); return undefined },
   env: () => ({
-    HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY: 'test:hashpaystream:owners',
+    HASHPAYSTREAM_HUMAN_AGREEMENT_STORE_KEY: 'test:hashpaystream:human-owners',
+    HASHPAYSTREAM_UPFRONT_AGREEMENT_STORE_KEY: 'test:hashpaystream:upfront-owners',
+    HASHPAYSTREAM_AGENT_AGREEMENT_STORE_KEY: 'test:hashpaystream:agent-owners',
     CIRCLE_TEST_API_KEY: 'circle-test-key-long-enough',
     VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET: 'circle-app-id-long-enough',
     HASHPAYSTREAM_AGENT_CREDENTIAL_PEPPER: 'readiness-registry-pepper-longer-than-thirty-two-characters',
@@ -36,7 +38,7 @@ const ready = createHashPayStreamReadinessHandler({
 const accepted = await call(ready)
 assert.equal(accepted.statusCode, 200)
 assert.deepEqual(accepted.body, { ok: true, service: 'hashpaystream', status: 'ready' })
-assert.deepEqual(reads, ['test:hashpaystream:owners', 'test:hashpaystream:credentials'])
+assert.deepEqual(reads, ['test:hashpaystream:human-owners', 'test:hashpaystream:upfront-owners', 'test:hashpaystream:agent-owners', 'test:hashpaystream:credentials'])
 assert.equal(accepted.headers['cache-control'], 'no-store')
 assert.equal(events.length, 0)
 
@@ -54,7 +56,7 @@ assert.equal(drainingRead, false)
 
 const disabledPilot = createHashPayStreamReadinessHandler({
   hasStore: () => true,
-  read: async key => { assert.equal(key, 'hashpaystream:agreement-owners:v1'); return undefined },
+  read: async key => { assert.match(key, /^hashpaystream:(human|upfront|agent)-agreement-owners:v1$/); return undefined },
   env: () => ({ CIRCLE_TEST_API_KEY: 'circle-test-key-long-enough', VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET: 'circle-app-id-long-enough' }),
 })
 assert.equal((await call(disabledPilot)).statusCode, 200)
@@ -100,7 +102,6 @@ const completeUpfrontEnvironment = {
   HASHPAYSTREAM_POLYDESK_EIP712_SIGNER: '0x2222222222222222222222222222222222222222',
   HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS: '0x3333333333333333333333333333333333333333',
   VITE_HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS: '0x3333333333333333333333333333333333333333',
-  VITE_HASHPAYSTREAM_UPFRONT_REPAYMENT_RECIPIENT: '0x4444444444444444444444444444444444444444',
   HASHPAYSTREAM_UPFRONT_CHAIN_ID: '196',
   VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID: '196',
   HASHPAYSTREAM_XLAYER_RPC_URL: 'https://rpc.xlayer.tech',
@@ -129,7 +130,6 @@ for (const requiredName of [
   'HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY',
   'HASHPAYSTREAM_UPFRONT_REPAYMENT_PRIVATE_KEY',
   'HASHPAYSTREAM_UPFRONT_FUNDER_EMAILS',
-  'VITE_HASHPAYSTREAM_UPFRONT_REPAYMENT_RECIPIENT',
 ]) {
   const environment = { ...completeUpfrontEnvironment, [requiredName]: '' }
   const missingDependency = createHashPayStreamReadinessHandler({ hasStore: () => true, read: async () => undefined, env: () => environment })

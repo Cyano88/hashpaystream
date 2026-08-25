@@ -19,7 +19,9 @@ entry is https://hashpaystream.app/upfront. Submission copy, architecture, oncha
 - `/docs` customer documentation
 - `/agreements` authenticated agreement workspace
 - `/agreements/new` agreement creation
-- `/api/hashpaystream/v2/agreements` server-side Hash PayLink gateway
+- `/api/hashpaystream/v1/human/agreements` human agreement gateway
+- `/api/hashpaystream/v1/human/upfront/agreements` human Upfront agreement gateway
+- `/api/hashpaystream/v1/agent/agreements` agent-only agreement gateway
 - `/api/hashpaystream/arc-agreement-webhook` signed lifecycle receiver
 - `/api/hashpaystream/v1/agent/agreements` authenticated headless-agent gateway
 - `/api/hashpaystream/v1/circle-marketplace/agreement-plan` Circle Gateway x402 storefront for fixed agreement plans
@@ -153,17 +155,25 @@ file and validate it without moving funds:
 npm run upfront:fund -- ./verified-offer.json
 ```
 
-Submitting any transaction additionally requires `--execute`, a dedicated
-`XLAYER_FUNDER_PRIVATE_KEY`, an explicit
-`HASHPAYSTREAM_UPFRONT_REPAYMENT_RECIPIENT`, and the network-specific
-confirmation (`FUND_XLAYER_TESTNET` or `FUND_XLAYER_MAINNET`). Never use an
-application or signing-service key as the treasury key. Mainnet remains a
-tiny-value, allowlisted technical proof while Arc is testnet.
+The in-app funding desk uses the approved account's embedded Privy wallet. The
+same address funds the advance on X Layer, releases it after Arc protection is
+verified, and credits and claims repayment on Arc. It therefore needs X Layer
+OKB for advance transactions and a small Arc Testnet USDC gas balance for the
+repayment transaction. No separate repayment destination is accepted.
 
-The production pilot is enabled after the ZeroScout API, PolyDesk decision
-policy, X Layer deployments, and Arc agreement lifecycle passed their focused
-verification suites. Execution remains restricted to approved funders; the
-mainnet escrow deploys paused and enforces immutable 1-USDC / 5-USDC caps.
+The local operator script remains available for recovery and diagnostics.
+Submitting through it requires `--execute`, a dedicated
+`XLAYER_FUNDER_PRIVATE_KEY`, and the network-specific confirmation
+(`FUND_XLAYER_TESTNET` or `FUND_XLAYER_MAINNET`). Never use an application or
+signing-service key as the treasury key.
+
+The production Upfront contract has no global spending cap. Each advance is
+instead bounded by its protected agreement amount, signed PolyDesk percentage,
+approved funding account, and explicit wallet confirmation. Public testing uses
+small amounts by choice. The earlier 1-USDC / 5-USDC proof deployment is legacy
+and has been replaced by the uncapped production escrow recorded in
+`contracts/deployments/xlayer-mainnet.json`. Ordinary HashPayStream
+Send and Receive transfers are independent from the Upfront escrow.
 
 For a zero-downtime rotation, create a second credential with the same agent
 id, update the agent backend, verify the replacement key's `lastUsedAt`, and

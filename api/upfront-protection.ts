@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto'
 import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
-import { createPublicClient, getAddress, http, type Address, type Hex } from 'viem'
+import { createPublicClient, getAddress, http, isAddress, type Address, type Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { readDurableJson } from './durable-store.js'
 import type { AgreementIntelligenceRequest } from './agreement-intelligence-schema.js'
@@ -15,8 +15,9 @@ const POSITION_ABI = [{ type: 'function', name: 'positions', stateMutability: 'v
 ] }] as const
 
 type Store = { schema: 1; records: Record<string, { ownerReference: string; status: string; request?: AgreementIntelligenceRequest }> }
+type AuthIdentity = { userId: string; wallets: Address[] }
 type Dependencies = {
-  identity: (req: Request) => Promise<string>; readStore: (key: string) => Promise<Store | undefined>
+  identity: (req: Request) => Promise<AuthIdentity>; readStore: (key: string) => Promise<Store | undefined>
   agreement: (id: string, config: Config) => Promise<AuthoritativeArcAgreement>
   position: (id: Hex, config: Config) => Promise<UpfrontPosition>; env: () => NodeJS.ProcessEnv; now: () => Date
 }
@@ -47,12 +48,26 @@ function configuration(env: NodeJS.ProcessEnv) {
   return { storeKey, apiKey, ownershipSecret, baseUrl: baseUrl!.origin, rpcUrl: rpcUrl!.toString(), xLayerEscrow, arcRouter, protectionKey, repaymentKey, xLayerChainId }
 }
 
-async function identity(req: Request) {
+async function identity(req: Request): Promise<AuthIdentity> {
   const appId = clean(process.env.PRIVY_APP_ID ?? process.env.VITE_PRIVY_APP_ID, 180); const appSecret = clean(process.env.PRIVY_APP_SECRET, 300)
   const token = String(req.headers.authorization ?? '').match(/^Bearer\s+(.+)$/i)?.[1]?.trim() ?? ''
   if (!appId || !appSecret) failure('HashPayStream authentication is unavailable.', 503)
   if (!token) failure('Sign in to continue Upfront.', 401)
-  try { const claims = await new PrivyClient({ appId, appSecret }).utils().auth().verifyAccessToken(token); return clean(claims.user_id, 180) || failure('Your HashPayStream session is invalid.', 401) } catch { failure('Your HashPayStream session is invalid or expired.', 401) }
+  try {
+    const privy = new PrivyClient({ appId, appSecret })
+    const claims = await privy.utils().auth().verifyAccessToken(token)
+    const userId = clean(claims.user_id, 180)
+    if (!userId) failure('Your HashPayStream session is invalid.', 401)
+    const user = await privy.users()._get(userId)
+    const wallets = [...new Set(user.linked_accounts.flatMap(account => (
+      account.type === 'wallet'
+      && account.chain_type === 'ethereum'
+      && account.wallet_client_type === 'privy'
+      && account.connector_type === 'embedded'
+      && isAddress(account.address)
+    ) ? [getAddress(account.address)] : []))]
+    return { userId, wallets }
+  } catch { failure('Your HashPayStream session is invalid or expired.', 401) }
 }
 
 async function agreement(id: string, config: Config) {
@@ -78,15 +93,18 @@ export function createUpfrontProtectionHandler(overrides: Partial<Dependencies> 
     res.setHeader('Cache-Control', 'no-store')
     if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ ok: false, error: 'Method not allowed.' }) }
     try {
-      const config = configuration(dependencies.env()); const userId = await dependencies.identity(req)
+      const config = configuration(dependencies.env()); const auth = await dependencies.identity(req)
       const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body as Record<string, unknown> : {}
       const action = clean(body.action, 20); const requestId = clean(body.requestId, 100); const agreementId = clean(body.agreementId, 100); const positionId = clean(body.positionId, 66) as Hex
       if (!['release', 'repayment'].includes(action) || !/^uai_[a-zA-Z0-9]{12,80}$/.test(requestId) || !/^agr_[a-z0-9]{12,64}$/i.test(agreementId) || !/^0x[a-fA-F0-9]{64}$/.test(positionId)) failure('Upfront protection request is invalid.', 400)
-      const ownerReference = 'hps_provider_' + createHmac('sha256', config.ownershipSecret).update('upfront\0' + userId).digest('hex').slice(0, 32)
       const store = await dependencies.readStore(config.storeKey)
-      const record = Object.values(store?.records ?? {}).find(item => item.ownerReference === ownerReference && item.status === 'completed' && item.request?.requestId === requestId)
+      const record = Object.values(store?.records ?? {}).find(item => item.status === 'completed' && item.request?.requestId === requestId)
       if (!record?.request) failure('The completed Upfront assessment was not found.', 404)
       const [arcAgreement, xPosition] = await Promise.all([dependencies.agreement(agreementId, config), dependencies.position(positionId, config)])
+      const ownerReference = 'hps_provider_' + createHmac('sha256', config.ownershipSecret).update('upfront\0' + auth.userId).digest('hex').slice(0, 32)
+      const wallets = new Set(auth.wallets.map(wallet => wallet.toLowerCase()))
+      const ownsPosition = wallets.has(xPosition.funder.toLowerCase()) || wallets.has(xPosition.repaymentRecipient.toLowerCase())
+      if (record.ownerReference !== ownerReference && !ownsPosition) failure('The completed Upfront assessment was not found.', 404)
       const signed = action === 'release'
         ? await signProtectionAttestation({ request: record.request, position: xPosition, agreement: arcAgreement, arcRouter: config.arcRouter, xLayerChainId: config.xLayerChainId, xLayerEscrow: config.xLayerEscrow, privateKey: config.protectionKey, now: dependencies.now() })
         : await signRepaymentCredit({ request: record.request, position: xPosition, agreement: arcAgreement, arcRouter: config.arcRouter, privateKey: config.repaymentKey, now: dependencies.now() })

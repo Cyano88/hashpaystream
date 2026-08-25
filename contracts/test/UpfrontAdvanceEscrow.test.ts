@@ -43,8 +43,6 @@ describe('UpfrontAdvanceEscrow', () => {
       underwriter.address,
       protectionSigner.address,
       owner.address,
-      50_000_000n,
-      100_000_000n,
     ]) as unknown as UpfrontAdvanceEscrow
     await escrow.connect(owner).setFunderAllowed(funder.address, true)
     await escrow.connect(owner).setPaused(false)
@@ -190,16 +188,17 @@ describe('UpfrontAdvanceEscrow', () => {
       .to.be.revertedWithCustomError(context.escrow, 'FunderNotAllowed')
   })
 
-  it('enforces the immutable per-advance and lifetime funding caps', async () => {
+  it('uses each signed offer as the funding boundary without a global spending cap', async () => {
     const context = await fixture()
-    const first = await signedOffer(context, 'cap-1', 8000)
-    await expect(context.escrow.connect(context.funder).fundAdvance(first.offer, 50_000_001n, context.repaymentRecipient, first.signature))
-      .to.be.revertedWithCustomError(context.escrow, 'FundingCapExceeded')
-    await context.escrow.connect(context.funder).fundAdvance(first.offer, 50_000_000n, context.repaymentRecipient, first.signature)
-    const second = await signedOffer(context, 'cap-2', 8000)
-    await context.escrow.connect(context.funder).fundAdvance(second.offer, 50_000_000n, context.repaymentRecipient, second.signature)
-    const third = await signedOffer(context, 'cap-3', 8000)
-    await expect(context.escrow.connect(context.funder).fundAdvance(third.offer, 1n, context.repaymentRecipient, third.signature))
-      .to.be.revertedWithCustomError(context.escrow, 'FundingCapExceeded')
+    for (const nonce of ['production-1', 'production-2', 'production-3']) {
+      const signed = await signedOffer(context, nonce, 8000)
+      await context.escrow.connect(context.funder).fundAdvance(
+        signed.offer,
+        80_000_000n,
+        context.repaymentRecipient,
+        signed.signature,
+      )
+    }
+    expect(await context.token.balanceOf(context.escrow.target)).to.equal(240_000_000n)
   })
 })
