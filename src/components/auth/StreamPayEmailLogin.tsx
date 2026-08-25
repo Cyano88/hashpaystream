@@ -94,8 +94,7 @@ export function StreamPayEmailLogin({ className = '' }: { className?: string }) 
       </button>
       <main className="mx-auto flex min-h-[calc(100dvh-2.5rem)] w-full max-w-[430px] flex-col justify-center py-4">
         <div className="text-center">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">HashPayStream</p>
-          <h1 className="mt-3 text-3xl font-black tracking-[-0.045em]">Check your email</h1>
+          <h1 className="text-3xl font-black tracking-[-0.045em]">Check your email</h1>
           <p className="mt-3 text-sm font-medium leading-6 text-gray-500">Enter the code sent to<strong className="mx-auto mt-1.5 block max-w-full break-all text-base font-extrabold leading-6 text-gray-950">{email}</strong></p>
         </div>
         <form onSubmit={verifyCode} className="mt-8">
@@ -120,7 +119,11 @@ export function StreamPayEmailLogin({ className = '' }: { className?: string }) 
         </div>
         <div className="mt-9 text-center">
           <p className="flex items-center justify-center gap-1.5 text-xs font-semibold text-gray-500"><LockClosedIcon className="h-4 w-4" />HashPayStream will never ask you to share this code.</p>
-          <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.16em] text-gray-400">Secured by Privy</p>
+          <p className="mt-3 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-gray-400" aria-label="Secured by Privy">
+            <span>Secured by</span>
+            <img src="/privy-mark-logo.png" alt="" aria-hidden="true" className="h-3.5 w-3.5 object-contain" />
+            <span>Privy</span>
+          </p>
         </div>
       </main>
     </div>,

@@ -47,7 +47,7 @@ function activityDate(value: string) {
 }
 
 export default function StreamPayHome() {
-  const { ready, authenticated, agreements, loading, error } = useAgreements()
+  const { ready, authenticated, agreements, totals, loading, error } = useAgreements()
   const wallet = useCircleWallet()
   const requests = useCustomerRequests()
   const splashState = useHashPayStreamSessionSplash(!authenticated)
@@ -95,14 +95,23 @@ export default function StreamPayHome() {
       <section className="overflow-hidden rounded-[26px] bg-gray-950 px-5 py-5 text-white shadow-[0_18px_48px_rgba(15,23,42,0.14)] dark:bg-white dark:text-gray-950">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50 dark:text-gray-500">Available balance</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50 dark:text-gray-500">Protected balance</p>
             <p className="mt-1.5 min-w-0 text-[clamp(1.75rem,9vw,2.5rem)] font-bold tabular-nums tracking-tight">
-              {wallet.loadingBalance ? '—' : wallet.balance} <span className="text-xs font-medium tracking-normal opacity-50">USDC</span>
+              {formatUsdc(totals.activeProtected).replace(/ USDC$/, '')} <span className="text-xs font-medium tracking-normal opacity-50">USDC</span>
             </p>
           </div>
           <Link to={notificationsTo} aria-label={unreadCount ? `Open notifications, ${unreadCount} unread` : 'Open notifications'} className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/75 transition active:scale-95 dark:bg-gray-950/[0.07] dark:text-gray-600"><BellIcon className="h-5 w-5" />{unreadCount > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-blue-500 ring-2 ring-gray-950 dark:ring-white" />}</Link>
         </div>
-        <p className="mt-4 text-[10px] font-semibold text-white/40 dark:text-gray-500">Circle wallet · USDC</p>
+        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/10 pt-4 dark:border-gray-950/10">
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/40 dark:text-gray-500">Available</p>
+            <p className="mt-1 text-xs font-bold tabular-nums">{wallet.loadingBalance ? '—' : wallet.balance} <span className="font-medium opacity-50">USDC</span></p>
+          </div>
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/40 dark:text-gray-500">Refund available</p>
+            <p className="mt-1 text-xs font-bold tabular-nums">{formatUsdc(totals.refundAvailable)}</p>
+          </div>
+        </div>
       </section>
 
       <section className="grid grid-cols-4 gap-2">
