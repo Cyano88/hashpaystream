@@ -25,6 +25,11 @@ export type AgreementSummary = {
 
 type AgreementResponse = { ok?: boolean; agreements?: AgreementSummary[]; error?: string }
 
+function safeUnits(value: unknown) {
+  const units = String(value ?? '').trim()
+  return /^\d+$/.test(units) ? BigInt(units) : 0n
+}
+
 export function formatUsdc(units: bigint | string = 0n) {
   try {
     const value = typeof units === 'bigint' ? units : BigInt(units || '0')
@@ -57,7 +62,7 @@ export function useAgreements(apiPath = AGREEMENTS_API) {
       })
       const data = await response.json().catch(() => undefined) as AgreementResponse | undefined
       if (!response.ok || !data?.ok) throw new Error(data?.error || 'Agreements could not be loaded.')
-      setAgreements(data.agreements ?? [])
+      setAgreements(Array.isArray(data.agreements) ? data.agreements : [])
       setError('')
     } catch (reason) {
       if (!quiet) setError(reason instanceof Error ? reason.message : 'Agreements could not be loaded.')
@@ -81,9 +86,9 @@ export function useAgreements(apiPath = AGREEMENTS_API) {
 
   const totals = useMemo(() => agreements.reduce((result, agreement) => {
     if (!agreement.chain) return result
-    if (agreement.status === 'active') result.activeProtected += BigInt(agreement.chain.remainingUsdcUnits || '0')
-    if (agreement.status === 'expired') result.refundAvailable += BigInt(agreement.chain.remainingUsdcUnits || '0')
-    result.released += BigInt(agreement.chain.releasedUsdcUnits || '0')
+    if (agreement.status === 'active') result.activeProtected += safeUnits(agreement.chain.remainingUsdcUnits)
+    if (agreement.status === 'expired') result.refundAvailable += safeUnits(agreement.chain.remainingUsdcUnits)
+    result.released += safeUnits(agreement.chain.releasedUsdcUnits)
     return result
   }, { activeProtected: 0n, released: 0n, refundAvailable: 0n }), [agreements])
 

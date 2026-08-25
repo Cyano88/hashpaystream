@@ -13,16 +13,17 @@ import StreamPayAccount from './components/StreamPayAccount'
 import StreamPayLegal from './components/StreamPayLegal'
 import StreamPayAgentDocsPage from './components/docs/StreamPayAgentDocsPage'
 import StreamPayAnalytics from './components/admin/StreamPayAnalytics'
+import StreamPayOperations from './components/admin/StreamPayOperations'
 import StreamPayStats from './components/StreamPayStats'
 import StreamPayUpfront from './components/StreamPayUpfront'
-import StreamPayFundingDesk from './components/StreamPayFundingDesk'
+import StreamPayFunding from './components/StreamPayFunding'
 import { HashPayStreamSessionSplash } from './components/HashPayStreamSessionSplash'
 import { BrowserRouter, Navigate, useLocation } from './lib/router'
 import { useHashPayStreamSessionSplash } from './lib/useHashPayStreamSessionSplash'
 import { LoadingRing } from './components/ui/LoadingRing'
 
 const UPFRONT_ENABLED = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ENABLED ?? '').toLowerCase() === 'true'
-const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/upfront', '/upfront/funding', '/activity', '/account', '/admin/analytics'])
+const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/upfront', '/funding', '/activity', '/account', '/operations', '/admin/analytics'])
 const SESSION_READY_TIMEOUT_MS = 12_000
 
 function SessionLoadingSurface({ sessionDelayed, onRetry }: { sessionDelayed: boolean; onRetry: () => void }) {
@@ -79,9 +80,11 @@ function StreamPayRoute() {
   else if (route === '/agreements') content = <AgreementDashboard />
   else if (route === '/agreements/new') content = <FixedAgreementForm />
   else if (route === '/upfront') content = UPFRONT_ENABLED ? <StreamPayUpfront /> : <Navigate to="/home" replace />
-  else if (route === '/upfront/funding') content = UPFRONT_ENABLED ? <StreamPayFundingDesk /> : <Navigate to="/home" replace />
+  else if (route === '/funding') content = <StreamPayFunding />
+  else if (route === '/upfront/funding') content = <Navigate to="/funding" replace />
   else if (route === '/activity') content = <StreamPayActivity />
   else if (route === '/account') content = <StreamPayAccount />
+  else if (route === '/operations') content = <StreamPayOperations />
   else if (route === '/admin/analytics') content = <StreamPayAnalytics />
   else if (route === '/stats') content = <StreamPayStats />
   else if (route === '/docs') content = <StreamPayDocsHome />

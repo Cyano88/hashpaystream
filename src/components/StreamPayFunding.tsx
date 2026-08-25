@@ -1,0 +1,107 @@
+import { useCallback, useEffect, useState } from 'react'
+import { usePrivy } from '@privy-io/react-auth'
+import { BanknotesIcon, CheckBadgeIcon, ClockIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
+import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSplash'
+import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
+import StreamPayFundingDesk from './StreamPayFundingDesk'
+import { LoadingRing } from './ui/LoadingRing'
+
+const API = '/api/hashpaystream/v1/funding-partners'
+const inputClass = 'mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm text-gray-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 dark:border-white/10 dark:bg-white/[0.04] dark:text-white'
+
+type Profile = {
+  email: string
+  status: 'not_applied' | 'pending' | 'approved' | 'restricted'
+  application?: { name?: string }
+}
+
+export default function StreamPayFunding() {
+  const { ready, authenticated, getAccessToken } = usePrivy()
+  const splashState = useHashPayStreamSessionSplash(!authenticated)
+  const [profile, setProfile] = useState<Profile>()
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [form, setForm] = useState({ name: '', country: '', applicantType: 'individual', experience: 'new', expectedFundingRange: '' })
+
+  const request = useCallback(async (body?: Record<string, unknown>) => {
+    const token = await getAccessToken()
+    if (!token) throw new Error('Sign in again to continue.')
+    const response = await fetch(API, {
+      method: body ? 'POST' : 'GET', cache: 'no-store',
+      headers: { authorization: `Bearer ${token}`, ...(body ? { 'content-type': 'application/json' } : {}) },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    })
+    const data = await response.json().catch(() => ({})) as { profile?: Profile; error?: string }
+    if (!response.ok || !data.profile) throw new Error(data.error || 'Your funding profile could not be loaded.')
+    return data.profile
+  }, [getAccessToken])
+
+  useEffect(() => {
+    if (!ready) return
+    if (!authenticated) { setLoading(false); return }
+    void request().then(setProfile).catch(reason => setError(reason instanceof Error ? reason.message : 'Your funding profile could not be loaded.')).finally(() => setLoading(false))
+  }, [authenticated, ready, request])
+
+  async function apply() {
+    setSubmitting(true)
+    setError('')
+    try {
+      setProfile(await request({ action: 'apply', ...form }))
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Your application could not be submitted.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
+  if (!ready || loading) return <div className="flex min-h-[58vh] items-center justify-center"><LoadingRing className="h-5 w-5 text-gray-300" /></div>
+  if (profile?.status === 'approved') return <StreamPayFundingDesk />
+
+  if (profile?.status === 'pending') return (
+    <section className="flex min-h-[65vh] w-full max-w-lg flex-col items-center justify-center px-2 text-center">
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 dark:bg-amber-400/10 dark:text-amber-300"><ClockIcon className="h-7 w-7" /></span>
+      <p className="mt-6 text-[10px] font-black uppercase tracking-[0.18em] text-amber-600">Application received</p>
+      <h1 className="mt-2 text-3xl font-bold tracking-tight text-gray-950 dark:text-white">Your application is under review</h1>
+      <p className="mt-3 max-w-sm text-sm leading-6 text-gray-500 dark:text-gray-400">We will email {profile.email} when your HashPayStream account is approved for funding access.</p>
+      <div className="mt-7 w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-left text-xs leading-5 text-gray-500 dark:border-white/10 dark:bg-white/[0.035] dark:text-gray-400">You keep using the same HashPayStream account. No separate funder sign-in is required.</div>
+    </section>
+  )
+
+  if (profile?.status === 'restricted') return (
+    <section className="flex min-h-[65vh] w-full max-w-lg flex-col items-center justify-center text-center">
+      <ShieldCheckIcon className="h-12 w-12 text-gray-400" />
+      <h1 className="mt-5 text-3xl font-bold tracking-tight text-gray-950 dark:text-white">Funding access is unavailable</h1>
+      <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Contact HashPayStream support if you believe this decision is incorrect.</p>
+    </section>
+  )
+
+  return (
+    <section className="w-full max-w-2xl py-7 sm:py-12">
+      <div className="rounded-[28px] bg-gray-950 p-6 text-white shadow-[0_20px_55px_rgba(15,23,42,.16)] sm:p-8">
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10"><BanknotesIcon className="h-5 w-5" /></span>
+        <p className="mt-7 text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">Funding partners</p>
+        <h1 className="mt-2 max-w-lg text-3xl font-bold tracking-tight">Fund approved agreements early.</h1>
+        <p className="mt-3 max-w-lg text-sm leading-6 text-white/60">Earn the return stated on each agreement you choose to fund. Every opportunity is reviewed before it reaches the marketplace.</p>
+      </div>
+
+      <div className="mt-4 rounded-[24px] border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035] sm:p-6">
+        <div className="flex items-start gap-3">
+          <CheckBadgeIcon className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+          <div><h2 className="text-base font-bold text-gray-950 dark:text-white">Apply with your HashPayStream account</h2><p className="mt-1 text-xs leading-5 text-gray-500">Your verified email is {profile?.email || 'connected to this account'}. KYC will be required before live-money access.</p></div>
+        </div>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Full name or company name<input className={inputClass} value={form.name} onChange={event => setForm(current => ({ ...current, name: event.target.value }))} autoComplete="name" /></label>
+          <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Country<input className={inputClass} value={form.country} onChange={event => setForm(current => ({ ...current, country: event.target.value }))} autoComplete="country-name" /></label>
+          <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Applicant type<select className={inputClass} value={form.applicantType} onChange={event => setForm(current => ({ ...current, applicantType: event.target.value }))}><option value="individual">Individual</option><option value="company">Company</option></select></label>
+          <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Funding experience<select className={inputClass} value={form.experience} onChange={event => setForm(current => ({ ...current, experience: event.target.value }))}><option value="new">New to private funding</option><option value="some">Some experience</option><option value="experienced">Experienced</option></select></label>
+          <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 sm:col-span-2">Expected funding range<select className={inputClass} value={form.expectedFundingRange} onChange={event => setForm(current => ({ ...current, expectedFundingRange: event.target.value }))}><option value="">Select a range</option><option value="under_1k">Under 1,000 USDC</option><option value="1k_10k">1,000–10,000 USDC</option><option value="10k_plus">More than 10,000 USDC</option></select></label>
+        </div>
+        {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-xs text-red-700 dark:bg-red-400/10 dark:text-red-300">{error}</p>}
+        <button type="button" disabled={submitting || form.name.trim().length < 2 || form.country.trim().length < 2 || !form.expectedFundingRange} onClick={() => void apply()} className="mt-6 flex w-full items-center justify-center rounded-xl bg-gray-950 px-4 py-3.5 text-sm font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950">{submitting ? 'Submitting…' : 'Submit for team review'}</button>
+        <p className="mt-3 text-center text-[10px] leading-4 text-gray-400">Submitting does not guarantee approval or move any funds.</p>
+      </div>
+    </section>
+  )
+}

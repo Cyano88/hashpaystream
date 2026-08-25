@@ -13,6 +13,7 @@ const AGREEMENTS_API = '/api/hashpaystream/v2/agreements'
 const HASH_PAYLINK_ORIGIN = String(import.meta.env.VITE_HASH_PAYLINK_BASE_URL || 'https://app.hashpaylink.com').replace(/\/$/, '')
 
 type AgreementStatus = 'awaiting_start' | 'active' | 'expired' | 'completed' | 'cancelled' | 'refunded'
+type AgreementFilter = 'needs_action' | 'ongoing' | 'completed'
 
 type Agreement = {
   id: string
@@ -169,6 +170,7 @@ function StatusBadge({ status }: { status: AgreementStatus }) {
 export default function AgreementDashboard() {
   const { ready, authenticated, getAccessToken } = usePrivy()
   const [agreements, setAgreements] = useState<Agreement[]>([])
+  const [filter, setFilter] = useState<AgreementFilter>('needs_action')
   const [activeId, setActiveId] = useState('')
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -225,10 +227,21 @@ export default function AgreementDashboard() {
     }
   }, [authenticated, load, ready])
 
+  const filteredAgreements = useMemo(() => agreements.filter(agreement => {
+    if (filter === 'needs_action') return agreement.status === 'awaiting_start' || agreement.status === 'expired'
+    if (filter === 'ongoing') return agreement.status === 'active'
+    return ['completed', 'cancelled', 'refunded'].includes(agreement.status)
+  }), [agreements, filter])
   const active = useMemo(
-    () => agreements.find(item => item.id === activeId) ?? agreements[0],
-    [activeId, agreements],
+    () => filteredAgreements.find(item => item.id === activeId) ?? filteredAgreements[0],
+    [activeId, filteredAgreements],
   )
+
+  function chooseFilter(next: AgreementFilter) {
+    setFilter(next)
+    setActiveId('')
+    setMobileDetailOpen(false)
+  }
 
   const activity = useMemo(() => {
     if (!active) return []
@@ -374,6 +387,18 @@ export default function AgreementDashboard() {
         </div>
       )}
 
+      {!loadError && agreements.length > 0 && (
+        <div className="mt-6 grid grid-cols-3 rounded-2xl bg-gray-200/60 p-1 dark:bg-white/[0.06]" aria-label="Agreement status filters">
+          {([
+            ['needs_action', 'Needs action'],
+            ['ongoing', 'Ongoing'],
+            ['completed', 'Completed'],
+          ] as const).map(([value, label]) => (
+            <button key={value} type="button" onClick={() => chooseFilter(value)} className={`rounded-xl px-2 py-2.5 text-[11px] font-bold transition ${filter === value ? 'bg-white text-gray-950 shadow-sm dark:bg-white dark:text-gray-950' : 'text-gray-500 dark:text-gray-400'}`}>{label}</button>
+          ))}
+        </div>
+      )}
+
       {!loadError && agreements.length === 0 ? (
         <div className="mt-8 rounded-3xl border border-gray-200 bg-white px-6 py-12 text-center dark:border-white/10 dark:bg-[#18181b]">
           <h2 className="text-lg font-semibold text-gray-950 dark:text-white">No agreements yet</h2>
@@ -385,7 +410,7 @@ export default function AgreementDashboard() {
         <>
           <div className="mt-7 grid gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
             <div className={`space-y-2 ${mobileDetailOpen ? 'hidden lg:block' : ''}`}>
-              {agreements.map(agreement => (
+              {filteredAgreements.map(agreement => (
                 <button
                   type="button"
                   key={agreement.id}
@@ -407,6 +432,7 @@ export default function AgreementDashboard() {
                   </div>
                 </button>
               ))}
+              {filteredAgreements.length === 0 && <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-5 py-9 text-center text-xs font-medium text-gray-400 dark:border-white/10 dark:bg-white/[0.025]">No agreements in this section.</div>}
             </div>
 
             {active && (

@@ -1,12 +1,11 @@
-import { BanknotesIcon, ClockIcon, DocumentTextIcon, HomeIcon, UserCircleIcon } from '@heroicons/react/24/outline'
+import { BanknotesIcon, DocumentTextIcon, HomeIcon, UserCircleIcon } from '@heroicons/react/24/outline'
 import { Link, useLocation } from '../lib/router'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 
 const destinations = [
   { path: '/home', label: 'Home', Icon: HomeIcon },
   { path: '/agreements', label: 'Agreements', Icon: DocumentTextIcon },
-  ...(String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ENABLED ?? '').toLowerCase() === 'true' ? [{ path: '/upfront', label: 'Upfront', Icon: BanknotesIcon }] : []),
-  { path: '/activity', label: 'Activity', Icon: ClockIcon },
+  { path: '/funding', label: 'Funding', Icon: BanknotesIcon },
   { path: '/account', label: 'Account', Icon: UserCircleIcon },
 ]
 

@@ -2,12 +2,15 @@ import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
 import { readDurableJson } from './durable-store.js'
 import type { UpfrontAssessmentStore } from './upfront-assessment.js'
+import { fundingPartnerAccountKey, type FundingPartnerStore } from './funding-partners.js'
 
 const DEFAULT_STORE_KEY = 'hashpaystream:upfront-assessments:v1'
+const DEFAULT_PARTNER_STORE_KEY = 'hashpaystream:funding-partners:v1'
 
 type Dependencies = {
   identityEmails: (req: Request, env: NodeJS.ProcessEnv) => Promise<string[]>
   readStore: (key: string) => Promise<UpfrontAssessmentStore | undefined>
+  readPartners: (key: string) => Promise<FundingPartnerStore | undefined>
   env: () => NodeJS.ProcessEnv
   now: () => Date
 }
@@ -89,6 +92,7 @@ function opportunity(record: UpfrontAssessmentStore['records'][string], now: Dat
 const defaults: Dependencies = {
   identityEmails: verifiedIdentityEmails,
   readStore: key => readDurableJson<UpfrontAssessmentStore>(key),
+  readPartners: key => readDurableJson<FundingPartnerStore>(key),
   env: () => process.env,
   now: () => new Date(),
 }
@@ -102,9 +106,16 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
       const env = dependencies.env()
       if (clean(env.HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() !== 'true') failure('HashPayStream Upfront is not enabled.', 404)
       const allowed = funderEmails(env)
-      if (!allowed.size) failure('The private Upfront funding desk is not configured.', 503)
       const emails = await dependencies.identityEmails(req, env)
-      if (!emails.some(email => allowed.has(email))) failure('This account is not approved to fund Upfront opportunities.', 403)
+      let approved = emails.some(email => allowed.has(email))
+      const ownershipSecret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300)
+      if (!approved && ownershipSecret.length >= 32) {
+        const partnerStoreKey = clean(env.HASHPAYSTREAM_FUNDING_PARTNER_STORE_KEY ?? DEFAULT_PARTNER_STORE_KEY, 160)
+        const partnerStore = await dependencies.readPartners(partnerStoreKey)
+        const approvedKeys = new Set(Object.values(partnerStore?.applications ?? {}).filter(item => item.status === 'approved').map(item => item.accountKey))
+        approved = emails.some(email => approvedKeys.has(fundingPartnerAccountKey(ownershipSecret, email)))
+      }
+      if (!approved) failure('This HashPayStream account is not approved to fund opportunities.', 403)
       const storeKey = clean(env.HASHPAYSTREAM_UPFRONT_STORE_KEY ?? DEFAULT_STORE_KEY, 160)
       if (!storeKey) failure('The Upfront opportunity store is unavailable.', 503)
       const store = await dependencies.readStore(storeKey)

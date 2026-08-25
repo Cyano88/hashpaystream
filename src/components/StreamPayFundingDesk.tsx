@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
-import { ArrowLeftIcon, ArrowPathIcon, ArrowRightStartOnRectangleIcon, BanknotesIcon, ClipboardIcon, LockClosedIcon } from '@heroicons/react/24/outline'
-import { Link } from '../lib/router'
-import { useStreamPayPath } from '../lib/useStreamPayPath'
+import { ArrowPathIcon, BanknotesIcon, ClipboardIcon } from '@heroicons/react/24/outline'
+import { Navigate } from '../lib/router'
 import { upfrontTreasuryEnabled } from '../lib/upfrontChains'
 import UpfrontTreasuryWallet from './UpfrontTreasuryWallet'
 import UpfrontFundButton from './UpfrontFundButton'
 import { LoadingRing } from './ui/LoadingRing'
-import { StreamPayEmailLogin } from './auth/StreamPayEmailLogin'
 import { AgreementProgress } from './ui/AgreementProgress'
 
 type Opportunity = {
@@ -43,13 +41,12 @@ function duration(seconds: number) {
 }
 
 export default function StreamPayFundingDesk() {
-  const { ready, authenticated, getAccessToken, logout } = usePrivy()
+  const { ready, authenticated, getAccessToken } = usePrivy()
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [loading, setLoading] = useState(true)
   const [authorized, setAuthorized] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState('')
-  const upfrontTo = useStreamPayPath('/upfront')
 
   const load = useCallback(async () => {
     if (!authenticated) { setAuthorized(false); setLoading(false); return }
@@ -79,28 +76,13 @@ export default function StreamPayFundingDesk() {
     window.setTimeout(() => setCopied(''), 1800)
   }
 
-  async function useAnotherEmail() {
-    setError('')
-    await logout()
-    window.location.reload()
-  }
-
   if (!ready || loading) return <div className="flex min-h-[58vh] items-center justify-center"><LoadingRing className="h-5 w-5 text-gray-300" /></div>
-  if (!authenticated) return (
-    <section className="flex min-h-[64vh] w-full max-w-md flex-col items-center justify-center text-center">
-      <LockClosedIcon className="h-12 w-12 text-blue-600" />
-      <h1 className="mt-6 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Fund verified work early.</h1>
-      <p className="mt-3 text-sm leading-6 text-gray-500 dark:text-gray-400">Sign in with an approved funder identity to review AI-checked agreements and send an early payment on X Layer.</p>
-      <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-xs leading-5 text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200">X Layer Mainnet uses real USDC. The approved treasury also needs a small OKB balance for network gas.</p>
-      <StreamPayEmailLogin className="mt-7 w-full" />
-    </section>
-  )
+  if (!authenticated) return <Navigate to="/funding" replace />
 
   return (
     <section className="w-full max-w-4xl py-8 sm:py-12">
-      <Link to={upfrontTo} className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-950 dark:text-gray-400 dark:hover:text-white"><ArrowLeftIcon className="h-4 w-4" />Upfront</Link>
-      <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div><p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Approved funders only</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Fund verified work early</h1><p className="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">The customer protects the job payment on Arc. You review the AI-checked offer and send the provider an early payment on {XLAYER_MAINNET ? 'X Layer Mainnet' : 'X Layer Testnet'}.</p></div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div><p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Funding marketplace</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Fund verified work early</h1><p className="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">The customer protects the job payment on Arc. Review the AI-checked opportunity and choose whether to fund it on {XLAYER_MAINNET ? 'X Layer Mainnet' : 'X Layer Testnet'}.</p></div>
         <button type="button" onClick={() => void load()} className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs font-semibold text-gray-700 transition hover:border-gray-300 hover:text-gray-950 dark:border-white/10 dark:text-gray-200 dark:hover:border-white/20 dark:hover:text-white"><ArrowPathIcon className="h-4 w-4" />Refresh offers</button>
       </div>
 
@@ -116,7 +98,7 @@ export default function StreamPayFundingDesk() {
       <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200"><strong>Demo network notice.</strong> The customer payment uses Arc Testnet USDC, which has no financial value. {XLAYER_MAINNET ? 'The early payment uses real USDC on X Layer Mainnet, so this restricted demo does not treat the Arc test funds as real collateral.' : 'No mainnet funds are used in this environment.'}</div>
 
       {authorized && (upfrontTreasuryEnabled ? <UpfrontTreasuryWallet /> : <div className="mt-4 rounded-2xl border p-4 text-xs"><strong>Treasury execution is locked.</strong> Reviewing offers cannot move funds.</div>)}
-      {error && <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-300"><p>{error}</p><button type="button" onClick={() => void useAnotherEmail()} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-rose-300 px-3 py-2 text-xs font-semibold dark:border-rose-400/30"><ArrowRightStartOnRectangleIcon className="h-4 w-4" />Use another email</button></div>}
+      {error && <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-300"><p>{error}</p><p className="mt-2 text-xs">Your HashPayStream account is approved, but the marketplace could not be loaded. Retry or contact support.</p></div>}
       {!error && opportunities.length === 0 && <div className="mt-7 rounded-3xl border border-gray-200 bg-white px-6 py-12 text-center dark:border-white/10 dark:bg-[#18181b]"><BanknotesIcon className="mx-auto h-8 w-8 text-gray-300" /><h2 className="mt-4 text-lg font-semibold text-gray-950 dark:text-white">No live offers</h2><p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Approved offers appear here after an eligible Arc agreement is funded and assessed.</p></div>}
       {!error && opportunities.length > 0 && <div className="mt-7 grid gap-4 md:grid-cols-2">{opportunities.map(item => {
         const spread = (BigInt(item.protectedUsdcUnits) - BigInt(item.requestedAdvanceUsdcUnits)).toString()

@@ -19,14 +19,12 @@ export function StreamPayHeader() {
   const agreementsTo = useStreamPayPath(authenticated ? '/home' : '/')
   const homeTo = useStreamPayPath('/home')
   const workspaceTo = useStreamPayPath('/agreements')
-  const upfrontTo = useStreamPayPath('/upfront')
-  const activityTo = useStreamPayPath('/activity')
+  const fundingTo = useStreamPayPath('/funding')
   const accountTo = useStreamPayPath('/account')
   const docsTo = useStreamPayPath('/docs')
   const telegramMode = isTelegramStreamPay(search)
   const route = pathname.replace(/\/+$/, '') || '/'
   const minimalSignInHeader = route === '/agreements' && !authenticated
-  const upfrontEnabled = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ENABLED ?? '').toLowerCase() === 'true'
   const navClass = (path: string) => {
     const active = path === '/agreements' ? route.startsWith('/agreements') : route === path
     return `rounded-full px-3 py-2 text-xs font-medium transition-colors ${active
@@ -58,9 +56,8 @@ export function StreamPayHeader() {
               <Link to={workspaceTo} aria-current={route.startsWith('/agreements') ? 'page' : undefined} className={navClass('/agreements')}>
                 Agreements
               </Link>
-              {upfrontEnabled && <Link to={upfrontTo} aria-current={route === '/upfront' ? 'page' : undefined} className={navClass('/upfront')}>Upfront</Link>}
-              <Link to={activityTo} aria-current={route === '/activity' ? 'page' : undefined} className={navClass('/activity')}>
-                Activity
+              <Link to={fundingTo} aria-current={route === '/funding' ? 'page' : undefined} className={navClass('/funding')}>
+                Funding
               </Link>
               <Link to={accountTo} aria-current={route === '/account' ? 'page' : undefined} className={navClass('/account')}>
                 Account
