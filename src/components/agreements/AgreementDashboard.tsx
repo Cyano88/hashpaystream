@@ -7,7 +7,7 @@ import UnifiedReceipt from '../UnifiedReceipt'
 import { AgreementSignInLanding } from './AgreementSignInLanding'
 import type { PaylinkReceipt } from '../../lib/paymentReceiptPdf'
 import { LoadingRing } from '../ui/LoadingRing'
-import { useStreamPayPath } from '../../lib/useStreamPayPath'
+import { StreamPayLoadingState } from '../ui/StreamPayLoadingState'
 
 const AGREEMENTS_API = '/api/hashpaystream/v2/agreements'
 const HASH_PAYLINK_ORIGIN = String(import.meta.env.VITE_HASH_PAYLINK_BASE_URL || 'https://app.hashpaylink.com').replace(/\/$/, '')
@@ -186,7 +186,6 @@ export default function AgreementDashboard() {
   const [requestingRelease, setRequestingRelease] = useState(false)
   const [showAllActivity, setShowAllActivity] = useState(false)
   const splashState = useHashPayStreamSessionSplash(!authenticated)
-  const newAgreementTo = useStreamPayPath('/agreements/new')
 
   const load = useCallback(async (quiet = false) => {
     if (!authenticated) {
@@ -350,29 +349,13 @@ export default function AgreementDashboard() {
   }
 
   if (!ready || loading) {
-    return (
-      <section className="flex min-h-[58vh] w-full max-w-5xl items-center justify-center">
-        <LoadingRing className="h-5 w-5 text-gray-300 dark:text-gray-600" />
-      </section>
-    )
+    return <StreamPayLoadingState active="agreements" />
   }
 
   return (
-    <section className="w-full max-w-5xl py-8 sm:py-12">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Protected payments</p>
-            <span className="rounded-full border border-gray-200 bg-white px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.1em] text-gray-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-500">Arc test network</span>
-          </div>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Agreements</h1>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Manage protected USDC agreements and delivery status.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link to={newAgreementTo} className="rounded-xl bg-gray-950 px-3.5 py-2.5 text-xs font-semibold text-white dark:bg-white dark:text-gray-950">
-            New agreement
-          </Link>
-        </div>
+    <section className="w-full max-w-md py-5 sm:py-8">
+      <div className="grid grid-cols-2 rounded-full bg-gray-200/70 p-1 dark:bg-white/[0.06]" aria-label="Agreement status filters">
+        {([['ongoing', 'Ongoing'], ['completed', 'Completed']] as const).map(([value, label]) => <button key={value} type="button" onClick={() => chooseFilter(value)} className={`min-h-11 rounded-full px-2 text-xs font-extrabold transition ${filter === value ? 'bg-gray-950 text-white shadow-sm dark:bg-white dark:text-gray-950' : 'text-gray-500 dark:text-gray-400'}`}>{label}</button>)}
       </div>
 
       {loadError && (
@@ -386,17 +369,6 @@ export default function AgreementDashboard() {
         </div>
       )}
 
-      {!loadError && agreements.length > 0 && (
-        <div className="mt-6 grid grid-cols-2 rounded-full bg-gray-200/60 p-1 dark:bg-white/[0.06]" aria-label="Agreement status filters">
-          {([
-            ['ongoing', 'Ongoing'],
-            ['completed', 'Completed'],
-          ] as const).map(([value, label]) => (
-            <button key={value} type="button" onClick={() => chooseFilter(value)} className={`rounded-full px-2 py-2.5 text-[11px] font-bold transition ${filter === value ? 'bg-white text-gray-950 shadow-sm dark:bg-white dark:text-gray-950' : 'text-gray-500 dark:text-gray-400'}`}>{label}</button>
-          ))}
-        </div>
-      )}
-
       {!loadError && agreements.length === 0 ? (
         <div className="mt-8 rounded-3xl border border-gray-200 bg-white px-6 py-12 text-center dark:border-white/10 dark:bg-[#18181b]">
           <h2 className="text-lg font-semibold text-gray-950 dark:text-white">No agreements yet</h2>
@@ -406,8 +378,8 @@ export default function AgreementDashboard() {
         </div>
       ) : !loadError && (
         <>
-          <div className="mt-7 grid gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-            <div className={`space-y-2 ${mobileDetailOpen ? 'hidden lg:block' : ''}`}>
+          <div className="mt-5 grid gap-4">
+            <div className={`space-y-2 ${mobileDetailOpen ? 'hidden' : ''}`}>
               {filteredAgreements.map(agreement => (
                 <button
                   type="button"
@@ -434,8 +406,8 @@ export default function AgreementDashboard() {
             </div>
 
             {active && (
-              <article className={`${mobileDetailOpen ? '' : 'hidden lg:block'} rounded-3xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#18181b] sm:p-6`}>
-                <button type="button" onClick={closeMobileAgreement} className="mb-5 inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-950 dark:text-gray-400 dark:hover:text-white lg:hidden">
+              <article className={`${mobileDetailOpen ? '' : 'hidden'} rounded-3xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#18181b] sm:p-6`}>
+                <button type="button" onClick={closeMobileAgreement} className="mb-5 inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-950 dark:text-gray-400 dark:hover:text-white">
                   <ChevronLeftIcon className="h-4 w-4" />
                   All agreements
                 </button>

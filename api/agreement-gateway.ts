@@ -25,6 +25,10 @@ const TERMINAL_AGREEMENT_STATUSES = new Set(['completed', 'cancelled', 'refunded
 type OwnedAgreement = {
   agreementId: string
   ownerHash: string
+  payerHash?: string
+  payerReviewPath?: string
+  source?: 'direct' | 'upfront'
+  declinedAt?: string
   createdAt: string
   updatedAt: string
 }
@@ -96,6 +100,10 @@ function httpError(message: string, status: number) {
 
 function bearer(req: Pick<Request, 'headers'>) {
   return String(req.headers.authorization ?? '').match(/^Bearer\s+(.+)$/i)?.[1]?.trim() ?? ''
+}
+
+function payerHash(secret: string, email: string) {
+  return createHmac('sha256', secret).update(`hashpaystream.payer\0${email.trim().toLowerCase()}`).digest('hex')
 }
 
 async function verifiedIdentity(req: Request) {
@@ -295,6 +303,18 @@ function standaloneAgreementView(value: unknown, eventStore: AgreementEventStore
   }
 }
 
+function agreementWithCustomerDecision(value: unknown, record: OwnedAgreement, eventStore: AgreementEventStore | undefined) {
+  const agreement = standaloneAgreementView(value, eventStore)
+  const status = clean((agreement as Record<string, unknown>).status, 40)
+  return {
+    ...agreement,
+    customerRequest: {
+      decision: record.declinedAt ? 'declined' : status === 'awaiting_start' ? 'pending' : 'accepted',
+      updatedAt: record.declinedAt || record.updatedAt,
+    },
+  }
+}
+
 function requireCheckoutMode(value: unknown, expected: 'human' | 'agentic') {
   const agreement = value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -353,11 +373,11 @@ export function createHashPayStreamAgreementGateway(
         const requestedId = clean(req.query?.id, 80)
         if (requestedId) {
           if (!AGREEMENT_ID.test(requestedId)) throw httpError('Agreement id is invalid.', 400)
-          ownedAgreement(store, requestedId, owner)
+          const ownership = ownedAgreement(store, requestedId, owner)
           const upstream = await dependencies.upstream({ method: 'GET', path: `/api/v2/agreements?id=${encodeURIComponent(requestedId)}` })
           if (upstream.status !== 200 || upstream.body.ok !== true) throw upstreamError(upstream)
           requireCheckoutMode(upstream.body.agreement, options.checkoutMode)
-          const agreement = standaloneAgreementView(upstream.body.agreement, eventStore)
+          const agreement = agreementWithCustomerDecision(upstream.body.agreement, ownership, eventStore)
           if (clean((agreement as Record<string, unknown>).id, 80) !== requestedId) {
             throw httpError('Hash PayLink returned an invalid agreement.', 502)
           }
@@ -390,7 +410,7 @@ export function createHashPayStreamAgreementGateway(
         }
         const agreements = owned.flatMap(record => {
           const agreement = returnedById.get(record.agreementId)
-          return agreement ? [standaloneAgreementView(agreement, eventStore)] : []
+          return agreement ? [agreementWithCustomerDecision(agreement, record, eventStore)] : []
         })
         return res.json(gatewayResponse({ ok: true, agreements }, options))
       }
@@ -480,7 +500,10 @@ export function createHashPayStreamAgreementGateway(
         }
         const agreementId = clean(body.agreementId, 80)
         if (!AGREEMENT_ID.test(agreementId)) throw httpError('Agreement id is invalid.', 400)
-        ownedAgreement(store, agreementId, owner)
+        const ownership = ownedAgreement(store, agreementId, owner)
+        if (action === 'rotate_payer_link' && ownership.declinedAt) {
+          throw httpError('The customer declined this request. Create a new agreement to send new terms.', 409)
+        }
         const upstream = await dependencies.upstream({
           method: 'POST',
           path: '/api/v2/agreements',
@@ -494,6 +517,18 @@ export function createHashPayStreamAgreementGateway(
           },
         })
         if (upstream.status < 200 || upstream.status >= 300 || upstream.body.ok !== true) throw upstreamError(upstream)
+        if (action === 'rotate_payer_link') {
+          const payerReviewPath = clean(upstream.body.payerReviewPath, 500)
+          if (!payerReviewPath.startsWith('/')) throw httpError('Hash PayLink returned an invalid payer link.', 502)
+          const timestamp = dependencies.now().toISOString()
+          await dependencies.mutate(config.storeKey, current => {
+            const next = safeStore(current)
+            const existing = next.agreements[agreementId]
+            if (!existing || existing.ownerHash !== owner) throw httpError('Agreement ownership is unavailable.', 404)
+            next.agreements[agreementId] = { ...existing, payerReviewPath, updatedAt: timestamp }
+            return next
+          })
+        }
         return res.status(upstream.status).json(upstream.body)
       }
 
@@ -532,6 +567,8 @@ export function createHashPayStreamAgreementGateway(
       requireCheckoutMode(agreement, options.checkoutMode)
       const agreementId = clean(agreement.id, 80)
       if (!AGREEMENT_ID.test(agreementId)) throw httpError('Hash PayLink returned an invalid agreement.', 502)
+      const payerEmail = clean(body.payerEmail, 254).toLowerCase()
+      const payerReviewPath = clean(upstream.body.payerReviewPath, 500)
       const timestamp = dependencies.now().toISOString()
       await dependencies.mutate(config.storeKey, current => {
         const next = safeStore(current)
@@ -540,6 +577,9 @@ export function createHashPayStreamAgreementGateway(
         next.agreements[agreementId] = {
           agreementId,
           ownerHash: owner,
+          ...(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail) ? { payerHash: payerHash(config.ownershipSecret, payerEmail) } : {}),
+          ...(payerReviewPath.startsWith('/') ? { payerReviewPath } : {}),
+          source: options.apiKeyEnvironmentVariable === 'HASHPAYSTREAM_UPFRONT_ARC_API_KEY' ? 'upfront' : 'direct',
           createdAt: existing?.createdAt ?? timestamp,
           updatedAt: timestamp,
         }

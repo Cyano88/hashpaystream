@@ -47,7 +47,7 @@ const content: Record<LegalPage, {
     sections: [
       {
         title: 'Identity',
-        body: 'HashPayStream uses Privy for email-based authentication. Signing in does not automatically create a wallet, and external-wallet connection is disabled. If you choose an Upfront payout or approved-funder action, HashPayStream can create or recover a Privy embedded EVM wallet for that signed-in account.',
+        body: 'HashPayStream uses Privy to verify your email identity. After sign-in, Circle asks you to verify the same email and creates or restores your user-controlled Arc smart wallet. External-wallet connection is disabled for normal HashPayStream agreement and transfer flows. Approved funding-partner operations are separate and restricted.',
       },
       {
         title: 'Agreement records',
@@ -59,7 +59,7 @@ const content: Record<LegalPage, {
       },
       {
         title: 'Wallet security',
-        body: 'HashPayStream does not receive or store your wallet private key or recovery phrase. Privy manages embedded-wallet key material, and each fund-moving action still requires the approved wallet connection and explicit confirmation. Never send a private key, recovery phrase, login code, or server credential through an agreement or support message.',
+        body: 'HashPayStream does not receive or store your wallet private key or recovery phrase. Circle manages user-controlled wallet key material, and each fund-moving action requires Circle approval. Never send a private key, recovery phrase, login code, or server credential through an agreement or support message.',
       },
       {
         title: 'Questions and requests',

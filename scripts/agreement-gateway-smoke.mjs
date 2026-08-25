@@ -117,6 +117,16 @@ const dependencies = {
         },
       }
     }
+    if (input.method === 'POST' && input.body?.action === 'rotate_payer_link') {
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          agreement: { id: agreementId },
+          payerReviewPath: `/agreements/${agreementId}#access=agrp_rotated_capability`,
+        },
+      }
+    }
     if (input.path.includes('?ids=')) {
       return {
         status: 200,
@@ -159,6 +169,19 @@ assert.match(upstreamCalls[0].body.externalId, /^hps-[a-f0-9]{24}$/)
 assert.match(upstreamCalls[0].body.resourceId, /^agreement:[a-f0-9]{24}$/)
 assert.equal(upstreamCalls[0].body.payerEmail, 'customer@example.com')
 assert.notEqual(upstreamCalls[0].body.externalId, 'browser-must-not-control-this')
+
+const rotated = await call(handler, 'user-a', 'POST', { body: { action: 'rotate_payer_link', agreementId } })
+assert.equal(rotated.statusCode, 200)
+assert.match(rotated.body.payerReviewPath, /agrp_rotated_capability/)
+assert.match(store.agreements[agreementId].payerReviewPath, /agrp_rotated_capability/)
+
+store.agreements[agreementId].declinedAt = '2026-08-03T12:00:30.000Z'
+const callsBeforeDeclinedRotation = upstreamCalls.length
+const declinedRotation = await call(handler, 'user-a', 'POST', { body: { action: 'rotate_payer_link', agreementId } })
+assert.equal(declinedRotation.statusCode, 409)
+assert.match(declinedRotation.body.error, /customer declined/i)
+assert.equal(upstreamCalls.length, callsBeforeDeclinedRotation)
+delete store.agreements[agreementId].declinedAt
 
 const replayed = await call(handler, 'user-a', 'POST', {
   idempotencyKey: 'agreement:user-a:0001',

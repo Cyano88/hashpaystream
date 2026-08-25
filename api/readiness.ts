@@ -40,6 +40,16 @@ function validFunderAllowlist(env: NodeJS.ProcessEnv) {
     .some(value => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || /^0x[a-f0-9]{40}$/.test(value))
 }
 
+function missingCircleWalletEnvironmentNames(env: NodeJS.ProcessEnv) {
+  return ['CIRCLE_TEST_API_KEY', 'VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET']
+    .filter(name => !clean(env[name], 500))
+}
+
+function circleWalletConfigurationReady(env: NodeJS.ProcessEnv) {
+  return clean(env.CIRCLE_TEST_API_KEY, 500).length >= 16
+    && clean(env.VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET, 180).length >= 16
+}
+
 function missingUpfrontEnvironmentNames(env: NodeJS.ProcessEnv) {
   if (clean(env.HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() !== 'true') return []
   const required = [
@@ -70,7 +80,6 @@ function missingUpfrontEnvironmentNames(env: NodeJS.ProcessEnv) {
     'VITE_HASHPAYSTREAM_UPFRONT_ENABLED',
     'VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED',
     'HASHPAYSTREAM_DIRECT_ARC_ENABLED',
-    'VITE_HASHPAYSTREAM_DIRECT_ARC_ENABLED',
   ].filter(name => !clean(env[name], 300))
   if (!clean(env.PRIVY_APP_ID ?? env.VITE_PRIVY_APP_ID, 180)) required.push('PRIVY_APP_ID_OR_VITE_PRIVY_APP_ID')
   if (!validFunderAllowlist(env)) required.push('HASHPAYSTREAM_UPFRONT_FUNDER_EMAILS_OR_WALLETS')
@@ -134,8 +143,7 @@ function upfrontConfigurationReady(env: NodeJS.ProcessEnv) {
     && validFunderAllowlist(env)
     && clean(env.VITE_HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() === 'true'
     && clean(env.VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED, 20).toLowerCase() === 'true'
-    && clean(env.HASHPAYSTREAM_DIRECT_ARC_ENABLED, 20).toLowerCase() === 'false'
-    && clean(env.VITE_HASHPAYSTREAM_DIRECT_ARC_ENABLED, 20).toLowerCase() === 'false'
+    && clean(env.HASHPAYSTREAM_DIRECT_ARC_ENABLED, 20).toLowerCase() === 'true'
   )
 }
 
@@ -172,7 +180,7 @@ function upfrontConfigurationIssueCodes(env: NodeJS.ProcessEnv) {
   }
   if (!validFunderAllowlist(env)) issues.push('FUNDER_ALLOWLIST_INVALID')
   if (clean(env.VITE_HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() !== 'true' || clean(env.VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED, 20).toLowerCase() !== 'true') issues.push('UPFRONT_BROWSER_FLAGS_INVALID')
-  if (clean(env.HASHPAYSTREAM_DIRECT_ARC_ENABLED, 20).toLowerCase() !== 'false' || clean(env.VITE_HASHPAYSTREAM_DIRECT_ARC_ENABLED, 20).toLowerCase() !== 'false') issues.push('DIRECT_ARC_FLAGS_INVALID')
+  if (clean(env.HASHPAYSTREAM_DIRECT_ARC_ENABLED, 20).toLowerCase() !== 'true') issues.push('DIRECT_ARC_CONFIGURATION_INVALID')
   return [...new Set(issues)].sort()
 }
 
@@ -215,6 +223,7 @@ export function createHashPayStreamReadinessHandler(
     try {
       if (!dependencies.hasStore()) throw new Error('Durable store is unavailable.')
       env = dependencies.env()
+      if (!circleWalletConfigurationReady(env)) throw new Error('Circle wallet configuration is incomplete.')
       if (!upfrontConfigurationReady(env)) throw new Error('Upfront configuration is incomplete.')
       const ownershipStoreKey = String(
         env.HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY ?? DEFAULT_OWNERSHIP_STORE_KEY,
@@ -228,8 +237,11 @@ export function createHashPayStreamReadinessHandler(
       return res.status(200).json({ ok: true, service: 'hashpaystream', status: 'ready' })
     } catch {
       try {
-        const missingEnvironment = missingUpfrontEnvironmentNames(env)
-        const configurationIssues = upfrontConfigurationIssueCodes(env)
+        const missingEnvironment = [...new Set([...missingCircleWalletEnvironmentNames(env), ...missingUpfrontEnvironmentNames(env)])].sort()
+        const configurationIssues = [...new Set([
+          ...(!circleWalletConfigurationReady(env) ? ['CIRCLE_WALLET_CONFIGURATION_INVALID'] : []),
+          ...upfrontConfigurationIssueCodes(env),
+        ])].sort()
         dependencies.logError({
           component: 'hashpaystream-readiness',
           event: 'dependency_unavailable',

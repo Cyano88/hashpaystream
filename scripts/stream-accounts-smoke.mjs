@@ -34,6 +34,11 @@ const handler = createStreamAccountsHandler({
     assert.equal(hash, txHash)
     return { from: ownerWallet, to: usdc, input: transferInput, success: true }
   },
+  circleWallets: async token => token === 'circle-owner'
+    ? [{ id: 'wallet-owner', address: ownerWallet, blockchain: 'ARC-TESTNET', accountType: 'SCA', state: 'LIVE' }]
+    : token === 'circle-recipient'
+      ? [{ id: 'wallet-recipient', address: recipientWallet, blockchain: 'ARC-TESTNET', accountType: 'SCA', state: 'LIVE' }]
+      : [],
   env: () => ({ HASHPAYSTREAM_APP_OWNERSHIP_SECRET: 's'.repeat(48), HASHPAYSTREAM_ACCOUNT_STORE_KEY: 'accounts-test' }),
   now: () => new Date('2026-08-25T12:00:00.000Z'),
   id: () => 'txa_11111111-1111-4111-8111-111111111111',
@@ -44,7 +49,16 @@ const recipient = await call(handler, { token: 'recipient' })
 assert.match(owner.body.profile.pocketId, /^\d{10}$/)
 assert.match(recipient.body.profile.pocketId, /^\d{10}$/)
 assert.notEqual(owner.body.profile.pocketId, recipient.body.profile.pocketId)
-assert.equal(owner.body.profile.walletAddress, ownerWallet)
+assert.equal(owner.body.profile.walletAddress, '')
+
+const linkedOwner = await call(handler, { method: 'POST', body: { action: 'register_wallet', walletAddress: ownerWallet, circleUserToken: 'circle-owner' } })
+const linkedRecipient = await call(handler, { method: 'POST', token: 'recipient', body: { action: 'register_wallet', walletAddress: recipientWallet, circleUserToken: 'circle-recipient' } })
+assert.equal(linkedOwner.body.profile.walletAddress, ownerWallet)
+assert.equal(linkedRecipient.body.profile.walletAddress, recipientWallet)
+
+const customId = await call(handler, { method: 'POST', body: { action: 'update_pocket_id', pocketId: '123456789012' } })
+assert.equal(customId.statusCode, 200)
+assert.equal(customId.body.profile.pocketId, '123456789012')
 
 const resolved = await call(handler, { method: 'POST', body: { action: 'resolve_pocket_id', pocketId: recipient.body.profile.pocketId } })
 assert.equal(resolved.statusCode, 200)
@@ -59,9 +73,9 @@ const ownerActivity = await call(handler, { query: { view: 'activity' } })
 const recipientActivity = await call(handler, { token: 'recipient', query: { view: 'activity' } })
 assert.equal(ownerActivity.body.activity[0].direction, 'sent')
 assert.equal(recipientActivity.body.activity[0].direction, 'received')
-assert.equal(recipientActivity.body.activity[0].counterpartyPocketId, owner.body.profile.pocketId)
+assert.equal(recipientActivity.body.activity[0].counterpartyPocketId, customId.body.profile.pocketId)
 
-const self = await call(handler, { method: 'POST', body: { action: 'resolve_pocket_id', pocketId: owner.body.profile.pocketId } })
+const self = await call(handler, { method: 'POST', body: { action: 'resolve_pocket_id', pocketId: customId.body.profile.pocketId } })
 assert.equal(self.statusCode, 409)
 const invalid = await call(handler, { method: 'POST', body: { action: 'resolve_pocket_id', pocketId: '123' } })
 assert.equal(invalid.statusCode, 400)

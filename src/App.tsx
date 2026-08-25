@@ -9,6 +9,8 @@ import StreamPayArcAgreementDocs from './components/docs/StreamPayArcAgreementDo
 import StreamPayCircleMarketplaceDocs from './components/docs/StreamPayCircleMarketplaceDocs'
 import StreamPayHome from './components/StreamPayHome'
 import StreamPayActivity from './components/StreamPayActivity'
+import StreamPayNotifications from './components/StreamPayNotifications'
+import StreamPayRequests from './components/StreamPayRequests'
 import StreamPayAccount from './components/StreamPayAccount'
 import StreamPayLegal from './components/StreamPayLegal'
 import StreamPayAgentDocsPage from './components/docs/StreamPayAgentDocsPage'
@@ -23,9 +25,10 @@ import { HashPayStreamSessionSplash } from './components/HashPayStreamSessionSpl
 import { BrowserRouter, Navigate, useLocation } from './lib/router'
 import { useHashPayStreamSessionSplash } from './lib/useHashPayStreamSessionSplash'
 import { LoadingRing } from './components/ui/LoadingRing'
+import { CircleWalletGate } from './components/CircleWalletGate'
 
-const UPFRONT_ENABLED = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ENABLED ?? '').toLowerCase() === 'true'
-const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/upfront', '/funding', '/send', '/receive', '/activity', '/account', '/operations', '/admin/analytics'])
+const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/upfront', '/funding', '/send', '/receive', '/activity', '/notifications', '/requests', '/account', '/operations', '/admin/analytics'])
+const CIRCLE_ROUTES = new Set(['/home', '/agreements', '/agreements/new', '/upfront', '/funding', '/send', '/receive', '/activity', '/notifications', '/requests', '/account'])
 const SESSION_READY_TIMEOUT_MS = 12_000
 
 function SessionLoadingSurface({ sessionDelayed, onRetry }: { sessionDelayed: boolean; onRetry: () => void }) {
@@ -48,7 +51,7 @@ function SessionLoadingSurface({ sessionDelayed, onRetry }: { sessionDelayed: bo
 
 function StreamPayRoute() {
   const { pathname } = useLocation()
-  const { ready } = usePrivy()
+  const { ready, authenticated } = usePrivy()
   const route = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
   const authDecisionRoute = AUTH_DECISION_ROUTES.has(route)
   const splashState = useHashPayStreamSessionSplash(authDecisionRoute, ready)
@@ -81,12 +84,14 @@ function StreamPayRoute() {
   else if (route === '/home') content = <StreamPayHome />
   else if (route === '/agreements') content = <AgreementDashboard />
   else if (route === '/agreements/new') content = <FixedAgreementForm />
-  else if (route === '/upfront') content = UPFRONT_ENABLED ? <StreamPayUpfront /> : <Navigate to="/home" replace />
+  else if (route === '/upfront') content = <StreamPayUpfront />
   else if (route === '/funding') content = <StreamPayFunding />
   else if (route === '/send') content = <StreamPaySend />
   else if (route === '/receive') content = <StreamPayReceive />
   else if (route === '/upfront/funding') content = <Navigate to="/funding" replace />
   else if (route === '/activity') content = <StreamPayActivity />
+  else if (route === '/notifications') content = <StreamPayNotifications />
+  else if (route === '/requests') content = <StreamPayRequests />
   else if (route === '/account') content = <StreamPayAccount />
   else if (route === '/operations') content = <StreamPayOperations />
   else if (route === '/admin/analytics') content = <StreamPayAnalytics />
@@ -100,7 +105,7 @@ function StreamPayRoute() {
   else if (route === '/privacy') content = <StreamPayLegal page="privacy" />
   else content = <Navigate to="/" replace />
 
-  return <StreamPayLayout>{content}</StreamPayLayout>
+  return <StreamPayLayout>{authenticated && CIRCLE_ROUTES.has(route) ? <CircleWalletGate>{content}</CircleWalletGate> : content}</StreamPayLayout>
 }
 
 export default function App() {

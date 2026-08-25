@@ -26,12 +26,17 @@ export function AgreementSignInLanding({ splashState, compact = false }: { splas
         <a href="https://x.com/Hash_PayLink" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-700 dark:hover:text-gray-200">Support</a>
       </div>
       <a
-        href="https://testnet.arcscan.app"
+        href="https://app.hashpaylink.com"
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-4 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-300 transition-colors hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400"
+        aria-label="Powered by Hash PayLink"
+        className="mt-4 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
       >
-        Powered by Arc
+        <span>Powered by</span>
+        <span aria-hidden="true" className="grid h-3.5 w-3.5 place-items-center overflow-hidden bg-[#05060f]">
+          <img src="/brand/hashpaylink-mark-dark.png" alt="" className="h-[9px] w-[9px] object-contain" />
+        </span>
+        <span>Hash PayLink</span>
       </a>
 
       {splashActive && (

@@ -26,6 +26,8 @@ const ready = createHashPayStreamReadinessHandler({
   read: async key => { reads.push(key); return undefined },
   env: () => ({
     HASHPAYSTREAM_APP_OWNERSHIP_STORE_KEY: 'test:hashpaystream:owners',
+    CIRCLE_TEST_API_KEY: 'circle-test-key-long-enough',
+    VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET: 'circle-app-id-long-enough',
     HASHPAYSTREAM_AGENT_CREDENTIAL_PEPPER: 'readiness-registry-pepper-longer-than-thirty-two-characters',
     HASHPAYSTREAM_AGENT_CREDENTIAL_STORE_KEY: 'test:hashpaystream:credentials',
   }),
@@ -53,14 +55,14 @@ assert.equal(drainingRead, false)
 const disabledPilot = createHashPayStreamReadinessHandler({
   hasStore: () => true,
   read: async key => { assert.equal(key, 'hashpaystream:agreement-owners:v1'); return undefined },
-  env: () => ({}),
+  env: () => ({ CIRCLE_TEST_API_KEY: 'circle-test-key-long-enough', VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET: 'circle-app-id-long-enough' }),
 })
 assert.equal((await call(disabledPilot)).statusCode, 200)
 
 const incompleteUpfront = createHashPayStreamReadinessHandler({
   hasStore: () => true,
   read: async () => undefined,
-  env: () => ({ HASHPAYSTREAM_UPFRONT_ENABLED: 'true' }),
+  env: () => ({ HASHPAYSTREAM_UPFRONT_ENABLED: 'true', CIRCLE_TEST_API_KEY: 'circle-test-key-long-enough', VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET: 'circle-app-id-long-enough' }),
   logError: event => {
     assert.equal(event.missingEnvironment.includes('HASHPAYSTREAM_ZEROSCOUT_API_KEY'), true)
     assert.equal(event.missingEnvironment.includes('HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY'), true)
@@ -75,10 +77,12 @@ const repaymentKey = `0x${'2'.repeat(64)}`
 const completeUpfrontEnvironment = {
   HASHPAYSTREAM_UPFRONT_ENABLED: 'true',
   VITE_HASHPAYSTREAM_UPFRONT_ENABLED: 'true',
-  HASHPAYSTREAM_DIRECT_ARC_ENABLED: 'false',
+  HASHPAYSTREAM_DIRECT_ARC_ENABLED: 'true',
   VITE_HASHPAYSTREAM_DIRECT_ARC_ENABLED: 'false',
   PRIVY_APP_ID: 'privy-test-app',
   PRIVY_APP_SECRET: 'privy-test-secret-long-enough',
+  CIRCLE_TEST_API_KEY: 'circle-test-key-long-enough',
+  VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET: 'circle-app-id-long-enough',
   HASHPAYSTREAM_APP_OWNERSHIP_SECRET: 'ownership-secret-longer-than-thirty-two-characters',
   HASHPAYSTREAM_UPFRONT_STORE_KEY: 'test:hashpaystream:upfront',
   HASHPAYSTREAM_UPFRONT_ARC_API_KEY: 'hpl_test_12345678901234567890123456789012',
@@ -114,6 +118,12 @@ const completeUpfront = createHashPayStreamReadinessHandler({
 })
 assert.equal((await call(completeUpfront)).statusCode, 200)
 
+for (const requiredName of ['CIRCLE_TEST_API_KEY', 'VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET']) {
+  const environment = { ...completeUpfrontEnvironment, [requiredName]: '' }
+  const missingCircle = createHashPayStreamReadinessHandler({ hasStore: () => true, read: async () => undefined, env: () => environment })
+  assert.equal((await call(missingCircle)).statusCode, 503, `${requiredName} must be required for readiness`)
+}
+
 for (const requiredName of [
   'HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_SECRET',
   'HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY',
@@ -146,6 +156,8 @@ assert.deepEqual(unavailableEvents, [{
   component: 'hashpaystream-readiness',
   event: 'dependency_unavailable',
   status: 503,
+  missingEnvironment: ['CIRCLE_TEST_API_KEY', 'VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET'],
+  configurationIssues: ['CIRCLE_WALLET_CONFIGURATION_INVALID'],
 }])
 assert.equal(JSON.stringify(unavailableEvents).includes('must-not-be-logged'), false)
 

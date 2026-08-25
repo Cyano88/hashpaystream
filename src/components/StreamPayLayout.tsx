@@ -9,7 +9,7 @@ export function StreamPayLayout({ children }: { children: ReactNode }) {
   const { authenticated } = usePrivy()
   const foundationPage = (pathname.replace(/\/+$/, '') || '/') === '/'
   const route = pathname.replace(/\/+$/, '')
-  const mobileAppPage = authenticated && ['/home', '/agreements', '/agreements/new', '/upfront', '/funding', '/send', '/receive', '/activity', '/account'].includes(route)
+  const mobileAppPage = authenticated && ['/home', '/agreements', '/agreements/new', '/upfront', '/funding', '/send', '/receive', '/activity', '/notifications', '/requests', '/account'].includes(route)
 
   return (
     <div className="min-h-screen w-full bg-[#F5F5F7] dark:bg-[#111113] font-sans flex flex-col">

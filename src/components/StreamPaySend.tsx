@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowLeftIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
-import { createWalletClient, custom, getAddress, isAddress, parseUnits } from 'viem'
+import { getAddress, isAddress, parseUnits } from 'viem'
 import { Link } from '../lib/router'
-import { ARC_USDC, ARC_USDC_ABI, arcPublicClient, arcTestnet, useArcWallet } from '../lib/arcWallet'
+import { useCircleWallet } from '../lib/circleWallet'
 import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSplash'
 import { useStreamAccount } from '../lib/streamAccount'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
@@ -15,7 +15,7 @@ export default function StreamPaySend() {
   const { authenticated } = usePrivy()
   const splashState = useHashPayStreamSessionSplash(!authenticated)
   const account = useStreamAccount()
-  const wallet = useArcWallet()
+  const wallet = useCircleWallet()
   const [mode, setMode] = useState<Mode>('pocket')
   const [pocketId, setPocketId] = useState('')
   const [address, setAddress] = useState('')
@@ -42,18 +42,11 @@ export default function StreamPaySend() {
       if (!isAddress(recipient)) throw new Error(mode === 'pocket' ? 'Verify the Pocket ID first.' : 'Enter a valid Arc wallet address.')
       const units = parseUnits(amount, 6)
       if (units <= 0n) throw new Error('Enter an amount greater than zero.')
-      const signer = await wallet.ensureSigner()
-      await account.registerWallet(signer.address)
-      await signer.switchChain(arcTestnet.id)
-      const provider = await signer.getEthereumProvider()
-      const client = createWalletClient({ account: getAddress(signer.address), chain: arcTestnet, transport: custom(provider) })
-      const txHash = await client.writeContract({ address: ARC_USDC, abi: ARC_USDC_ABI, functionName: 'transfer', args: [getAddress(recipient), units] })
-      const receipt = await arcPublicClient.waitForTransactionReceipt({ hash: txHash })
-      if (receipt.status !== 'success') throw new Error('The Arc transfer did not complete.')
+      if (!wallet.session) throw new Error('Your Circle wallet is not ready.')
+      const txHash = await wallet.sendUsdc(getAddress(recipient), amount)
       setHash(txHash)
       window.localStorage.setItem('hashpaystream.pendingArcTransfer', txHash)
       try { await account.recordTransfer(txHash); window.localStorage.removeItem('hashpaystream.pendingArcTransfer') } catch { /* Activity retries this confirmed hash */ }
-      await wallet.refreshBalance()
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Arc USDC could not be sent.') } finally { setBusy(false) }
   }
 
@@ -68,7 +61,7 @@ export default function StreamPaySend() {
       <label className="block"><span className="flex items-center justify-between text-[11px] font-bold text-gray-500"><span>Amount</span><button type="button" onClick={() => setAmount(wallet.balance)} className="text-blue-600">Max</button></span><span className="mt-2 flex items-center rounded-2xl border border-gray-200 px-4 dark:border-white/10"><input inputMode="decimal" value={amount} onChange={event => setAmount(event.target.value.replace(/[^\d.]/g, ''))} placeholder="0.00" className="min-w-0 flex-1 bg-transparent py-4 text-base font-bold outline-none" /><b className="text-xs text-gray-400">USDC</b></span></label>
       {(error || account.error) && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700 dark:bg-red-400/10 dark:text-red-200">{error || account.error}</p>}
       <button type="button" disabled={busy || !amount || !address} onClick={() => void send()} className="w-full rounded-full bg-gray-950 px-5 py-4 text-sm font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950">{busy ? 'Confirming on Arc…' : 'Confirm send'}</button>
-      <p className="text-center text-[10px] leading-4 text-gray-400">Test USDC has no financial value. Review the recipient before confirming.</p>
+      <p className="text-center text-[10px] leading-4 text-gray-400">Circle will ask you to approve before test USDC moves.</p>
     </div>
   </section>
 }

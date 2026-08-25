@@ -18,6 +18,8 @@ import upfrontProtection from './api/upfront-protection.js'
 import upfrontOpportunities from './api/upfront-opportunities.js'
 import fundingPartners from './api/funding-partners.js'
 import streamAccounts from './api/stream-accounts.js'
+import circleWallet from './api/circle-wallet.js'
+import customerRequests from './api/customer-requests.js'
 import {
   createCircleMarketplacePaymentHandler,
   createCircleMarketplaceResourceHandler,
@@ -47,9 +49,9 @@ app.use((_req, res, next) => {
     "img-src 'self' data: blob:",
     "font-src 'self' data: https://fonts.gstatic.com",
     "object-src 'none'",
-    "child-src https://auth.privy.io https://verify.walletconnect.com https://verify.walletconnect.org",
-    "frame-src https://auth.privy.io https://verify.walletconnect.com https://verify.walletconnect.org https://challenges.cloudflare.com",
-    "connect-src 'self' https://auth.privy.io wss://relay.walletconnect.com wss://relay.walletconnect.org wss://www.walletlink.org https://*.rpc.privy.systems https://explorer-api.walletconnect.com",
+    "child-src https://auth.privy.io https://pw-auth.circle.com https://verify.walletconnect.com https://verify.walletconnect.org",
+    "frame-src https://auth.privy.io https://pw-auth.circle.com https://verify.walletconnect.com https://verify.walletconnect.org https://challenges.cloudflare.com",
+    "connect-src 'self' https://auth.privy.io https://pw-auth.circle.com wss://relay.walletconnect.com wss://relay.walletconnect.org wss://www.walletlink.org https://*.rpc.privy.systems https://explorer-api.walletconnect.com",
     "worker-src 'self'",
     "manifest-src 'self'",
     "frame-ancestors 'none'",
@@ -111,6 +113,17 @@ app.all('/api/hashpaystream/v1/funding-partners', (_req, res) => {
 app.get('/api/hashpaystream/v1/accounts', rateLimit({ name: 'account-read', windowMs: 60_000, max: 120 }), streamAccounts)
 app.post('/api/hashpaystream/v1/accounts', rateLimit({ name: 'account-write', windowMs: 60_000, max: 30 }), streamAccounts)
 app.all('/api/hashpaystream/v1/accounts', (_req, res) => {
+  res.setHeader('Allow', 'GET, POST')
+  return res.status(405).json({ ok: false, error: 'Method not allowed.' })
+})
+app.post('/api/hashpaystream/v1/circle-wallet', rateLimit({ name: 'circle-wallet', windowMs: 60_000, max: 30 }), circleWallet)
+app.all('/api/hashpaystream/v1/circle-wallet', (_req, res) => {
+  res.setHeader('Allow', 'POST')
+  return res.status(405).json({ ok: false, error: 'Method not allowed.' })
+})
+app.get('/api/hashpaystream/v1/requests', rateLimit({ name: 'request-read', windowMs: 60_000, max: 120 }), customerRequests)
+app.post('/api/hashpaystream/v1/requests', rateLimit({ name: 'request-write', windowMs: 60_000, max: 30 }), customerRequests)
+app.all('/api/hashpaystream/v1/requests', (_req, res) => {
   res.setHeader('Allow', 'GET, POST')
   return res.status(405).json({ ok: false, error: 'Method not allowed.' })
 })

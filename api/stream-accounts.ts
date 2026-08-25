@@ -3,12 +3,13 @@ import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
 import { createPublicClient, decodeFunctionData, getAddress, http, isAddress } from 'viem'
 import { hasRenderDurableStore, mutateDurableJson, readDurableJson } from './durable-store.js'
+import { listCircleArcWallets } from './circle-wallet.js'
 
 const DEFAULT_STORE_KEY = 'hashpaystream:accounts:v1'
 const ARC_USDC = getAddress('0x3600000000000000000000000000000000000000')
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const HASH = /^0x[a-fA-F0-9]{64}$/
-const POCKET_ID = /^\d{10}$/
+const POCKET_ID = /^\d{6,12}$/
 const transferAbi = [{
   type: 'function', name: 'transfer', stateMutability: 'nonpayable',
   inputs: [{ name: 'to', type: 'address' }, { name: 'value', type: 'uint256' }],
@@ -20,7 +21,7 @@ type Transfer = {
   id: string; txHash: `0x${string}`; fromAccountKey: string; toAccountKey?: string; fromPocketId: string; toPocketId?: string
   fromAddress: string; toAddress: string; amountUsdcUnits: string; createdAt: string
 }
-type Store = { schema: 1; accounts: Record<string, Account>; transfers: Record<string, Transfer> }
+type Store = { schema: 1; accounts: Record<string, Account>; transfers: Record<string, Transfer>; reservedPocketIds?: Record<string, string> }
 type Identity = { email: string; emails: string[]; wallets: string[] }
 type Dependencies = {
   hasStore: () => boolean
@@ -28,6 +29,7 @@ type Dependencies = {
   mutate: (key: string, update: (current: Store | undefined) => Store | Promise<Store>) => Promise<Store>
   identity: (req: Request, env: NodeJS.ProcessEnv) => Promise<Identity>
   transaction: (hash: `0x${string}`, rpcUrl: string) => Promise<{ from: string; to: string | null; input: `0x${string}`; success: boolean }>
+  circleWallets: typeof listCircleArcWallets
   env: () => NodeJS.ProcessEnv; now: () => Date; id: () => string
 }
 
@@ -55,7 +57,7 @@ async function verifiedIdentity(req: Request, env: NodeJS.ProcessEnv): Promise<I
 }
 
 function safeStore(value?: Store): Store {
-  return value?.schema === 1 && value.accounts && value.transfers ? { schema: 1, accounts: { ...value.accounts }, transfers: { ...value.transfers } } : { schema: 1, accounts: {}, transfers: {} }
+  return value?.schema === 1 && value.accounts && value.transfers ? { schema: 1, accounts: { ...value.accounts }, transfers: { ...value.transfers }, reservedPocketIds: { ...(value.reservedPocketIds ?? {}) } } : { schema: 1, accounts: {}, transfers: {}, reservedPocketIds: {} }
 }
 function configuration(env: NodeJS.ProcessEnv) {
   const secret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300)
@@ -81,10 +83,7 @@ function ensureAccount(store: Store, identity: Identity, secret: string, now: st
     let attempt = 0
     let nextId = makePocketId(secret, identity.email, attempt)
     while (Object.values(store.accounts).some(item => item.pocketId === nextId)) nextId = makePocketId(secret, identity.email, ++attempt)
-    account = { accountKey: keys[0], email: identity.email, displayName: displayName(identity.email), pocketId: nextId, walletAddress: identity.wallets.length === 1 ? identity.wallets[0] : undefined, createdAt: now, updatedAt: now }
-    store.accounts[account.accountKey] = account
-  } else if (!account.walletAddress && identity.wallets.length === 1) {
-    account = { ...account, walletAddress: identity.wallets[0], updatedAt: now }
+    account = { accountKey: keys[0], email: identity.email, displayName: displayName(identity.email), pocketId: nextId, createdAt: now, updatedAt: now }
     store.accounts[account.accountKey] = account
   }
   return account
@@ -98,6 +97,7 @@ async function readTransaction(hash: `0x${string}`, rpcUrl: string) {
 const defaults: Dependencies = {
   hasStore: hasRenderDurableStore, read: key => readDurableJson<Store>(key), mutate: (key, update) => mutateDurableJson<Store>(key, update),
   identity: verifiedIdentity, transaction: readTransaction, env: () => process.env, now: () => new Date(), id: () => `txa_${randomUUID()}`,
+  circleWallets: listCircleArcWallets,
 }
 
 export function createStreamAccountsHandler(overrides: Partial<Dependencies> = {}) {
@@ -127,18 +127,41 @@ export function createStreamAccountsHandler(overrides: Partial<Dependencies> = {
       const action = clean(body.action, 32)
       if (action === 'register_wallet') {
         const walletAddress = clean(body.walletAddress, 42)
-        if (!isAddress(walletAddress) || !identity.wallets.some(value => getAddress(value) === getAddress(walletAddress))) fail('This wallet is not verified for your HashPayStream account.', 403)
+        const circleUserToken = clean(body.circleUserToken, 8_000)
+        const circleWallets = circleUserToken ? await dependencies.circleWallets(circleUserToken, env) : []
+        const verified = isAddress(walletAddress) && (identity.wallets.some(value => getAddress(value) === getAddress(walletAddress)) || circleWallets.some(wallet => getAddress(wallet.address) === getAddress(walletAddress)))
+        if (!verified) fail('This Circle wallet is not verified for your HashPayStream account.', 403)
         const nextAccount = { ...account, walletAddress: getAddress(walletAddress), updatedAt: dependencies.now().toISOString() }
         await dependencies.mutate(config.storeKey, current => { const next = safeStore(current); next.accounts[account.accountKey] = nextAccount; return next })
         return res.json({ ok: true, profile: { ...publicAccount(nextAccount), email: nextAccount.email } })
       }
       if (action === 'resolve_pocket_id') {
-        const requested = clean(body.pocketId, 10)
-        if (!POCKET_ID.test(requested)) fail('Enter a valid 10-digit Pocket ID.', 400)
+        const requested = clean(body.pocketId, 12)
+        if (!POCKET_ID.test(requested)) fail('Enter a valid 6 to 12 digit Pocket ID.', 400)
         const recipient = Object.values(stored.accounts).find(item => item.pocketId === requested)
         if (!recipient?.walletAddress) fail('This Pocket ID cannot receive Arc USDC yet.', 404)
         if (recipient.accountKey === account.accountKey) fail('Choose another Pocket ID.', 409)
         return res.json({ ok: true, recipient: publicAccount(recipient) })
+      }
+      if (action === 'update_pocket_id') {
+        const pocketId = clean(body.pocketId, 12)
+        if (!POCKET_ID.test(pocketId)) fail('Pocket ID must contain 6 to 12 digits.', 400)
+        let updated!: Account
+        await dependencies.mutate(config.storeKey, current => {
+          const next = safeStore(current)
+          const activeOwner = Object.values(next.accounts).find(item => item.pocketId === pocketId)?.accountKey
+          const reservedOwner = next.reservedPocketIds?.[pocketId]
+          if ((activeOwner && activeOwner !== account.accountKey) || (reservedOwner && reservedOwner !== account.accountKey)) fail('That Pocket ID is not available.', 409)
+          const currentAccount = next.accounts[account.accountKey]
+          if (!currentAccount) fail('HashPayStream account was not found.', 404)
+          next.reservedPocketIds ??= {}
+          next.reservedPocketIds[currentAccount.pocketId] = account.accountKey
+          next.reservedPocketIds[pocketId] = account.accountKey
+          updated = { ...currentAccount, pocketId, updatedAt: dependencies.now().toISOString() }
+          next.accounts[account.accountKey] = updated
+          return next
+        })
+        return res.json({ ok: true, profile: { ...publicAccount(updated), email: updated.email } })
       }
       if (action === 'record_transfer') {
         const txHash = clean(body.txHash, 66) as `0x${string}`

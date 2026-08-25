@@ -1,12 +1,12 @@
-import { ClockIcon, DocumentTextIcon, HomeIcon, UserCircleIcon } from '@heroicons/react/24/outline'
+import { DocumentTextIcon, HomeIcon, InboxIcon, UserIcon } from '@heroicons/react/24/outline'
 import { Link, useLocation } from '../lib/router'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 
 const destinations = [
   { path: '/home', label: 'Home', Icon: HomeIcon },
   { path: '/agreements', label: 'Agreements', Icon: DocumentTextIcon },
-  { path: '/activity', label: 'Activity', Icon: ClockIcon },
-  { path: '/account', label: 'Account', Icon: UserCircleIcon },
+  { path: '/requests', label: 'Requests', Icon: InboxIcon },
+  { path: '/account', label: 'Account', Icon: UserIcon },
 ]
 
 export function StreamPayMobileNav() {
@@ -16,7 +16,11 @@ export function StreamPayMobileNav() {
   return (
     <nav aria-label="App navigation" className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200/80 bg-white/95 px-3 pb-[max(.45rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-xl dark:border-white/10 dark:bg-[#111113]/95">
       <div className="mx-auto grid max-w-md" style={{ gridTemplateColumns: `repeat(${destinations.length}, minmax(0, 1fr))` }}>
-        {destinations.map(({ path, label, Icon }) => <MobileDestination key={path} path={path} label={label} active={path === '/agreements' ? route.startsWith('/agreements') : route === path} Icon={Icon} />)}
+        {destinations.map(({ path, label, Icon }) => <MobileDestination key={path} path={path} label={label} active={
+          path === '/home' ? ['/home', '/agreements/new', '/upfront', '/send', '/receive', '/notifications', '/activity'].includes(route)
+            : path === '/account' ? ['/account', '/funding'].includes(route)
+            : route === path
+        } Icon={Icon} />)}
       </div>
     </nav>
   )

@@ -20,6 +20,10 @@ export type AgreementSummary = {
   }
   timeline?: Array<{ id: string; event: string; createdAt: string; receivedAt: string }>
   deliveryTimeline?: Array<{ id: string; event: string; createdAt: string }>
+  customerRequest?: {
+    decision: 'pending' | 'accepted' | 'declined'
+    updatedAt: string
+  }
   updatedAt: string
 }
 

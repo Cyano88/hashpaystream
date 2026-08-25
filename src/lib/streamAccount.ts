@@ -47,8 +47,8 @@ export function useStreamAccount(includeActivity = false) {
 
   useEffect(() => { if (ready) void refresh() }, [ready, refresh])
 
-  const registerWallet = useCallback(async (walletAddress: string) => {
-    const data = await request({ action: 'register_wallet', walletAddress })
+  const registerWallet = useCallback(async (walletAddress: string, circleUserToken?: string) => {
+    const data = await request({ action: 'register_wallet', walletAddress, ...(circleUserToken ? { circleUserToken } : {}) })
     if (data.profile) setProfile(data.profile)
     return data.profile
   }, [request])
@@ -62,6 +62,11 @@ export function useStreamAccount(includeActivity = false) {
   const recordTransfer = useCallback(async (txHash: string) => {
     await request({ action: 'record_transfer', txHash })
   }, [request])
+  const updatePocketId = useCallback(async (pocketId: string) => {
+    const data = await request({ action: 'update_pocket_id', pocketId })
+    if (data.profile) setProfile(data.profile)
+    return data.profile
+  }, [request])
 
-  return { profile, activity, loading, error, refresh, registerWallet, resolvePocketId, recordTransfer }
+  return { profile, activity, loading, error, refresh, registerWallet, resolvePocketId, recordTransfer, updatePocketId }
 }

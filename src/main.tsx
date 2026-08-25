@@ -9,8 +9,7 @@ import '@fontsource/plus-jakarta-sans/800.css'
 import './index.css'
 import App from './App'
 import { ThemeProvider, useTheme } from './lib/ThemeContext'
-import { upfrontTreasuryEnabled, upfrontXLayerChain } from './lib/upfrontChains'
-import { arcTestnet } from './lib/arcWallet'
+import { CircleWalletProvider } from './lib/circleWallet'
 
 const appId = String(import.meta.env.VITE_PRIVY_APP_ID || '').trim()
 const logoUrl = new URL('/brand/hashpaystream-logo.png', window.location.origin).toString()
@@ -27,10 +26,6 @@ function Providers() {
     allowOAuthInEmbeddedBrowsers: true,
     embeddedWallets: { ethereum: { createOnLogin: 'off' } },
     externalWallets: { disableAllExternalWallets: true },
-    ...(upfrontTreasuryEnabled ? {
-      defaultChain: upfrontXLayerChain,
-      supportedChains: [arcTestnet, upfrontXLayerChain],
-    } : { defaultChain: arcTestnet, supportedChains: [arcTestnet] }),
     appearance: {
       theme: theme === 'dark' ? 'dark' : 'light',
       accentColor: '#2563eb',
@@ -44,7 +39,7 @@ function Providers() {
       privacyPolicyUrl: privacyUrl,
     },
   }
-  return <PrivyProvider appId={appId} config={config}><App /></PrivyProvider>
+  return <PrivyProvider appId={appId} config={config}><CircleWalletProvider><App /></CircleWalletProvider></PrivyProvider>
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
