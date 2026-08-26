@@ -20,6 +20,7 @@ import fundingPartners from './api/funding-partners.js'
 import streamAccounts from './api/stream-accounts.js'
 import circleWallet from './api/circle-wallet.js'
 import customerRequests from './api/customer-requests.js'
+import serviceRequests from './api/service-requests.js'
 import {
   createCircleMarketplacePaymentHandler,
   createCircleMarketplaceResourceHandler,
@@ -124,6 +125,12 @@ app.all('/api/hashpaystream/v1/circle-wallet', (_req, res) => {
 app.get('/api/hashpaystream/v1/requests', rateLimit({ name: 'request-read', windowMs: 60_000, max: 120 }), customerRequests)
 app.post('/api/hashpaystream/v1/requests', rateLimit({ name: 'request-write', windowMs: 60_000, max: 30 }), customerRequests)
 app.all('/api/hashpaystream/v1/requests', (_req, res) => {
+  res.setHeader('Allow', 'GET, POST')
+  return res.status(405).json({ ok: false, error: 'Method not allowed.' })
+})
+app.get('/api/hashpaystream/v1/service-requests', rateLimit({ name: 'service-request-read', windowMs: 60_000, max: 120 }), serviceRequests)
+app.post('/api/hashpaystream/v1/service-requests', rateLimit({ name: 'service-request-write', windowMs: 60_000, max: 30 }), serviceRequests)
+app.all('/api/hashpaystream/v1/service-requests', (_req, res) => {
   res.setHeader('Allow', 'GET, POST')
   return res.status(405).json({ ok: false, error: 'Method not allowed.' })
 })

@@ -2,7 +2,7 @@ import { ArrowLeftIcon, BellIcon } from '@heroicons/react/24/outline'
 import { useEffect, useMemo } from 'react'
 import { Link } from '../lib/router'
 import { useAgreements } from '../lib/useAgreements'
-import { useCustomerRequests } from '../lib/customerRequests'
+import { useServiceRequests } from '../lib/serviceRequests'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
 import { buildStreamNotices, useNotificationReadState } from '../lib/streamNotifications'
@@ -14,7 +14,7 @@ function time(value: string) {
 
 export default function StreamPayNotifications() {
   const agreements = useAgreements()
-  const requests = useCustomerRequests()
+  const requests = useServiceRequests()
   const homeTo = useStreamPayPath('/home')
   const notices = useMemo(() => buildStreamNotices(agreements.agreements, requests.requests), [agreements.agreements, requests.requests])
   const { markAllRead } = useNotificationReadState(notices)

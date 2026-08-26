@@ -19,6 +19,7 @@
     "test:stream-accounts": "node --import tsx scripts/stream-accounts-smoke.mjs",
     "test:circle-wallet": "node --import tsx scripts/circle-session-smoke.mjs && node --import tsx scripts/circle-wallet-smoke.mjs",
     "test:customer-requests": "node --import tsx scripts/customer-requests-smoke.mjs",
+    "test:service-requests": "node --import tsx scripts/service-requests-smoke.mjs && node --import tsx scripts/service-requests-upfront-smoke.mjs",
     "test:notifications": "node --import tsx scripts/stream-notifications-smoke.mjs",
     "test:upfront-local-e2e": "node --import tsx scripts/upfront-local-e2e.mjs",
     "audit:upfront-mainnet": "node scripts/upfront-mainnet-readiness.mjs",
@@ -34,7 +35,7 @@
     "test:public-stats": "node --import tsx scripts/public-stats-smoke.mjs",
     "test:navigation-context": "node --import tsx scripts/stream-pay-path-smoke.mjs",
     "test:surface": "node scripts/standalone-surface-smoke.mjs",
-    "test:smoke": "npm run test:agreement-gateway && npm run test:upfront-agreement-gateway && npm run test:upfront-assessment && npm run test:funding-partners && npm run test:stream-accounts && npm run test:circle-wallet && npm run test:customer-requests && npm run test:notifications && npm run test:agent-credentials && npm run test:agent-agreement-gateway && npm run test:arc-webhook && npm run test:agent-arc-webhook && npm run test:upfront-arc-webhook && npm run test:circle-marketplace && npm run test:admin-analytics && npm run test:public-stats && npm run test:readiness && npm run test:shutdown && npm run test:navigation-context && npm run test:surface",
+    "test:smoke": "npm run test:agreement-gateway && npm run test:upfront-agreement-gateway && npm run test:upfront-assessment && npm run test:funding-partners && npm run test:stream-accounts && npm run test:circle-wallet && npm run test:customer-requests && npm run test:service-requests && npm run test:notifications && npm run test:agent-credentials && npm run test:agent-agreement-gateway && npm run test:arc-webhook && npm run test:agent-arc-webhook && npm run test:upfront-arc-webhook && npm run test:circle-marketplace && npm run test:admin-analytics && npm run test:public-stats && npm run test:readiness && npm run test:shutdown && npm run test:navigation-context && npm run test:surface",
     "agent:credentials": "node --import tsx scripts/agent-credential-admin.mjs",
     "audit:database-recovery": "node --import tsx scripts/database-recovery-audit.mjs",
     "test:circle-marketplace": "node --import tsx scripts/circle-marketplace-smoke.mjs"
@@ -71,6 +72,7 @@
   },
   "overrides": {
     "undici": "6.28.0",
+    "uuid": "11.1.1",
     "@coinbase/cdp-sdk": {
       "axios": "1.19.0"
     },

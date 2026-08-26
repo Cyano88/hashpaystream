@@ -18,21 +18,23 @@ const agreement = {
   ],
 }
 const request = {
-  id: 'agr_customer12345678',
-  title: 'Logo design',
-  description: 'Create the final logo package.',
-  amountUsdcUnits: '100000',
-  status: 'awaiting_start',
-  decision: 'to_review',
+  id: 'req_customer12345678',
+  role: 'provider',
+  direction: 'received',
+  counterparty: 'Customer',
+  status: 'sent',
+  activeVersion: 1,
+  terms: [{ version: 1, title: 'Logo design', description: 'Create the final logo package.', amount: '0.1', amountUsdcUnits: '100000', durationSeconds: 86400, cancellationWindowSeconds: 900, upfrontRequested: false, proposedBy: 'customer', createdAt: '2026-08-25T09:06:00.000Z' }],
+  events: [{ id: 'req_customer12345678:1', type: 'request.created', actor: 'customer', createdAt: '2026-08-25T09:06:00.000Z', version: 1 }],
   createdAt: '2026-08-25T09:06:00.000Z',
   updatedAt: '2026-08-25T09:06:00.000Z',
-  payerReviewPath: '/agreements/agr_customer12345678#access=private',
-  earlyPay: false,
+  agreementId: '',
+  payerReviewPath: '',
 }
 
 const notices = buildStreamNotices([agreement], [request])
 assert.equal(notices[0].title, 'New job request')
-assert.equal(notices[0].role, 'Worker')
+assert.equal(notices[0].role, 'Customer')
 assert.equal(notices.find(item => item.id === 'customer:agr_notification123456:declined')?.role, 'Customer')
 assert.equal(notices.find(item => item.id.includes('evt_delivery'))?.role, 'Worker')
 assert.equal(notices.find(item => item.id.includes('evt_concern'))?.role, 'Customer')

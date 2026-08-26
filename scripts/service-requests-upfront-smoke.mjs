@@ -1,0 +1,42 @@
+import assert from 'node:assert/strict'
+import { createHmac } from 'node:crypto'
+import { createServiceRequestsHandler } from '../api/service-requests.ts'
+
+const secret = 'u'.repeat(48)
+const customer = { userId: 'customer', email: 'customer@example.com' }
+const provider = { userId: 'provider', email: 'provider@example.com' }
+const accountKey = email => createHmac('sha256', secret).update(`hashpaystream.account\0${email}`).digest('hex')
+const router = '0x2222222222222222222222222222222222222222'
+let identity = customer
+let requests
+let ownership
+let upstreamInput
+const handler = createServiceRequestsHandler({
+  hasStore: () => true,
+  env: () => ({ HASHPAYSTREAM_APP_OWNERSHIP_SECRET: secret, HASHPAYSTREAM_ARC_API_KEY: `hpl_test_${'a'.repeat(40)}`, HASHPAYSTREAM_UPFRONT_ARC_API_KEY: `hpl_test_${'b'.repeat(40)}`, HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS: router }),
+  identity: async () => identity,
+  readRequests: async () => requests,
+  readEvents: async () => undefined,
+  mutateRequests: async (_key, update) => (requests = await update(requests)),
+  readAccounts: async () => ({ schema: 1, accounts: { [accountKey(provider.email)]: { accountKey: accountKey(provider.email), email: provider.email, displayName: 'Provider', pocketId: '1234567890', walletAddress: '0x1111111111111111111111111111111111111111' } } }),
+  mutateOwnership: async (_key, update) => (ownership = await update(ownership)),
+  upstream: async (_base, apiKey, body) => { upstreamInput = { apiKey, body }; return { status: 201, body: { ok: true, agreement: { id: 'agr_upfront123456789' }, payerReviewPath: '/agreements/agr_upfront123456789#access=private' } } },
+  now: () => new Date('2026-08-26T13:00:00.000Z'), id: () => 'req_upfront123456789',
+})
+function response() { return { statusCode: 200, body: undefined, setHeader() { return this }, status(code) { this.statusCode = code; return this }, json(body) { this.body = body; return this } } }
+async function call(method, body, headers = {}) { const res = response(); await handler({ method, body, headers, query: {} }, res); return res }
+
+const offer = await call('POST', { action: 'create', providerEmail: provider.email, title: 'Product photos', description: 'Shoot and deliver ten edited product photographs.', amount: '50', durationSeconds: 259200, cancellationWindowSeconds: 900 }, { 'idempotency-key': 'create-upfront-1' })
+identity = provider
+assert.equal((await call('POST', { action: 'provider_counter', requestId: offer.body.request.id, version: 1, upfrontRequested: true, upfrontReason: 'short' })).statusCode, 400)
+const countered = await call('POST', { action: 'provider_counter', requestId: offer.body.request.id, version: 1, amount: '55', upfrontRequested: true, upfrontReason: 'I need studio rental and materials before the shoot.' })
+assert.equal(countered.body.request.activeVersion, 2)
+identity = customer
+assert.equal((await call('POST', { action: 'customer_accept', requestId: offer.body.request.id, version: 1 })).statusCode, 409)
+const accepted = await call('POST', { action: 'customer_accept', requestId: offer.body.request.id, version: 2 })
+assert.equal(accepted.body.request.status, 'awaiting_funding')
+assert.equal(upstreamInput.body.recipient, router)
+assert.equal(upstreamInput.apiKey, `hpl_test_${'b'.repeat(40)}`)
+assert.equal(ownership.agreements.agr_upfront123456789.source, 'upfront')
+
+console.log('HashPayStream immutable early-pay negotiation, reason validation, stale-version rejection, and router isolation checks passed.')

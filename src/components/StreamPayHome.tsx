@@ -23,7 +23,7 @@ import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
 import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
 import { useCircleWallet } from '../lib/circleWallet'
-import { useCustomerRequests } from '../lib/customerRequests'
+import { useServiceRequests } from '../lib/serviceRequests'
 import { buildStreamNotices, useNotificationReadState } from '../lib/streamNotifications'
 
 const EVENT_PRESENTATION = {
@@ -49,7 +49,7 @@ function activityDate(value: string) {
 export default function StreamPayHome() {
   const { ready, authenticated, agreements, totals, loading, error } = useAgreements()
   const wallet = useCircleWallet()
-  const requests = useCustomerRequests()
+  const requests = useServiceRequests()
   const splashState = useHashPayStreamSessionSplash(!authenticated)
   const createTo = useStreamPayPath('/agreements/new')
   const upfrontTo = useStreamPayPath('/upfront')

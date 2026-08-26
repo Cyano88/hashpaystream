@@ -7,7 +7,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
-import type { CustomerRequest } from './customerRequests'
+import type { ServiceRequest } from './serviceRequests'
 import type { AgreementSummary } from './useAgreements'
 
 export type StreamNotice = {
@@ -38,15 +38,21 @@ function agreementEventNotice(agreement: AgreementSummary, event: { id: string; 
   }
 }
 
-export function buildStreamNotices(agreements: AgreementSummary[], requests: CustomerRequest[]) {
-  const requestNotices: StreamNotice[] = requests.map(item => ({
-    id: `request:${item.id}:${item.decision}`,
-    role: 'Worker',
-    title: item.decision === 'to_review' ? 'New job request' : item.decision === 'accepted' ? 'Request funded' : 'Request declined',
-    detail: item.title,
-    occurredAt: item.updatedAt || item.createdAt,
-    tone: item.decision === 'declined' ? 'text-gray-500' : 'text-blue-600',
-    Icon: item.decision === 'accepted' ? CheckCircleIcon : BriefcaseIcon,
+export function buildStreamNotices(agreements: AgreementSummary[], requests: ServiceRequest[]) {
+  const requestNotices: StreamNotice[] = requests.flatMap(item => item.events.map(event => {
+    const terms = item.terms.find(value => value.version === event.version) ?? item.terms[item.terms.length - 1]
+    const providerView = item.role === 'provider'
+    const labels: Record<string, { title: string; role: StreamNotice['role'] }> = {
+      'request.created': { title: providerView ? 'New job request' : 'Job request sent', role: 'Customer' },
+      'request.provider_accept': { title: 'Provider accepted the terms', role: 'Worker' },
+      'request.provider_counter': { title: 'Provider proposed new terms', role: 'Worker' },
+      'request.provider_decline': { title: 'Provider declined the request', role: 'Worker' },
+      'request.customer_accept': { title: 'Customer accepted the final terms', role: 'Customer' },
+      'request.customer_cancel': { title: 'Customer cancelled the request', role: 'Customer' },
+      'request.funded': { title: 'Customer funded the agreement', role: 'Payment' },
+    }
+    const label = labels[event.type] ?? { title: 'Request updated', role: 'HashPayStream' as const }
+    return { id: `request:${item.id}:${event.id}`, role: label.role, title: label.title, detail: terms?.title ?? 'Job request', occurredAt: event.createdAt, tone: event.type.includes('decline') || event.type.includes('cancel') ? 'text-gray-500' : 'text-blue-600', Icon: event.type.includes('accept') ? CheckCircleIcon : BriefcaseIcon }
   }))
   const agreementNotices = agreements.flatMap(agreement => {
     const customerResponse: StreamNotice[] = agreement.customerRequest?.decision === 'declined' ? [{
