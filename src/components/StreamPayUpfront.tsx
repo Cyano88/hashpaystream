@@ -7,7 +7,6 @@ import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { LoadingRing } from './ui/LoadingRing'
 import { StreamSelect } from './ui/StreamSelect'
 import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
-import FixedAgreementForm from './agreements/FixedAgreementForm'
 
 type Assessment = {
   intelligence: { confidence: number; evidenceGrade: string; summary: string }
@@ -53,6 +52,7 @@ export default function StreamPayUpfront() {
   const [agreementId, setAgreementId] = useState('')
   const [loading, setLoading] = useState(true)
   const homeTo = useStreamPayPath('/home')
+  const requestsTo = useStreamPayPath('/requests?tab=received')
   const selected = agreements.find(item => item.id === agreementId)
   const amount = decimalUsdc(selected?.chain?.amountUsdcUnits)
   const valid = Boolean(selected && isAddress(providerPayoutAddress) && !/^0x0{40}$/i.test(providerPayoutAddress))
@@ -105,7 +105,15 @@ export default function StreamPayUpfront() {
 
   if (!ready || loading) return <StreamPayLoadingState active="agreements" />
   if (!authenticated) return null
-  if (!agreements.length && !error) return <FixedAgreementForm mode="early" />
+  if (!agreements.length && !error) return <section className="w-full max-w-md py-5 sm:py-8">
+    <Link to={homeTo} className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm dark:bg-white/[0.06] dark:text-white" aria-label="Back home"><ArrowLeftIcon className="h-4 w-4" /></Link>
+    <div className="flex min-h-[62vh] flex-col items-center justify-center px-6 text-center">
+      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-gray-500 shadow-sm dark:bg-white/[0.06]"><BanknotesIcon className="h-6 w-6" /></span>
+      <h1 className="mt-4 text-lg font-extrabold text-gray-950 dark:text-white">No early-pay request yet</h1>
+      <p className="mt-1 max-w-xs text-xs leading-5 text-gray-400">Open a customer request, choose Change terms, and explain why you need early pay.</p>
+      <Link to={requestsTo} className="mt-5 flex min-h-12 items-center justify-center rounded-full bg-gray-950 px-6 text-sm font-bold text-white dark:bg-white dark:text-gray-950">Open requests</Link>
+    </div>
+  </section>
 
   return <section className="w-full max-w-md py-5 sm:py-8">
     <Link to={homeTo} className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm dark:bg-white/[0.06] dark:text-white" aria-label="Back home"><ArrowLeftIcon className="h-4 w-4" /></Link>

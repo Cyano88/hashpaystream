@@ -51,7 +51,7 @@ export default function StreamPayHome() {
   const wallet = useCircleWallet()
   const requests = useServiceRequests()
   const splashState = useHashPayStreamSessionSplash(!authenticated)
-  const createTo = useStreamPayPath('/agreements/new')
+  const createTo = useStreamPayPath('/requests?compose=1')
   const upfrontTo = useStreamPayPath('/upfront')
   const activityTo = useStreamPayPath('/activity')
   const notificationsTo = useStreamPayPath('/notifications')

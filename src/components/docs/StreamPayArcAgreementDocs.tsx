@@ -7,11 +7,11 @@ export default function StreamPayArcAgreementDocs() {
     <h1 className="mt-3 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-4xl">Terms, funding and delivery remain separate.</h1>
     <p className="mt-4 max-w-3xl text-sm leading-7 text-gray-500 dark:text-gray-400">An agreement defines how USDC may move. Creating terms does not prove that escrow was funded, and requesting a release does not release funds by itself.</p>
     <div className="mt-9 grid gap-3 sm:grid-cols-3">{[
-      { Icon: UserCircleIcon, title: 'Creator', body: 'Defines the work, recipient, amount, timing and release schedule.' },
-      { Icon: WalletIcon, title: 'Payer', body: 'Reviews the exact terms, funds with their own wallet and controls payer decisions.' },
+      { Icon: UserCircleIcon, title: 'Customer', body: 'Creates the job request, chooses the worker, sets the protected amount and funds accepted terms.' },
+      { Icon: WalletIcon, title: 'Worker', body: 'Reviews the request, accepts or proposes new terms, then delivers the agreed work.' },
       { Icon: ShieldCheckIcon, title: 'HashPayStream', body: 'Presents the experience and reconciles authoritative Hash PayLink and Arc state.' },
     ].map(({ Icon, title, body }) => <div key={title} className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#18181b]"><Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" /><h2 className="mt-4 text-sm font-semibold text-gray-950 dark:text-white">{title}</h2><p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{body}</p></div>)}</div>
-    <DocsCallout title="Customer email is enforced" tone="blue">Enter the customer&apos;s email when creating a human agreement. Only that verified email can open the private payer path, connect its Circle Arc wallet, and fund or review the agreement.</DocsCallout>
+    <DocsCallout title="Worker email is enforced" tone="blue">The customer sends each private job request to a worker&apos;s email. Only that verified worker can accept, decline or propose new terms. The customer funds the agreement after both sides accept the final terms.</DocsCallout>
     <section className="mt-12"><h2 className="text-xl font-semibold text-gray-950 dark:text-white">Supported release structures</h2><div className="mt-5 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[#18181b]">{[
       ['fixed_unlock', 'One release', 'The full protected amount becomes eligible after one reviewed delivery.'],
       ['progressive_release', 'Progress releases', 'Predetermined increasing checkpoints end at 100 percent.'],

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { StreamPayLayout } from './components/StreamPayLayout'
 import AgreementDashboard from './components/agreements/AgreementDashboard'
-import FixedAgreementForm from './components/agreements/FixedAgreementForm'
 import StreamPayLanding from './components/StreamPayLanding'
 import StreamPayDocsHome from './components/docs/StreamPayDocsHome'
 import StreamPayArcAgreementDocs from './components/docs/StreamPayArcAgreementDocs'
@@ -82,7 +81,7 @@ function StreamPayRoute() {
   if (route === '/') content = <StreamPayLanding />
   else if (route === '/home') content = <StreamPayHome />
   else if (route === '/agreements') content = <AgreementDashboard />
-  else if (route === '/agreements/new') content = <FixedAgreementForm />
+  else if (route === '/agreements/new') content = <Navigate to="/requests?compose=1" replace />
   else if (route === '/upfront') content = <StreamPayUpfront />
   else if (route === '/funding') content = <StreamPayFunding />
   else if (route === '/send') content = <StreamPaySend />

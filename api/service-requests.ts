@@ -137,7 +137,7 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
       const now = dependencies.now().toISOString()
       if (action === 'create') {
         const providerEmail = clean(body.providerEmail, 254).toLowerCase()
-        if (!EMAIL.test(providerEmail)) fail('Enter a valid provider email.', 400)
+        if (!EMAIL.test(providerEmail)) fail('Enter a valid worker email.', 400)
         const provider = accountKey(cfg.secret, providerEmail)
         if (provider === viewer) fail('Customer and provider must be different accounts.', 409)
         const idempotency = clean(req.headers['idempotency-key'], 160)
