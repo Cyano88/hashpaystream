@@ -175,8 +175,13 @@ app.all('/api/hashpaystream/v1/circle-marketplace/agreement-plan', (_req, res) =
 })
 app.use('/api/hashpaystream', (_req, res) => res.status(404).json({ ok: false, error: 'API route not found.' }))
 
+app.use('/assets', express.static(path.join(root, 'dist', 'assets'), { immutable: true, maxAge: '1y' }))
+app.get('/assets/*', (_req, res) => res.status(404).type('text/plain').send('Asset not found.'))
 app.use(express.static(path.join(root, 'dist'), { index: false, maxAge: '1h' }))
-app.get('*', (_req, res) => res.sendFile(path.join(root, 'dist', 'index.html')))
+app.get('*', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store')
+  return res.sendFile(path.join(root, 'dist', 'index.html'))
+})
 
 const server = app.listen(port, () => console.log(`HashPayStream running on port ${port}`))
 const shutdown = createHashPayStreamShutdown({

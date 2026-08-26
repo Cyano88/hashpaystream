@@ -16,6 +16,16 @@ const appId = String(import.meta.env.VITE_PRIVY_APP_ID || '').trim()
 const logoUrl = new URL('/brand/hashpaystream-logo.png', window.location.origin).toString()
 const termsUrl = new URL('/terms', window.location.origin).toString()
 const privacyUrl = new URL('/privacy', window.location.origin).toString()
+const deploymentReloadKey = 'hashpaystream:deployment-reload'
+
+window.addEventListener('vite:preloadError', event => {
+  event.preventDefault()
+  const lastReload = Number(window.sessionStorage.getItem(deploymentReloadKey) || '0')
+  if (!Number.isFinite(lastReload) || Date.now() - lastReload > 60_000) {
+    window.sessionStorage.setItem(deploymentReloadKey, String(Date.now()))
+    window.location.reload()
+  }
+})
 
 function Providers() {
   const { theme } = useTheme()
