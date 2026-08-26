@@ -76,7 +76,7 @@ try {
       description: 'Deliver the verified Upfront integration package.',
       amount: '0.01',
       payerEmail: 'customer@example.com',
-      recipient: '0x0CFd91Ea2F476C62fE2008B14A5dFd4A61328CcE',
+      recipient: '0x2000000000000000000000000000000000000002',
       durationSeconds: 86400,
       cancellationWindowSeconds: 900,
     },

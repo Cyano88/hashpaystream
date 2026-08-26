@@ -51,7 +51,7 @@ services:
       - key: VITE_HASHPAYSTREAM_DIRECT_ARC_ENABLED
         value: "false"
       - key: VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS
-        value: "0x0CFd91Ea2F476C62fE2008B14A5dFd4A61328CcE"
+        value: "0x0E47e6dD4f86C5Cf1843Dce310b710FaE64c0C16"
       - key: HASHPAYSTREAM_UPFRONT_STORE_KEY
         value: hashpaystream:upfront-assessments:v1
       - key: HASHPAYSTREAM_UPFRONT_ARC_API_KEY
@@ -63,7 +63,7 @@ services:
       - key: HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_STORE_KEY
         value: hashpaystream:upfront-arc-webhooks:v1
       - key: HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS
-        value: "0x0CFd91Ea2F476C62fE2008B14A5dFd4A61328CcE"
+        value: "0x0E47e6dD4f86C5Cf1843Dce310b710FaE64c0C16"
       - key: HASHPAYSTREAM_ZEROSCOUT_BASE_URL
         sync: false
       - key: HASHPAYSTREAM_ZEROSCOUT_API_KEY
@@ -79,13 +79,13 @@ services:
       - key: HASHPAYSTREAM_POLYDESK_EIP712_SIGNER
         value: "0xB089C3d5F06074856d7665A1Aa53Dc0d761930aE"
       - key: HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS
-        value: "0x790605cee123a37C16BB71fB9c12a33E72Eff41D"
+        value: "0x9065c996672E9FE8f9F13F1DE6c9DF23d4A17D3E"
       - key: HASHPAYSTREAM_UPFRONT_CHAIN_ID
         value: "196"
       - key: VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID
         value: "196"
       - key: VITE_HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS
-        value: "0x790605cee123a37C16BB71fB9c12a33E72Eff41D"
+        value: "0x9065c996672E9FE8f9F13F1DE6c9DF23d4A17D3E"
       - key: VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED
         value: "true"
       - key: HASHPAYSTREAM_XLAYER_RPC_URL
@@ -103,7 +103,7 @@ services:
       - key: HASHPAYSTREAM_FUNDING_PARTNER_STORE_KEY
         value: hashpaystream:funding-partners:v1
       - key: HASHPAYSTREAM_UPFRONT_FUNDER_WALLETS
-        value: "0x85a530abbe102d1bf4fd084551944b0cdd94dbf4"
+        sync: false
       - key: HASHPAYSTREAM_AGENT_CREDENTIAL_PEPPER
         sync: false
       - key: HASHPAYSTREAM_AGENT_CREDENTIAL_STORE_KEY

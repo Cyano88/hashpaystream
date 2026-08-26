@@ -109,7 +109,6 @@ const completeUpfrontEnvironment = {
   HASHPAYSTREAM_UPFRONT_PROTECTION_SIGNER: privateKeyToAccount(protectionKey).address,
   HASHPAYSTREAM_UPFRONT_REPAYMENT_PRIVATE_KEY: repaymentKey,
   HASHPAYSTREAM_UPFRONT_REPAYMENT_SIGNER: privateKeyToAccount(repaymentKey).address,
-  HASHPAYSTREAM_UPFRONT_FUNDER_EMAILS: 'funder@example.com',
   VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED: 'true',
 }
 const completeUpfront = createHashPayStreamReadinessHandler({
@@ -129,7 +128,6 @@ for (const requiredName of [
   'HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_SECRET',
   'HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY',
   'HASHPAYSTREAM_UPFRONT_REPAYMENT_PRIVATE_KEY',
-  'HASHPAYSTREAM_UPFRONT_FUNDER_EMAILS',
 ]) {
   const environment = { ...completeUpfrontEnvironment, [requiredName]: '' }
   const missingDependency = createHashPayStreamReadinessHandler({ hasStore: () => true, read: async () => undefined, env: () => environment })

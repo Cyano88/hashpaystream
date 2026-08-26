@@ -27,7 +27,7 @@ type UpfrontAgreement = {
 
 const API = '/api/hashpaystream/v1/upfront/assessments'
 const AGREEMENTS_API = '/api/hashpaystream/v1/human/upfront/agreements'
-const UPFRONT_ARC_ROUTER = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS || '0x0CFd91Ea2F476C62fE2008B14A5dFd4A61328CcE')
+const UPFRONT_ARC_ROUTER = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS || '0x0E47e6dD4f86C5Cf1843Dce310b710FaE64c0C16')
 const inputClass = 'w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-sm text-gray-950 outline-none transition focus:border-gray-500 dark:border-white/10 dark:bg-[#111113] dark:text-white'
 
 function idempotencyKey() {

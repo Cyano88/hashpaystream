@@ -15,6 +15,9 @@
     "deploy:testnet": "hardhat run scripts/deploy.ts --network xlayerTestnet",
     "deploy:mainnet": "hardhat run scripts/deploy-mainnet.ts --network xlayerMainnet",
     "verify:mainnet": "hardhat run scripts/verify-mainnet.ts --network xlayerMainnet",
+    "verify:arc-testnet": "hardhat run scripts/verify-deployment.ts --network arcTestnet",
+    "verify:xlayer-testnet": "hardhat run scripts/verify-deployment.ts --network xlayerTestnet",
+    "verify:xlayer-mainnet": "hardhat run scripts/verify-deployment.ts --network xlayerMainnet",
     "deploy:arc-testnet": "hardhat run scripts/deploy-arc.ts --network arcTestnet"
   },
   "devDependencies": {

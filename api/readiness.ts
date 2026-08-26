@@ -37,13 +37,6 @@ function validPrivateKey(value: unknown) {
   return /^0x[a-fA-F0-9]{64}$/.test(text) ? text as Hex : undefined
 }
 
-function validFunderAllowlist(env: NodeJS.ProcessEnv) {
-  return [env.HASHPAYSTREAM_UPFRONT_FUNDER_EMAILS, env.HASHPAYSTREAM_UPFRONT_FUNDER_WALLETS]
-    .flatMap(value => String(value ?? '').split(','))
-    .map(value => value.trim().toLowerCase())
-    .some(value => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || /^0x[a-f0-9]{40}$/.test(value))
-}
-
 function missingCircleWalletEnvironmentNames(env: NodeJS.ProcessEnv) {
   return ['CIRCLE_TEST_API_KEY', 'VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET']
     .filter(name => !clean(env[name], 500))
@@ -85,7 +78,6 @@ function missingUpfrontEnvironmentNames(env: NodeJS.ProcessEnv) {
     'HASHPAYSTREAM_DIRECT_ARC_ENABLED',
   ].filter(name => !clean(env[name], 300))
   if (!clean(env.PRIVY_APP_ID ?? env.VITE_PRIVY_APP_ID, 180)) required.push('PRIVY_APP_ID_OR_VITE_PRIVY_APP_ID')
-  if (!validFunderAllowlist(env)) required.push('HASHPAYSTREAM_UPFRONT_FUNDER_EMAILS_OR_WALLETS')
   return required.sort()
 }
 
@@ -142,7 +134,6 @@ function upfrontConfigurationReady(env: NodeJS.ProcessEnv) {
     && serverChainId === browserChainId
     && validHttpsUrl(env.HASHPAYSTREAM_XLAYER_RPC_URL)
     && signerKeysMatch
-    && validFunderAllowlist(env)
     && clean(env.VITE_HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() === 'true'
     && clean(env.VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED, 20).toLowerCase() === 'true'
     && clean(env.HASHPAYSTREAM_DIRECT_ARC_ENABLED, 20).toLowerCase() === 'true'
@@ -179,7 +170,6 @@ function upfrontConfigurationIssueCodes(env: NodeJS.ProcessEnv) {
   } catch {
     issues.push('SIGNER_CONFIGURATION_INVALID')
   }
-  if (!validFunderAllowlist(env)) issues.push('FUNDER_ALLOWLIST_INVALID')
   if (clean(env.VITE_HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() !== 'true' || clean(env.VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED, 20).toLowerCase() !== 'true') issues.push('UPFRONT_BROWSER_FLAGS_INVALID')
   if (clean(env.HASHPAYSTREAM_DIRECT_ARC_ENABLED, 20).toLowerCase() !== 'true') issues.push('DIRECT_ARC_CONFIGURATION_INVALID')
   return [...new Set(issues)].sort()

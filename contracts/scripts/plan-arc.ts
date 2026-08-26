@@ -15,7 +15,7 @@ async function main() {
   const predictedContract = ethers.getCreateAddress({ from: deployer.address, nonce })
   const asset = address('ARC_TEST_USDC_ADDRESS')
   const creditSigner = address('UPFRONT_REPAYMENT_CREDIT_SIGNER')
-  const owner = address('UPFRONT_CONTRACT_OWNER')
+  const owner = address('UPFRONT_ARC_CONTRACT_OWNER')
   const factory = await ethers.getContractFactory('ArcRepaymentRouter')
   const transaction = await factory.getDeployTransaction(asset, creditSigner, owner)
   const gasEstimate = await ethers.provider.estimateGas({ from: deployer.address, data: transaction.data })

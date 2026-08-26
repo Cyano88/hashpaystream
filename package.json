@@ -17,7 +17,7 @@
     "test:upfront-assessment": "node --import tsx scripts/upfront-assessment-smoke.mjs && node --import tsx scripts/polydesk-upfront-client-smoke.mjs && node --import tsx scripts/upfront-protection-attestation-smoke.mjs && node --import tsx scripts/upfront-protection-handler-smoke.mjs && node --import tsx scripts/upfront-opportunities-smoke.mjs",
     "test:funding-partners": "node --import tsx scripts/funding-partners-smoke.mjs",
     "test:stream-accounts": "node --import tsx scripts/stream-accounts-smoke.mjs",
-    "test:circle-wallet": "node --import tsx scripts/circle-wallet-smoke.mjs",
+    "test:circle-wallet": "node --import tsx scripts/circle-session-smoke.mjs && node --import tsx scripts/circle-wallet-smoke.mjs",
     "test:customer-requests": "node --import tsx scripts/customer-requests-smoke.mjs",
     "test:notifications": "node --import tsx scripts/stream-notifications-smoke.mjs",
     "test:upfront-local-e2e": "node --import tsx scripts/upfront-local-e2e.mjs",

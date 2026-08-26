@@ -36,7 +36,7 @@ const env = {
 const expectedChainId = Number(env.HASHPAYSTREAM_UPFRONT_CHAIN_ID)
 assert.ok([1952, 196].includes(expectedChainId), 'Upfront E2E supports only X Layer testnet or mainnet.')
 let store
-const providerPayoutAddress = '0x988263A851Afe17F8a827EdA81269F9fb7553cbC'
+const providerPayoutAddress = '0x1000000000000000000000000000000000000001'
 const request = {
   method: 'POST',
   headers: { authorization: 'Bearer local-e2e-session', 'idempotency-key': `upfront:local-e2e:${Date.now()}` },

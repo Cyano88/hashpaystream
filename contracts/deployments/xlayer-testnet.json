@@ -8,12 +8,16 @@
     "productionAsset": false
   },
   "upfrontEscrow": {
-    "address": "0x0E47e6dD4f86C5Cf1843Dce310b710FaE64c0C16",
-    "transactionHash": "0x046728e9c6e3f9148db49ef4587c44b3f9cca960d6618e7f4e480020faea8100",
+    "address": "0x300D0D41a10006f3cb1Da01aed2Fc28418c7E6Be",
+    "transactionHash": "0x199570baadbc17721abd9179dbfeb40ff53dc35cafb695a3fbef1e7c96c7cb30",
+    "blockNumber": 39257988,
     "asset": "0x0CFd91Ea2F476C62fE2008B14A5dFd4A61328CcE",
-    "arcRepaymentRouter": "0x0CFd91Ea2F476C62fE2008B14A5dFd4A61328CcE",
+    "arcRepaymentRouter": "0x0E47e6dD4f86C5Cf1843Dce310b710FaE64c0C16",
     "underwritingSigner": "0xB089C3d5F06074856d7665A1Aa53Dc0d761930aE",
     "protectionSigner": "0xfd23c4697e41Bb6874d72D5f2b56Af8aB00CAb99",
-    "owner": "0x988263A851Afe17F8a827EdA81269F9fb7553cbC"
+    "owner": "0x8f1B15FC1489262Ce64AC8d6592bC8Ebb31f07bE",
+    "pausedAtVerification": true,
+    "allowlistedFundersAtVerification": [],
+    "replacesEscrow": "0x0E47e6dD4f86C5Cf1843Dce310b710FaE64c0C16"
   }
 }

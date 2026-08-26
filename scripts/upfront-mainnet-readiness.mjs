@@ -2,14 +2,13 @@ import assert from "node:assert/strict";
 import { createPublicClient, formatEther, formatUnits, getAddress, http } from "viem";
 import { xLayer } from "viem/chains";
 
-const escrow = getAddress("0x790605cee123a37C16BB71fB9c12a33E72Eff41D");
-const configuredFunder = getAddress(
-  "0x85a530abbe102d1bf4fd084551944b0cdd94dbf4",
-);
+const escrow = getAddress("0x9065c996672E9FE8f9F13F1DE6c9DF23d4A17D3E");
+const configuredFunderValue = String(process.env.HASHPAYSTREAM_READINESS_FUNDER_ADDRESS ?? "").trim();
+const configuredFunder = configuredFunderValue ? getAddress(configuredFunderValue) : null;
 const expected = {
-  owner: getAddress("0x988263A851Afe17F8a827EdA81269F9fb7553cbC"),
+  owner: getAddress("0x8f1B15FC1489262Ce64AC8d6592bC8Ebb31f07bE"),
   asset: getAddress("0x74b7F16337b8972027F6196A17a631aC6dE26d22"),
-  router: getAddress("0x0CFd91Ea2F476C62fE2008B14A5dFd4A61328CcE"),
+  router: getAddress("0x0E47e6dD4f86C5Cf1843Dce310b710FaE64c0C16"),
   underwritingSigner: getAddress("0xB089C3d5F06074856d7665A1Aa53Dc0d761930aE"),
   protectionSigner: getAddress("0xfd23c4697e41Bb6874d72D5f2b56Af8aB00CAb99"),
 };
@@ -120,19 +119,19 @@ const [
     abi: escrowAbi,
     functionName: "paused",
   }),
-  client.readContract({
+  configuredFunder ? client.readContract({
     address: escrow,
     abi: escrowAbi,
     functionName: "allowedFunders",
     args: [configuredFunder],
-  }),
-  client.getBalance({ address: configuredFunder }),
-  client.readContract({
+  }) : false,
+  configuredFunder ? client.getBalance({ address: configuredFunder }) : 0n,
+  configuredFunder ? client.readContract({
     address: expected.asset,
     abi: erc20Abi,
     functionName: "balanceOf",
     args: [configuredFunder],
-  }),
+  }) : 0n,
 ]);
 
 assert.equal(getAddress(owner), expected.owner, "Escrow owner drifted.");
@@ -152,19 +151,18 @@ assert.equal(
   expected.protectionSigner,
   "Protection signer drifted.",
 );
-assert.equal(paused, false, "Escrow is paused.");
-assert.equal(
-  allowed,
-  true,
-  "Configured funding wallet is not allowlisted by the escrow.",
-);
 const legacyCap = await client.readContract({ address: escrow, abi: legacyCapAbi, functionName: "maxAdvanceAmount" }).catch(() => undefined);
 assert.equal(legacyCap, undefined, "Configured escrow is the legacy globally capped deployment. Deploy the production escrow and update configuration.");
+
+const activationBlockers = [];
+if (paused) activationBlockers.push("ESCROW_PAUSED");
+if (!configuredFunder) activationBlockers.push("FUNDER_NOT_SELECTED");
+else if (!allowed) activationBlockers.push("FUNDER_NOT_ALLOWLISTED");
 
 console.log(
   JSON.stringify(
     {
-      ok: true,
+      ok: activationBlockers.length === 0,
       network: "X Layer Mainnet",
       escrow,
       paused,
@@ -173,8 +171,11 @@ console.log(
       configuredFunderOkb: formatEther(gasBalance),
       configuredFunderUsdc: formatUnits(usdcBalance, 6),
       globalSpendingCap: false,
+      activationBlockers,
     },
     null,
     2,
   ),
 );
+
+if (activationBlockers.length > 0) process.exitCode = 1;

@@ -6,9 +6,13 @@ import { Wallet, getAddress, isAddress, ZeroAddress } from 'ethers'
 const envPath = resolve(process.cwd(), '.env')
 if (existsSync(envPath)) throw new Error('Refusing to replace the existing contracts/.env file.')
 
-const ownerInput = String(process.argv[2] ?? '').trim()
-if (!isAddress(ownerInput) || getAddress(ownerInput) === ZeroAddress) {
-  throw new Error('Pass the non-zero contract owner address as the only argument.')
+const xLayerOwnerInput = String(process.argv[2] ?? '').trim()
+const arcOwnerInput = String(process.argv[3] ?? '').trim()
+if (!isAddress(xLayerOwnerInput) || getAddress(xLayerOwnerInput) === ZeroAddress) {
+  throw new Error('Pass the non-zero X Layer contract owner address as the first argument.')
+}
+if (!isAddress(arcOwnerInput) || getAddress(arcOwnerInput) === ZeroAddress) {
+  throw new Error('Pass the non-zero Arc contract owner address as the second argument.')
 }
 
 const deployer = Wallet.createRandom()
@@ -22,7 +26,8 @@ const lines = [
   'XLAYER_TESTNET_RPC_URL=https://testrpc.xlayer.tech/terigon',
   'ARC_TESTNET_RPC_URL=https://rpc.testnet.arc.network',
   'ARC_TEST_USDC_ADDRESS=0x3600000000000000000000000000000000000000',
-  'UPFRONT_CONTRACT_OWNER=' + getAddress(ownerInput),
+  'UPFRONT_XLAYER_CONTRACT_OWNER=' + getAddress(xLayerOwnerInput),
+  'UPFRONT_ARC_CONTRACT_OWNER=' + getAddress(arcOwnerInput),
   'XLAYER_DEPLOYER_PRIVATE_KEY=' + deployer.privateKey,
   'ARC_DEPLOYER_PRIVATE_KEY=' + deployer.privateKey,
   'UPFRONT_UNDERWRITING_SIGNER=' + underwriting.address,
@@ -43,7 +48,8 @@ writeFileSync(envPath, lines.join('\n'), { encoding: 'utf8', flag: 'wx', mode: 0
 chmodSync(envPath, 0o600)
 console.log(JSON.stringify({
   envPath,
-  owner: getAddress(ownerInput),
+  xLayerOwner: getAddress(xLayerOwnerInput),
+  arcOwner: getAddress(arcOwnerInput),
   deployer: deployer.address,
   underwritingSigner: underwriting.address,
   protectionSigner: protection.address,

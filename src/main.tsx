@@ -10,6 +10,7 @@ import './index.css'
 import App from './App'
 import { ThemeProvider, useTheme } from './lib/ThemeContext'
 import { CircleWalletProvider } from './lib/circleWallet'
+import { arcTestnet, xLayerMainnet } from './lib/upfrontChains'
 
 const appId = String(import.meta.env.VITE_PRIVY_APP_ID || '').trim()
 const logoUrl = new URL('/brand/hashpaystream-logo.png', window.location.origin).toString()
@@ -23,6 +24,7 @@ function Providers() {
   }
   const config: PrivyClientConfig = {
     loginMethods: ['email'],
+    supportedChains: [xLayerMainnet, arcTestnet],
     allowOAuthInEmbeddedBrowsers: true,
     embeddedWallets: { ethereum: { createOnLogin: 'off' } },
     externalWallets: { disableAllExternalWallets: true },

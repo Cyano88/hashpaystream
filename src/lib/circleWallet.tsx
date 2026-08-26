@@ -3,18 +3,25 @@ import { usePrivy } from '@privy-io/react-auth'
 import type { W3SSdk as CircleSdk } from '@circle-fin/w3s-pw-web-sdk'
 import { createPublicClient, formatUnits, getAddress, http, parseUnits, type Address, type Hex } from 'viem'
 import { ARC_USDC, ARC_USDC_ABI, arcTestnet } from './arcWallet'
+import { circleUserTokenExpiresAt, clearStoredCircleSession, readStoredCircleSession, writeStoredCircleSession } from './circleSession'
 
 type CircleWallet = { id: string; address: Address; blockchain: string; accountType?: string; state?: string }
 type CircleSession = { userToken: string; encryptionKey: string; refreshToken?: string; deviceId: string; wallet: CircleWallet }
 type WalletState = 'idle' | 'connecting' | 'ready' | 'error'
+type ConnectionStage = 'restoring' | 'verifying'
 type CircleWalletContextValue = {
-  state: WalletState; error: string; session?: CircleSession; address: string; balance: string; loadingBalance: boolean
+  state: WalletState; stage: ConnectionStage; error: string; session?: CircleSession; address: string; balance: string; loadingBalance: boolean
   reconnect: () => Promise<void>; refreshBalance: () => Promise<void>; sendUsdc: (recipient: Address, amount: string) => Promise<Hex>
 }
 
 const Context = createContext<CircleWalletContextValue | null>(null)
 const APP_ID = String(import.meta.env.VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET ?? import.meta.env.VITE_CIRCLE_USER_WALLET_APP_ID ?? '').trim()
 const publicClient = createPublicClient({ chain: arcTestnet, transport: http() })
+const MIN_RESTORE_LIFETIME_MS = 30_000
+
+class CircleRequestError extends Error {
+  constructor(message: string, readonly status: number) { super(message) }
+}
 
 function apiError(value: unknown, fallback: string) {
   return value instanceof Error ? value.message : typeof value === 'string' ? value : fallback
@@ -31,6 +38,7 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
   const { ready, authenticated, user, getAccessToken } = usePrivy()
   const email = user?.email?.address?.trim().toLowerCase() ?? ''
   const [state, setState] = useState<WalletState>('idle')
+  const [stage, setStage] = useState<ConnectionStage>('restoring')
   const [error, setError] = useState('')
   const [session, setSession] = useState<CircleSession>()
   const [balance, setBalance] = useState('0')
@@ -44,7 +52,7 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
       method: 'POST', cache: 'no-store', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(payload),
     })
     const data = await response.json().catch(() => ({})) as Record<string, unknown> & { error?: string }
-    if (!response.ok || data.ok === false) throw new Error(data.error || 'Circle wallet request failed.')
+    if (!response.ok || data.ok === false) throw new CircleRequestError(data.error || 'Circle wallet request failed.', response.status)
     return data
   }, [getAccessToken])
 
@@ -59,7 +67,7 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
   const reconnect = useCallback(async () => {
     if (connecting.current) return connecting.current
     const operation = (async () => {
-      setState('connecting'); setError(''); setSession(undefined)
+      setState('connecting'); setStage('restoring'); setError(''); setSession(undefined)
       try {
         if (!APP_ID) throw new Error('Circle Arc wallet is not configured.')
         if (!authenticated || !email) throw new Error('Sign in with email to open your Circle wallet.')
@@ -67,6 +75,41 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
         const sdk = new W3SSdk({ appSettings: { appId: APP_ID } })
         const deviceId = (await sdk.getDeviceId()).trim()
         if (!deviceId) throw new Error('Circle could not identify this device.')
+
+        const stored = readStoredCircleSession(window.localStorage, APP_ID, email, deviceId)
+        if (stored) {
+          const expiresAt = circleUserTokenExpiresAt(stored.userToken)
+          if (expiresAt > Date.now() + MIN_RESTORE_LIFETIME_MS) {
+            try {
+              const refreshed = await request({ action: 'refresh_session', userToken: stored.userToken, refreshToken: stored.refreshToken, deviceId }) as { userToken?: string; encryptionKey?: string; refreshToken?: string }
+              if (!refreshed.userToken || !refreshed.encryptionKey) throw new Error('Circle did not return a refreshed wallet session.')
+              const restoredSession: CircleSession = {
+                userToken: refreshed.userToken,
+                encryptionKey: refreshed.encryptionKey,
+                refreshToken: refreshed.refreshToken || stored.refreshToken,
+                deviceId,
+                wallet: stored.wallet,
+              }
+              writeStoredCircleSession(window.localStorage, { version: 1, appId: APP_ID, email, userToken: restoredSession.userToken, refreshToken: restoredSession.refreshToken!, deviceId, wallet: stored.wallet })
+              sdk.setAuthentication({ userToken: restoredSession.userToken, encryptionKey: restoredSession.encryptionKey })
+              const snapshot = await request({ action: 'list_wallets', userToken: restoredSession.userToken })
+              const wallet = snapshot.wallet as CircleWallet | null
+              if (!wallet?.id || !wallet.address || getAddress(wallet.address) !== stored.wallet.address) throw new Error('The restored Circle wallet does not match this account.')
+              restoredSession.wallet = { ...wallet, address: getAddress(wallet.address) }
+              writeStoredCircleSession(window.localStorage, { version: 1, appId: APP_ID, email, userToken: restoredSession.userToken, refreshToken: restoredSession.refreshToken!, deviceId, wallet: restoredSession.wallet })
+              setSession(restoredSession)
+              setState('ready')
+              return
+            } catch (reason) {
+              if (reason instanceof CircleRequestError && reason.status >= 500) throw reason
+              clearStoredCircleSession(window.localStorage)
+            }
+          } else {
+            clearStoredCircleSession(window.localStorage)
+          }
+        }
+
+        setStage('verifying')
         let otp = await request({ action: 'request_email_otp', email, deviceId }) as { deviceToken?: string; deviceEncryptionKey?: string; otpToken?: string }
         const login = await new Promise<{ userToken: string; encryptionKey: string; refreshToken?: string }>((resolve, reject) => {
           const finish = (failure?: unknown, result?: { userToken?: string; encryptionKey?: string; refreshToken?: string }) => {
@@ -107,6 +150,7 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
         const linked = await fetch('/api/hashpaystream/v1/accounts', { method: 'POST', cache: 'no-store', headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' }, body: JSON.stringify({ action: 'register_wallet', walletAddress: verifiedWallet.address, circleUserToken: login.userToken }) })
         if (!linked.ok) { const body = await linked.json().catch(() => ({})) as { error?: string }; throw new Error(body.error || 'Circle wallet could not be linked to HashPayStream.') }
         setSession({ ...login, deviceId, wallet: verifiedWallet })
+        if (login.refreshToken) writeStoredCircleSession(window.localStorage, { version: 1, appId: APP_ID, email, userToken: login.userToken, refreshToken: login.refreshToken, deviceId, wallet: verifiedWallet })
         setState('ready')
       } catch (reason) {
         setError(apiError(reason, 'Circle wallet sign-in did not finish.'))
@@ -118,7 +162,8 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
   }, [authenticated, email, execute, getAccessToken, request])
 
   useEffect(() => {
-    if (!ready || !authenticated || !email) { setState('idle'); setSession(undefined); return }
+    if (!ready) return
+    if (!authenticated || !email) { clearStoredCircleSession(window.localStorage); setState('idle'); setSession(undefined); return }
     const timer = window.setTimeout(() => { void reconnect() }, 350)
     return () => window.clearTimeout(timer)
   }, [authenticated, email, ready, reconnect])
@@ -156,7 +201,7 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
     return hash as Hex
   }, [execute, refreshBalance, request, session])
 
-  const value = useMemo(() => ({ state, error, session, address: session?.wallet.address ?? '', balance, loadingBalance, reconnect, refreshBalance, sendUsdc }), [balance, error, loadingBalance, reconnect, refreshBalance, sendUsdc, session, state])
+  const value = useMemo(() => ({ state, stage, error, session, address: session?.wallet.address ?? '', balance, loadingBalance, reconnect, refreshBalance, sendUsdc }), [balance, error, loadingBalance, reconnect, refreshBalance, sendUsdc, session, stage, state])
   return <Context.Provider value={value}>{children}</Context.Provider>
 }
 

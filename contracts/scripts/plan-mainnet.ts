@@ -21,7 +21,7 @@ async function main() {
     arcRepaymentRouter: address('ARC_REPAYMENT_ROUTER_ADDRESS'),
     underwritingSigner: address('UPFRONT_UNDERWRITING_SIGNER'),
     protectionSigner: address('UPFRONT_PROTECTION_SIGNER'),
-    owner: address('UPFRONT_CONTRACT_OWNER'),
+    owner: address('UPFRONT_XLAYER_CONTRACT_OWNER'),
   }
   const factory = await ethers.getContractFactory('UpfrontAdvanceEscrow')
   const transaction = await factory.getDeployTransaction(

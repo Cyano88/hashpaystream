@@ -14,19 +14,16 @@ async function main() {
 
   const xNonce = await ethers.provider.getTransactionCount(deployer.address)
   const predictedArcRouter = address('ARC_REPAYMENT_ROUTER_ADDRESS')
-  const predictedTestUsdc = ethers.getCreateAddress({ from: deployer.address, nonce: xNonce })
-  const predictedEscrow = ethers.getCreateAddress({ from: deployer.address, nonce: xNonce + 1 })
+  const testUsdc = address('XLAYER_TEST_USDC_ADDRESS')
+  if (await ethers.provider.getCode(testUsdc) === '0x') throw new Error('The configured X Layer test USDC contract has no bytecode.')
+  const predictedEscrow = ethers.getCreateAddress({ from: deployer.address, nonce: xNonce })
   const underwritingSigner = address('UPFRONT_UNDERWRITING_SIGNER')
   const protectionSigner = address('UPFRONT_PROTECTION_SIGNER')
-  const owner = address('UPFRONT_CONTRACT_OWNER')
-
-  const tokenFactory = await ethers.getContractFactory('MockUSDC')
-  const tokenTransaction = await tokenFactory.getDeployTransaction()
-  const tokenGas = await ethers.provider.estimateGas({ from: deployer.address, data: tokenTransaction.data })
+  const owner = address('UPFRONT_XLAYER_CONTRACT_OWNER')
 
   const escrowFactory = await ethers.getContractFactory('UpfrontAdvanceEscrow')
   const escrowTransaction = await escrowFactory.getDeployTransaction(
-    predictedTestUsdc,
+    testUsdc,
     predictedArcRouter,
     underwritingSigner,
     protectionSigner,
@@ -41,19 +38,11 @@ async function main() {
     deployer: deployer.address,
     transactions: [
       {
-        action: 'DEPLOY_TEST_USDC',
-        nonce: xNonce,
-        predictedContract: predictedTestUsdc,
-        productionAsset: false,
-        gasEstimate: tokenGas.toString(),
-        maximumEstimatedNativeCost: ethers.formatEther(tokenGas * gasPrice),
-      },
-      {
         action: 'DEPLOY_UPFRONT_ADVANCE_ESCROW',
-        nonce: xNonce + 1,
+        nonce: xNonce,
         predictedContract: predictedEscrow,
         constructor: {
-          asset: predictedTestUsdc,
+          asset: testUsdc,
           arcRepaymentRouter: predictedArcRouter,
           underwritingSigner,
           protectionSigner,
