@@ -109,8 +109,6 @@ export function createFundingPartnersHandler(overrides: Partial<Dependencies> = 
       const accountKeys = emails.map(email => fundingPartnerAccountKey(config.secret, email))
       const store = safeFundingPartnerStore(await dependencies.read(config.storeKey))
       const record = Object.values(store.applications).find(item => accountKeys.includes(item.accountKey))
-      const preapproved = emails.some(email => emailSet(env.HASHPAYSTREAM_UPFRONT_FUNDER_EMAILS).has(email))
-
       if (req.method === 'GET') {
         if (clean(req.query?.review, 8) === '1') {
           const admins = emailSet(env.HASHPAYSTREAM_ADMIN_EMAILS)
@@ -124,7 +122,7 @@ export function createFundingPartnersHandler(overrides: Partial<Dependencies> = 
           ok: true,
           profile: {
             email: primaryEmail,
-            status: preapproved ? 'approved' : record?.status ?? 'not_applied',
+            status: record?.status ?? 'not_applied',
             application: record ? { ...record, accountKey: undefined } : undefined,
           },
         })
@@ -151,7 +149,7 @@ export function createFundingPartnersHandler(overrides: Partial<Dependencies> = 
       }
 
       if (action !== 'apply') failure('Funding partner action is invalid.', 400)
-      if (record || preapproved) failure('This account already has a funding partner profile.', 409)
+      if (record) failure('This account already has a funding partner profile.', 409)
       const name = clean(body.name, 100)
       const country = clean(body.country, 80)
       const applicantType = clean(body.applicantType, 20) as FundingPartnerRecord['applicantType']

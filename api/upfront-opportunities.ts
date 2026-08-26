@@ -44,15 +44,6 @@ function bearer(req: Pick<Request, 'headers'>) {
   return String(req.headers.authorization ?? '').match(/^Bearer\s+(.+)$/i)?.[1]?.trim() ?? ''
 }
 
-function funderEmails(env: NodeJS.ProcessEnv) {
-  return new Set([
-    ...String(env.HASHPAYSTREAM_UPFRONT_FUNDER_EMAILS ?? '').split(','),
-    ...String(env.HASHPAYSTREAM_UPFRONT_FUNDER_WALLETS ?? '').split(','),
-  ]
-    .map(value => value.trim().toLowerCase())
-    .filter(value => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || /^0x[a-f0-9]{40}$/.test(value)))
-}
-
 async function verifiedIdentityEmails(req: Request, env: NodeJS.ProcessEnv) {
   const appId = clean(env.PRIVY_APP_ID ?? env.VITE_PRIVY_APP_ID, 180)
   const appSecret = clean(env.PRIVY_APP_SECRET, 300)
@@ -162,16 +153,13 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
     try {
       const env = dependencies.env()
       if (clean(env.HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() !== 'true') failure('HashPayStream Upfront is not enabled.', 404)
-      const allowed = funderEmails(env)
       const emails = await dependencies.identityEmails(req, env)
-      let approved = emails.some(email => allowed.has(email))
       const ownershipSecret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300)
-      if (!approved && ownershipSecret.length >= 32) {
-        const partnerStoreKey = clean(env.HASHPAYSTREAM_FUNDING_PARTNER_STORE_KEY ?? DEFAULT_PARTNER_STORE_KEY, 160)
-        const partnerStore = await dependencies.readPartners(partnerStoreKey)
-        const approvedKeys = new Set(Object.values(partnerStore?.applications ?? {}).filter(item => item.status === 'approved').map(item => item.accountKey))
-        approved = emails.some(email => approvedKeys.has(fundingPartnerAccountKey(ownershipSecret, email)))
-      }
+      if (ownershipSecret.length < 32) failure('Funding partner authorization is unavailable.', 503)
+      const partnerStoreKey = clean(env.HASHPAYSTREAM_FUNDING_PARTNER_STORE_KEY ?? DEFAULT_PARTNER_STORE_KEY, 160)
+      const partnerStore = await dependencies.readPartners(partnerStoreKey)
+      const approvedKeys = new Set(Object.values(partnerStore?.applications ?? {}).filter(item => item.status === 'approved').map(item => item.accountKey))
+      const approved = emails.some(email => approvedKeys.has(fundingPartnerAccountKey(ownershipSecret, email)))
       if (!approved) failure('This HashPayStream account is not approved to fund opportunities.', 403)
       const chain = chainConfiguration(env)
       const callerWallets = new Set(emails.filter(value => isAddress(value)).map(value => getAddress(value).toLowerCase()))

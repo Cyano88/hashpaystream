@@ -98,12 +98,8 @@ services:
         sync: false
       - key: HASHPAYSTREAM_UPFRONT_REPAYMENT_SIGNER
         value: "0x83Bd6A645cBE8d04b5F33f2c2c87A1d1FDD71D5b"
-      - key: HASHPAYSTREAM_UPFRONT_FUNDER_EMAILS
-        sync: false
       - key: HASHPAYSTREAM_FUNDING_PARTNER_STORE_KEY
         value: hashpaystream:funding-partners:v1
-      - key: HASHPAYSTREAM_UPFRONT_FUNDER_WALLETS
-        sync: false
       - key: HASHPAYSTREAM_AGENT_CREDENTIAL_PEPPER
         sync: false
       - key: HASHPAYSTREAM_AGENT_CREDENTIAL_STORE_KEY
