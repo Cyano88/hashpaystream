@@ -12,6 +12,7 @@ type ConnectionStage = 'restoring' | 'verifying'
 type CircleWalletContextValue = {
   state: WalletState; stage: ConnectionStage; error: string; session?: CircleSession; address: string; balance: string; loadingBalance: boolean
   reconnect: () => Promise<void>; refreshBalance: () => Promise<void>; sendUsdc: (recipient: Address, amount: string) => Promise<Hex>
+  executeChallenge: (challengeId: string) => Promise<{ transactionHash: string }>
 }
 
 const Context = createContext<CircleWalletContextValue | null>(null)
@@ -201,7 +202,17 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
     return hash as Hex
   }, [execute, refreshBalance, request, session])
 
-  const value = useMemo(() => ({ state, stage, error, session, address: session?.wallet.address ?? '', balance, loadingBalance, reconnect, refreshBalance, sendUsdc }), [balance, error, loadingBalance, reconnect, refreshBalance, sendUsdc, session, stage, state])
+  const executeChallenge = useCallback(async (challengeId: string) => {
+    if (!session) throw new Error('Open your Circle wallet first.')
+    if (!challengeId.trim()) throw new Error('Circle confirmation is unavailable.')
+    const { W3SSdk } = await import('@circle-fin/w3s-pw-web-sdk')
+    const sdk = new W3SSdk({ appSettings: { appId: APP_ID } })
+    sdk.setAuthentication({ userToken: session.userToken, encryptionKey: session.encryptionKey })
+    const result = await execute(sdk, challengeId)
+    return { transactionHash: find(result, ['txHash', 'transactionHash']) }
+  }, [execute, session])
+
+  const value = useMemo(() => ({ state, stage, error, session, address: session?.wallet.address ?? '', balance, loadingBalance, reconnect, refreshBalance, sendUsdc, executeChallenge }), [balance, error, executeChallenge, loadingBalance, reconnect, refreshBalance, sendUsdc, session, stage, state])
   return <Context.Provider value={value}>{children}</Context.Provider>
 }
 

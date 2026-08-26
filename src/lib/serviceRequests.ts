@@ -24,7 +24,7 @@ export function useServiceRequests() {
     const token = await getAccessToken()
     if (!token) throw new Error('Sign in again to manage requests.')
     const response = await fetch(API, { method: payload ? 'POST' : 'GET', cache: 'no-store', headers: { authorization: `Bearer ${token}`, ...(payload ? { 'content-type': 'application/json' } : {}), ...(idempotencyKey ? { 'idempotency-key': idempotencyKey } : {}) }, ...(payload ? { body: JSON.stringify(payload) } : {}) })
-    const body = await response.json().catch(() => ({})) as { request?: ServiceRequest; requests?: ServiceRequest[]; error?: string }
+    const body = await response.json().catch(() => ({})) as Record<string, unknown> & { request?: ServiceRequest; requests?: ServiceRequest[]; error?: string }
     if (!response.ok) throw new Error(body.error || 'Requests could not be loaded.')
     return body
   }, [getAccessToken])
@@ -37,5 +37,6 @@ export function useServiceRequests() {
   }, [authenticated, request])
   useEffect(() => { if (!ready) return; void refresh(); if (!authenticated) return; const timer = window.setInterval(() => void refresh(true), 15_000); return () => window.clearInterval(timer) }, [authenticated, ready, refresh])
   const act = useCallback(async (payload: Record<string, unknown>, idempotencyKey?: string) => { const body = await request(payload, idempotencyKey); await refresh(true); return body.request }, [refresh, request])
-  return { requests, loading, error, refresh, act }
+  const payer = useCallback(async <T,>(payload: Record<string, unknown>) => await request(payload) as T, [request])
+  return { requests, loading, error, refresh, act, payer }
 }

@@ -5,8 +5,8 @@ import { useLocation } from '../lib/router'
 import { useServiceRequests, type ServiceRequest } from '../lib/serviceRequests'
 import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
 import { StreamSelect } from './ui/StreamSelect'
+import StreamPayFundRequest from './StreamPayFundRequest'
 
-const CHECKOUT_ORIGIN = String(import.meta.env.VITE_HASH_PAYLINK_BASE_URL || 'https://app.hashpaylink.com').replace(/\/$/, '')
 type Tab = 'received' | 'sent'
 const inputClass = 'w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-sm text-gray-950 outline-none focus:border-gray-500 dark:border-white/10 dark:bg-[#111113] dark:text-white dark:focus:border-white/30'
 function newKey() { return `request:${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now()}` }
@@ -18,6 +18,7 @@ export default function StreamPayRequests() {
   const [tab, setTab] = useState<Tab>(query.get('tab') === 'sent' ? 'sent' : 'received')
   const [creating, setCreating] = useState(query.get('compose') === '1')
   const [countering, setCountering] = useState<ServiceRequest | null>(null)
+  const [funding, setFunding] = useState<ServiceRequest | null>(null)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const visible = useMemo(() => inbox.requests.filter(item => item.direction === tab), [inbox.requests, tab])
@@ -30,17 +31,18 @@ export default function StreamPayRequests() {
   if (inbox.loading) return <StreamPayLoadingState active="requests" />
   if (creating) return <CreateRequest onBack={() => setCreating(false)} onCreate={async payload => { await inbox.act({ action: 'create', ...payload }, newKey()); setCreating(false); setTab('sent') }} />
   if (countering) return <CounterRequest item={countering} busy={Boolean(busy)} error={error} onBack={() => setCountering(null)} onSubmit={payload => act(countering, 'provider_counter', payload)} />
+  if (funding) return <StreamPayFundRequest item={funding} onBack={() => setFunding(null)} payer={inbox.payer} onFunded={() => void inbox.refresh(true)} />
   const pending = inbox.requests.filter(item => item.direction === 'received' && ['sent', 'countered'].includes(item.status)).length
   return <section className="w-full max-w-md py-5 sm:py-8">
     <div className="grid grid-cols-2 gap-1 rounded-full bg-gray-200/70 p-1 dark:bg-white/[0.06]">{(['received', 'sent'] as const).map(value => <button key={value} onClick={() => setTab(value)} className={`min-h-11 rounded-full text-xs font-extrabold capitalize ${tab === value ? 'bg-gray-950 text-white shadow-sm dark:bg-white dark:text-gray-950' : 'text-gray-500 dark:text-gray-400'}`}>{value}{value === 'received' && pending > 0 && <span className="ml-1.5 rounded-full bg-blue-600 px-1.5 py-0.5 text-[9px] text-white">{pending}</span>}</button>)}</div>
     {tab === 'sent' && <button onClick={() => setCreating(true)} className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-gray-950 text-sm font-bold text-white dark:bg-white dark:text-gray-950"><PlusIcon className="h-4 w-4" />New request</button>}
     {(inbox.error || error) && <ErrorMessage>{inbox.error || error}</ErrorMessage>}
-    <div className="mt-4 space-y-3">{visible.map(item => <RequestCard key={item.id} item={item} busy={busy === item.id} onAction={(action, extra) => act(item, action, extra)} onCounter={() => { setError(''); setCountering(item) }} />)}</div>
+    <div className="mt-4 space-y-3">{visible.map(item => <RequestCard key={item.id} item={item} busy={busy === item.id} onAction={(action, extra) => act(item, action, extra)} onCounter={() => { setError(''); setCountering(item) }} onFund={() => setFunding(item)} />)}</div>
     {!visible.length && <div className="flex min-h-[46vh] flex-col items-center justify-center px-8 text-center"><span className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-gray-500 shadow-sm dark:bg-white/[0.06]"><BriefcaseIcon className="h-6 w-6" /></span><p className="mt-4 text-sm font-extrabold text-gray-950 dark:text-white">No requests {tab}</p><p className="mt-1 text-xs leading-5 text-gray-400">{tab === 'received' ? 'Private offers sent to your email appear here.' : 'Create a private offer for a service provider you already know.'}</p></div>}
   </section>
 }
 
-function RequestCard({ item, busy, onAction, onCounter }: { item: ServiceRequest; busy: boolean; onAction: (action: string, extra?: Record<string, unknown>) => Promise<void>; onCounter: () => void }) {
+function RequestCard({ item, busy, onAction, onCounter, onFund }: { item: ServiceRequest; busy: boolean; onAction: (action: string, extra?: Record<string, unknown>) => Promise<void>; onCounter: () => void; onFund: () => void }) {
   const terms = item.terms.find(value => value.version === item.activeVersion) ?? item.terms[item.terms.length - 1]
   const providerCanRespond = item.role === 'provider' && item.status === 'sent'
   const customerCanAccept = item.role === 'customer' && ['countered', 'provider_accepted'].includes(item.status)
@@ -50,7 +52,7 @@ function RequestCard({ item, busy, onAction, onCounter }: { item: ServiceRequest
     <div className="mt-3 flex justify-between text-[10px] font-semibold text-gray-400"><span>Version {terms.version}</span><span>{statusLabel(item.status, item.role)}</span></div>
     {providerCanRespond && <div className="mt-4 grid grid-cols-2 gap-2"><button disabled={busy} onClick={() => void onAction('provider_accept')} className="min-h-11 rounded-full bg-gray-950 text-xs font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950">Accept</button><button disabled={busy} onClick={onCounter} className="min-h-11 rounded-full border border-gray-200 text-xs font-bold dark:border-white/10">Change terms</button><button disabled={busy} onClick={() => void onAction('provider_decline')} className="col-span-2 min-h-10 text-xs font-bold text-gray-400">Decline</button></div>}
     {customerCanAccept && <div className="mt-4 grid grid-cols-[1fr_auto] gap-2"><button disabled={busy} onClick={() => void onAction('customer_accept')} className="min-h-11 rounded-full bg-gray-950 px-4 text-xs font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950">Accept final terms</button><button disabled={busy} onClick={() => void onAction('customer_cancel')} className="px-3 text-xs font-bold text-gray-400">Cancel</button></div>}
-    {item.role === 'customer' && item.status === 'awaiting_funding' && item.payerReviewPath && <a href={`${CHECKOUT_ORIGIN}${item.payerReviewPath}`} className="mt-4 flex min-h-11 items-center justify-center rounded-full bg-gray-950 text-xs font-bold text-white dark:bg-white dark:text-gray-950">Review and fund</a>}
+    {item.role === 'customer' && item.status === 'awaiting_funding' && item.payerReviewPath && <button onClick={onFund} className="mt-4 flex min-h-11 w-full items-center justify-center rounded-full bg-gray-950 text-xs font-bold text-white dark:bg-white dark:text-gray-950">Review and fund</button>}
   </article>
 }
 

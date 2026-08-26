@@ -40,6 +40,7 @@ type Dependencies = {
   mutateOwnership: (key: string, update: (value: OwnershipStore | undefined) => OwnershipStore | Promise<OwnershipStore>) => Promise<OwnershipStore>
   identity: (req: Request, env: NodeJS.ProcessEnv) => Promise<Identity>
   upstream: (baseUrl: string, apiKey: string, body: Record<string, unknown>, idempotencyKey: string) => Promise<{ status: number; body: Record<string, unknown> }>
+  payerUpstream: (baseUrl: string, apiKey: string, capability: string, body: Record<string, unknown>) => Promise<{ status: number; body: Record<string, unknown> }>
   env: () => NodeJS.ProcessEnv; now: () => Date; id: () => string
 }
 
@@ -77,12 +78,23 @@ async function upstream(baseUrl: string, apiKey: string, body: Record<string, un
   return { status: response.status, body: await response.json().catch(() => ({})) as Record<string, unknown> }
 }
 
+async function payerUpstream(baseUrl: string, apiKey: string, capability: string, body: Record<string, unknown>) {
+  const response = await fetch(`${baseUrl}/api/v2/agreements/project-payer`, {
+    method: 'POST',
+    cache: 'no-store',
+    headers: { 'x-api-key': apiKey, 'x-arc-agreement-access': capability, 'content-type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(30_000),
+  })
+  return { status: response.status, body: await response.json().catch(() => ({})) as Record<string, unknown> }
+}
+
 const defaults: Dependencies = {
   hasStore: hasRenderDurableStore, readRequests: readDurableJson,
   mutateRequests: (key, update) => mutateDurableJson<RequestStore>(key, update), readAccounts: readDurableJson,
   readEvents: readDurableJson,
   mutateOwnership: (key, update) => mutateDurableJson<OwnershipStore>(key, update), identity: verifiedIdentity,
-  upstream, env: () => process.env, now: () => new Date(), id: () => `req_${randomUUID().replace(/-/g, '')}`,
+  upstream, payerUpstream, env: () => process.env, now: () => new Date(), id: () => `req_${randomUUID().replace(/-/g, '')}`,
 }
 
 function safeStore(value?: RequestStore): RequestStore { return value?.schema === 1 && value.requests ? { schema: 1, requests: { ...value.requests }, idempotency: { ...(value.idempotency ?? {}) } } : { schema: 1, requests: {}, idempotency: {} } }
@@ -152,6 +164,50 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
           next.requests[id] = created; next.idempotency[scoped] = id; return next
         })
         return res.status(201).json({ ok: true, request: publicRequest(created, viewer) })
+      }
+      const payerAction = ({
+        payer_review: 'review',
+        payer_link_wallet: 'link-wallet',
+        payer_prepare: 'prepare',
+        payer_challenge: 'challenge',
+        payer_record: 'record',
+        payer_recover: 'recover',
+        payer_status: 'status',
+      } as Record<string, string>)[action]
+      if (payerAction) {
+        const requestId = clean(body.requestId, 80)
+        const stored = await dependencies.readRequests(cfg.requestStore)
+        const item = stored?.requests?.[requestId]
+        if (!item || item.customerAccountKey !== viewer) fail('Request not found.', 404)
+        if (item.status !== 'awaiting_funding' || !item.agreementId || !item.payerReviewPath) {
+          fail('This request is not ready for customer funding.', 409)
+        }
+        const fragment = item.payerReviewPath.split('#', 2)[1] ?? ''
+        const capability = new URLSearchParams(fragment).get('access')?.trim() ?? ''
+        if (!/^agrp_[A-Za-z0-9_-]{40,100}$/.test(capability)) fail('Agreement payer access is unavailable.', 503)
+        const terms = item.terms.find(term => term.version === item.activeVersion)
+        if (!terms) fail('The accepted request terms are unavailable.', 409)
+        const apiKey = clean(env[terms.upfrontRequested ? 'HASHPAYSTREAM_UPFRONT_ARC_API_KEY' : 'HASHPAYSTREAM_ARC_API_KEY'], 200)
+        if (!apiKey.startsWith('hpl_test_')) fail('Agreement funding is temporarily unavailable.', 503)
+        const forwarded: Record<string, unknown> = {
+          agreementId: item.agreementId,
+          payerEmail: identity.email,
+          action: payerAction,
+        }
+        if (payerAction === 'link-wallet') {
+          const wallet = body.wallet && typeof body.wallet === 'object' && !Array.isArray(body.wallet) ? body.wallet as Record<string, unknown> : {}
+          forwarded.circleUserToken = clean(body.circleUserToken, 8_000)
+          forwarded.wallet = { id: clean(wallet.id, 180), address: clean(wallet.address, 42), blockchain: clean(wallet.blockchain, 40) }
+        } else if (['prepare', 'challenge', 'record', 'recover'].includes(payerAction)) {
+          forwarded.circleUserToken = clean(body.circleUserToken, 8_000)
+          if (payerAction === 'challenge' || payerAction === 'record' || payerAction === 'recover') forwarded.stage = clean(body.stage, 20)
+          if (payerAction === 'record') forwarded.transactionHash = clean(body.transactionHash, 66)
+        }
+        const upstreamResult = await dependencies.payerUpstream(cfg.base, apiKey, capability, forwarded)
+        if (upstreamResult.status < 200 || upstreamResult.status >= 300 || upstreamResult.body.ok !== true) {
+          fail(clean(upstreamResult.body.error, 300) || 'Agreement funding could not continue.', upstreamResult.status >= 400 && upstreamResult.status < 600 ? upstreamResult.status : 502)
+        }
+        return res.status(upstreamResult.status).json(upstreamResult.body)
       }
       const requestId = clean(body.requestId, 80)
       let result!: ServiceRequest
