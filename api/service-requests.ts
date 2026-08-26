@@ -177,31 +177,40 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
           if (role !== 'customer' || !['countered', 'provider_accepted'].includes(item.status) || item.providerAcceptedVersion !== version) fail('The service provider must accept the current terms first.', 409)
           updated.customerAcceptedVersion = version; updated.status = 'provider_accepted'
         } else fail('Request action is invalid.', 400)
-        if (!(action === 'customer_accept' && item.customerAcceptedVersion === version)) updated.events.push({ id: `${item.id}:${updated.events.length + 1}`, type: `request.${action}`, actor: role, createdAt: now, version: updated.activeVersion })
+        // Customer acceptance is committed only after Hash PayLink creates the
+        // agreement and the local ownership record is stored. Keeping the
+        // event out of this provisional mutation prevents failed upstream
+        // attempts from appearing as completed acceptance notifications.
+        if (action !== 'customer_accept') updated.events.push({ id: `${item.id}:${updated.events.length + 1}`, type: `request.${action}`, actor: role, createdAt: now, version: updated.activeVersion })
         next.requests[item.id] = updated; result = updated; return next
       })
       if (action === 'customer_accept' && !result.agreementId) {
-        const terms = result.terms.find(item => item.version === result.activeVersion)!
-        const accounts = await dependencies.readAccounts(cfg.accountStore)
-        const provider = accounts?.accounts?.[result.providerAccountKey]
-        if (!provider?.walletAddress || !isAddress(provider.walletAddress)) {
+        const rollbackAcceptance = async () => {
           await dependencies.mutateRequests(cfg.requestStore, current => { const next = safeStore(current); const item = next.requests[result.id]; if (item && !item.agreementId) { item.status = 'provider_accepted'; item.customerAcceptedVersion = undefined; item.events = item.events.filter(event => event.type !== 'request.customer_accept'); item.updatedAt = now } return next })
-          fail('The service provider must finish Circle wallet setup before you can accept and fund.', 409)
         }
-        const upfront = terms.upfrontRequested
-        const apiKey = clean(env[upfront ? 'HASHPAYSTREAM_UPFRONT_ARC_API_KEY' : 'HASHPAYSTREAM_ARC_API_KEY'], 200)
-        if (!apiKey.startsWith('hpl_test_')) fail('Agreement creation is temporarily unavailable.', 503)
-        const recipient = upfront ? clean(env.HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS, 42) : getAddress(provider.walletAddress)
-        if (!isAddress(recipient)) fail('Agreement recipient routing is unavailable.', 503)
-        const created = await dependencies.upstream(cfg.base, apiKey, { template: 'fixed_unlock', title: terms.title, description: terms.description, amount: terms.amount, payerEmail: identity.email, recipient, durationSeconds: terms.durationSeconds, cancellationWindowSeconds: terms.cancellationWindowSeconds, externalId: `hps-request-${result.id.slice(-24)}`, resourceId: `request:${result.id}` }, `hps-request:${result.id}:${terms.version}`)
-        if (created.status < 200 || created.status >= 300 || created.body.ok !== true) fail(clean(created.body.error, 300) || 'The protected agreement could not be created.', created.status >= 400 && created.status < 600 ? created.status : 502)
-        const agreement = created.body.agreement && typeof created.body.agreement === 'object' ? created.body.agreement as Record<string, unknown> : {}
-        const agreementId = clean(agreement.id, 80); const payerReviewPath = clean(created.body.payerReviewPath, 500)
-        if (!/^agr_[a-z0-9]{12,64}$/i.test(agreementId) || !payerReviewPath.startsWith('/')) fail('Hash PayLink returned an invalid agreement.', 502)
-        const ownershipKey = upfront ? cfg.upfrontStore : cfg.humanStore
-        const providerOwner = createHmac('sha256', cfg.secret).update(`hashpaystream.service-request-owner\0${result.providerAccountKey}`).digest('hex')
-        await dependencies.mutateOwnership(ownershipKey, current => { const next = safeOwnership(current); next.agreements[agreementId] = { agreementId, ownerHash: providerOwner, ownerAccountKey: result.providerAccountKey, payerHash: payerHash(cfg.secret, identity.email), payerReviewPath, source: upfront ? 'upfront' : 'human', serviceRequestId: result.id, createdAt: now, updatedAt: now }; return next })
-        await dependencies.mutateRequests(cfg.requestStore, current => { const next = safeStore(current); const item = next.requests[result.id]; if (!item?.agreementId) { item.agreementId = agreementId; item.payerReviewPath = payerReviewPath; item.status = 'awaiting_funding'; item.updatedAt = now } result = item; return next })
+        try {
+          const terms = result.terms.find(item => item.version === result.activeVersion)!
+          const accounts = await dependencies.readAccounts(cfg.accountStore)
+          const provider = accounts?.accounts?.[result.providerAccountKey]
+          if (!provider?.walletAddress || !isAddress(provider.walletAddress)) fail('The service provider must finish Circle wallet setup before you can accept and fund.', 409)
+          const upfront = terms.upfrontRequested
+          const apiKey = clean(env[upfront ? 'HASHPAYSTREAM_UPFRONT_ARC_API_KEY' : 'HASHPAYSTREAM_ARC_API_KEY'], 200)
+          if (!apiKey.startsWith('hpl_test_')) fail('Agreement creation is temporarily unavailable.', 503)
+          const recipient = upfront ? clean(env.HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS, 42) : getAddress(provider.walletAddress)
+          if (!isAddress(recipient)) fail('Agreement recipient routing is unavailable.', 503)
+          const created = await dependencies.upstream(cfg.base, apiKey, { template: 'fixed_unlock', title: terms.title, description: terms.description, amount: terms.amount, payerEmail: identity.email, recipient, durationSeconds: terms.durationSeconds, cancellationWindowSeconds: terms.cancellationWindowSeconds, externalId: `hps-request-${result.id.slice(-24)}`, resourceId: `request:${result.id}` }, `hps-request:${result.id}:${terms.version}`)
+          if (created.status < 200 || created.status >= 300 || created.body.ok !== true) fail(clean(created.body.error, 300) || 'The protected agreement could not be created.', created.status >= 400 && created.status < 600 ? created.status : 502)
+          const agreement = created.body.agreement && typeof created.body.agreement === 'object' ? created.body.agreement as Record<string, unknown> : {}
+          const agreementId = clean(agreement.id, 80); const payerReviewPath = clean(created.body.payerReviewPath, 500)
+          if (!/^agr_[a-z0-9]{12,64}$/i.test(agreementId) || !payerReviewPath.startsWith('/')) fail('Hash PayLink returned an invalid agreement.', 502)
+          const ownershipKey = upfront ? cfg.upfrontStore : cfg.humanStore
+          const providerOwner = createHmac('sha256', cfg.secret).update(`hashpaystream.service-request-owner\0${result.providerAccountKey}`).digest('hex')
+          await dependencies.mutateOwnership(ownershipKey, current => { const next = safeOwnership(current); next.agreements[agreementId] = { agreementId, ownerHash: providerOwner, ownerAccountKey: result.providerAccountKey, payerHash: payerHash(cfg.secret, identity.email), payerReviewPath, source: upfront ? 'upfront' : 'human', serviceRequestId: result.id, createdAt: now, updatedAt: now }; return next })
+          await dependencies.mutateRequests(cfg.requestStore, current => { const next = safeStore(current); const item = next.requests[result.id]; if (!item?.agreementId) { item.agreementId = agreementId; item.payerReviewPath = payerReviewPath; item.status = 'awaiting_funding'; if (!item.events.some(event => event.type === 'request.customer_accept' && event.version === item.activeVersion)) item.events.push({ id: `${item.id}:${item.events.length + 1}`, type: 'request.customer_accept', actor: 'customer', createdAt: now, version: item.activeVersion }); item.updatedAt = now } result = item; return next })
+        } catch (error) {
+          await rollbackAcceptance()
+          throw error
+        }
       }
       return res.json({ ok: true, request: publicRequest(result, viewer) })
     } catch (error) {

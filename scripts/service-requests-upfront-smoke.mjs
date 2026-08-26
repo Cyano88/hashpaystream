@@ -11,6 +11,7 @@ let identity = customer
 let requests
 let ownership
 let upstreamInput
+let upstreamResponse = { status: 409, body: { ok: false, error: 'Configured recipient mismatch.' } }
 const handler = createServiceRequestsHandler({
   hasStore: () => true,
   env: () => ({ HASHPAYSTREAM_APP_OWNERSHIP_SECRET: secret, HASHPAYSTREAM_ARC_API_KEY: `hpl_test_${'a'.repeat(40)}`, HASHPAYSTREAM_UPFRONT_ARC_API_KEY: `hpl_test_${'b'.repeat(40)}`, HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS: router }),
@@ -20,7 +21,7 @@ const handler = createServiceRequestsHandler({
   mutateRequests: async (_key, update) => (requests = await update(requests)),
   readAccounts: async () => ({ schema: 1, accounts: { [accountKey(provider.email)]: { accountKey: accountKey(provider.email), email: provider.email, displayName: 'Provider', pocketId: '1234567890', walletAddress: '0x1111111111111111111111111111111111111111' } } }),
   mutateOwnership: async (_key, update) => (ownership = await update(ownership)),
-  upstream: async (_base, apiKey, body) => { upstreamInput = { apiKey, body }; return { status: 201, body: { ok: true, agreement: { id: 'agr_upfront123456789' }, payerReviewPath: '/agreements/agr_upfront123456789#access=private' } } },
+  upstream: async (_base, apiKey, body) => { upstreamInput = { apiKey, body }; return upstreamResponse },
   now: () => new Date('2026-08-26T13:00:00.000Z'), id: () => 'req_upfront123456789',
 })
 function response() { return { statusCode: 200, body: undefined, setHeader() { return this }, status(code) { this.statusCode = code; return this }, json(body) { this.body = body; return this } } }
@@ -33,8 +34,14 @@ const countered = await call('POST', { action: 'provider_counter', requestId: of
 assert.equal(countered.body.request.activeVersion, 2)
 identity = customer
 assert.equal((await call('POST', { action: 'customer_accept', requestId: offer.body.request.id, version: 1 })).statusCode, 409)
+const failedAcceptance = await call('POST', { action: 'customer_accept', requestId: offer.body.request.id, version: 2 })
+assert.equal(failedAcceptance.statusCode, 409)
+assert.equal(requests.requests[offer.body.request.id].customerAcceptedVersion, undefined)
+assert.equal(requests.requests[offer.body.request.id].events.some(event => event.type === 'request.customer_accept'), false)
+upstreamResponse = { status: 201, body: { ok: true, agreement: { id: 'agr_upfront123456789' }, payerReviewPath: '/agreements/agr_upfront123456789#access=private' } }
 const accepted = await call('POST', { action: 'customer_accept', requestId: offer.body.request.id, version: 2 })
 assert.equal(accepted.body.request.status, 'awaiting_funding')
+assert.equal(accepted.body.request.events.filter(event => event.type === 'request.customer_accept').length, 1)
 assert.equal(upstreamInput.body.recipient, router)
 assert.equal(upstreamInput.apiKey, `hpl_test_${'b'.repeat(40)}`)
 assert.equal(ownership.agreements.agr_upfront123456789.source, 'upfront')
