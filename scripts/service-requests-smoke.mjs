@@ -27,7 +27,7 @@ const handler = createServiceRequestsHandler({
 function response() { return { statusCode: 200, body: undefined, headers: {}, setHeader(name, value) { this.headers[name] = value; return this }, status(code) { this.statusCode = code; return this }, json(body) { this.body = body; return this } } }
 async function call(method, body, headers = {}) { const res = response(); await handler({ method, body, headers, query: {} }, res); return res }
 
-const created = await call('POST', { action: 'create', providerEmail: provider.email, title: 'Landing page', description: 'Design and deliver the final responsive landing page.', amount: '100', durationSeconds: 86400, cancellationWindowSeconds: 900 }, { 'idempotency-key': 'create-request-1' })
+const created = await call('POST', { action: 'create', providerEmail: provider.email, title: 'Landing page', description: 'Design and deliver the final responsive landing page.', amount: '100', durationSeconds: 3600, cancellationWindowSeconds: 900 }, { 'idempotency-key': 'create-request-1' })
 assert.equal(created.statusCode, 201)
 assert.equal(created.body.request.role, 'customer')
 assert.equal(created.body.request.status, 'sent')
@@ -45,6 +45,8 @@ const funded = await call('POST', { action: 'customer_accept', requestId: create
 assert.equal(funded.body.request.status, 'awaiting_funding')
 assert.equal(funded.body.request.payerReviewPath.includes('private'), true)
 assert.equal(upstreamBody.payerEmail, customer.email)
+assert.equal(upstreamBody.durationSeconds, 3600)
+assert.equal(upstreamBody.cancellationWindowSeconds, 900)
 assert.equal(upstreamBody.recipient, '0x1111111111111111111111111111111111111111')
 assert.equal(ownershipStore.agreements.agr_1234567890abcdef.ownerAccountKey, key(provider.email))
 assert.notEqual(ownershipStore.agreements.agr_1234567890abcdef.ownerHash, createHmac('sha256', secret).update(`hashpaystream.owner\0${customer.userId}`).digest('hex'))
