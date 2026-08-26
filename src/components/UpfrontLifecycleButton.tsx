@@ -135,7 +135,7 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
       const hash = await walletClient.writeContract(simulation.request)
       const receipt = await publicClient.waitForTransactionReceipt({ hash })
       if (receipt.status !== 'success') throw new Error('The advance release reverted.')
-      setSuccess('Advance released to the worker.')
+      setSuccess('Advance released to the service provider.')
       await Promise.resolve(onUpdated()).catch(() => undefined)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'The advance could not be released.')

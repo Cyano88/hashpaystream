@@ -137,9 +137,9 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
       const now = dependencies.now().toISOString()
       if (action === 'create') {
         const providerEmail = clean(body.providerEmail, 254).toLowerCase()
-        if (!EMAIL.test(providerEmail)) fail('Enter a valid worker email.', 400)
+        if (!EMAIL.test(providerEmail)) fail('Enter a valid service provider email.', 400)
         const provider = accountKey(cfg.secret, providerEmail)
-        if (provider === viewer) fail('Customer and provider must be different accounts.', 409)
+        if (provider === viewer) fail('Customer and service provider must be different accounts.', 409)
         const idempotency = clean(req.headers['idempotency-key'], 160)
         if (idempotency.length < 8) fail('Idempotency-Key must contain at least 8 characters.', 400)
         const scoped = createHmac('sha256', viewer).update(`service-request\0${idempotency}`).digest('hex')
@@ -164,17 +164,17 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
         if (!Number.isInteger(version) || version !== item.activeVersion) fail('These terms changed. Review the latest version.', 409)
         const updated = { ...item, terms: [...item.terms], events: [...item.events], updatedAt: now }
         if (action === 'provider_accept') {
-          if (role !== 'provider' || !['sent', 'countered'].includes(item.status)) fail('Only the invited provider can accept these terms.', 403)
+          if (role !== 'provider' || !['sent', 'countered'].includes(item.status)) fail('Only the invited service provider can accept these terms.', 403)
           updated.providerAcceptedVersion = version; updated.status = 'provider_accepted'
         } else if (action === 'provider_counter') {
-          if (role !== 'provider' || !['sent', 'countered'].includes(item.status)) fail('Only the invited provider can propose new terms.', 403)
+          if (role !== 'provider' || !['sent', 'countered'].includes(item.status)) fail('Only the invited service provider can propose new terms.', 403)
           const terms = parseTerms(body, 'provider', version + 1, now, item.terms[item.terms.length - 1]); updated.terms.push(terms); updated.activeVersion = terms.version; updated.providerAcceptedVersion = terms.version; updated.customerAcceptedVersion = undefined; updated.status = 'countered'
         } else if (action === 'provider_decline') {
-          if (role !== 'provider') fail('Only the invited provider can decline.', 403); updated.status = 'declined'
+          if (role !== 'provider') fail('Only the invited service provider can decline.', 403); updated.status = 'declined'
         } else if (action === 'customer_cancel') {
           if (role !== 'customer') fail('Only the customer can cancel.', 403); updated.status = 'cancelled'
         } else if (action === 'customer_accept') {
-          if (role !== 'customer' || !['countered', 'provider_accepted'].includes(item.status) || item.providerAcceptedVersion !== version) fail('The provider must accept the current terms first.', 409)
+          if (role !== 'customer' || !['countered', 'provider_accepted'].includes(item.status) || item.providerAcceptedVersion !== version) fail('The service provider must accept the current terms first.', 409)
           updated.customerAcceptedVersion = version; updated.status = 'provider_accepted'
         } else fail('Request action is invalid.', 400)
         if (!(action === 'customer_accept' && item.customerAcceptedVersion === version)) updated.events.push({ id: `${item.id}:${updated.events.length + 1}`, type: `request.${action}`, actor: role, createdAt: now, version: updated.activeVersion })
@@ -186,7 +186,7 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
         const provider = accounts?.accounts?.[result.providerAccountKey]
         if (!provider?.walletAddress || !isAddress(provider.walletAddress)) {
           await dependencies.mutateRequests(cfg.requestStore, current => { const next = safeStore(current); const item = next.requests[result.id]; if (item && !item.agreementId) { item.status = 'provider_accepted'; item.customerAcceptedVersion = undefined; item.events = item.events.filter(event => event.type !== 'request.customer_accept'); item.updatedAt = now } return next })
-          fail('The provider must finish Circle wallet setup before you can accept and fund.', 409)
+          fail('The service provider must finish Circle wallet setup before you can accept and fund.', 409)
         }
         const upfront = terms.upfrontRequested
         const apiKey = clean(env[upfront ? 'HASHPAYSTREAM_UPFRONT_ARC_API_KEY' : 'HASHPAYSTREAM_ARC_API_KEY'], 200)

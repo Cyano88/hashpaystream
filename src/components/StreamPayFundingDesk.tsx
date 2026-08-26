@@ -96,7 +96,7 @@ export default function StreamPayFundingDesk() {
           { label: 'Customer protects', detail: 'Test USDC on Arc Testnet' },
           { label: 'AI checks', detail: 'ZeroScout and PolyDesk set the limit' },
           { label: 'Funder reviews', detail: 'You approve the X Layer offer' },
-          { label: 'Provider gets paid', detail: 'USDC arrives on X Layer' },
+          { label: 'Service provider gets paid', detail: 'USDC arrives on X Layer' },
         ]} />
       </div>
 

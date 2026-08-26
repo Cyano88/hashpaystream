@@ -12,7 +12,7 @@ import type { AgreementSummary } from './useAgreements'
 
 export type StreamNotice = {
   id: string
-  role: 'Worker' | 'Customer' | 'Payment' | 'HashPayStream'
+  role: 'Service provider' | 'Customer' | 'Payment' | 'HashPayStream'
   title: string
   detail: string
   occurredAt: string
@@ -24,8 +24,8 @@ function agreementEventNotice(agreement: AgreementSummary, event: { id: string; 
   const occurredAt = event.createdAt || event.receivedAt || ''
   const base = { id: `event:${agreement.id}:${event.id}`, detail: agreement.title || 'Agreement', occurredAt }
   switch (event.event) {
-    case 'delivery.submitted': return { ...base, role: 'Worker', title: 'Worker submitted delivery', tone: 'text-blue-600', Icon: BriefcaseIcon }
-    case 'delivery.updated': return { ...base, role: 'Worker', title: 'Worker updated delivery', tone: 'text-blue-600', Icon: BriefcaseIcon }
+    case 'delivery.submitted': return { ...base, role: 'Service provider', title: 'Service provider submitted delivery', tone: 'text-blue-600', Icon: BriefcaseIcon }
+    case 'delivery.updated': return { ...base, role: 'Service provider', title: 'Service provider updated delivery', tone: 'text-blue-600', Icon: BriefcaseIcon }
     case 'delivery.release_approved': return { ...base, role: 'Customer', title: 'Customer approved release', tone: 'text-violet-600', Icon: ShieldCheckIcon }
     case 'delivery.issue_reported': return { ...base, role: 'Customer', title: 'Customer reported a concern', tone: 'text-violet-600', Icon: ExclamationTriangleIcon }
     case 'agreement.activated': return { ...base, role: 'Payment', title: 'Customer funded agreement', tone: 'text-emerald-600', Icon: CheckCircleIcon }
@@ -44,9 +44,9 @@ export function buildStreamNotices(agreements: AgreementSummary[], requests: Ser
     const providerView = item.role === 'provider'
     const labels: Record<string, { title: string; role: StreamNotice['role'] }> = {
       'request.created': { title: providerView ? 'New job request' : 'Job request sent', role: 'Customer' },
-      'request.provider_accept': { title: 'Provider accepted the terms', role: 'Worker' },
-      'request.provider_counter': { title: 'Provider proposed new terms', role: 'Worker' },
-      'request.provider_decline': { title: 'Provider declined the request', role: 'Worker' },
+      'request.provider_accept': { title: 'Service provider accepted the terms', role: 'Service provider' },
+      'request.provider_counter': { title: 'Service provider proposed new terms', role: 'Service provider' },
+      'request.provider_decline': { title: 'Service provider declined the request', role: 'Service provider' },
       'request.customer_accept': { title: 'Customer accepted the final terms', role: 'Customer' },
       'request.customer_cancel': { title: 'Customer cancelled the request', role: 'Customer' },
       'request.funded': { title: 'Customer funded the agreement', role: 'Payment' },
