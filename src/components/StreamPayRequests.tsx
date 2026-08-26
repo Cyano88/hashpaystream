@@ -42,19 +42,22 @@ export default function StreamPayRequests() {
 
 function RequestCard({ item, busy, onAction, onCounter }: { item: ServiceRequest; busy: boolean; onAction: (action: string, extra?: Record<string, unknown>) => Promise<void>; onCounter: () => void }) {
   const terms = item.terms.find(value => value.version === item.activeVersion) ?? item.terms[item.terms.length - 1]
-  const providerCanRespond = item.role === 'provider' && ['sent', 'countered'].includes(item.status)
+  const providerCanRespond = item.role === 'provider' && item.status === 'sent'
   const customerCanAccept = item.role === 'customer' && ['countered', 'provider_accepted'].includes(item.status)
   return <article className="rounded-[24px] border border-gray-100 bg-white p-4 shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035]">
     <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gray-100 text-gray-600 dark:bg-white/[0.07] dark:text-gray-300"><ClockIcon className="h-5 w-5" /></span><div className="min-w-0 flex-1"><div className="flex flex-wrap gap-1.5"><span className="rounded-full bg-blue-50 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-blue-600 dark:bg-blue-400/10">{item.role === 'customer' ? 'Service provider' : 'Customer'}</span>{terms.upfrontRequested && <span className="rounded-full bg-amber-50 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">Early pay</span>}</div><h2 className="mt-2 truncate text-sm font-extrabold text-gray-950 dark:text-white">{terms.title}</h2><p className="mt-1 line-clamp-2 text-[11px] leading-5 text-gray-400">{terms.description}</p></div><p className="shrink-0 text-sm font-black">{formatUsdc(terms.amountUsdcUnits)}</p></div>
     {terms.upfrontReason && <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">{terms.upfrontReason}</p>}
-    <div className="mt-3 flex justify-between text-[10px] font-semibold text-gray-400"><span>Version {terms.version}</span><span>{statusLabel(item.status)}</span></div>
+    <div className="mt-3 flex justify-between text-[10px] font-semibold text-gray-400"><span>Version {terms.version}</span><span>{statusLabel(item.status, item.role)}</span></div>
     {providerCanRespond && <div className="mt-4 grid grid-cols-2 gap-2"><button disabled={busy} onClick={() => void onAction('provider_accept')} className="min-h-11 rounded-full bg-gray-950 text-xs font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950">Accept</button><button disabled={busy} onClick={onCounter} className="min-h-11 rounded-full border border-gray-200 text-xs font-bold dark:border-white/10">Change terms</button><button disabled={busy} onClick={() => void onAction('provider_decline')} className="col-span-2 min-h-10 text-xs font-bold text-gray-400">Decline</button></div>}
     {customerCanAccept && <div className="mt-4 grid grid-cols-[1fr_auto] gap-2"><button disabled={busy} onClick={() => void onAction('customer_accept')} className="min-h-11 rounded-full bg-gray-950 px-4 text-xs font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950">Accept final terms</button><button disabled={busy} onClick={() => void onAction('customer_cancel')} className="px-3 text-xs font-bold text-gray-400">Cancel</button></div>}
     {item.role === 'customer' && item.status === 'awaiting_funding' && item.payerReviewPath && <a href={`${CHECKOUT_ORIGIN}${item.payerReviewPath}`} className="mt-4 flex min-h-11 items-center justify-center rounded-full bg-gray-950 text-xs font-bold text-white dark:bg-white dark:text-gray-950">Review and fund</a>}
   </article>
 }
 
-function statusLabel(status: ServiceRequest['status']) { return ({ sent: 'Waiting for service provider', countered: 'New terms proposed', provider_accepted: 'Service provider accepted', awaiting_funding: 'Ready to fund', funded: 'Funded', declined: 'Declined', cancelled: 'Cancelled' } as const)[status] }
+function statusLabel(status: ServiceRequest['status'], role: ServiceRequest['role']) {
+  if (status === 'countered') return role === 'provider' ? 'Waiting for customer' : 'New terms proposed'
+  return ({ sent: 'Waiting for service provider', provider_accepted: 'Service provider accepted', awaiting_funding: 'Ready to fund', funded: 'Funded', declined: 'Declined', cancelled: 'Cancelled' } as const)[status]
+}
 
 function CreateRequest({ onBack, onCreate }: { onBack: () => void; onCreate: (payload: Record<string, unknown>) => Promise<void> }) {
   const [providerEmail, setProviderEmail] = useState(''); const [title, setTitle] = useState(''); const [description, setDescription] = useState(''); const [amount, setAmount] = useState(''); const [duration, setDuration] = useState('86400'); const [cancellation, setCancellation] = useState('900'); const [busy, setBusy] = useState(false); const [error, setError] = useState('')
