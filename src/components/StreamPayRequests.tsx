@@ -52,13 +52,13 @@ function RequestCard({ item, busy, onAction, onCounter, onFund }: { item: Servic
     <div className="mt-3 flex justify-between text-[10px] font-semibold text-gray-400"><span>Version {terms.version}</span><span>{statusLabel(item.status, item.role)}</span></div>
     {providerCanRespond && <div className="mt-4 grid grid-cols-2 gap-2"><button disabled={busy} onClick={() => void onAction('provider_accept')} className="min-h-11 rounded-full bg-gray-950 text-xs font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950">Accept</button><button disabled={busy} onClick={onCounter} className="min-h-11 rounded-full border border-gray-200 text-xs font-bold dark:border-white/10">Change terms</button><button disabled={busy} onClick={() => void onAction('provider_decline')} className="col-span-2 min-h-10 text-xs font-bold text-gray-400">Decline</button></div>}
     {customerCanAccept && <div className="mt-4 grid grid-cols-[1fr_auto] gap-2"><button disabled={busy} onClick={() => void onAction('customer_accept')} className="min-h-11 rounded-full bg-gray-950 px-4 text-xs font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950">Accept final terms</button><button disabled={busy} onClick={() => void onAction('customer_cancel')} className="px-3 text-xs font-bold text-gray-400">Cancel</button></div>}
-    {item.role === 'customer' && item.status === 'awaiting_funding' && item.payerReviewPath && <button onClick={onFund} className="mt-4 flex min-h-11 w-full items-center justify-center rounded-full bg-gray-950 text-xs font-bold text-white dark:bg-white dark:text-gray-950">Review and fund</button>}
+    {item.role === 'customer' && ['awaiting_funding', 'expired'].includes(item.status) && item.payerReviewPath && <button onClick={onFund} className="mt-4 flex min-h-11 w-full items-center justify-center rounded-full bg-gray-950 text-xs font-bold text-white dark:bg-white dark:text-gray-950">{item.status === 'expired' ? 'Return USDC' : 'Review and fund'}</button>}
   </article>
 }
 
 function statusLabel(status: ServiceRequest['status'], role: ServiceRequest['role']) {
   if (status === 'countered') return role === 'provider' ? 'Waiting for customer' : 'New terms proposed'
-  return ({ sent: 'Waiting for service provider', provider_accepted: 'Service provider accepted', awaiting_funding: 'Ready to fund', funded: 'Funded', declined: 'Declined', cancelled: 'Cancelled' } as const)[status]
+  return ({ sent: 'Waiting for service provider', provider_accepted: 'Service provider accepted', awaiting_funding: 'Ready to fund', funded: 'Funded', expired: 'Refund available', refunded: 'USDC returned', declined: 'Declined', cancelled: 'Cancelled' } as const)[status]
 }
 
 function CreateRequest({ onBack, onCreate }: { onBack: () => void; onCreate: (payload: Record<string, unknown>) => Promise<void> }) {

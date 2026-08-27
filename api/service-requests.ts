@@ -11,7 +11,7 @@ const DEFAULT_UPFRONT_STORE_KEY = 'hashpaystream:upfront-agreement-owners:v1'
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 type Role = 'customer' | 'provider'
-type RequestStatus = 'sent' | 'countered' | 'provider_accepted' | 'awaiting_funding' | 'funded' | 'declined' | 'cancelled'
+type RequestStatus = 'sent' | 'countered' | 'provider_accepted' | 'awaiting_funding' | 'funded' | 'expired' | 'refunded' | 'declined' | 'cancelled'
 type Terms = {
   version: number; title: string; description: string; amount: string; amountUsdcUnits: string
   durationSeconds: number; cancellationWindowSeconds: number; upfrontRequested: boolean; upfrontReason?: string
@@ -134,12 +134,16 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
       const viewer = accountKey(cfg.secret, identity.email)
       if (req.method === 'GET') {
         const [stored, humanEvents, upfrontEvents] = await Promise.all([dependencies.readRequests(cfg.requestStore), dependencies.readEvents(cfg.humanEvents), dependencies.readEvents(cfg.upfrontEvents)])
-        const activated = new Map(Object.values({ ...(humanEvents?.events ?? {}), ...(upfrontEvents?.events ?? {}) }).filter(event => event.event === 'agreement.activated').map(event => [event.agreementId, event.createdAt]))
+        const lifecycle = new Map<string, { status: 'funded' | 'expired' | 'refunded'; createdAt: string }>()
+        for (const event of Object.values({ ...(humanEvents?.events ?? {}), ...(upfrontEvents?.events ?? {}) }).sort((left, right) => left.createdAt.localeCompare(right.createdAt))) {
+          const status = event.event === 'agreement.expired' ? 'expired' : event.event === 'agreement.refunded' ? 'refunded' : ['agreement.activated', 'agreement.step_released'].includes(event.event) ? 'funded' : null
+          if (status) lifecycle.set(event.agreementId, { status, createdAt: event.createdAt })
+        }
         const requests = Object.values(stored?.requests ?? {}).filter(item => item.customerAccountKey === viewer || item.providerAccountKey === viewer).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 100).map(item => {
-          const fundedAt = item.agreementId ? activated.get(item.agreementId) : undefined
-          if (!fundedAt || item.status !== 'awaiting_funding') return publicRequest(item, viewer)
-          const funded = { ...item, status: 'funded' as const, updatedAt: fundedAt, events: item.events.some(event => event.type === 'request.funded') ? item.events : [...item.events, { id: `${item.id}:funded`, type: 'request.funded', actor: 'customer' as const, createdAt: fundedAt, version: item.activeVersion }] }
-          return publicRequest(funded, viewer)
+          const observed = item.agreementId ? lifecycle.get(item.agreementId) : undefined
+          if (!observed || !['awaiting_funding', 'funded', 'expired'].includes(item.status)) return publicRequest(item, viewer)
+          const events = observed.status === 'funded' && !item.events.some(event => event.type === 'request.funded') ? [...item.events, { id: `${item.id}:funded`, type: 'request.funded', actor: 'customer' as const, createdAt: observed.createdAt, version: item.activeVersion }] : item.events
+          return publicRequest({ ...item, status: observed.status, updatedAt: observed.createdAt, events }, viewer)
         })
         return res.json({ ok: true, requests })
       }
@@ -173,6 +177,10 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
         payer_record: 'record',
         payer_recover: 'recover',
         payer_status: 'status',
+        payer_lifecycle_challenge: 'lifecycle-challenge',
+        payer_lifecycle_recover: 'lifecycle-recover',
+        payer_lifecycle_record: 'lifecycle-record',
+        payer_lifecycle_status: 'lifecycle-status',
       } as Record<string, string>)[action]
       if (payerAction) {
         const requestId = clean(body.requestId, 80)
@@ -198,10 +206,12 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
           const wallet = body.wallet && typeof body.wallet === 'object' && !Array.isArray(body.wallet) ? body.wallet as Record<string, unknown> : {}
           forwarded.circleUserToken = clean(body.circleUserToken, 8_000)
           forwarded.wallet = { id: clean(wallet.id, 180), address: clean(wallet.address, 42), blockchain: clean(wallet.blockchain, 40) }
-        } else if (['prepare', 'challenge', 'record', 'recover'].includes(payerAction)) {
+        } else if (['prepare', 'challenge', 'record', 'recover', 'lifecycle-challenge', 'lifecycle-recover', 'lifecycle-record'].includes(payerAction)) {
           forwarded.circleUserToken = clean(body.circleUserToken, 8_000)
           if (payerAction === 'challenge' || payerAction === 'record' || payerAction === 'recover') forwarded.stage = clean(body.stage, 20)
           if (payerAction === 'record') forwarded.transactionHash = clean(body.transactionHash, 66)
+          if (payerAction === 'lifecycle-challenge') forwarded.lifecycleAction = clean(body.lifecycleAction, 20)
+          if (payerAction === 'lifecycle-record') forwarded.transactionHash = clean(body.transactionHash, 66)
         }
         const upstreamResult = await dependencies.payerUpstream(cfg.base, apiKey, capability, forwarded)
         if (upstreamResult.status < 200 || upstreamResult.status >= 300 || upstreamResult.body.ok !== true) {
