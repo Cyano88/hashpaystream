@@ -15,7 +15,7 @@ type FundingReview = {
   recovery?: { stage: 'approval' | 'activation'; pending: true; chainSubmitted: boolean } | null
 }
 
-type FundingAction = { ok: true; attempt: FundingAttempt; challengeId?: string }
+type FundingAction = { ok: true; attempt: FundingAttempt; challengeId?: string; pending?: boolean; recovered?: boolean }
 
 export default function StreamPayFundRequest({ item, onBack, payer, onFunded }: {
   item: ServiceRequest
@@ -57,15 +57,39 @@ export default function StreamPayFundRequest({ item, onBack, payer, onFunded }: 
   }, [item.id, payer, wallet.session, wallet.state])
 
   useEffect(() => {
-    const pending = review?.attempt?.status === 'approval_submitted' || review?.attempt?.status === 'activation_submitted'
+    const pending = Boolean(review?.recovery?.pending)
+      || review?.attempt?.status === 'approval_submitted'
+      || review?.attempt?.status === 'activation_submitted'
     if (!pending) return
-    const poll = () => void payer<FundingAction>({ action: 'payer_status', requestId: item.id }).then(result => {
-      setReview(current => current ? { ...current, attempt: result.attempt, recovery: null } : current)
+    const poll = () => void (review?.recovery?.pending && wallet.session
+      ? payer<FundingAction>({
+          action: 'payer_recover',
+          requestId: item.id,
+          stage: review.recovery.stage,
+          circleUserToken: wallet.session.userToken,
+        })
+      : payer<FundingAction>({ action: 'payer_status', requestId: item.id })
+    ).then(result => {
+      const stillRecovering = Boolean(result.pending)
+        && ['awaiting_approval', 'approval_failed', 'ready_to_activate', 'activation_failed'].includes(result.attempt.status)
+      setReview(current => current ? {
+        ...current,
+        attempt: result.attempt,
+        recovery: stillRecovering && review?.recovery
+          ? { ...review.recovery, chainSubmitted: Boolean(result.recovered) || review.recovery.chainSubmitted }
+          : null,
+      } : current)
       if (result.attempt.status === 'active') onFunded()
-    }).catch(() => undefined)
-    const timer = window.setInterval(poll, 4_000)
+    }).catch(reason => {
+      setError(reason instanceof Error ? reason.message : 'Circle confirmation could not be recovered.')
+      void payer<FundingReview>({ action: 'payer_review', requestId: item.id })
+        .then(next => setReview(next))
+        .catch(() => undefined)
+    })
+    poll()
+    const timer = window.setInterval(poll, 6_000)
     return () => window.clearInterval(timer)
-  }, [item.id, onFunded, payer, review?.attempt?.status])
+  }, [item.id, onFunded, payer, review?.attempt?.status, review?.recovery?.chainSubmitted, review?.recovery?.pending, review?.recovery?.stage, wallet.session])
 
   async function confirm() {
     if (!wallet.session) {
@@ -113,7 +137,13 @@ export default function StreamPayFundRequest({ item, onBack, payer, onFunded }: 
             stage,
             circleUserToken: wallet.session.userToken,
           })
-      setReview(current => current ? { ...current, attempt: result.attempt, recovery: null } : current)
+      const stillRecovering = Boolean(result.pending)
+        && ['awaiting_approval', 'approval_failed', 'ready_to_activate', 'activation_failed'].includes(result.attempt.status)
+      setReview(current => current ? {
+        ...current,
+        attempt: result.attempt,
+        recovery: stillRecovering ? { stage, pending: true, chainSubmitted: Boolean(result.recovered) } : null,
+      } : current)
       if (result.attempt.status === 'active') onFunded()
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Circle confirmation did not complete.')
@@ -125,7 +155,9 @@ export default function StreamPayFundRequest({ item, onBack, payer, onFunded }: 
   const terms = item.terms.find(value => value.version === item.activeVersion) ?? item.terms[item.terms.length - 1]
   const attempt = review?.attempt
   const active = attempt?.status === 'active'
-  const pending = attempt?.status === 'approval_submitted' || attempt?.status === 'activation_submitted'
+  const pending = Boolean(review?.recovery?.pending)
+    || attempt?.status === 'approval_submitted'
+    || attempt?.status === 'activation_submitted'
   const approval = !attempt || attempt.status === 'awaiting_approval' || attempt.status === 'approval_failed'
   const actionLabel = active
     ? 'Agreement funded'
