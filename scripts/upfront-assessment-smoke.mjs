@@ -123,14 +123,21 @@ assert.equal(invalid.statusCode, 400)
 assert.equal(assessmentCalls.length, 1)
 
 const fundedAgreementId = 'agr_hashpaystream12345678'
+const serviceAgreementId = 'agr_hashpaystreamservice123'
 const fundedOwnerHash = createHmac('sha256', env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET).update('hashpaystream.owner\0user-a').digest('hex')
+const providerAccountKey = createHmac('sha256', env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET).update('hashpaystream.account\0provider@example.com').digest('hex')
+const serviceOwnerHash = createHmac('sha256', env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET).update(`hashpaystream.service-request-owner\0${providerAccountKey}`).digest('hex')
 let fundedStore
 let fundedAssessmentRequest
 const fundedHandler = createHashPayStreamUpfrontAssessmentHandler({
   identity: async () => 'user-a',
   providerWallets: async () => [draft.providerPayoutAddress],
+  providerAccountKeys: async () => [providerAccountKey],
   mutate: async (_key, update) => { fundedStore = update(fundedStore); return fundedStore },
-  readOwnership: async () => ({ schema: 1, agreements: { [fundedAgreementId]: { agreementId: fundedAgreementId, ownerHash: fundedOwnerHash } } }),
+  readOwnership: async () => ({ schema: 1, agreements: {
+    [fundedAgreementId]: { agreementId: fundedAgreementId, ownerHash: fundedOwnerHash },
+    [serviceAgreementId]: { agreementId: serviceAgreementId, ownerHash: serviceOwnerHash, ownerAccountKey: providerAccountKey },
+  } }),
   agreement: async id => ({
     id, status: 'active', template: 'fixed_unlock', title: 'Authoritative funded delivery',
     description: 'Deliver the authoritative funded agreement package to the payer.',
@@ -166,6 +173,8 @@ assert.equal(fundedAssessmentRequest.agreement.state, 'funded')
 assert.equal(fundedAssessmentRequest.agreement.title, 'Authoritative funded delivery')
 assert.deepEqual(fundedAssessmentRequest.evidence.sources, ['hashpaystream-authoritative-agreement', 'arc-funded-agreement'])
 assert.deepEqual(fundedAssessmentRequest.evidence.dataGaps, ['provider-history', 'delivery-history'])
+const serviceOwned = await call(fundedHandler, { agreementId: serviceAgreementId, providerPayoutAddress: draft.providerPayoutAddress, requestedAdvanceBps: 3000 }, 'upfront:user-a:service-funded-0001')
+assert.equal(serviceOwned.statusCode, 201)
 
 const notOwnedHandler = createHashPayStreamUpfrontAssessmentHandler({
   identity: async () => 'user-a', providerWallets: async () => [draft.providerPayoutAddress], mutate: async (_key, update) => { fundedStore = update(fundedStore); return fundedStore },

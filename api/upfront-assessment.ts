@@ -12,7 +12,7 @@ const AGREEMENT_ID = /^agr_[a-z0-9]{12,64}$/i
 export type UpfrontAssessmentRecord = { ownerReference: string; requestHash: string; agreementId?: string; status: 'pending' | 'completed'; createdAt: string; request?: AgreementIntelligenceRequest; response?: Record<string, unknown> }
 export type UpfrontAssessmentStore = { schema: 1; records: Record<string, UpfrontAssessmentRecord> }
 type AssessmentStore = UpfrontAssessmentStore
-type OwnershipStore = { schema: 1; agreements: Record<string, { agreementId: string; ownerHash: string }> }
+type OwnershipStore = { schema: 1; agreements: Record<string, { agreementId: string; ownerHash: string; ownerAccountKey?: string }> }
 type AuthoritativeAgreement = {
   id: string; status: string; template: string; title: string; description: string
   recipient: string; durationSeconds: number; cancellationWindowSeconds: number
@@ -22,6 +22,7 @@ type AuthoritativeAgreement = {
 export type UpfrontAssessmentDependencies = {
   identity: (req: Request) => Promise<string>
   providerWallets: (identity: string, env: NodeJS.ProcessEnv) => Promise<Address[]>
+  providerAccountKeys: (identity: string, env: NodeJS.ProcessEnv) => Promise<string[]>
   mutate: (key: string, update: (current: AssessmentStore | undefined) => AssessmentStore) => Promise<AssessmentStore>
   readOwnership: (key: string) => Promise<OwnershipStore | undefined>
   agreement: (id: string, config: { baseUrl: string; apiKey: string }) => Promise<AuthoritativeAgreement>
@@ -74,6 +75,24 @@ async function verifiedProviderWallets(identity: string, env: NodeJS.ProcessEnv)
     }))]
   } catch (cause) {
     throw Object.assign(httpError('Your X Layer payout wallet could not be verified.', 503), { cause })
+  }
+}
+
+async function verifiedProviderAccountKeys(identity: string, env: NodeJS.ProcessEnv) {
+  const appId = clean(env.PRIVY_APP_ID ?? env.VITE_PRIVY_APP_ID, 180)
+  const appSecret = clean(env.PRIVY_APP_SECRET, 300)
+  const ownershipSecret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300)
+  if (!appId || !appSecret || ownershipSecret.length < 32) throw httpError('HashPayStream authentication is unavailable.', 503)
+  try {
+    const user = await new PrivyClient({ appId, appSecret }).users()._get(identity)
+    return [...new Set(user.linked_accounts.flatMap(account => {
+      if (account.type !== 'email') return []
+      const email = clean(account.address, 254).toLowerCase()
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return []
+      return [createHmac('sha256', ownershipSecret).update(`hashpaystream.account\0${email}`).digest('hex')]
+    }))]
+  } catch (cause) {
+    throw Object.assign(httpError('Your HashPayStream account ownership could not be verified.', 503), { cause })
   }
 }
 
@@ -137,7 +156,14 @@ async function fundedAgreementInput(body: Record<string, unknown>, identity: str
   const ownership = await dependencies.readOwnership(config.ownershipStoreKey)
   const record = ownership?.agreements?.[agreementId]
   const expectedOwner = createHmac('sha256', config.secret).update(`hashpaystream.owner\0${identity}`).digest('hex')
-  if (!record || record.ownerHash !== expectedOwner) throw httpError('This funded agreement is not available to your HashPayStream account.', 404)
+  const accountKeys = record?.ownerAccountKey && record.ownerHash !== expectedOwner
+    ? await dependencies.providerAccountKeys(identity, dependencies.env())
+    : []
+  const ownsAgreement = Boolean(record && (
+    record.ownerHash === expectedOwner
+    || (record.ownerAccountKey && accountKeys.includes(record.ownerAccountKey))
+  ))
+  if (!ownsAgreement) throw httpError('This funded agreement is not available to your HashPayStream account.', 404)
   const agreement = await dependencies.agreement(agreementId, { baseUrl: config.agreementBaseUrl, apiKey: config.arcApiKey })
   const units = clean(agreement.chain?.amountUsdcUnits, 32)
   if (
@@ -181,6 +207,7 @@ async function requestAssessment(request: AgreementIntelligenceRequest, config: 
 const defaults: UpfrontAssessmentDependencies = {
   identity: verifiedIdentity,
   providerWallets: verifiedProviderWallets,
+  providerAccountKeys: verifiedProviderAccountKeys,
   mutate: (key, update) => mutateDurableJson<AssessmentStore>(key, update),
   readOwnership: key => readDurableJson<OwnershipStore>(key),
   agreement: requestAgreement,
