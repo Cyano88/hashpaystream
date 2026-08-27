@@ -10,8 +10,13 @@ import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
 import { ProviderPayoutWallet } from './ProviderPayoutWallet'
 
 type Assessment = {
-  intelligence: { confidence: number; evidenceGrade: string; summary: string }
-  decision: { decision: 'APPROVE' | 'ESCALATE' | 'BLOCK'; maximumAdvanceBps: number; onchainOffer?: { message: { protectedAmount: string } } }
+  intelligence: { confidence: number; evidenceGrade: string; deliveryClarityScore: number; summary: string; reasonCodes?: string[] }
+  decision: { requestId: string; decision: 'APPROVE' | 'ESCALATE' | 'BLOCK'; maximumAdvanceBps: number; reasonCodes?: string[]; onchainOffer?: { message: { protectedAmount: string } } }
+}
+type Review = { status: 'pending' | 'approved' | 'declined'; submittedAt: string; reviewedAt?: string }
+type ReviewAssessment = {
+  requestId: string; maximumAdvanceBps: number; decision: Assessment['decision']['decision']
+  review?: Review
 }
 type UpfrontAgreement = {
   id: string
@@ -26,6 +31,7 @@ type UpfrontAgreement = {
 }
 
 const API = '/api/hashpaystream/v1/upfront/assessments'
+const REVIEW_API = '/api/hashpaystream/v1/upfront/reviews'
 const AGREEMENTS_API = '/api/hashpaystream/v1/human/upfront/agreements'
 const UPFRONT_ARC_ROUTER = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS || '0x0E47e6dD4f86C5Cf1843Dce310b710FaE64c0C16')
 function idempotencyKey() {
@@ -46,6 +52,8 @@ export default function StreamPayUpfront() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [assessment, setAssessment] = useState<Assessment | null>(null)
+  const [review, setReview] = useState<Review>()
+  const [reviewing, setReviewing] = useState(false)
   const [requestKey, setRequestKey] = useState(idempotencyKey)
   const [agreements, setAgreements] = useState<UpfrontAgreement[]>([])
   const [agreementId, setAgreementId] = useState('')
@@ -79,13 +87,13 @@ export default function StreamPayUpfront() {
   }, [authenticated, getAccessToken, ready])
 
   function changeDraft(update: () => void) {
-    update(); setAssessment(null); setRequestKey(idempotencyKey())
+    update(); setAssessment(null); setReview(undefined); setRequestKey(idempotencyKey())
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (!valid || !selected) { setError('Choose an agreement and create your X Layer payout wallet.'); return }
-    setSubmitting(true); setError(''); setAssessment(null)
+    setSubmitting(true); setError(''); setAssessment(null); setReview(undefined)
     try {
       const token = await getAccessToken()
       if (!token) throw new Error('Sign in again to continue.')
@@ -101,6 +109,47 @@ export default function StreamPayUpfront() {
       setError(reason instanceof Error ? reason.message : 'The assessment could not be completed.'); setRequestKey(idempotencyKey())
     } finally { setSubmitting(false) }
   }
+
+  async function submitReview() {
+    if (!assessment?.decision.requestId) return
+    setReviewing(true); setError('')
+    try {
+      const token = await getAccessToken()
+      if (!token) throw new Error('Sign in again to submit this review.')
+      const response = await fetch(REVIEW_API, {
+        method: 'POST', cache: 'no-store',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'submit', requestId: assessment.decision.requestId }),
+      })
+      const body = await response.json().catch(() => ({})) as { assessment?: ReviewAssessment; error?: string }
+      if (!response.ok || !body.assessment?.review) throw new Error(body.error || 'The review request could not be submitted.')
+      setReview(body.assessment.review)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'The review request could not be submitted.')
+    } finally { setReviewing(false) }
+  }
+
+  useEffect(() => {
+    if (!assessment?.decision.requestId || review?.status !== 'pending') return
+    let cancelled = false
+    const poll = async () => {
+      try {
+        const token = await getAccessToken()
+        if (!token) return
+        const response = await fetch(`${REVIEW_API}?requestId=${encodeURIComponent(assessment.decision.requestId)}`, { cache: 'no-store', headers: { authorization: `Bearer ${token}` } })
+        const body = await response.json().catch(() => ({})) as { assessment?: ReviewAssessment }
+        if (!cancelled && response.ok && body.assessment?.review) {
+          setReview(body.assessment.review)
+          if (body.assessment.decision === 'APPROVE') {
+            setAssessment(current => current ? { ...current, decision: { ...current.decision, decision: 'APPROVE', maximumAdvanceBps: body.assessment!.maximumAdvanceBps } } : current)
+          }
+        }
+      } catch { /* The next poll can recover a transient read failure. */ }
+    }
+    void poll()
+    const timer = window.setInterval(() => void poll(), 10_000)
+    return () => { cancelled = true; window.clearInterval(timer) }
+  }, [assessment?.decision.requestId, getAccessToken, review?.status])
 
   if (!ready || loading) return <StreamPayLoadingState active="agreements" />
   if (!authenticated) return null
@@ -125,8 +174,34 @@ export default function StreamPayUpfront() {
       {error && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2.5 text-sm text-rose-600 dark:bg-rose-400/10 dark:text-rose-300">{error}</p>}
       <button disabled={!valid || submitting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 py-3.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-gray-950">{submitting ? <LoadingRing className="h-4 w-4" label="Checking agreement" /> : <BanknotesIcon className="h-4 w-4" />}{submitting ? 'Checking' : 'Check early pay'}</button>
     </form>
-    {assessment && <div className="mt-4 rounded-[24px] border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035]"><div className="flex items-center gap-2"><CheckBadgeIcon className="h-5 w-5 text-blue-600" /><p className="text-sm font-bold text-gray-950 dark:text-white">{assessment.decision.decision}</p></div><div className="mt-4 grid grid-cols-3 gap-2"><Result label="Evidence" value={assessment.intelligence.evidenceGrade} /><Result label="Confidence" value={`${assessment.intelligence.confidence}%`} /><Result label="Limit" value={`${assessment.decision.maximumAdvanceBps / 100}%`} /></div><p className="mt-4 text-xs leading-5 text-gray-500 dark:text-gray-400">{assessment.intelligence.summary}</p></div>}
+    {assessment && <AssessmentResult assessment={assessment} review={review} reviewing={reviewing} onSubmitReview={submitReview} />}
   </section>
+}
+
+function reasonLabel(code: string) {
+  const labels: Record<string, string> = {
+    DELIVERY_TERMS_NEED_CLARITY: 'Delivery terms need more detail.',
+    POLICY_LOW_DELIVERY_CLARITY: 'Delivery clarity is below the automatic approval threshold.',
+    NO_PROVIDER_HISTORY: 'No completed-work history is available yet.',
+    LIMITED_EVIDENCE: 'Only limited account evidence is available.',
+    ADVANCE_ABOVE_EVIDENCE_CAP: 'The requested amount is above the evidence-based limit.',
+    POLICY_ADVANCE_ABOVE_CAP: 'The requested amount exceeds the policy limit.',
+  }
+  return labels[code] || ''
+}
+
+function AssessmentResult({ assessment, review, reviewing, onSubmitReview }: { assessment: Assessment; review?: Review; reviewing: boolean; onSubmitReview: () => Promise<void> }) {
+  const reasons = [...new Set([...(assessment.intelligence.reasonCodes ?? []), ...(assessment.decision.reasonCodes ?? [])].map(reasonLabel).filter(Boolean))]
+  return <div className="mt-4 rounded-[24px] border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035]">
+    <div className="flex items-center gap-2"><CheckBadgeIcon className="h-5 w-5 text-blue-600" /><p className="text-sm font-bold text-gray-950 dark:text-white">{assessment.decision.decision}</p></div>
+    <div className="mt-4 grid grid-cols-2 gap-2"><Result label="Evidence" value={assessment.intelligence.evidenceGrade} /><Result label="Confidence" value={`${assessment.intelligence.confidence}%`} /><Result label="Clarity" value={`${assessment.intelligence.deliveryClarityScore}%`} /><Result label="Limit" value={`${assessment.decision.maximumAdvanceBps / 100}%`} /></div>
+    <p className="mt-4 text-xs leading-5 text-gray-500 dark:text-gray-400">{assessment.intelligence.summary}</p>
+    {reasons.length > 0 && <ul className="mt-3 space-y-1.5">{reasons.map(reason => <li key={reason} className="flex gap-2 text-[11px] leading-5 text-gray-500"><span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-gray-300" />{reason}</li>)}</ul>}
+    {assessment.decision.decision === 'ESCALATE' && !review && <button type="button" disabled={reviewing} onClick={() => void onSubmitReview()} className="mt-4 min-h-11 w-full rounded-xl bg-gray-950 px-4 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-gray-950">{reviewing ? 'Submitting...' : 'Submit for review'}</button>}
+    {review?.status === 'pending' && <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2.5 text-xs font-medium text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">Review submitted. HashPayStream will update this result after an operator decision.</p>}
+    {review?.status === 'declined' && <p className="mt-4 rounded-xl bg-gray-100 px-3 py-2.5 text-xs font-medium text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">Review declined. Create a new customer request with clearer delivery terms.</p>}
+    {review?.status === 'approved' && <p className="mt-4 rounded-xl bg-emerald-50 px-3 py-2.5 text-xs font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">Review approved. A signed offer is now available to approved funding partners.</p>}
+  </div>
 }
 
 function Result({ label, value }: { label: string; value: string }) {

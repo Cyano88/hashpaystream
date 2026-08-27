@@ -9,7 +9,13 @@ import { requestPolyDeskUnderwriting, type PolyDeskDecision } from './polydesk-u
 const DEFAULT_STORE_KEY = 'hashpaystream:upfront-assessments:v1'
 const DEFAULT_OWNERSHIP_STORE_KEY = 'hashpaystream:upfront-agreement-owners:v1'
 const AGREEMENT_ID = /^agr_[a-z0-9]{12,64}$/i
-export type UpfrontAssessmentRecord = { ownerReference: string; requestHash: string; agreementId?: string; status: 'pending' | 'completed'; createdAt: string; request?: AgreementIntelligenceRequest; response?: Record<string, unknown> }
+export type UpfrontReviewState = {
+  status: 'pending' | 'approved' | 'declined'
+  submittedAt: string
+  reviewedAt?: string
+  reviewerReference?: string
+}
+export type UpfrontAssessmentRecord = { ownerReference: string; requestHash: string; agreementId?: string; status: 'pending' | 'completed'; createdAt: string; request?: AgreementIntelligenceRequest; response?: Record<string, unknown>; review?: UpfrontReviewState }
 export type UpfrontAssessmentStore = { schema: 1; records: Record<string, UpfrontAssessmentRecord> }
 type AssessmentStore = UpfrontAssessmentStore
 type OwnershipStore = { schema: 1; agreements: Record<string, { agreementId: string; ownerHash: string; ownerAccountKey?: string }> }

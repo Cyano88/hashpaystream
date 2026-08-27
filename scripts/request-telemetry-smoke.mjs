@@ -87,6 +87,7 @@ for (const path of [
   '/api/hashpaystream/v1/agent/arc-agreement-webhook',
   '/api/hashpaystream/v1/admin/analytics',
   '/api/hashpaystream/v1/funding-partners',
+  '/api/hashpaystream/v1/upfront/reviews',
   '/api/hashpaystream/v1/public/stats',
 ]) {
   const response = responseRecorder()
@@ -100,6 +101,7 @@ assert.deepEqual(routeEvents.map(event => event.route), [
   'agent_webhook',
   'admin_analytics',
   'funding_partners',
+  'upfront_reviews',
   'public_stats',
 ])
 

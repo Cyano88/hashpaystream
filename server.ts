@@ -12,6 +12,7 @@ import { createHashPayStreamReadinessHandler } from './api/readiness.js'
 import apiTelemetry from './api/request-telemetry.js'
 import { createHashPayStreamShutdown } from './api/graceful-shutdown.js'
 import upfrontAssessment from './api/upfront-assessment.js'
+import upfrontReviews from './api/upfront-reviews.js'
 import upfrontAgreementGateway from './api/upfront-agreement-gateway.js'
 import upfrontArcAgreementWebhook from './api/upfront-arc-webhook.js'
 import upfrontProtection from './api/upfront-protection.js'
@@ -103,6 +104,12 @@ app.all('/api/hashpaystream/v1/human/upfront/agreements', (_req, res) => {
   return res.status(405).json({ ok: false, error: 'Method not allowed.' })
 })
 app.post('/api/hashpaystream/v1/upfront/assessments', rateLimit({ name: 'upfront-assessment', windowMs: 60_000, max: 10 }), upfrontAssessment)
+app.get('/api/hashpaystream/v1/upfront/reviews', rateLimit({ name: 'upfront-review-read', windowMs: 60_000, max: 60 }), upfrontReviews)
+app.post('/api/hashpaystream/v1/upfront/reviews', rateLimit({ name: 'upfront-review-write', windowMs: 60_000, max: 10 }), upfrontReviews)
+app.all('/api/hashpaystream/v1/upfront/reviews', (_req, res) => {
+  res.setHeader('Allow', 'GET, POST')
+  return res.status(405).json({ ok: false, error: 'Method not allowed.' })
+})
 app.post('/api/hashpaystream/v1/upfront/protection', rateLimit({ name: 'upfront-protection', windowMs: 60_000, max: 10 }), upfrontProtection)
 app.get('/api/hashpaystream/v1/upfront/opportunities', rateLimit({ name: 'upfront-opportunities', windowMs: 60_000, max: 60 }), upfrontOpportunities)
 app.get('/api/hashpaystream/v1/funding-partners', rateLimit({ name: 'funding-partner-read', windowMs: 60_000, max: 60 }), fundingPartners)

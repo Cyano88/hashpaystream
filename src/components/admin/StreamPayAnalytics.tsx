@@ -15,6 +15,7 @@ import { useHashPayStreamSessionSplash } from '../../lib/useHashPayStreamSession
 import { AgreementSignInLanding } from '../agreements/AgreementSignInLanding'
 import { LoadingRing } from '../ui/LoadingRing'
 import FundingPartnerReviewPanel from './FundingPartnerReviewPanel'
+import UpfrontReviewPanel from './UpfrontReviewPanel'
 
 const API = '/api/hashpaystream/v1/admin/analytics'
 
@@ -160,6 +161,7 @@ export default function StreamPayAnalytics() {
             <Link to="/upfront" className="block rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.05]">Upfront</Link>
             <Link to="/activity" className="block rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.05]">Activity</Link>
             <a href="#funding-partners" className="block rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.05]">Funding partners</a>
+            <a href="#upfront-reviews" className="block rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.05]">Early-pay reviews</a>
           </div>
           <div className="mt-3 rounded-xl border border-gray-200 p-3 dark:border-white/10">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">Environment</p>
@@ -225,6 +227,7 @@ export default function StreamPayAnalytics() {
           </div>
 
           <FundingPartnerReviewPanel />
+          <UpfrontReviewPanel />
 
           <p className="mt-5 text-center text-[10px] leading-5 text-gray-400">{data.privacy}</p>
         </main>

@@ -81,7 +81,12 @@ function sameHex(left: string, right: string) {
   return timingSafeEqual(Buffer.from(left, 'hex'), Buffer.from(right, 'hex'))
 }
 
-export function buildPolyDeskUnderwritingRequest(request: AgreementIntelligenceRequest, intelligence: ZeroScoutAssessment) {
+export function buildPolyDeskUnderwritingRequest(request: AgreementIntelligenceRequest, intelligence: ZeroScoutAssessment, manualReview?: {
+  decision: 'approve'
+  reviewerReference: string
+  reviewedAt: string
+  reason: 'DELIVERY_TERMS_REVIEWED'
+}) {
   const proofContentHash = clean(intelligence.proof?.contentHash, 100)
   if (!/^(?:0x|sha256:)[a-f0-9]{64}$/.test(proofContentHash)) throw httpError('ZeroScout proof cannot be used for underwriting.', 502)
   return {
@@ -108,6 +113,7 @@ export function buildPolyDeskUnderwritingRequest(request: AgreementIntelligenceR
       reasonCodes: intelligence.reasonCodes,
       proofContentHash,
     },
+    ...(manualReview ? { manualReview } : {}),
   }
 }
 
@@ -241,6 +247,12 @@ export async function requestPolyDeskUnderwriting(input: {
   escrowContract: Address
   chainId: number
   now: Date
+  manualReview?: {
+    decision: 'approve'
+    reviewerReference: string
+    reviewedAt: string
+    reason: 'DELIVERY_TERMS_REVIEWED'
+  }
 }) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 20_000)
@@ -250,7 +262,7 @@ export async function requestPolyDeskUnderwriting(input: {
       cache: 'no-store',
       signal: controller.signal,
       headers: { authorization: 'Bearer ' + input.serviceToken, accept: 'application/json', 'content-type': 'application/json' },
-      body: JSON.stringify(buildPolyDeskUnderwritingRequest(input.request, input.intelligence)),
+    body: JSON.stringify(buildPolyDeskUnderwritingRequest(input.request, input.intelligence, input.manualReview)),
     })
     const body = await response.json().catch(() => ({})) as Record<string, unknown>
     if (!response.ok) throw httpError(clean(body.error, 300) || 'PolyDesk rejected the underwriting request.', response.status)
