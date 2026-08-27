@@ -1,6 +1,7 @@
 import { createHmac, randomUUID } from 'node:crypto'
 import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
+import { getAddress, isAddress, type Address } from 'viem'
 import { hasRenderDurableStore, mutateDurableJson, readDurableJson } from './durable-store.js'
 
 const DEFAULT_STORE_KEY = 'hashpaystream:funding-partners:v1'
@@ -20,6 +21,7 @@ export type FundingPartnerRecord = {
   status: FundingPartnerStatus
   createdAt: string
   updatedAt: string
+  walletAddress?: Address
 }
 export type FundingPartnerStore = { schema: 1; applications: Record<string, FundingPartnerRecord> }
 
@@ -28,6 +30,7 @@ type Dependencies = {
   read: (key: string) => Promise<FundingPartnerStore | undefined>
   mutate: (key: string, update: (current: FundingPartnerStore | undefined) => FundingPartnerStore) => Promise<FundingPartnerStore>
   identityEmails: (req: Request, env: NodeJS.ProcessEnv) => Promise<string[]>
+  identityWallets: (req: Request, env: NodeJS.ProcessEnv) => Promise<Address[]>
   env: () => NodeJS.ProcessEnv
   now: () => Date
   id: () => string
@@ -63,6 +66,16 @@ async function verifiedIdentityEmails(req: Request, env: NodeJS.ProcessEnv) {
   }
 }
 
+async function verifiedIdentityWallets(req: Request, env: NodeJS.ProcessEnv) {
+  const appId = clean(env.PRIVY_APP_ID ?? env.VITE_PRIVY_APP_ID, 180)
+  const appSecret = clean(env.PRIVY_APP_SECRET, 300)
+  const token = bearer(req)
+  if (!appId || !appSecret || !token) failure('HashPayStream authentication is unavailable.', 503)
+  const claims = await new PrivyClient({ appId, appSecret }).utils().auth().verifyAccessToken(token)
+  const user = await new PrivyClient({ appId, appSecret }).users()._get(clean(claims.user_id, 180))
+  return [...new Set(user.linked_accounts.flatMap(account => account.type === 'wallet' && account.chain_type === 'ethereum' && account.wallet_client_type === 'privy' && account.connector_type === 'embedded' && isAddress(account.address) ? [getAddress(account.address)] : []))]
+}
+
 function emailSet(value: unknown) {
   return new Set(String(value ?? '').split(',').map(item => item.trim().toLowerCase()).filter(item => EMAIL.test(item)))
 }
@@ -87,6 +100,7 @@ const defaults: Dependencies = {
   read: key => readDurableJson<FundingPartnerStore>(key),
   mutate: (key, update) => mutateDurableJson<FundingPartnerStore>(key, update),
   identityEmails: verifiedIdentityEmails,
+  identityWallets: verifiedIdentityWallets,
   env: () => process.env,
   now: () => new Date(),
   id: () => `fpa_${randomUUID()}`,
@@ -105,10 +119,19 @@ export function createFundingPartnersHandler(overrides: Partial<Dependencies> = 
       const env = dependencies.env()
       const config = configuration(env)
       const emails = await dependencies.identityEmails(req, env)
+      const wallets = await dependencies.identityWallets(req, env)
       const primaryEmail = emails[0]
       const accountKeys = emails.map(email => fundingPartnerAccountKey(config.secret, email))
       const store = safeFundingPartnerStore(await dependencies.read(config.storeKey))
       const record = Object.values(store.applications).find(item => accountKeys.includes(item.accountKey))
+      if (record && !record.walletAddress && wallets.length === 1) {
+        record.walletAddress = wallets[0]
+        await dependencies.mutate(config.storeKey, current => {
+          const next = safeFundingPartnerStore(current)
+          if (next.applications[record.id]) next.applications[record.id] = { ...next.applications[record.id], walletAddress: wallets[0], updatedAt: dependencies.now().toISOString() }
+          return next
+        })
+      }
       if (req.method === 'GET') {
         if (clean(req.query?.review, 8) === '1') {
           const admins = emailSet(env.HASHPAYSTREAM_ADMIN_EMAILS)
@@ -150,6 +173,7 @@ export function createFundingPartnersHandler(overrides: Partial<Dependencies> = 
 
       if (action !== 'apply') failure('Funding partner action is invalid.', 400)
       if (record) failure('This account already has a funding partner profile.', 409)
+      if (wallets.length !== 1) failure('Create one HashPayStream funding wallet before applying.', 409)
       const name = clean(body.name, 100)
       const country = clean(body.country, 80)
       const applicantType = clean(body.applicantType, 20) as FundingPartnerRecord['applicantType']
@@ -162,6 +186,7 @@ export function createFundingPartnersHandler(overrides: Partial<Dependencies> = 
       const application: FundingPartnerRecord = {
         id: dependencies.id(), accountKey: accountKeys[0], email: primaryEmail, name, country,
         applicantType, experience, expectedFundingRange, status: 'pending', createdAt: now, updatedAt: now,
+        walletAddress: wallets[0],
       }
       await dependencies.mutate(config.storeKey, current => {
         const next = safeFundingPartnerStore(current)

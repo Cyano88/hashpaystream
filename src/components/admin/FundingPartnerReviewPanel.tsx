@@ -23,6 +23,7 @@ type Application = {
   status: ApplicationStatus;
   createdAt: string;
   updatedAt: string;
+  walletAddress?: string;
 };
 type Filter = "pending" | "all";
 
@@ -236,6 +237,7 @@ export default function FundingPartnerReviewPanel() {
                   <p className="mt-1 break-all text-[11px] text-gray-500">
                     {application.email}
                   </p>
+                  {application.walletAddress && <p className="mt-1 break-all font-mono text-[10px] text-gray-400">{application.walletAddress}</p>}
                   <p className="mt-2 text-[11px] leading-5 text-gray-500">
                     {application.country} · {application.applicantType} ·{" "}
                     {application.experience} ·{" "}

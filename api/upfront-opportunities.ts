@@ -158,11 +158,14 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
       if (ownershipSecret.length < 32) failure('Funding partner authorization is unavailable.', 503)
       const partnerStoreKey = clean(env.HASHPAYSTREAM_FUNDING_PARTNER_STORE_KEY ?? DEFAULT_PARTNER_STORE_KEY, 160)
       const partnerStore = await dependencies.readPartners(partnerStoreKey)
-      const approvedKeys = new Set(Object.values(partnerStore?.applications ?? {}).filter(item => item.status === 'approved').map(item => item.accountKey))
-      const approved = emails.some(email => approvedKeys.has(fundingPartnerAccountKey(ownershipSecret, email)))
-      if (!approved) failure('This HashPayStream account is not approved to fund opportunities.', 403)
+      const accountKeys = new Set(emails.filter(value => !isAddress(value)).map(email => fundingPartnerAccountKey(ownershipSecret, email)))
+      const approvedProfile = Object.values(partnerStore?.applications ?? {}).find(item => item.status === 'approved' && accountKeys.has(item.accountKey))
+      if (!approvedProfile) failure('This HashPayStream account is not approved to fund opportunities.', 403)
       const chain = chainConfiguration(env)
       const callerWallets = new Set(emails.filter(value => isAddress(value)).map(value => getAddress(value).toLowerCase()))
+      if (!approvedProfile.walletAddress || !callerWallets.has(getAddress(approvedProfile.walletAddress).toLowerCase())) {
+        failure('Open Funding partners once to verify this profile’s Privy wallet.', 409)
+      }
       const storeKey = clean(env.HASHPAYSTREAM_UPFRONT_STORE_KEY ?? DEFAULT_STORE_KEY, 160)
       if (!storeKey) failure('The Upfront opportunity store is unavailable.', 503)
       const store = await dependencies.readStore(storeKey)

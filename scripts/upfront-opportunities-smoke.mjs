@@ -45,9 +45,9 @@ const approved = {
 }
 const ownershipSecret = 'funding-partner-ownership-secret-longer-than-thirty-two-characters'
 const base = {
-  identityEmails: async () => ['funder@example.com'],
+  identityEmails: async () => ['funder@example.com', '0x3000000000000000000000000000000000000003'],
   readStore: async () => ({ schema: 1, records: { approved } }),
-  readPartners: async () => ({ schema: 1, applications: { approved: { accountKey: fundingPartnerAccountKey(ownershipSecret, 'funder@example.com'), status: 'approved' } } }),
+  readPartners: async () => ({ schema: 1, applications: { approved: { accountKey: fundingPartnerAccountKey(ownershipSecret, 'funder@example.com'), status: 'approved', walletAddress: '0x3000000000000000000000000000000000000003' } } }),
   position: async () => ({ funder: '0x0000000000000000000000000000000000000000', repaymentRecipient: '0x0000000000000000000000000000000000000000', status: 'available' }),
   env: () => ({ HASHPAYSTREAM_UPFRONT_ENABLED: 'true', HASHPAYSTREAM_APP_OWNERSHIP_SECRET: ownershipSecret, HASHPAYSTREAM_XLAYER_RPC_URL: 'https://xlayer.example', HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS: '0x2222222222222222222222222222222222222222', HASHPAYSTREAM_UPFRONT_CHAIN_ID: '1952' }),
   now: () => now,
@@ -62,6 +62,10 @@ assert.equal(visible.body.opportunities[0].protectedUsdcUnits, '100000000')
 const forbidden = await call(createUpfrontOpportunitiesHandler({ ...base, identityEmails: async () => ['other@example.com'] }))
 assert.equal(forbidden.statusCode, 403)
 assert.match(forbidden.body.error, /not approved/i)
+
+const wrongWallet = await call(createUpfrontOpportunitiesHandler({ ...base, identityEmails: async () => ['funder@example.com', '0x4000000000000000000000000000000000000004'] }))
+assert.equal(wrongWallet.statusCode, 409)
+assert.match(wrongWallet.body.error, /Privy wallet/i)
 
 const expired = await call(createUpfrontOpportunitiesHandler({ ...base, now: () => new Date('2026-08-21T12:16:00.000Z') }))
 assert.equal(expired.statusCode, 200)

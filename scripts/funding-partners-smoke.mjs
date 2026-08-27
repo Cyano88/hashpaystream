@@ -27,6 +27,7 @@ const handler = createFundingPartnersHandler({
   read: async () => store,
   mutate: async (_key, update) => { store = update(store); return store },
   identityEmails: async req => req.headers.authorization === 'Bearer admin' ? ['operator@example.com'] : ['member@example.com'],
+  identityWallets: async req => req.headers.authorization === 'Bearer admin' ? ['0x2222222222222222222222222222222222222222'] : ['0x1111111111111111111111111111111111111111'],
   env: () => env,
   now: () => new Date('2026-08-25T09:00:00.000Z'),
   id: () => 'fpa_11111111-1111-4111-8111-111111111111',
@@ -45,6 +46,7 @@ const applied = await call(handler, { method: 'POST', body: {
 } })
 assert.equal(applied.statusCode, 201)
 assert.equal(applied.body.profile.status, 'pending')
+assert.equal(applied.body.profile.application.walletAddress, '0x1111111111111111111111111111111111111111')
 assert.equal(Object.keys(store.applications).length, 1)
 
 const reviewQueue = await call(handler, { token: 'admin', query: { review: '1' } })
