@@ -19,14 +19,15 @@ import StreamPayUpfront from './components/StreamPayUpfront'
 import StreamPayFunding from './components/StreamPayFunding'
 import StreamPaySend from './components/StreamPaySend'
 import StreamPayReceive from './components/StreamPayReceive'
+import StreamPayMove from './components/StreamPayMove'
 import { HashPayStreamSessionSplash } from './components/HashPayStreamSessionSplash'
 import { BrowserRouter, Navigate, useLocation } from './lib/router'
 import { useHashPayStreamSessionSplash } from './lib/useHashPayStreamSessionSplash'
 import { LoadingRing } from './components/ui/LoadingRing'
 import { CircleWalletGate } from './components/CircleWalletGate'
 
-const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/upfront', '/funding', '/send', '/receive', '/activity', '/notifications', '/requests', '/account', '/operations', '/admin/analytics'])
-const CIRCLE_ROUTES = new Set(['/home', '/agreements', '/agreements/new', '/upfront', '/funding', '/send', '/receive', '/activity', '/notifications', '/requests', '/account'])
+const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/upfront', '/funding', '/move', '/send', '/receive', '/activity', '/notifications', '/requests', '/account', '/operations', '/admin/analytics'])
+const CIRCLE_ROUTES = new Set(['/home', '/agreements', '/agreements/new', '/upfront', '/move', '/send', '/receive', '/activity', '/notifications', '/requests', '/account'])
 const SESSION_READY_TIMEOUT_MS = 12_000
 
 function SessionLoadingSurface({ sessionDelayed, onRetry }: { sessionDelayed: boolean; onRetry: () => void }) {
@@ -84,6 +85,7 @@ function StreamPayRoute() {
   else if (route === '/agreements/new') content = <Navigate to="/requests?compose=1" replace />
   else if (route === '/upfront') content = <StreamPayUpfront />
   else if (route === '/funding') content = <StreamPayFunding />
+  else if (route === '/move') content = <StreamPayMove />
   else if (route === '/send') content = <StreamPaySend />
   else if (route === '/receive') content = <StreamPayReceive />
   else if (route === '/upfront/funding') content = <Navigate to="/funding" replace />

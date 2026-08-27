@@ -1,8 +1,8 @@
 import {
   ArrowRightIcon,
-  ArrowDownTrayIcon,
   BellIcon,
-  PaperAirplaneIcon,
+  ArrowsRightLeftIcon,
+  BanknotesIcon,
   DocumentPlusIcon,
   SparklesIcon,
 } from '@heroicons/react/24/outline'
@@ -44,8 +44,8 @@ export default function StreamPayHome() {
   const upfrontTo = useStreamPayPath('/upfront')
   const activityTo = useStreamPayPath('/activity')
   const notificationsTo = useStreamPayPath('/notifications')
-  const sendTo = useStreamPayPath('/send')
-  const receiveTo = useStreamPayPath('/receive')
+  const moveTo = useStreamPayPath('/move')
+  const earnTo = useStreamPayPath('/funding')
   const notices = useMemo(() => buildStreamNotices(agreements, requests.requests), [agreements, requests.requests])
   const recentActivity = useMemo(() => notices.slice(0, 3), [notices])
   const { unreadCount } = useNotificationReadState(notices)
@@ -66,8 +66,8 @@ export default function StreamPayHome() {
   const actions = [
     { label: 'New', Icon: DocumentPlusIcon, to: createTo },
     { label: 'Early pay', Icon: SparklesIcon, to: upfrontTo },
-    { label: 'Send', Icon: PaperAirplaneIcon, to: sendTo },
-    { label: 'Deposit', Icon: ArrowDownTrayIcon, to: receiveTo },
+    { label: 'Move', Icon: ArrowsRightLeftIcon, to: moveTo },
+    { label: 'Earn', Icon: BanknotesIcon, to: earnTo },
   ]
 
   return (

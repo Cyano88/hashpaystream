@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react'
-import { ArrowRightStartOnRectangleIcon, BanknotesIcon, CheckIcon, ChevronRightIcon, ClipboardDocumentIcon, MoonIcon, PencilIcon, SunIcon, UserIcon, WalletIcon } from '@heroicons/react/24/outline'
+import { ArrowRightStartOnRectangleIcon, CheckIcon, ChevronRightIcon, ClipboardDocumentIcon, MoonIcon, PencilIcon, SunIcon, UserIcon, WalletIcon } from '@heroicons/react/24/outline'
 import { usePrivy } from '@privy-io/react-auth'
-import { Link } from '../lib/router'
 import { useTheme } from '../lib/ThemeContext'
 import { useCircleWallet } from '../lib/circleWallet'
 import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSplash'
 import { useStreamAccount } from '../lib/streamAccount'
-import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
 import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
 
@@ -21,7 +19,6 @@ export default function StreamPayAccount() {
   const [saving, setSaving] = useState(false)
   const [editError, setEditError] = useState('')
   const splashState = useHashPayStreamSessionSplash(!authenticated)
-  const fundingTo = useStreamPayPath('/funding')
   useEffect(() => { if (account.profile?.pocketId) setDraftId(account.profile.pocketId) }, [account.profile?.pocketId])
   if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
   if (account.loading) return <StreamPayLoadingState active="account" />
@@ -47,7 +44,6 @@ export default function StreamPayAccount() {
       <button type="button" onClick={toggle} className="flex min-h-[62px] w-full items-center gap-3 border-t border-gray-100 px-4 text-left dark:border-white/[0.07]"><span className="text-gray-500">{theme === 'dark' ? <MoonIcon className="h-5 w-5" /> : <SunIcon className="h-5 w-5" />}</span><span className="flex-1 text-sm font-bold text-gray-900 dark:text-white">Appearance</span><span className="text-[10px] font-bold capitalize text-gray-400">{theme}</span></button>
     </div>
 
-    <Link to={fundingTo} className="mt-3 flex min-h-[66px] items-center gap-3 rounded-[22px] border border-gray-100 bg-white px-4 shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035]"><BanknotesIcon className="h-5 w-5 text-gray-500" /><span className="min-w-0 flex-1"><span className="block text-sm font-bold text-gray-950 dark:text-white">Funding partners</span><span className="mt-0.5 block text-[11px] text-gray-400">Apply or check your review</span></span><ChevronRightIcon className="h-4 w-4 text-gray-300" /></Link>
     <div className="mt-3 overflow-hidden rounded-[22px] border border-gray-100 bg-white shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035]"><a href="https://x.com/Hash_PayLink" target="_blank" rel="noreferrer" className="flex min-h-[58px] items-center px-4 text-sm font-bold text-gray-700 dark:text-gray-200">Help and support<ChevronRightIcon className="ml-auto h-4 w-4 text-gray-300" /></a><button type="button" onClick={() => void logout()} className="flex min-h-[58px] w-full items-center gap-3 border-t border-gray-100 px-4 text-sm font-bold text-red-600 dark:border-white/[0.07] dark:text-red-400"><ArrowRightStartOnRectangleIcon className="h-4 w-4" />Sign out</button></div>
     {account.error && <p className="mt-4 text-center text-xs font-semibold text-red-600">{account.error}</p>}
   </section>
