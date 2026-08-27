@@ -140,7 +140,7 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
     setError('')
     setFundingHash('')
     try {
-      if (!ready || !signer) throw new Error('The Privy treasury signing connection is not ready. Refresh this page and try again.')
+      if (!ready || !signer) throw new Error('Your HashPayStream funding wallet is not ready. Refresh this page and try again.')
       const offer = parseOffer(opportunity)
       if (!isAddress(opportunity.providerPayoutAddress) || getAddress(opportunity.providerPayoutAddress) !== offer.message.provider) {
         throw new Error('The displayed payout address does not match the signed underwriting offer.')
@@ -161,14 +161,14 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
         publicClient.getGasPrice(),
       ])
       if (paused) throw new Error('The X Layer escrow is paused.')
-      if (!allowed) throw new Error('This treasury is not allowlisted by the escrow owner.')
+      if (!allowed) throw new Error('This funding wallet is not approved yet.')
       const gasReserve = gasPrice * 600_000n
-      if (gasBalance < gasReserve) throw new Error(`Treasury needs at least ${formatEther(gasReserve)} OKB for X Layer gas before funding.`)
+      if (gasBalance < gasReserve) throw new Error(`Your funding wallet needs at least ${formatEther(gasReserve)} OKB for X Layer gas before funding.`)
       const [balance, allowance] = await Promise.all([
         publicClient.readContract({ address: asset, abi: ERC20_ABI, functionName: 'balanceOf', args: [account] }),
         publicClient.readContract({ address: asset, abi: ERC20_ABI, functionName: 'allowance', args: [account, offer.escrow] }),
       ])
-      if (balance < amount) throw new Error(`Treasury balance is below ${amountLabel}.`)
+      if (balance < amount) throw new Error(`Your funding wallet balance is below ${amountLabel}.`)
 
       await signer.switchChain(upfrontXLayerChain.id)
       const provider = await signer.getEthereumProvider()
@@ -204,14 +204,14 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
       await Promise.resolve(onFunded?.()).catch(() => undefined)
     } catch (reason) {
       setStage('')
-      setError(reason instanceof Error ? reason.message : 'The treasury could not fund this offer.')
+      setError(reason instanceof Error ? reason.message : 'Your funding wallet could not fund this offer.')
     }
   }
 
   if (fundingHash) return <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-[11px] text-emerald-800"><strong>Advance funded.</strong><p className="mt-1 break-all font-mono">{fundingHash}</p></div>
   return <div className="mt-3">
     <button type="button" disabled={busy || !ready || !signer} onClick={() => void fund()} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{stage || `Approve and fund ${amountLabel}`}</button>
-    {!signer && <p className="mt-2 text-[11px] leading-5 text-amber-700">The treasury address is known, but its Privy signing connection is not ready.</p>}
+    {!signer && <p className="mt-2 text-[11px] leading-5 text-amber-700">Your HashPayStream funding wallet is still connecting.</p>}
     {error && <p className="mt-2 text-[11px] leading-5 text-rose-700">{error}</p>}
   </div>
 }

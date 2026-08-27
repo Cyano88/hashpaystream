@@ -62,7 +62,7 @@ export default function UpfrontTreasuryWallet() {
       setError(
         reason instanceof Error
           ? reason.message
-          : "The treasury signer could not be created.",
+          : "Your funding wallet could not be created.",
       );
     } finally {
       setCreating(false);
@@ -111,8 +111,8 @@ export default function UpfrontTreasuryWallet() {
               className="mt-3 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-60"
             >
               {creating
-                ? "Creating treasury wallet..."
-                : "Create treasury wallet"}
+                ? "Creating funding wallet..."
+                : "Create funding wallet"}
             </button>
           )}
           {walletCheckTimedOut && !treasury && (
@@ -123,7 +123,7 @@ export default function UpfrontTreasuryWallet() {
           )}
           {knownTreasuries.length > 1 && (
             <p className="mt-3 text-xs leading-5 text-rose-700">
-              Multiple embedded wallets are linked to this identity. Treasury
+              Multiple embedded wallets are linked to this identity. Funding wallet
               selection is locked until an operator verifies the correct
               address.
             </p>
@@ -142,7 +142,7 @@ export default function UpfrontTreasuryWallet() {
           )}
           {walletKnownButConnectorPending && (
             <p className="mt-2 text-[11px] leading-5 text-amber-800">
-              Treasury address recovered. The signing connection is still
+              Funding wallet recovered. The signing connection is still
               loading, so transactions remain locked.
             </p>
           )}

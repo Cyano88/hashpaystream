@@ -255,7 +255,7 @@ export async function requestPolyDeskUnderwriting(input: {
   }
 }) {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 20_000)
+  const timer = setTimeout(() => controller.abort(), 30_000)
   try {
     const response = await fetch(input.baseUrl + '/api/upfront/v1/underwrite', {
       method: 'POST',

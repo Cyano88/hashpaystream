@@ -197,7 +197,7 @@ async function fundedAgreementInput(body: Record<string, unknown>, identity: str
 
 async function requestAssessment(request: AgreementIntelligenceRequest, config: { baseUrl: string; apiKey: string }) {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 30_000)
+  const timer = setTimeout(() => controller.abort(), 45_000)
   try {
     const response = await fetch(config.baseUrl + '/api/integrations/agreement-intelligence', {
       method: 'POST', cache: 'no-store', signal: controller.signal,
@@ -265,9 +265,11 @@ export function createHashPayStreamUpfrontAssessmentHandler(overrides: Partial<U
     if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ ok: false, error: 'Method not allowed.' }) }
     let storeKey = ''
     let replayKey = ''
+    let stage = 'configuration'
     try {
       const config = configuration(dependencies.env())
       storeKey = config.storeKey
+      stage = 'identity'
       const identity = await dependencies.identity(req)
       const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body as Record<string, unknown> : {}
       const requestedPayoutAddress = clean(body.providerPayoutAddress, 42)
@@ -280,6 +282,7 @@ export function createHashPayStreamUpfrontAssessmentHandler(overrides: Partial<U
       if (providerWallets[0] !== getAddress(requestedPayoutAddress)) {
         throw httpError('The X Layer payout wallet does not belong to your signed-in account.', 403)
       }
+      stage = 'agreement'
       const verified = body.agreementId
         ? await fundedAgreementInput(body, identity, config, dependencies)
         : { agreementId: undefined, draft: validateUpfrontDraft(body), trustedEvidence: undefined }
@@ -307,11 +310,13 @@ export function createHashPayStreamUpfrontAssessmentHandler(overrides: Partial<U
         return next
       })
       if (replay) return res.json({ ok: true, assessment: replay, replayed: true })
+      stage = 'zeroscout'
       const result = await dependencies.assess(request, { baseUrl: config.baseUrl, apiKey: config.apiKey })
       if (result.status < 200 || result.status >= 300) throw httpError(clean(result.body.error, 300) || 'ZeroScout rejected the Agreement Intelligence request.', result.status >= 400 && result.status < 600 ? result.status : 502)
       const response = safeAssessmentResponse(result.body)
       if (!validAssessmentResponse(response)) throw httpError('ZeroScout returned an invalid Agreement Intelligence result.', 502)
       if (response.requestCommitment !== requestHash) throw httpError('ZeroScout Agreement Intelligence does not match this request.', 502)
+      stage = 'polydesk'
       const underwriting = await dependencies.underwrite(request, response, {
         baseUrl: config.polyDeskBaseUrl,
         serviceToken: config.polyDeskServiceToken,
@@ -323,6 +328,7 @@ export function createHashPayStreamUpfrontAssessmentHandler(overrides: Partial<U
         now: dependencies.now(),
       })
       const combinedAssessment = { intelligence: response, decision: underwriting }
+      stage = 'persistence'
       await dependencies.mutate(storeKey, current => {
         const next = safeStore(current)
         next.records[replayKey] = { ownerReference, requestHash: payloadHash, agreementId: verified.agreementId, status: 'completed', createdAt: issuedAt, request, response: combinedAssessment }
@@ -332,6 +338,11 @@ export function createHashPayStreamUpfrontAssessmentHandler(overrides: Partial<U
     } catch (error) {
       if (storeKey && replayKey) await dependencies.mutate(storeKey, current => { const next = safeStore(current); if (next.records[replayKey]?.status === 'pending') delete next.records[replayKey]; return next }).catch(() => undefined)
       const status = Number((error as { status?: number }).status) || 500
+      if (status >= 500) console.error(JSON.stringify({
+        component: 'hashpaystream-upfront', event: 'assessment_failed', stage, status,
+        error: clean((error as Error)?.message, 300),
+        cause: clean((error as { cause?: { name?: unknown } })?.cause?.name, 80),
+      }))
       return res.status(status).json({ ok: false, error: status >= 500 ? 'HashPayStream Upfront is temporarily unavailable.' : (error as Error).message })
     }
   }

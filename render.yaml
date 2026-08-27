@@ -75,7 +75,7 @@ services:
       - key: HASHPAYSTREAM_POLYDESK_SIGNING_SECRET
         sync: false
       - key: HASHPAYSTREAM_POLYDESK_SIGNING_KEY_ID
-        sync: false
+        value: "polydesk-upfront-xlayer-mainnet-v1"
       - key: HASHPAYSTREAM_POLYDESK_EIP712_SIGNER
         value: "0xB089C3d5F06074856d7665A1Aa53Dc0d761930aE"
       - key: HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS
