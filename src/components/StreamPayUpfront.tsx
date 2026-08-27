@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowLeftIcon, BanknotesIcon, CheckBadgeIcon } from '@heroicons/react/24/outline'
 import { isAddress } from 'viem'
-import { Link } from '../lib/router'
+import { Link, useLocation } from '../lib/router'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { LoadingRing } from './ui/LoadingRing'
 import { StreamSelect } from './ui/StreamSelect'
@@ -47,6 +47,8 @@ function decimalUsdc(units?: string) {
 
 export default function StreamPayUpfront() {
   const { ready, authenticated, getAccessToken } = usePrivy()
+  const { search } = useLocation()
+  const requestedAgreementId = new URLSearchParams(search).get('agreementId') || ''
   const [providerPayoutAddress, setProviderPayoutAddress] = useState('')
   const [requestedAdvanceBps, setRequestedAdvanceBps] = useState(3000)
   const [submitting, setSubmitting] = useState(false)
@@ -76,7 +78,12 @@ export default function StreamPayUpfront() {
         const body = await response.json().catch(() => ({})) as { agreements?: UpfrontAgreement[]; error?: string }
         if (!response.ok) throw new Error(body.error || 'Funded agreements could not be loaded.')
         const eligible = (body.agreements || []).filter(item => item.status === 'active' && item.template === 'fixed_unlock' && item.recipient?.toLowerCase() === UPFRONT_ARC_ROUTER.toLowerCase())
-        if (!cancelled) { setAgreements(eligible); setAgreementId(eligible[0]?.id || '') }
+        if (!cancelled) {
+          const requestedAgreement = requestedAgreementId ? eligible.find(item => item.id === requestedAgreementId) : undefined
+          setAgreements(eligible)
+          setAgreementId(requestedAgreement?.id || (requestedAgreementId ? '' : eligible[0]?.id || ''))
+          if (requestedAgreementId && !requestedAgreement) setError('This funded agreement is not available for early pay.')
+        }
       } catch (reason) {
         if (!cancelled) setError(reason instanceof Error ? reason.message : 'Funded agreements could not be loaded.')
       } finally {
@@ -84,7 +91,7 @@ export default function StreamPayUpfront() {
       }
     })()
     return () => { cancelled = true }
-  }, [authenticated, getAccessToken, ready])
+  }, [authenticated, getAccessToken, ready, requestedAgreementId])
 
   function changeDraft(update: () => void) {
     update(); setAssessment(null); setReview(undefined); setRequestKey(idempotencyKey())

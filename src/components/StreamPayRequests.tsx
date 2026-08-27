@@ -1,8 +1,9 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { ArrowLeftIcon, BriefcaseIcon, ClockIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { formatUsdc } from '../lib/useAgreements'
-import { useLocation } from '../lib/router'
+import { Link, useLocation } from '../lib/router'
 import { useServiceRequests, type ServiceRequest } from '../lib/serviceRequests'
+import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
 import { StreamSelect } from './ui/StreamSelect'
 import StreamPayFundRequest from './StreamPayFundRequest'
@@ -49,6 +50,8 @@ function RequestCard({ item, busy, onAction, onCounter, onFund }: { item: Servic
   const terms = item.terms.find(value => value.version === item.activeVersion) ?? item.terms[item.terms.length - 1]
   const providerCanRespond = item.role === 'provider' && item.status === 'sent'
   const customerCanAccept = item.role === 'customer' && ['countered', 'provider_accepted'].includes(item.status)
+  const providerCanCheckEarlyPay = item.role === 'provider' && item.status === 'funded' && terms.upfrontRequested && Boolean(item.agreementId)
+  const earlyPayTo = useStreamPayPath('/upfront?agreementId=' + encodeURIComponent(item.agreementId))
   return <article className="rounded-[24px] border border-gray-100 bg-white p-4 shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035]">
     <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gray-100 text-gray-600 dark:bg-white/[0.07] dark:text-gray-300"><ClockIcon className="h-5 w-5" /></span><div className="min-w-0 flex-1"><div className="flex flex-wrap gap-1.5"><span className="rounded-full bg-blue-50 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-blue-600 dark:bg-blue-400/10">{item.role === 'customer' ? 'Service provider' : 'Customer'}</span>{terms.upfrontRequested && <span className="rounded-full bg-amber-50 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">Early pay</span>}</div><h2 className="mt-2 truncate text-sm font-extrabold text-gray-950 dark:text-white">{terms.title}</h2><p className="mt-1 line-clamp-2 text-[11px] leading-5 text-gray-400">{terms.description}</p></div><p className="shrink-0 text-sm font-black">{formatUsdc(terms.amountUsdcUnits)}</p></div>
     {terms.upfrontReason && <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">{terms.upfrontReason}</p>}
@@ -56,6 +59,7 @@ function RequestCard({ item, busy, onAction, onCounter, onFund }: { item: Servic
     {providerCanRespond && <div className="mt-4 grid grid-cols-2 gap-2"><button disabled={busy} onClick={() => void onAction('provider_accept')} className="min-h-11 rounded-full bg-gray-950 text-xs font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950">Accept</button><button disabled={busy} onClick={onCounter} className="min-h-11 rounded-full border border-gray-200 text-xs font-bold dark:border-white/10">Change terms</button><button disabled={busy} onClick={() => void onAction('provider_decline')} className="col-span-2 min-h-10 text-xs font-bold text-gray-400">Decline</button></div>}
     {customerCanAccept && <div className="mt-4 grid grid-cols-[1fr_auto] gap-2"><button disabled={busy} onClick={() => void onAction('customer_accept')} className="min-h-11 rounded-full bg-gray-950 px-4 text-xs font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950">Accept final terms</button><button disabled={busy} onClick={() => void onAction('customer_cancel')} className="px-3 text-xs font-bold text-gray-400">Cancel</button></div>}
     {item.role === 'customer' && ['awaiting_funding', 'expired'].includes(item.status) && item.payerReviewPath && <button onClick={onFund} className="mt-4 flex min-h-11 w-full items-center justify-center rounded-full bg-gray-950 text-xs font-bold text-white dark:bg-white dark:text-gray-950">{item.status === 'expired' ? 'Return USDC' : 'Review and fund'}</button>}
+    {providerCanCheckEarlyPay && <Link to={earlyPayTo} className="mt-4 flex min-h-11 w-full items-center justify-center rounded-full bg-gray-950 text-xs font-bold text-white dark:bg-white dark:text-gray-950">Check early pay</Link>}
   </article>
 }
 
