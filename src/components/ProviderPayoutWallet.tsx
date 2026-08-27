@@ -17,6 +17,7 @@ export function ProviderPayoutWallet({ value, onChange }: Props) {
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
   const [createdAddress, setCreatedAddress] = useState('')
+  const [walletCheckTimedOut, setWalletCheckTimedOut] = useState(false)
 
   const connected = wallets.flatMap(wallet =>
     (wallet.walletClientType === 'privy' || wallet.walletClientType === 'privy-v2') && isAddress(wallet.address)
@@ -37,6 +38,15 @@ export function ProviderPayoutWallet({ value, onChange }: Props) {
   useEffect(() => {
     if (value !== payoutAddress) onChange(payoutAddress)
   }, [onChange, payoutAddress, value])
+
+  useEffect(() => {
+    if (ready || !authReady || !authenticated || payoutAddress) {
+      setWalletCheckTimedOut(false)
+      return
+    }
+    const timer = window.setTimeout(() => setWalletCheckTimedOut(true), 8_000)
+    return () => window.clearTimeout(timer)
+  }, [authReady, authenticated, payoutAddress, ready])
 
   async function prepare() {
     setCreating(true)
@@ -59,12 +69,13 @@ export function ProviderPayoutWallet({ value, onChange }: Props) {
           <div className="flex items-center justify-between gap-2">
             <div>
               <p className="text-xs font-semibold text-gray-950 dark:text-white">X Layer payout wallet</p>
-              <p className="mt-0.5 text-[10px] text-gray-400">Verified for this account</p>
+              <p className="mt-0.5 text-[10px] text-gray-400">{payoutAddress ? 'Verified for this account' : 'Required to receive early pay'}</p>
             </div>
             {payoutAddress && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold text-emerald-700"><CheckCircleIcon className="h-3.5 w-3.5" />Verified</span>}
           </div>
-          {!ready && !payoutAddress && <p className="mt-2 text-xs text-gray-500">Checking wallet...</p>}
-          {ready && addresses.length === 0 && <button type="button" disabled={creating || !authReady || !authenticated} onClick={() => void prepare()} className="mt-3 rounded-xl bg-gray-950 px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-60 dark:bg-white dark:text-gray-950">{creating ? 'Creating wallet...' : 'Create payout wallet'}</button>}
+          {!ready && !payoutAddress && !walletCheckTimedOut && <p className="mt-2 text-xs text-gray-500">Checking wallet...</p>}
+          {!payoutAddress && (ready || walletCheckTimedOut) && <button type="button" disabled={creating || !authReady || !authenticated} onClick={() => void prepare()} className="mt-3 rounded-xl bg-gray-950 px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-60 dark:bg-white dark:text-gray-950">{creating ? 'Creating wallet...' : 'Create payout wallet'}</button>}
+          {walletCheckTimedOut && !payoutAddress && <p className="mt-2 text-[10px] leading-4 text-amber-700 dark:text-amber-300">Wallet check took too long. Creating the wallet is safe and cannot move funds.</p>}
           {addresses.length > 1 && <p role="alert" className="mt-3 text-xs leading-5 text-rose-700 dark:text-rose-300">More than one embedded wallet is linked to this account. Contact support before requesting an advance.</p>}
           {payoutAddress && <p className="mt-2 font-mono text-xs text-gray-600 dark:text-gray-300" title={payoutAddress}>{short(payoutAddress)}</p>}
           {error && <p role="alert" className="mt-3 text-xs text-rose-700 dark:text-rose-300">{error}</p>}
