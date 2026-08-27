@@ -7,7 +7,7 @@ const configuredFunderValue = String(process.env.HASHPAYSTREAM_READINESS_FUNDER_
 const configuredFunder = configuredFunderValue ? getAddress(configuredFunderValue) : null;
 const expected = {
   owner: getAddress("0x8f1B15FC1489262Ce64AC8d6592bC8Ebb31f07bE"),
-  asset: getAddress("0x74b7F16337b8972027F6196A17a631aC6dE26d22"),
+  asset: getAddress("0xB6CEceAB302E2E4948951eE7843FC24E92933061"),
   router: getAddress("0x0E47e6dD4f86C5Cf1843Dce310b710FaE64c0C16"),
   underwritingSigner: getAddress("0xB089C3d5F06074856d7665A1Aa53Dc0d761930aE"),
   protectionSigner: getAddress("0xfd23c4697e41Bb6874d72D5f2b56Af8aB00CAb99"),

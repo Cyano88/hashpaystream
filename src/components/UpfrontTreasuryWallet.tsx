@@ -16,6 +16,7 @@ const ESCROW_ABI = [
 ] as const
 
 const ESCROW = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS ?? '').trim()
+const NATIVE_XLAYER_USDC = getAddress('0xB6CEceAB302E2E4948951eE7843FC24E92933061')
 
 function displayUsdc(units: string) {
   if (!/^\d+$/.test(units)) return '0'
@@ -35,6 +36,7 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
   const [availableUnits, setAvailableUnits] = useState<string | null>(null)
   const [loadingBalance, setLoadingBalance] = useState(false)
   const [assetAddress, setAssetAddress] = useState('')
+  const [escrowAssetAddress, setEscrowAssetAddress] = useState('')
   const [lastUpdated, setLastUpdated] = useState('')
 
   const embeddedWallets = wallets.filter(wallet => wallet.walletClientType === 'privy' || wallet.walletClientType === 'privy-v2')
@@ -73,9 +75,10 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
     setError('')
     try {
       const client = createPublicClient({ chain: upfrontXLayerChain, transport: http() })
-      const asset = await client.readContract({ address: getAddress(ESCROW), abi: ESCROW_ABI, functionName: 'asset' })
-      const balance = await client.readContract({ address: asset, abi: ERC20_ABI, functionName: 'balanceOf', args: [getAddress(treasury)] })
-      setAssetAddress(asset)
+      const escrowAsset = await client.readContract({ address: getAddress(ESCROW), abi: ESCROW_ABI, functionName: 'asset' })
+      const balance = await client.readContract({ address: NATIVE_XLAYER_USDC, abi: ERC20_ABI, functionName: 'balanceOf', args: [getAddress(treasury)] })
+      setAssetAddress(NATIVE_XLAYER_USDC)
+      setEscrowAssetAddress(escrowAsset)
       setAvailableUnits(balance.toString())
       setLastUpdated(new Date().toISOString())
     } catch {
@@ -118,6 +121,7 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
   </section>
 
   const balance = availableUnits === null ? null : displayUsdc(availableUnits)
+  const escrowNeedsUpgrade = Boolean(escrowAssetAddress && getAddress(escrowAssetAddress) !== NATIVE_XLAYER_USDC)
 
   return <section className="overflow-hidden rounded-[28px] bg-gray-950 p-5 text-white shadow-[0_18px_48px_rgba(15,23,42,0.14)] dark:bg-white dark:text-gray-950">
     <div className="flex items-start justify-between gap-3">
@@ -155,6 +159,7 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
     </div>
 
     <p className="mt-2 text-[9px] leading-4 opacity-35">USDC {assetAddress ? short(assetAddress) : 'asset checking'} / Repayments settle on Arc.</p>
+    {escrowNeedsUpgrade && <p role="status" className="mt-3 rounded-xl bg-amber-400/15 px-3 py-2.5 text-[11px] leading-5 text-amber-100 dark:text-amber-800">Your native USDC is available. Funding is paused while the escrow is upgraded to native USDC.</p>}
     {walletKnownButConnectorPending && <p className="mt-3 text-[11px] text-amber-300 dark:text-amber-700">Wallet recovered. Transaction signing is still connecting.</p>}
     {knownTreasuries.length > 1 && <p className="mt-3 text-[11px] text-rose-300 dark:text-rose-700">Multiple embedded wallets are linked. Funding is locked for review.</p>}
     {error && <p role="alert" className="mt-3 text-[11px] text-rose-300 dark:text-rose-700">{error}</p>}

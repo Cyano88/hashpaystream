@@ -36,6 +36,7 @@ type SignedOffer = {
 }
 
 const EXPECTED_ESCROW = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS ?? '').trim()
+const NATIVE_XLAYER_USDC = getAddress('0xB6CEceAB302E2E4948951eE7843FC24E92933061')
 const BYTES32 = /^0x[a-fA-F0-9]{64}$/
 const SIGNATURE = /^0x[a-fA-F0-9]{130}$/
 
@@ -160,6 +161,7 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
         publicClient.getBalance({ address: account }),
         publicClient.getGasPrice(),
       ])
+      if (getAddress(asset) !== NATIVE_XLAYER_USDC) throw new Error('This offer uses a retired USDC escrow. Wait for HashPayStream to publish the native-USDC replacement.')
       if (paused) throw new Error('The X Layer escrow is paused.')
       if (!allowed) throw new Error('This funding wallet is not approved yet.')
       const gasReserve = gasPrice * 600_000n

@@ -1,6 +1,6 @@
 import { ethers } from 'hardhat'
 
-const OFFICIAL_XLAYER_USDC = '0x74b7f16337b8972027f6196a17a631ac6de26d22'
+const OFFICIAL_XLAYER_USDC = '0xB6CEceAB302E2E4948951eE7843FC24E92933061'
 
 function address(name: string) {
   const value = String(process.env[name] ?? '').trim()
