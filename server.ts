@@ -53,7 +53,7 @@ app.use((_req, res, next) => {
     "object-src 'none'",
     "child-src https://auth.privy.io https://pw-auth.circle.com https://verify.walletconnect.com https://verify.walletconnect.org",
     "frame-src https://auth.privy.io https://pw-auth.circle.com https://verify.walletconnect.com https://verify.walletconnect.org https://challenges.cloudflare.com",
-    "connect-src 'self' https://auth.privy.io https://pw-auth.circle.com wss://relay.walletconnect.com wss://relay.walletconnect.org wss://www.walletlink.org https://*.rpc.privy.systems https://explorer-api.walletconnect.com",
+    "connect-src 'self' https://auth.privy.io https://pw-auth.circle.com wss://relay.walletconnect.com wss://relay.walletconnect.org wss://www.walletlink.org https://*.rpc.privy.systems https://explorer-api.walletconnect.com https://rpc.xlayer.tech https://testrpc.xlayer.tech https://rpc.testnet.arc.network",
     "worker-src 'self'",
     "manifest-src 'self'",
     "frame-ancestors 'none'",

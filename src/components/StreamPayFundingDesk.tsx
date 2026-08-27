@@ -1,13 +1,12 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
-import { ArrowPathIcon, BanknotesIcon, ClipboardIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, ArrowPathIcon, BanknotesIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import { Navigate } from '../lib/router'
 import { upfrontTreasuryEnabled } from '../lib/upfrontChains'
 import UpfrontTreasuryWallet from './UpfrontTreasuryWallet'
 import UpfrontFundButton from './UpfrontFundButton'
 import UpfrontLifecycleButton from './UpfrontLifecycleButton'
 import { LoadingRing } from './ui/LoadingRing'
-import { AgreementProgress } from './ui/AgreementProgress'
 
 type Opportunity = {
   id: string
@@ -32,17 +31,25 @@ const API = '/api/hashpaystream/v1/upfront/opportunities'
 const XLAYER_MAINNET = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID ?? '1952') === '196'
 
 function usdc(units: string) {
+  if (!/^\d+$/.test(units)) return '0 USDC'
   const padded = units.padStart(7, '0')
   return `${padded.slice(0, -6)}.${padded.slice(-6)}`.replace(/0+$/, '').replace(/\.$/, '') + ' USDC'
 }
 
 function short(value: string) {
-  return value.length > 14 ? `${value.slice(0, 7)}…${value.slice(-5)}` : value
+  return value.length > 14 ? `${value.slice(0, 7)}...${value.slice(-5)}` : value
 }
 
 function duration(seconds: number) {
   if (seconds % 86400 === 0) return `${seconds / 86400} day${seconds === 86400 ? '' : 's'}`
-  return `${Math.round(seconds / 3600)} hours`
+  return `${Math.round(seconds / 3600)} hour${seconds === 3600 ? '' : 's'}`
+}
+
+function positionLabel(status: Opportunity['positionStatus']) {
+  if (status === 'funded') return 'Ready to release'
+  if (status === 'released') return 'Awaiting repayment'
+  if (status === 'refunded') return 'Refunded'
+  return 'Open'
 }
 
 export default function StreamPayFundingDesk() {
@@ -51,7 +58,7 @@ export default function StreamPayFundingDesk() {
   const [loading, setLoading] = useState(true)
   const [authorized, setAuthorized] = useState(false)
   const [error, setError] = useState('')
-  const [copied, setCopied] = useState('')
+  const [selectedId, setSelectedId] = useState('')
 
   const load = useCallback(async () => {
     if (!authenticated) { setAuthorized(false); setLoading(false); return }
@@ -60,7 +67,7 @@ export default function StreamPayFundingDesk() {
     setError('')
     try {
       const token = await getAccessToken()
-      if (!token) throw new Error('Sign in again to open the funding desk.')
+      if (!token) throw new Error('Sign in again to open funding.')
       const response = await fetch(API, { cache: 'no-store', headers: { authorization: `Bearer ${token}` } })
       const body = await response.json().catch(() => ({})) as { opportunities?: Opportunity[]; error?: string }
       if (!response.ok) throw new Error(body.error || 'Funding opportunities could not be loaded.')
@@ -75,53 +82,95 @@ export default function StreamPayFundingDesk() {
 
   useEffect(() => { if (ready) void load() }, [load, ready])
 
-  async function copyOffer(item: Opportunity) {
-    await navigator.clipboard.writeText(JSON.stringify({ requestId: item.id, agreementId: item.agreementId, advanceAmountUsdcUnits: item.requestedAdvanceUsdcUnits, onchainOffer: item.onchainOffer }, null, 2))
-    setCopied(item.id)
-    window.setTimeout(() => setCopied(''), 1800)
-  }
+  const openOffers = useMemo(() => opportunities.filter(item => item.positionStatus === 'available'), [opportunities])
+  const positions = useMemo(() => opportunities.filter(item => item.positionStatus !== 'available'), [opportunities])
+  const activePositions = useMemo(() => positions.filter(item => item.positionStatus === 'funded' || item.positionStatus === 'released'), [positions])
+  const deployedUnits = useMemo(() => activePositions.reduce((total, item) => total + (/^\d+$/.test(item.requestedAdvanceUsdcUnits) ? BigInt(item.requestedAdvanceUsdcUnits) : 0n), 0n).toString(), [activePositions])
+  const selected = opportunities.find(item => item.id === selectedId)
 
   if (!ready || loading) return <div className="flex min-h-[58vh] items-center justify-center"><LoadingRing className="h-5 w-5 text-gray-300" /></div>
   if (!authenticated) return <Navigate to="/funding" replace />
 
-  return (
-    <section className="w-full max-w-4xl py-8 sm:py-12">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div><p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Funding marketplace</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Fund verified work early</h1><p className="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">The customer protects the job payment on Arc. Review the AI-checked opportunity and choose whether to fund it on {XLAYER_MAINNET ? 'X Layer Mainnet' : 'X Layer Testnet'}.</p></div>
-        <button type="button" onClick={() => void load()} className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs font-semibold text-gray-700 transition hover:border-gray-300 hover:text-gray-950 dark:border-white/10 dark:text-gray-200 dark:hover:border-white/20 dark:hover:text-white"><ArrowPathIcon className="h-4 w-4" />Refresh offers</button>
+  if (selected) return <FundingDetail item={selected} onBack={() => setSelectedId('')} onUpdated={load} />
+
+  return <section className="w-full max-w-md space-y-4 py-5 sm:py-8">
+    <div className="flex items-center justify-between gap-3">
+      <div><p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">Earn</p><h1 className="mt-1 text-xl font-black tracking-tight text-gray-950 dark:text-white">Funding</h1></div>
+      <button type="button" onClick={() => void load()} aria-label="Refresh funding" className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-gray-500 shadow-sm dark:bg-white/[0.06]"><ArrowPathIcon className="h-4 w-4" /></button>
+    </div>
+
+    {authorized && (upfrontTreasuryEnabled
+      ? <UpfrontTreasuryWallet deployedUsdcUnits={deployedUnits} activePositions={activePositions.length} />
+      : <div className="rounded-[24px] border border-gray-100 bg-white p-4 text-xs text-gray-500 shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035]">Funding transactions are currently locked.</div>)}
+
+    <div className="flex items-start gap-2 rounded-2xl bg-amber-50 px-3.5 py-3 text-[10px] leading-4 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
+      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+      <p>{XLAYER_MAINNET ? 'Public test: customer protection is test USDC on Arc; advances use real USDC on X Layer.' : 'Demo mode: customer protection and advances use test funds.'}</p>
+    </div>
+
+    {error && <div className="rounded-2xl bg-rose-50 px-4 py-3 text-xs text-rose-700 dark:bg-rose-400/10 dark:text-rose-300"><p>{error}</p><button type="button" onClick={() => void load()} className="mt-2 font-bold underline">Try again</button></div>}
+
+    {!error && <OpportunitySection title="Open opportunities" count={openOffers.length}>
+      {openOffers.length > 0
+        ? openOffers.map(item => <OpportunityRow key={item.id} item={item} onOpen={() => setSelectedId(item.id)} />)
+        : <EmptyState title="No live offers" detail="Approved funding opportunities will appear here." />}
+    </OpportunitySection>}
+
+    {!error && positions.length > 0 && <OpportunitySection title="Your funding" count={positions.length}>
+      {positions.map(item => <OpportunityRow key={item.id} item={item} onOpen={() => setSelectedId(item.id)} />)}
+    </OpportunitySection>}
+  </section>
+}
+
+function OpportunitySection({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
+  return <section>
+    <div className="mb-2 flex items-center justify-between px-1"><h2 className="text-xs font-black text-gray-950 dark:text-white">{title}</h2><span className="text-[10px] font-bold text-gray-400">{count}</span></div>
+    <div className="space-y-2">{children}</div>
+  </section>
+}
+
+function OpportunityRow({ item, onOpen }: { item: Opportunity; onOpen: () => void }) {
+  return <button type="button" onClick={onOpen} className="flex min-h-[82px] w-full items-center gap-3 rounded-[22px] border border-gray-100 bg-white p-4 text-left shadow-sm transition active:scale-[0.99] dark:border-white/[0.07] dark:bg-white/[0.035]">
+    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gray-100 text-gray-600 dark:bg-white/[0.07] dark:text-gray-300"><BanknotesIcon className="h-5 w-5" /></span>
+    <span className="min-w-0 flex-1"><span className="block truncate text-sm font-black text-gray-950 dark:text-white">{item.title}</span><span className="mt-1 block text-[10px] font-semibold text-gray-400">{positionLabel(item.positionStatus)} · {duration(item.durationSeconds)}</span></span>
+    <span className="shrink-0 text-right"><span className="block text-xs font-black tabular-nums text-gray-950 dark:text-white">{usdc(item.requestedAdvanceUsdcUnits)}</span><span className="mt-1 block text-[9px] text-gray-400">advance</span></span>
+    <ChevronRightIcon className="h-4 w-4 shrink-0 text-gray-300" />
+  </button>
+}
+
+function FundingDetail({ item, onBack, onUpdated }: { item: Opportunity; onBack: () => void; onUpdated: () => Promise<void> | void }) {
+  return <section className="w-full max-w-md py-5 sm:py-8">
+    <div className="flex items-center gap-3">
+      <button type="button" onClick={onBack} aria-label="Back to funding" className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-gray-700 shadow-sm dark:bg-white/[0.06] dark:text-white"><ArrowLeftIcon className="h-4 w-4" /></button>
+      <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">{positionLabel(item.positionStatus)}</p><h1 className="truncate text-xl font-black tracking-tight text-gray-950 dark:text-white">{item.title}</h1></div>
+    </div>
+
+    <article className="mt-5 rounded-[26px] border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035]">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+        <Metric label="Advance" value={usdc(item.requestedAdvanceUsdcUnits)} />
+        <Metric label="Protected" value={usdc(item.protectedUsdcUnits)} />
+        <Metric label="Term" value={duration(item.durationSeconds)} />
+        <Metric label="AI confidence" value={`${item.confidence}%`} />
       </div>
 
-      <div className="mt-6">
-        <AgreementProgress current={opportunities.length > 0 ? 3 : 2} steps={[
-          { label: 'Customer protects', detail: 'Test USDC on Arc Testnet' },
-          { label: 'AI checks', detail: 'ZeroScout and PolyDesk set the limit' },
-          { label: 'Funder reviews', detail: 'You approve the X Layer offer' },
-          { label: 'Service provider gets paid', detail: 'USDC arrives on X Layer' },
-        ]} />
+      <div className="mt-5 border-t border-gray-100 pt-4 dark:border-white/[0.07]">
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">Service provider</p>
+        <p className="mt-1 font-mono text-xs font-bold text-gray-700 dark:text-gray-200">{short(item.providerPayoutAddress)}</p>
+        <p className="mt-3 text-[11px] leading-5 text-gray-500 dark:text-gray-400">{item.evidenceGrade} evidence · AI-approved limit {item.maximumAdvanceBps / 100}%.</p>
+        {item.positionStatus === 'available' && <p className="mt-2 text-[10px] text-gray-400">Offer expires {new Date(item.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.</p>}
       </div>
 
-      <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200"><strong>Demo network notice.</strong> The customer payment uses Arc Testnet USDC, which has no financial value. {XLAYER_MAINNET ? 'The early payment uses real USDC on X Layer Mainnet, so this restricted demo does not treat the Arc test funds as real collateral.' : 'No mainnet funds are used in this environment.'}</div>
+      {item.positionStatus === 'available'
+        ? <UpfrontFundButton opportunity={item} onFunded={onUpdated} />
+        : <UpfrontLifecycleButton opportunity={{ ...item, positionStatus: item.positionStatus }} onUpdated={onUpdated} />}
+    </article>
+  </section>
+}
 
-      {authorized && (upfrontTreasuryEnabled ? <UpfrontTreasuryWallet /> : <div className="mt-4 rounded-2xl border p-4 text-xs"><strong>Treasury execution is locked.</strong> Reviewing offers cannot move funds.</div>)}
-      {error && <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-300"><p>{error}</p><p className="mt-2 text-xs">Your HashPayStream account is approved, but the marketplace could not be loaded. Retry or contact support.</p></div>}
-      {!error && opportunities.length === 0 && <div className="mt-7 rounded-3xl border border-gray-200 bg-white px-6 py-12 text-center dark:border-white/10 dark:bg-[#18181b]"><BanknotesIcon className="mx-auto h-8 w-8 text-gray-300" /><h2 className="mt-4 text-lg font-semibold text-gray-950 dark:text-white">No live offers</h2><p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Approved offers appear here after an eligible Arc agreement is funded and assessed.</p></div>}
-      {!error && opportunities.length > 0 && <div className="mt-7 grid gap-4 md:grid-cols-2">{opportunities.map(item => {
-        const spread = (BigInt(item.protectedUsdcUnits) - BigInt(item.requestedAdvanceUsdcUnits)).toString()
-        return <article key={item.id} className="rounded-3xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#18181b] sm:p-6">
-          <div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-600">Verified offer</p><h2 className="mt-2 text-lg font-semibold text-gray-950 dark:text-white">{item.title}</h2></div><span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-semibold text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">{XLAYER_MAINNET ? 'X Layer mainnet' : 'X Layer testnet'}</span></div>
-          <div className="mt-5 grid grid-cols-2 gap-4 border-y border-gray-100 py-4 dark:border-white/10"><Metric label="Advance" value={usdc(item.requestedAdvanceUsdcUnits)} /><Metric label="Protected" value={usdc(item.protectedUsdcUnits)} /><Metric label="Gross spread" value={usdc(spread)} /><Metric label="Term" value={duration(item.durationSeconds)} /></div>
-          <div className="mt-4 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400"><span>{item.evidenceGrade} evidence · {item.confidence}% confidence</span><span>{short(item.providerPayoutAddress)}</span></div>
-          <p className="mt-3 text-[11px] text-gray-400">Offer expires {new Date(item.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Every advance requires confirmation from your approved funding wallet.</p>
-          <button type="button" onClick={() => void copyOffer(item)} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 py-3 text-xs font-semibold text-white dark:bg-white dark:text-gray-950"><ClipboardIcon className="h-4 w-4" />{copied === item.id ? 'Offer copied' : 'Copy verified offer'}</button>
-          {item.positionStatus === 'available'
-            ? <UpfrontFundButton opportunity={item} onFunded={load} />
-            : <UpfrontLifecycleButton opportunity={{ ...item, positionStatus: item.positionStatus }} onUpdated={load} />}
-        </article>
-      })}</div>}
-    </section>
-  )
+function EmptyState({ title, detail }: { title: string; detail: string }) {
+  return <div className="rounded-[22px] border border-gray-100 bg-white px-5 py-8 text-center shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035]"><BanknotesIcon className="mx-auto h-7 w-7 text-gray-300" /><p className="mt-3 text-sm font-black text-gray-950 dark:text-white">{title}</p><p className="mt-1 text-[11px] text-gray-400">{detail}</p></div>
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
-  return <div><p className="text-[10px] font-medium uppercase tracking-[0.12em] text-gray-400">{label}</p><p className="mt-1 text-sm font-semibold text-gray-950 dark:text-white">{value}</p></div>
+  return <div><p className="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-400">{label}</p><p className="mt-1 text-sm font-black tabular-nums text-gray-950 dark:text-white">{value}</p></div>
 }
