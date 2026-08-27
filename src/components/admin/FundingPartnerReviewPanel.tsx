@@ -27,9 +27,10 @@ type Application = {
 };
 type Filter = "pending" | "all";
 
-function statusLabel(status: ApplicationStatus) {
-  if (status === "approved") return "Review access approved";
-  if (status === "restricted") return "Declined";
+function statusLabel(application: Application) {
+  if (application.status === "approved" && !application.walletAddress) return "Wallet verification needed";
+  if (application.status === "approved") return "Review access approved";
+  if (application.status === "restricted") return "Declined";
   return "Needs review";
 }
 
@@ -231,13 +232,14 @@ export default function FundingPartnerReviewPanel() {
                     <span
                       className={`rounded-full px-2 py-1 text-[9px] font-bold uppercase ${application.status === "pending" ? "bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-200" : application.status === "approved" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200" : "bg-gray-200 text-gray-600 dark:bg-white/10 dark:text-gray-300"}`}
                     >
-                      {statusLabel(application.status)}
+                      {statusLabel(application)}
                     </span>
                   </div>
                   <p className="mt-1 break-all text-[11px] text-gray-500">
                     {application.email}
                   </p>
                   {application.walletAddress && <p className="mt-1 break-all font-mono text-[10px] text-gray-400">{application.walletAddress}</p>}
+                  {application.status === "approved" && !application.walletAddress && <p className="mt-2 text-[10px] leading-5 text-amber-600 dark:text-amber-300">Ask this account to open Funding partners once so HashPayStream can verify its Privy wallet.</p>}
                   <p className="mt-2 text-[11px] leading-5 text-gray-500">
                     {application.country} · {application.applicantType} ·{" "}
                     {application.experience} ·{" "}
