@@ -1,8 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import type { W3SSdk as CircleSdk } from '@circle-fin/w3s-pw-web-sdk'
-import { createPublicClient, formatUnits, getAddress, http, parseUnits, type Address, type Hex } from 'viem'
-import { ARC_USDC, ARC_USDC_ABI, arcTestnet } from './arcWallet'
+import { formatUnits, getAddress, parseUnits, type Address, type Hex } from 'viem'
 import { circleUserTokenExpiresAt, clearStoredCircleSession, readStoredCircleSession, writeStoredCircleSession } from './circleSession'
 
 type CircleWallet = { id: string; address: Address; blockchain: string; accountType?: string; state?: string }
@@ -10,14 +9,13 @@ type CircleSession = { userToken: string; encryptionKey: string; refreshToken?: 
 type WalletState = 'idle' | 'connecting' | 'ready' | 'error'
 type ConnectionStage = 'restoring' | 'verifying'
 type CircleWalletContextValue = {
-  state: WalletState; stage: ConnectionStage; error: string; session?: CircleSession; address: string; balance: string; loadingBalance: boolean
+  state: WalletState; stage: ConnectionStage; error: string; session?: CircleSession; address: string; balance: string; balanceError: string; loadingBalance: boolean
   reconnect: () => Promise<void>; refreshBalance: () => Promise<void>; sendUsdc: (recipient: Address, amount: string) => Promise<Hex>
   executeChallenge: (challengeId: string) => Promise<{ transactionHash: string }>
 }
 
 const Context = createContext<CircleWalletContextValue | null>(null)
 const APP_ID = String(import.meta.env.VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET ?? import.meta.env.VITE_CIRCLE_USER_WALLET_APP_ID ?? '').trim()
-const publicClient = createPublicClient({ chain: arcTestnet, transport: http() })
 const MIN_RESTORE_LIFETIME_MS = 30_000
 
 class CircleRequestError extends Error {
@@ -43,6 +41,7 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState('')
   const [session, setSession] = useState<CircleSession>()
   const [balance, setBalance] = useState('0')
+  const [balanceError, setBalanceError] = useState('')
   const [loadingBalance, setLoadingBalance] = useState(false)
   const connecting = useRef<Promise<void> | null>(null)
 
@@ -170,13 +169,18 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
   }, [authenticated, email, ready, reconnect])
 
   const refreshBalance = useCallback(async () => {
-    if (!session?.wallet.address) { setBalance('0'); return }
+    if (!session?.wallet.address) { setBalance('0'); setBalanceError(''); return }
     setLoadingBalance(true)
     try {
-      const units = await publicClient.readContract({ address: ARC_USDC, abi: ARC_USDC_ABI, functionName: 'balanceOf', args: [session.wallet.address] })
-      setBalance(formatUnits(units, 6))
-    } catch { setBalance('0') } finally { setLoadingBalance(false) }
-  }, [session?.wallet.address])
+      const result = await request({ action: 'get_balance', userToken: session.userToken, walletId: session.wallet.id, walletAddress: session.wallet.address })
+      const units = find(result, ['balanceUsdcUnits'])
+      if (!/^\d+$/.test(units)) throw new Error('Arc returned an invalid USDC balance.')
+      setBalance(formatUnits(BigInt(units), 6))
+      setBalanceError('')
+    } catch (reason) {
+      setBalanceError(apiError(reason, 'Arc USDC balance is temporarily unavailable.'))
+    } finally { setLoadingBalance(false) }
+  }, [request, session])
   useEffect(() => {
     if (state !== 'ready') return
     void refreshBalance()
@@ -222,7 +226,7 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
     return { transactionHash: find(result, ['txHash', 'transactionHash']) }
   }, [execute, session])
 
-  const value = useMemo(() => ({ state, stage, error, session, address: session?.wallet.address ?? '', balance, loadingBalance, reconnect, refreshBalance, sendUsdc, executeChallenge }), [balance, error, executeChallenge, loadingBalance, reconnect, refreshBalance, sendUsdc, session, stage, state])
+  const value = useMemo(() => ({ state, stage, error, session, address: session?.wallet.address ?? '', balance, balanceError, loadingBalance, reconnect, refreshBalance, sendUsdc, executeChallenge }), [balance, balanceError, error, executeChallenge, loadingBalance, reconnect, refreshBalance, sendUsdc, session, stage, state])
   return <Context.Provider value={value}>{children}</Context.Provider>
 }
 

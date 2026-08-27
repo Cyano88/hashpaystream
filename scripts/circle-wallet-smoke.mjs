@@ -30,7 +30,10 @@ async function call(handler, body) {
 }
 
 try {
-  const handler = createCircleWalletHandler({ env: () => ({ CIRCLE_TEST_API_KEY: 'TEST_API_KEY' }), identity: async () => 'member@example.com' })
+  const handler = createCircleWalletHandler({ env: () => ({ CIRCLE_TEST_API_KEY: 'TEST_API_KEY' }), identity: async () => 'member@example.com', balance: async address => {
+    assert.equal(address, wallet.address)
+    return 65_992_064n
+  } })
   const otp = await call(handler, { action: 'request_email_otp', email: 'member@example.com', deviceId: 'device-id' })
   assert.equal(otp.statusCode, 200)
   assert.equal(otp.body.deviceToken, 'device-token')
@@ -45,6 +48,9 @@ try {
   const listed = await call(handler, { action: 'list_wallets', userToken: 'user-token' })
   assert.equal(listed.body.wallet.id, wallet.id)
   assert.equal(listed.body.wallets.length, 1)
+  const balance = await call(handler, { action: 'get_balance', userToken: 'user-token', walletId: wallet.id, walletAddress: wallet.address })
+  assert.equal(balance.statusCode, 200)
+  assert.equal(balance.body.balanceUsdcUnits, '65992064')
   const send = await call(handler, { action: 'send_usdc', userToken: 'user-token', walletId: wallet.id, walletAddress: wallet.address, recipient, amountUnits: '1250000' })
   assert.equal(send.body.challengeId, challengeId)
   const contractCall = calls.find(item => item.path.endsWith('/contractExecution'))

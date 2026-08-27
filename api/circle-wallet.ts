@@ -1,7 +1,7 @@
 import crypto from 'node:crypto'
 import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
-import { encodeFunctionData, getAddress, isAddress, parseAbi } from 'viem'
+import { createPublicClient, encodeFunctionData, getAddress, http, isAddress, parseAbi } from 'viem'
 
 const ARC_BLOCKCHAIN = 'ARC-TESTNET'
 const ARC_USDC = getAddress('0x3600000000000000000000000000000000000000')
@@ -9,6 +9,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const transferAbi = parseAbi(['function transfer(address to,uint256 amount) returns (bool)'])
 const batchAbi = parseAbi(['function executeBatch((address target,uint256 value,bytes data)[] calls)'])
+const balanceAbi = parseAbi(['function balanceOf(address owner) view returns (uint256)'])
 
 export type CircleArcWallet = { id: string; address: string; blockchain: string; accountType?: string; state?: string }
 
@@ -76,9 +77,17 @@ async function readOwnedWallet(userToken: string, walletId: string, walletAddres
   return wallet
 }
 
-export function createCircleWalletHandler(overrides: { env?: () => NodeJS.ProcessEnv; identity?: typeof verifiedEmail } = {}) {
+async function readArcUsdcBalance(walletAddress: string, env: NodeJS.ProcessEnv) {
+  const rpcUrl = clean(env.HASHPAYSTREAM_ARC_RPC_URL ?? 'https://rpc.testnet.arc.network', 500)
+  if (!rpcUrl.startsWith('https://')) fail('Arc balance access is unavailable.', 503)
+  const client = createPublicClient({ transport: http(rpcUrl) })
+  return client.readContract({ address: ARC_USDC, abi: balanceAbi, functionName: 'balanceOf', args: [getAddress(walletAddress)] })
+}
+
+export function createCircleWalletHandler(overrides: { env?: () => NodeJS.ProcessEnv; identity?: typeof verifiedEmail; balance?: typeof readArcUsdcBalance } = {}) {
   const environment = overrides.env ?? (() => process.env)
   const identity = overrides.identity ?? verifiedEmail
+  const balance = overrides.balance ?? readArcUsdcBalance
   return async function circleWallet(req: Request, res: Response) {
     res.setHeader('Cache-Control', 'no-store')
     if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ ok: false, error: 'Method not allowed.' }) }
@@ -115,6 +124,14 @@ export function createCircleWalletHandler(overrides: { env?: () => NodeJS.Proces
       if (action === 'list_wallets') {
         const wallets = await listCircleArcWallets(userToken, env)
         return res.json({ ok: true, wallets, wallet: wallets[0] ?? null })
+      }
+      if (action === 'get_balance') {
+        const walletId = clean(body.walletId, 256)
+        const walletAddress = clean(body.walletAddress, 42)
+        if (!walletId || !isAddress(walletAddress)) fail('Circle wallet details are invalid.', 400)
+        const wallet = await readOwnedWallet(userToken, walletId, walletAddress, env)
+        const balanceUsdcUnits = await balance(wallet.address, env)
+        return res.json({ ok: true, walletAddress: getAddress(wallet.address), balanceUsdcUnits: balanceUsdcUnits.toString() })
       }
       if (action === 'send_usdc') {
         const walletId = clean(body.walletId, 256)
