@@ -3,6 +3,8 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSplash'
 import { formatUsdc, useAgreements } from '../lib/useAgreements'
 import { useStreamAccount } from '../lib/streamAccount'
+import { useServiceRequests } from '../lib/serviceRequests'
+import { buildStreamNotices } from '../lib/streamNotifications'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
 import { LoadingRing } from './ui/LoadingRing'
 
@@ -26,6 +28,7 @@ function short(value: string) { return value.length > 14 ? `${value.slice(0, 7)}
 export default function StreamPayActivity() {
   const { ready, authenticated, agreements, loading, error } = useAgreements()
   const account = useStreamAccount(true)
+  const requests = useServiceRequests()
   const [showAll, setShowAll] = useState(false)
   const splashState = useHashPayStreamSessionSplash(!authenticated)
   useEffect(() => {
@@ -36,6 +39,7 @@ export default function StreamPayActivity() {
       return account.refresh()
     }).catch(() => undefined)
   }, [authenticated, account.recordTransfer, account.refresh])
+  const requestNotices = useMemo(() => buildStreamNotices([], requests.requests), [requests.requests])
   const activity = useMemo(() => {
     const agreementRows = agreements.flatMap(agreement => [
       ...(agreement.timeline ?? []).map(event => ({ id: `${agreement.id}:${event.id}`, event: event.event, occurredAt: event.createdAt || event.receivedAt, title: agreement.title || 'Agreement', detail: 'Protected payment' })),
@@ -47,19 +51,21 @@ export default function StreamPayActivity() {
       detail: `${formatUsdc(item.amountUsdcUnits)} · ${item.counterpartyPocketId ? `ID ${item.counterpartyPocketId}` : short(item.counterpartyAddress)}`,
       txHash: item.txHash,
     }))
-    return [...agreementRows, ...transferRows].filter(item => item.occurredAt).sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
-  }, [account.activity, agreements])
+    const requestRows = requestNotices.map(item => ({ id: item.id, event: 'request.notice', occurredAt: item.occurredAt, title: item.title, detail: item.detail, notice: item }))
+    return [...agreementRows, ...requestRows, ...transferRows].filter(item => item.occurredAt).sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
+  }, [account.activity, agreements, requestNotices])
   const visible = showAll ? activity : activity.slice(0, 20)
   if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
-  if (!ready || loading || account.loading) return <section className="flex min-h-[58vh] items-center"><LoadingRing className="h-5 w-5 text-gray-300" /></section>
+  if (!ready || loading || account.loading || requests.loading) return <section className="flex min-h-[58vh] items-center"><LoadingRing className="h-5 w-5 text-gray-300" /></section>
 
   return <section className="w-full max-w-md py-5 sm:py-8">
     <h1 className="sr-only">Activity</h1>
-    {(error || account.error) && <p className="mb-4 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700 dark:bg-red-400/10 dark:text-red-200">{error || account.error}</p>}
+    {(error || account.error || requests.error) && <p className="mb-4 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700 dark:bg-red-400/10 dark:text-red-200">{error || account.error || requests.error}</p>}
     <div className="overflow-hidden rounded-[24px] border border-gray-100 bg-white shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035]">
       {visible.map((item, index) => {
         const transfer = item.event === 'wallet.sent' || item.event === 'wallet.received'
-        const presentation = transfer ? { label: item.title, Icon: item.event === 'wallet.sent' ? ArrowUpRightIcon : ArrowDownLeftIcon, tone: item.event === 'wallet.sent' ? 'text-blue-600' : 'text-emerald-600' } : EVENTS[item.event as keyof typeof EVENTS]
+        const notice = 'notice' in item ? item.notice as (typeof requestNotices)[number] : undefined
+        const presentation = notice ? { label: notice.title, Icon: notice.Icon, tone: notice.tone } : transfer ? { label: item.title, Icon: item.event === 'wallet.sent' ? ArrowUpRightIcon : ArrowDownLeftIcon, tone: item.event === 'wallet.sent' ? 'text-blue-600' : 'text-emerald-600' } : EVENTS[item.event as keyof typeof EVENTS]
         const Icon = presentation?.Icon ?? ClockIcon
         const group = date(item.occurredAt)
         const previous = index ? date(visible[index - 1].occurredAt) : ''

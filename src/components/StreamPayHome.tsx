@@ -3,17 +3,8 @@ import {
   ArrowDownTrayIcon,
   BellIcon,
   PaperAirplaneIcon,
-  ArrowUpTrayIcon,
-  ArrowUturnLeftIcon,
-  BanknotesIcon,
-  CheckBadgeIcon,
-  CheckCircleIcon,
-  ClockIcon,
   DocumentPlusIcon,
-  ExclamationTriangleIcon,
-  PencilSquareIcon,
   SparklesIcon,
-  XCircleIcon,
 } from '@heroicons/react/24/outline'
 import { useMemo } from 'react'
 import { Link } from '../lib/router'
@@ -25,19 +16,6 @@ import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
 import { useCircleWallet } from '../lib/circleWallet'
 import { useServiceRequests } from '../lib/serviceRequests'
 import { buildStreamNotices, useNotificationReadState } from '../lib/streamNotifications'
-
-const EVENT_PRESENTATION = {
-  'agreement.activated': { label: 'Agreement funded', Icon: BanknotesIcon, tone: 'text-emerald-600 dark:text-emerald-400' },
-  'agreement.step_released': { label: 'Release confirmed', Icon: CheckBadgeIcon, tone: 'text-blue-600 dark:text-blue-400' },
-  'agreement.expired': { label: 'Refund available', Icon: ClockIcon, tone: 'text-amber-600 dark:text-amber-400' },
-  'agreement.completed': { label: 'Agreement completed', Icon: CheckCircleIcon, tone: 'text-emerald-600 dark:text-emerald-400' },
-  'agreement.cancelled': { label: 'Agreement cancelled', Icon: XCircleIcon, tone: 'text-gray-500 dark:text-gray-400' },
-  'agreement.refunded': { label: 'Remaining USDC returned', Icon: ArrowUturnLeftIcon, tone: 'text-amber-600 dark:text-amber-400' },
-  'delivery.submitted': { label: 'Delivery submitted', Icon: ArrowUpTrayIcon, tone: 'text-blue-600 dark:text-blue-400' },
-  'delivery.updated': { label: 'Delivery updated', Icon: PencilSquareIcon, tone: 'text-blue-600 dark:text-blue-400' },
-  'delivery.issue_reported': { label: 'Issue reported', Icon: ExclamationTriangleIcon, tone: 'text-red-600 dark:text-red-400' },
-  'delivery.release_approved': { label: 'Release approved', Icon: CheckBadgeIcon, tone: 'text-blue-600 dark:text-blue-400' },
-} as const
 
 function activityDate(value: string) {
   const date = new Date(value)
@@ -68,24 +46,8 @@ export default function StreamPayHome() {
   const notificationsTo = useStreamPayPath('/notifications')
   const sendTo = useStreamPayPath('/send')
   const receiveTo = useStreamPayPath('/receive')
-  const recentActivity = useMemo(() => agreements.flatMap(agreement => [
-    ...(Array.isArray(agreement.timeline) ? agreement.timeline : []).map(event => ({
-      id: `${agreement.id}:${event.id}`,
-      event: event.event,
-      occurredAt: event.createdAt || event.receivedAt,
-      title: agreement.title,
-    })),
-    ...(Array.isArray(agreement.deliveryTimeline) ? agreement.deliveryTimeline : []).map(event => ({
-      id: `${agreement.id}:${event.id}`,
-      event: event.event,
-      occurredAt: event.createdAt,
-      title: agreement.title,
-    })),
-  ])
-    .filter(item => item.occurredAt)
-    .sort((left, right) => Date.parse(right.occurredAt) - Date.parse(left.occurredAt))
-    .slice(0, 3), [agreements])
   const notices = useMemo(() => buildStreamNotices(agreements, requests.requests), [agreements, requests.requests])
+  const recentActivity = useMemo(() => notices.slice(0, 3), [notices])
   const { unreadCount } = useNotificationReadState(notices)
   const customerEscrow = useMemo(() => requests.requests.reduce((total, request) => {
     if (request.role !== 'customer' || !request.agreementId || !['funded', 'expired'].includes(request.status)) return total
@@ -162,16 +124,15 @@ export default function StreamPayHome() {
         </div>
         <div className="mt-4 space-y-1">
           {recentActivity.map(item => {
-            const presentation = EVENT_PRESENTATION[item.event as keyof typeof EVENT_PRESENTATION]
-            const Icon = presentation?.Icon ?? ClockIcon
+            const Icon = item.Icon
             return (
               <Link key={item.id} to={activityTo} className="flex w-full items-center gap-3 rounded-2xl px-2 py-3 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.04]">
-                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-white/[0.07] ${presentation?.tone ?? 'text-gray-500 dark:text-gray-400'}`}>
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-white/[0.07] ${item.tone}`}>
                   <Icon className="h-4 w-4" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs font-bold text-gray-900 dark:text-white">{presentation?.label ?? 'Agreement updated'}</span>
-                  <span className="mt-0.5 block truncate text-[10px] text-gray-400">{item.title || 'Untitled agreement'}</span>
+                  <span className="block truncate text-xs font-bold text-gray-900 dark:text-white">{item.title}</span>
+                  <span className="mt-0.5 block truncate text-[10px] text-gray-400">{item.detail}</span>
                 </span>
                 <time dateTime={item.occurredAt} className="shrink-0 text-[10px] font-semibold text-gray-400">{activityDate(item.occurredAt)}</time>
               </Link>

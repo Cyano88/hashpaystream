@@ -7,6 +7,7 @@ import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { LoadingRing } from './ui/LoadingRing'
 import { StreamSelect } from './ui/StreamSelect'
 import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
+import { ProviderPayoutWallet } from './ProviderPayoutWallet'
 
 type Assessment = {
   intelligence: { confidence: number; evidenceGrade: string; summary: string }
@@ -27,8 +28,6 @@ type UpfrontAgreement = {
 const API = '/api/hashpaystream/v1/upfront/assessments'
 const AGREEMENTS_API = '/api/hashpaystream/v1/human/upfront/agreements'
 const UPFRONT_ARC_ROUTER = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS || '0x0E47e6dD4f86C5Cf1843Dce310b710FaE64c0C16')
-const inputClass = 'w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-sm text-gray-950 outline-none transition focus:border-gray-500 dark:border-white/10 dark:bg-[#111113] dark:text-white'
-
 function idempotencyKey() {
   const suffix = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`
   return `hashpaystream-upfront:${suffix}`
@@ -85,7 +84,7 @@ export default function StreamPayUpfront() {
 
   async function submit(event: FormEvent) {
     event.preventDefault()
-    if (!valid || !selected) { setError('Choose an agreement and enter a valid X Layer payout address.'); return }
+    if (!valid || !selected) { setError('Choose an agreement and create your X Layer payout wallet.'); return }
     setSubmitting(true); setError(''); setAssessment(null)
     try {
       const token = await getAccessToken()
@@ -122,7 +121,7 @@ export default function StreamPayUpfront() {
       <label className="block"><span className="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-300">Funded agreement</span><StreamSelect label="Funded agreement" value={agreementId} onChange={value => changeDraft(() => setAgreementId(value))} options={agreements.map(item => ({ value: item.id, label: `${item.title || item.id} · ${decimalUsdc(item.chain?.amountUsdcUnits)} USDC` }))} /></label>
       {selected && <div className="rounded-xl bg-gray-50 px-3.5 py-3 dark:bg-white/[0.04]"><p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{selected.title}</p><p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-400">{selected.description}</p></div>}
       <label className="block"><span className="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-300">Advance amount</span><StreamSelect label="Advance percentage" value={String(requestedAdvanceBps)} onChange={value => changeDraft(() => setRequestedAdvanceBps(Number(value)))} options={[20, 30, 40, 50].map(percent => ({ value: String(percent * 100), label: `${percent}% of protected amount` }))} /></label>
-      <label className="block"><span className="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-300">X Layer payout address</span><input value={providerPayoutAddress} onChange={event => changeDraft(() => setProviderPayoutAddress(event.target.value.trim()))} placeholder="0x…" autoComplete="off" spellCheck={false} className={inputClass} /><span className="mt-2 block text-[11px] text-gray-400">Your approved advance is sent to this address.</span></label>
+      <ProviderPayoutWallet value={providerPayoutAddress} onChange={value => changeDraft(() => setProviderPayoutAddress(value))} />
       {error && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2.5 text-sm text-rose-600 dark:bg-rose-400/10 dark:text-rose-300">{error}</p>}
       <button disabled={!valid || submitting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 py-3.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-gray-950">{submitting ? <LoadingRing className="h-4 w-4" label="Checking agreement" /> : <BanknotesIcon className="h-4 w-4" />}{submitting ? 'Checking' : 'Check early pay'}</button>
     </form>
