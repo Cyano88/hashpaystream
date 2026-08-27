@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
-import { ArrowLeftIcon, ArrowPathIcon, BanknotesIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, ArrowPathIcon, BanknotesIcon, ChevronRightIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
 import { Navigate } from '../lib/router'
 import { upfrontTreasuryEnabled } from '../lib/upfrontChains'
 import UpfrontTreasuryWallet from './UpfrontTreasuryWallet'
@@ -95,7 +95,7 @@ export default function StreamPayFundingDesk() {
 
   return <section className="w-full max-w-md space-y-4 py-5 sm:py-8">
     <div className="flex items-center justify-between gap-3">
-      <div><p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">Earn</p><h1 className="mt-1 text-xl font-black tracking-tight text-gray-950 dark:text-white">Funding</h1></div>
+      <div><h1 className="text-xl font-black tracking-tight text-gray-950 dark:text-white">Earn</h1><p className="mt-0.5 text-[11px] text-gray-400">Fund verified work on X Layer</p></div>
       <button type="button" onClick={() => void load()} aria-label="Refresh funding" className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-gray-500 shadow-sm dark:bg-white/[0.06]"><ArrowPathIcon className="h-4 w-4" /></button>
     </div>
 
@@ -103,14 +103,9 @@ export default function StreamPayFundingDesk() {
       ? <UpfrontTreasuryWallet deployedUsdcUnits={deployedUnits} activePositions={activePositions.length} />
       : <div className="rounded-[24px] border border-gray-100 bg-white p-4 text-xs text-gray-500 shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035]">Funding transactions are currently locked.</div>)}
 
-    <div className="flex items-start gap-2 rounded-2xl bg-amber-50 px-3.5 py-3 text-[10px] leading-4 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
-      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
-      <p>{XLAYER_MAINNET ? 'Public test: customer protection is test USDC on Arc; advances use real USDC on X Layer.' : 'Demo mode: customer protection and advances use test funds.'}</p>
-    </div>
-
     {error && <div className="rounded-2xl bg-rose-50 px-4 py-3 text-xs text-rose-700 dark:bg-rose-400/10 dark:text-rose-300"><p>{error}</p><button type="button" onClick={() => void load()} className="mt-2 font-bold underline">Try again</button></div>}
 
-    {!error && <OpportunitySection title="Open opportunities" count={openOffers.length}>
+    {!error && <OpportunitySection title="Funding opportunities" count={openOffers.length}>
       {openOffers.length > 0
         ? openOffers.map(item => <OpportunityRow key={item.id} item={item} onOpen={() => setSelectedId(item.id)} />)
         : <EmptyState title="No live offers" detail="Approved funding opportunities will appear here." />}
@@ -119,6 +114,11 @@ export default function StreamPayFundingDesk() {
     {!error && positions.length > 0 && <OpportunitySection title="Your funding" count={positions.length}>
       {positions.map(item => <OpportunityRow key={item.id} item={item} onOpen={() => setSelectedId(item.id)} />)}
     </OpportunitySection>}
+
+    <div className="flex items-start gap-2 px-1 py-2 text-[9px] leading-4 text-gray-400">
+      <ShieldCheckIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <p>{XLAYER_MAINNET ? 'Public test: Arc protection uses test USDC; X Layer advances use real USDC.' : 'Demo mode uses test funds.'}</p>
+    </div>
   </section>
 }
 
@@ -130,10 +130,10 @@ function OpportunitySection({ title, count, children }: { title: string; count: 
 }
 
 function OpportunityRow({ item, onOpen }: { item: Opportunity; onOpen: () => void }) {
-  return <button type="button" onClick={onOpen} className="flex min-h-[82px] w-full items-center gap-3 rounded-[22px] border border-gray-100 bg-white p-4 text-left shadow-sm transition active:scale-[0.99] dark:border-white/[0.07] dark:bg-white/[0.035]">
-    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gray-100 text-gray-600 dark:bg-white/[0.07] dark:text-gray-300"><BanknotesIcon className="h-5 w-5" /></span>
+  return <button type="button" onClick={onOpen} className="flex min-h-[88px] w-full items-center gap-3 rounded-[24px] border border-gray-100 bg-white p-4 text-left shadow-sm transition active:scale-[0.99] dark:border-white/[0.07] dark:bg-white/[0.035]">
+    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-400/10 dark:text-blue-300"><BanknotesIcon className="h-5 w-5" /></span>
     <span className="min-w-0 flex-1"><span className="block truncate text-sm font-black text-gray-950 dark:text-white">{item.title}</span><span className="mt-1 block text-[10px] font-semibold text-gray-400">{positionLabel(item.positionStatus)} · {duration(item.durationSeconds)}</span></span>
-    <span className="shrink-0 text-right"><span className="block text-xs font-black tabular-nums text-gray-950 dark:text-white">{usdc(item.requestedAdvanceUsdcUnits)}</span><span className="mt-1 block text-[9px] text-gray-400">advance</span></span>
+    <span className="shrink-0 text-right"><span className="block text-sm font-black tabular-nums text-gray-950 dark:text-white">{usdc(item.requestedAdvanceUsdcUnits)}</span><span className="mt-1 block text-[9px] text-gray-400">{item.maximumAdvanceBps / 100}% limit</span></span>
     <ChevronRightIcon className="h-4 w-4 shrink-0 text-gray-300" />
   </button>
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useCreateWallet, usePrivy, useWallets } from '@privy-io/react-auth'
-import { CheckCircleIcon, ClipboardDocumentIcon, WalletIcon } from '@heroicons/react/24/outline'
+import { ArrowPathIcon, ClipboardDocumentIcon, PlusIcon, WalletIcon } from '@heroicons/react/24/outline'
 import { createPublicClient, formatUnits, getAddress, http, isAddress } from 'viem'
 import { upfrontXLayerChain } from '../lib/upfrontChains'
 
@@ -32,8 +32,10 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
   const [copied, setCopied] = useState(false)
   const [walletCheckTimedOut, setWalletCheckTimedOut] = useState(false)
   const [createdTreasury, setCreatedTreasury] = useState('')
-  const [availableUnits, setAvailableUnits] = useState('0')
+  const [availableUnits, setAvailableUnits] = useState<string | null>(null)
   const [loadingBalance, setLoadingBalance] = useState(false)
+  const [assetAddress, setAssetAddress] = useState('')
+  const [lastUpdated, setLastUpdated] = useState('')
 
   const embeddedWallets = wallets.filter(wallet => wallet.walletClientType === 'privy' || wallet.walletClientType === 'privy-v2')
   const linkedEmbeddedWallets = (user?.linkedAccounts ?? []).flatMap(account =>
@@ -62,14 +64,22 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
   }, [authReady, authenticated, ready])
 
   const refreshBalance = useCallback(async () => {
-    if (!treasury || !isAddress(treasury) || !isAddress(ESCROW)) return
+    if (!treasury || !isAddress(treasury) || !isAddress(ESCROW)) {
+      setAvailableUnits(null)
+      setError('Funding balance is unavailable.')
+      return
+    }
     setLoadingBalance(true)
+    setError('')
     try {
       const client = createPublicClient({ chain: upfrontXLayerChain, transport: http() })
       const asset = await client.readContract({ address: getAddress(ESCROW), abi: ESCROW_ABI, functionName: 'asset' })
       const balance = await client.readContract({ address: asset, abi: ERC20_ABI, functionName: 'balanceOf', args: [getAddress(treasury)] })
+      setAssetAddress(asset)
       setAvailableUnits(balance.toString())
+      setLastUpdated(new Date().toISOString())
     } catch {
+      setAvailableUnits(null)
       setError('Funding balance could not be refreshed.')
     } finally {
       setLoadingBalance(false)
@@ -107,30 +117,46 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
     {error && <p className="mt-3 text-xs text-rose-300 dark:text-rose-600">{error}</p>}
   </section>
 
-  return <section className="overflow-hidden rounded-[26px] bg-gray-950 p-5 text-white shadow-[0_18px_48px_rgba(15,23,42,0.14)] dark:bg-white dark:text-gray-950">
+  const balance = availableUnits === null ? null : displayUsdc(availableUnits)
+
+  return <section className="overflow-hidden rounded-[28px] bg-gray-950 p-5 text-white shadow-[0_18px_48px_rgba(15,23,42,0.14)] dark:bg-white dark:text-gray-950">
     <div className="flex items-start justify-between gap-3">
-      <div>
-        <p className="text-[10px] font-black uppercase tracking-[0.18em] opacity-45">X Layer funding balance</p>
-        <p className="mt-2 text-[clamp(1.8rem,9vw,2.5rem)] font-black tabular-nums tracking-tight">{loadingBalance ? '...' : displayUsdc(availableUnits)} <span className="text-xs font-semibold opacity-45">USDC</span></p>
+      <div className="min-w-0">
+        <p className="text-[10px] font-black uppercase tracking-[0.18em] opacity-45">Funding balance</p>
+        <p aria-live="polite" className="mt-2 text-[clamp(2rem,10vw,2.75rem)] font-black tabular-nums tracking-[-0.04em]">
+          {loadingBalance && balance === null ? <span className="inline-block h-10 w-28 animate-pulse rounded-xl bg-white/10 dark:bg-gray-950/10" /> : balance ?? 'Unavailable'}
+          {balance !== null && <span className="ml-1.5 text-xs font-semibold tracking-normal opacity-45">USDC</span>}
+        </p>
+        <p className="mt-1 text-[10px] font-semibold opacity-40">{error ? 'Balance unavailable' : loadingBalance ? 'Refreshing balance' : 'Available on X Layer'}</p>
       </div>
-      <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold dark:bg-gray-950/[0.07]"><CheckCircleIcon className="h-3.5 w-3.5 text-emerald-400" />Ready</span>
+      <span className="rounded-full bg-white/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] dark:bg-gray-950/[0.07]">X Layer</span>
     </div>
 
-    <div className="mt-5 grid grid-cols-2 gap-2 border-t border-white/10 pt-4 dark:border-gray-950/10">
-      <div><p className="text-[9px] font-bold uppercase tracking-[0.15em] opacity-40">Deployed</p><p className="mt-1 text-sm font-black tabular-nums">{displayUsdc(deployedUsdcUnits)} USDC</p></div>
-      <div><p className="text-[9px] font-bold uppercase tracking-[0.15em] opacity-40">Active positions</p><p className="mt-1 text-sm font-black tabular-nums">{activePositions}</p></div>
+    <div className="mt-5 grid grid-cols-2 gap-2">
+      <button type="button" onClick={() => void copyTreasury()} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white text-xs font-black text-gray-950 transition active:scale-[0.98] dark:bg-gray-950 dark:text-white">
+        {copied ? <ClipboardDocumentIcon className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
+        {copied ? 'Address copied' : 'Add funds'}
+      </button>
+      <button type="button" disabled={loadingBalance} onClick={() => void refreshBalance()} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white/10 text-xs font-black transition active:scale-[0.98] disabled:opacity-50 dark:bg-gray-950/[0.06]">
+        <ArrowPathIcon className="h-4 w-4" />
+        Refresh
+      </button>
     </div>
 
-    <button type="button" onClick={() => void copyTreasury()} className="mt-4 flex w-full items-center gap-2 rounded-2xl bg-white/10 px-3 py-2.5 text-left dark:bg-gray-950/[0.05]">
+    <div className="mt-3 grid grid-cols-2 gap-2">
+      <div className="rounded-2xl bg-white/[0.07] px-3.5 py-3 dark:bg-gray-950/[0.05]"><p className="text-[9px] font-bold uppercase tracking-[0.15em] opacity-40">Deployed</p><p className="mt-1 text-sm font-black tabular-nums">{displayUsdc(deployedUsdcUnits)} USDC</p></div>
+      <div className="rounded-2xl bg-white/[0.07] px-3.5 py-3 dark:bg-gray-950/[0.05]"><p className="text-[9px] font-bold uppercase tracking-[0.15em] opacity-40">Positions</p><p className="mt-1 text-sm font-black tabular-nums">{activePositions}</p></div>
+    </div>
+
+    <div className="mt-4 flex items-center gap-2 border-t border-white/10 pt-3 dark:border-gray-950/10">
       <WalletIcon className="h-4 w-4 shrink-0 opacity-50" />
       <span className="min-w-0 flex-1 truncate font-mono text-[10px] opacity-65">{short(treasury)}</span>
-      <ClipboardDocumentIcon className="h-4 w-4 opacity-50" />
-      <span className="sr-only">{copied ? 'Address copied' : 'Copy funding address'}</span>
-    </button>
+      <span className="text-[9px] font-bold opacity-40">{lastUpdated ? 'Live' : 'Waiting'}</span>
+    </div>
 
-    <p className="mt-3 text-[10px] leading-4 opacity-45">Available funds are on {upfrontXLayerChain.name}. Repayments settle separately on Arc.</p>
+    <p className="mt-2 text-[9px] leading-4 opacity-35">USDC {assetAddress ? short(assetAddress) : 'asset checking'} / Repayments settle on Arc.</p>
     {walletKnownButConnectorPending && <p className="mt-3 text-[11px] text-amber-300 dark:text-amber-700">Wallet recovered. Transaction signing is still connecting.</p>}
     {knownTreasuries.length > 1 && <p className="mt-3 text-[11px] text-rose-300 dark:text-rose-700">Multiple embedded wallets are linked. Funding is locked for review.</p>}
-    {error && <button type="button" onClick={() => { setError(''); void refreshBalance() }} className="mt-3 text-[11px] font-bold text-rose-300 underline dark:text-rose-700">{error} Retry</button>}
+    {error && <p role="alert" className="mt-3 text-[11px] text-rose-300 dark:text-rose-700">{error}</p>}
   </section>
 }
