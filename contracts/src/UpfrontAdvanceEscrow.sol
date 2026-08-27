@@ -149,6 +149,13 @@ contract UpfrontAdvanceEscrow is EIP712, Ownable2Step, Pausable, ReentrancyGuard
         emit FunderPermissionUpdated(funder, allowed);
     }
 
+    function authorizeFunderAndActivate(address funder) external onlyOwner {
+        if (funder == address(0)) revert InvalidAddress();
+        allowedFunders[funder] = true;
+        emit FunderPermissionUpdated(funder, true);
+        if (paused()) _unpause();
+    }
+
     function setPaused(bool shouldPause) external onlyOwner {
         if (shouldPause) _pause();
         else _unpause();

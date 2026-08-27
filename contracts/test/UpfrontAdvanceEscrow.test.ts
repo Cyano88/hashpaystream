@@ -201,4 +201,16 @@ describe('UpfrontAdvanceEscrow', () => {
     }
     expect(await context.token.balanceOf(context.escrow.target)).to.equal(240_000_000n)
   })
+
+  it('authorizes the first funder and activates funding in one owner action', async () => {
+    const context = await fixture()
+    await context.escrow.connect(context.owner).setFunderAllowed(context.funder.address, false)
+    await context.escrow.connect(context.owner).setPaused(true)
+    expect(await context.escrow.paused()).to.equal(true)
+    await expect(context.escrow.connect(context.owner).authorizeFunderAndActivate(context.funder.address))
+      .to.emit(context.escrow, 'FunderPermissionUpdated')
+      .withArgs(context.funder.address, true)
+    expect(await context.escrow.allowedFunders(context.funder.address)).to.equal(true)
+    expect(await context.escrow.paused()).to.equal(false)
+  })
 })

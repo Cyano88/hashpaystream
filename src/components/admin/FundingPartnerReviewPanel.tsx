@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { createPublicClient, createWalletClient, custom, getAddress, http, isAddress } from "viem";
+import { upfrontXLayerChain } from "../../lib/upfrontChains";
 import {
   ArrowPathIcon,
   CheckIcon,
@@ -10,6 +12,14 @@ import {
 import { LoadingRing } from "../ui/LoadingRing";
 
 const API = "/api/hashpaystream/v1/funding-partners";
+const ESCROW = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS ?? "").trim();
+const ESCROW_ABI = [
+  { type: "function", name: "owner", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
+  { type: "function", name: "paused", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
+  { type: "function", name: "allowedFunders", stateMutability: "view", inputs: [{ name: "funder", type: "address" }], outputs: [{ type: "bool" }] },
+  { type: "function", name: "authorizeFunderAndActivate", stateMutability: "nonpayable", inputs: [{ name: "funder", type: "address" }], outputs: [] },
+  { type: "function", name: "setFunderAllowed", stateMutability: "nonpayable", inputs: [{ name: "funder", type: "address" }, { name: "allowed", type: "bool" }], outputs: [] },
+] as const;
 
 type ApplicationStatus = "pending" | "approved" | "restricted";
 type Application = {
@@ -52,6 +62,7 @@ function formatDate(value: string) {
 
 export default function FundingPartnerReviewPanel() {
   const { getAccessToken } = usePrivy();
+  const { wallets } = useWallets();
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -97,19 +108,42 @@ export default function FundingPartnerReviewPanel() {
   }, [load]);
 
   async function review(
-    applicationId: string,
+    application: Application,
     status: "approved" | "restricted",
   ) {
-    setReviewing(applicationId);
+    setReviewing(application.id);
     setError("");
     try {
+      if (!application.walletAddress || !isAddress(application.walletAddress) || !isAddress(ESCROW)) throw new Error("This profile’s Privy wallet is not verified yet.");
+      const embedded = wallets.filter(wallet => wallet.walletClientType === "privy" || wallet.walletClientType === "privy-v2");
+      if (embedded.length !== 1) throw new Error("Your admin Privy wallet is not ready.");
+      const account = getAddress(embedded[0].address);
+      const escrow = getAddress(ESCROW);
+      const funder = getAddress(application.walletAddress);
+      const publicClient = createPublicClient({ chain: upfrontXLayerChain, transport: http() });
+      const [owner, allowed, paused] = await Promise.all([
+        publicClient.readContract({ address: escrow, abi: ESCROW_ABI, functionName: "owner" }),
+        publicClient.readContract({ address: escrow, abi: ESCROW_ABI, functionName: "allowedFunders", args: [funder] }),
+        publicClient.readContract({ address: escrow, abi: ESCROW_ABI, functionName: "paused" }),
+      ]);
+      if (getAddress(owner) !== account) throw new Error("This admin profile does not control the X Layer escrow.");
+      const needsTransaction = status === "approved" ? (!allowed || paused) : allowed;
+      if (needsTransaction) {
+        await embedded[0].switchChain(upfrontXLayerChain.id);
+        const walletClient = createWalletClient({ account, chain: upfrontXLayerChain, transport: custom(await embedded[0].getEthereumProvider()) });
+        const hash = status === "approved"
+          ? await walletClient.writeContract((await publicClient.simulateContract({ account, address: escrow, abi: ESCROW_ABI, functionName: "authorizeFunderAndActivate", args: [funder] })).request)
+          : await walletClient.writeContract((await publicClient.simulateContract({ account, address: escrow, abi: ESCROW_ABI, functionName: "setFunderAllowed", args: [funder, false] })).request);
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        if (receipt.status !== "success") throw new Error("The X Layer authorization transaction reverted.");
+      }
       const response = await fetch(API, {
         method: "POST",
         headers: {
           authorization: `Bearer ${await token()}`,
           "content-type": "application/json",
         },
-        body: JSON.stringify({ action: "review", applicationId, status }),
+        body: JSON.stringify({ action: "review", applicationId: application.id, status }),
       });
       const body = (await response.json().catch(() => ({}))) as {
         application?: Application;
@@ -121,7 +155,7 @@ export default function FundingPartnerReviewPanel() {
         );
       setApplications((current) =>
         current.map((item) =>
-          item.id === applicationId ? body.application! : item,
+          item.id === application.id ? body.application! : item,
         ),
       );
     } catch (reason) {
@@ -254,7 +288,7 @@ export default function FundingPartnerReviewPanel() {
                     <button
                       type="button"
                       disabled={reviewing === application.id}
-                      onClick={() => void review(application.id, "restricted")}
+                      onClick={() => void review(application, "restricted")}
                       className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-[11px] font-bold text-gray-600 disabled:opacity-40 dark:border-white/10 dark:text-gray-300"
                     >
                       <XMarkIcon className="h-3.5 w-3.5" />
@@ -265,11 +299,22 @@ export default function FundingPartnerReviewPanel() {
                     <button
                       type="button"
                       disabled={reviewing === application.id}
-                      onClick={() => void review(application.id, "approved")}
+                      onClick={() => void review(application, "approved")}
                       className="inline-flex items-center gap-1.5 rounded-xl bg-gray-950 px-3 py-2 text-[11px] font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950"
                     >
                       <CheckIcon className="h-3.5 w-3.5" />
                       Approve
+                    </button>
+                  )}
+                  {application.status === "approved" && application.walletAddress && (
+                    <button
+                      type="button"
+                      disabled={reviewing === application.id}
+                      onClick={() => void review(application, "approved")}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-gray-950 px-3 py-2 text-[11px] font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950"
+                    >
+                      <CheckIcon className="h-3.5 w-3.5" />
+                      Enable funding
                     </button>
                   )}
                 </div>
