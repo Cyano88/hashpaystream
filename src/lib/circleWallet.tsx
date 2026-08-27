@@ -177,7 +177,17 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
       setBalance(formatUnits(units, 6))
     } catch { setBalance('0') } finally { setLoadingBalance(false) }
   }, [session?.wallet.address])
-  useEffect(() => { if (state === 'ready') void refreshBalance() }, [refreshBalance, state])
+  useEffect(() => {
+    if (state !== 'ready') return
+    void refreshBalance()
+    const timer = window.setInterval(() => void refreshBalance(), 15_000)
+    const onVisibility = () => { if (document.visibilityState === 'visible') void refreshBalance() }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [refreshBalance, state])
 
   const sendUsdc = useCallback(async (recipient: Address, amount: string) => {
     if (!session) throw new Error('Open your Circle wallet first.')
