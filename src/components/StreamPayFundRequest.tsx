@@ -13,7 +13,10 @@ type FundingReview = {
   payer: { walletLinked: boolean; walletAddress: string | null }
   attempt: FundingAttempt | null
   recovery?: { stage: 'approval' | 'activation'; pending: true; chainSubmitted: boolean } | null
-  lifecycle?: { refund?: { eligible: boolean; reason: string | null } } | null
+  lifecycle?: {
+    refund?: { eligible: boolean; reason: string | null }
+    action?: { action: 'cancel' | 'refund'; status: string; transactionHash?: string | null } | null
+  } | null
 }
 
 type FundingAction = { ok: true; attempt: FundingAttempt; challengeId?: string; pending?: boolean; recovered?: boolean }
@@ -186,7 +189,9 @@ export default function StreamPayFundRequest({ item, onBack, payer, onFunded }: 
 
   const terms = item.terms.find(value => value.version === item.activeVersion) ?? item.terms[item.terms.length - 1]
   const attempt = review?.attempt
-  const expired = Boolean(review?.lifecycle?.refund?.eligible) || item.status === 'expired'
+  const refunded = item.status === 'refunded'
+    || (review?.lifecycle?.action?.action === 'refund' && review.lifecycle.action.status === 'confirmed')
+  const expired = !refunded && (Boolean(review?.lifecycle?.refund?.eligible) || item.status === 'expired')
   const active = attempt?.status === 'active' && !expired
   const pending = Boolean(review?.recovery?.pending)
     || attempt?.status === 'approval_submitted'
@@ -199,14 +204,14 @@ export default function StreamPayFundRequest({ item, onBack, payer, onFunded }: 
       : approval
         ? 'Approve USDC - Step 1 of 2'
         : 'Fund and start - Step 2 of 2'
-  const visibleError = error || (wallet.state === 'error' ? wallet.error : '')
+  const visibleError = refunded ? '' : error || (wallet.state === 'error' ? wallet.error : '')
 
   return <section className="w-full max-w-md py-5 sm:py-8">
     <div className="flex items-center gap-3">
       <button onClick={onBack} aria-label="Back to request" className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm dark:bg-white/[0.06]">
         <ArrowLeftIcon className="h-4 w-4" />
       </button>
-      <h1 className="text-xl font-extrabold">Review and fund</h1>
+      <h1 className="text-xl font-extrabold">{refunded ? 'Agreement closed' : 'Review and fund'}</h1>
     </div>
     <div className="mt-5 rounded-[24px] border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035]">
       <div className="flex items-start justify-between gap-4">
@@ -224,6 +229,7 @@ export default function StreamPayFundRequest({ item, onBack, payer, onFunded }: 
         </div>
       </div>
       {active && <div className="mt-4 flex items-center gap-2 text-xs font-bold text-emerald-600"><CheckCircleIcon className="h-5 w-5" />Funding confirmed</div>}
+      {refunded && <div className="mt-4 flex items-center gap-2 text-xs font-bold text-emerald-600"><CheckCircleIcon className="h-5 w-5" />USDC returned to your Circle wallet</div>}
       {expired && <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">This agreement ended. Return the remaining USDC to your Circle wallet.</p>}
       {visibleError && <p className="mt-4 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700 dark:bg-red-400/10 dark:text-red-200">{visibleError}</p>}
       {!review && !visibleError && <div className="mt-5 h-12 animate-pulse rounded-full bg-gray-100 dark:bg-white/[0.06]" />}

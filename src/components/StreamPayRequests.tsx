@@ -22,6 +22,9 @@ export default function StreamPayRequests() {
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const visible = useMemo(() => inbox.requests.filter(item => item.direction === tab), [inbox.requests, tab])
+  const fundingItem = useMemo(() => funding
+    ? inbox.requests.find(item => item.id === funding.id) ?? funding
+    : null, [funding, inbox.requests])
   async function act(item: ServiceRequest, action: string, extra: Record<string, unknown> = {}) {
     setBusy(item.id); setError('')
     try { await inbox.act({ action, requestId: item.id, version: item.activeVersion, ...extra }); setCountering(null) }
@@ -31,7 +34,7 @@ export default function StreamPayRequests() {
   if (inbox.loading) return <StreamPayLoadingState active="requests" />
   if (creating) return <CreateRequest onBack={() => setCreating(false)} onCreate={async payload => { await inbox.act({ action: 'create', ...payload }, newKey()); setCreating(false); setTab('sent') }} />
   if (countering) return <CounterRequest item={countering} busy={Boolean(busy)} error={error} onBack={() => setCountering(null)} onSubmit={payload => act(countering, 'provider_counter', payload)} />
-  if (funding) return <StreamPayFundRequest item={funding} onBack={() => setFunding(null)} payer={inbox.payer} onFunded={() => void inbox.refresh(true)} />
+  if (fundingItem) return <StreamPayFundRequest item={fundingItem} onBack={() => setFunding(null)} payer={inbox.payer} onFunded={() => void inbox.refresh(true)} />
   const pending = inbox.requests.filter(item => item.direction === 'received' && ['sent', 'countered'].includes(item.status)).length
   return <section className="w-full max-w-md py-5 sm:py-8">
     <div className="grid grid-cols-2 gap-1 rounded-full bg-gray-200/70 p-1 dark:bg-white/[0.06]">{(['received', 'sent'] as const).map(value => <button key={value} onClick={() => setTab(value)} className={`min-h-11 rounded-full text-xs font-extrabold capitalize ${tab === value ? 'bg-gray-950 text-white shadow-sm dark:bg-white dark:text-gray-950' : 'text-gray-500 dark:text-gray-400'}`}>{value}{value === 'received' && pending > 0 && <span className="ml-1.5 rounded-full bg-blue-600 px-1.5 py-0.5 text-[9px] text-white">{pending}</span>}</button>)}</div>
