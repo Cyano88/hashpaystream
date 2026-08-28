@@ -37,6 +37,7 @@ type SignedOffer = {
 
 const EXPECTED_ESCROW = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS ?? '').trim()
 const NATIVE_XLAYER_USDC = getAddress('0xB6CEceAB302E2E4948951eE7843FC24E92933061')
+const MIN_REMAINING_PROTECTION_SECONDS = 21_600
 const BYTES32 = /^0x[a-fA-F0-9]{64}$/
 const SIGNATURE = /^0x[a-fA-F0-9]{130}$/
 
@@ -151,6 +152,7 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
         throw new Error('The requested advance exceeds the signed PolyDesk limit.')
       }
       if (offer.message.underwritingDeadline <= Math.floor(Date.now() / 1000)) throw new Error('This underwriting offer has expired.')
+      if (offer.message.protectionDeadline - Math.floor(Date.now() / 1000) < MIN_REMAINING_PROTECTION_SECONDS) throw new Error('This agreement is too close to its end time for early pay.')
 
       setStage('Checking escrow controls...')
       const publicClient = createPublicClient({ chain: upfrontXLayerChain, transport: http() })

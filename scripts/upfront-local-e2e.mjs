@@ -82,6 +82,7 @@ const verifiedRequest = buildAgreementIntelligenceRequest({
   draft: verifiedDraft,
   trustedEvidence: {
     agreementState: 'funded',
+    protectionDeadline: Math.floor(Date.now() / 1_000) + 86_400,
     providerHistoryIncluded: false,
     sources: ['hashpaystream-authoritative-agreement', 'arc-funded-agreement'],
     dataGaps: ['provider-history', 'delivery-history'],

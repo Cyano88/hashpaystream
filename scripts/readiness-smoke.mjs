@@ -80,6 +80,8 @@ const completeUpfrontEnvironment = {
   HASHPAYSTREAM_UPFRONT_ENABLED: 'true',
   VITE_HASHPAYSTREAM_UPFRONT_ENABLED: 'true',
   HASHPAYSTREAM_DIRECT_ARC_ENABLED: 'true',
+  HASHPAYSTREAM_ARC_API_KEY: 'hpl_test_abcdefghijklmnopqrstuvwx12345678',
+  HASHPAYSTREAM_DIRECT_RECIPIENT_REGISTRY_SECRET: 'direct-recipient-registry-secret-longer-than-thirty-two',
   VITE_HASHPAYSTREAM_DIRECT_ARC_ENABLED: 'false',
   PRIVY_APP_ID: 'privy-test-app',
   PRIVY_APP_SECRET: 'privy-test-secret-long-enough',
@@ -128,6 +130,7 @@ for (const requiredName of [
   'HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_SECRET',
   'HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY',
   'HASHPAYSTREAM_UPFRONT_REPAYMENT_PRIVATE_KEY',
+  'HASHPAYSTREAM_DIRECT_RECIPIENT_REGISTRY_SECRET',
 ]) {
   const environment = { ...completeUpfrontEnvironment, [requiredName]: '' }
   const missingDependency = createHashPayStreamReadinessHandler({ hasStore: () => true, read: async () => undefined, env: () => environment })

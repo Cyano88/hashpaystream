@@ -34,6 +34,7 @@ async function call(method, body, headers = {}) { const res = response(); await 
 
 const offer = await call('POST', { action: 'create', providerEmail: provider.email, title: 'Product photos', description: 'Shoot and deliver ten edited product photographs.', amount: '50', durationSeconds: 259200, cancellationWindowSeconds: 900 }, { 'idempotency-key': 'create-upfront-1' })
 identity = provider
+assert.equal((await call('POST', { action: 'provider_counter', requestId: offer.body.request.id, version: 1, durationSeconds: 3600, upfrontRequested: true, upfrontReason: 'I need materials before starting the work.' })).statusCode, 400)
 assert.equal((await call('POST', { action: 'provider_counter', requestId: offer.body.request.id, version: 1, upfrontRequested: true, upfrontReason: 'short' })).statusCode, 400)
 const countered = await call('POST', { action: 'provider_counter', requestId: offer.body.request.id, version: 1, amount: '55', upfrontRequested: true, upfrontReason: 'I need studio rental and materials before the shoot.' })
 assert.equal(countered.body.request.activeVersion, 2)

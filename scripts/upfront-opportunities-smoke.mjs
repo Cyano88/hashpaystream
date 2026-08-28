@@ -20,12 +20,12 @@ const funderA = '0x3000000000000000000000000000000000000003'
 const funderB = '0x4000000000000000000000000000000000000004'
 const request = {
   requestId: 'uai_funded123456789',
-  agreement: { state: 'funded', title: 'Website delivery', amountUsdcUnits: '100000000', durationSeconds: 86400 },
+  agreement: { state: 'funded', title: 'Website delivery', amountUsdcUnits: '100000000', durationSeconds: 86400, protectionDeadline: 1787400000 },
   advance: { requestedUsdcUnits: '30000000', providerPayoutAddress: '0x1111111111111111111111111111111111111111' },
 }
 const approved = {
   ownerReference: providerOwner, requestHash: 'sha256:' + 'a'.repeat(64), agreementId: 'agr_hashpaystream12345678', status: 'completed', createdAt: now.toISOString(), request,
-  response: { intelligence: { evidenceGrade: 'limited', confidence: 68 }, decision: { decision: 'APPROVE', maximumAdvanceBps: 3000, expiresAt: '2026-08-21T12:15:00.000Z', onchainOffer: { domain: { name: 'HashPayStream Upfront', version: '1', chainId: 1952, verifyingContract: '0x2222222222222222222222222222222222222222' }, primaryType: 'UnderwritingOffer', message: { provider: request.advance.providerPayoutAddress, termsHash: '0x' + '1'.repeat(64), intelligenceCommitment: '0x' + '2'.repeat(64), protectedAmount: request.agreement.amountUsdcUnits, maxAdvanceBps: 3000, protectionDeadline: 1787320000, underwritingDeadline: 1787310000, nonce: '0x' + '3'.repeat(64) }, signature: '0x' + 'b'.repeat(130) } } },
+  response: { intelligence: { evidenceGrade: 'limited', confidence: 68 }, decision: { decision: 'APPROVE', maximumAdvanceBps: 3000, expiresAt: '2026-08-21T12:15:00.000Z', onchainOffer: { domain: { name: 'HashPayStream Upfront', version: '1', chainId: 1952, verifyingContract: '0x2222222222222222222222222222222222222222' }, primaryType: 'UnderwritingOffer', message: { provider: request.advance.providerPayoutAddress, termsHash: '0x' + '1'.repeat(64), intelligenceCommitment: '0x' + '2'.repeat(64), protectedAmount: request.agreement.amountUsdcUnits, maxAdvanceBps: 3000, protectionDeadline: 1787400000, underwritingDeadline: 1787314500, nonce: '0x' + '3'.repeat(64) }, signature: '0x' + 'b'.repeat(130) } } },
 }
 let store = { schema: 1, records: { approved } }
 const partners = { schema: 1, applications: {

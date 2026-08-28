@@ -2,6 +2,7 @@ import { getAddress, keccak256, toBytes, type Address, type Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import type { AgreementIntelligenceRequest } from './agreement-intelligence-schema.js'
 import { agreementIntelligenceRequestHash } from './agreement-intelligence-schema.js'
+import { hasMinimumUpfrontProtectionWindow } from './early-pay-timing-policy.js'
 
 export const PROTECTION_TYPES = {
   ProtectionAttestation: [
@@ -35,6 +36,7 @@ export type AuthoritativeArcAgreement = {
   chain: null | {
     network: string; chainId: number; onchainAgreementId: Hex; termsHash: Hex
     amountUsdcUnits: string; releasedUsdcUnits: string; remainingUsdcUnits: string
+    expiresAt: string
   }
 }
 
@@ -65,16 +67,19 @@ function assertBinding(input: {
   if (!agreement.chain || agreement.chain.network !== 'arc' || agreement.chain.chainId !== 5_042_002) invalid('Arc agreement has no authoritative testnet chain state.')
   if (!/^0x[a-fA-F0-9]{64}$/.test(agreement.chain.onchainAgreementId) || !/^0x[a-fA-F0-9]{64}$/.test(agreement.chain.termsHash)) invalid('Arc agreement chain commitment is invalid.')
   if (agreement.chain.amountUsdcUnits !== position.protectedAmount || !positive(agreement.chain.amountUsdcUnits)) invalid('Arc protected amount does not match the X Layer position.')
+  const arcProtectionDeadline = Number(agreement.chain.expiresAt)
+  if (!Number.isSafeInteger(request.agreement.protectionDeadline) || position.protectionDeadline !== request.agreement.protectionDeadline || arcProtectionDeadline !== request.agreement.protectionDeadline) invalid('X Layer protection deadline does not match the Arc agreement expiry.')
   return agreement.chain
 }
 
 export async function signProtectionAttestation(input: {
   request: AgreementIntelligenceRequest; position: UpfrontPosition; agreement: AuthoritativeArcAgreement
-  arcRouter: Address; xLayerChainId: number; xLayerEscrow: Address; privateKey: Hex; now: Date
+  arcRouter: Address; xLayerChainId: number; xLayerEscrow: Address; privateKey: Hex; now: Date; minimumRemainingSeconds: number
 }) {
   const chain = assertBinding(input)
   if (input.position.status !== 'Funded' || input.agreement.status !== 'active') invalid('Advance release requires a funded X Layer position and active Arc protection.')
   const observedAt = Math.floor(input.now.getTime() / 1000)
+  if (!hasMinimumUpfrontProtectionWindow(input.position.protectionDeadline, input.now, input.minimumRemainingSeconds)) invalid('Early pay requires more time remaining before the agreement ends.')
   const deadline = Math.min(input.position.protectionDeadline, observedAt + 600)
   if (!Number.isSafeInteger(observedAt) || deadline <= observedAt) invalid('The protection attestation window has expired.')
   const message = {

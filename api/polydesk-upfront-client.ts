@@ -100,6 +100,7 @@ export function buildPolyDeskUnderwritingRequest(request: AgreementIntelligenceR
       amountUsdcUnits: request.agreement.amountUsdcUnits,
       requestedAdvanceBps: request.advance.requestedBps,
       requestedAdvanceUsdcUnits: request.advance.requestedUsdcUnits,
+      protectionDeadline: request.agreement.protectionDeadline,
     },
     intelligence: {
       schema: intelligence.schema,
@@ -205,6 +206,7 @@ export async function verifyPolyDeskDecision(value: unknown, input: {
       || offer.message.intelligenceCommitment.toLowerCase() !== expectedCommitment.toLowerCase()
       || offer.message.protectedAmount !== input.request.agreement.amountUsdcUnits
       || offer.message.maxAdvanceBps !== decision.maximumAdvanceBps
+      || offer.message.protectionDeadline !== input.request.agreement.protectionDeadline
       || !Number.isInteger(offer.message.protectionDeadline) || offer.message.protectionDeadline <= offer.message.underwritingDeadline
       || !Number.isInteger(offer.message.underwritingDeadline) || offer.message.underwritingDeadline * 1_000 !== expiresAt
       || !/^0x[a-fA-F0-9]{64}$/.test(offer.message.nonce)

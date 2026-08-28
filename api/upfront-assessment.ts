@@ -5,6 +5,7 @@ import { getAddress, type Address } from 'viem'
 import { mutateDurableJson, readDurableJson } from './durable-store.js'
 import { agreementIntelligencePayloadHash, agreementIntelligenceRequestHash, buildAgreementIntelligenceRequest, validateUpfrontDraft, type AgreementIntelligenceRequest } from './agreement-intelligence-schema.js'
 import { requestPolyDeskUnderwriting, type PolyDeskDecision } from './polydesk-upfront-client.js'
+import { hasMinimumUpfrontProtectionWindow, minimumUpfrontRemainingSeconds } from './early-pay-timing-policy.js'
 
 const DEFAULT_STORE_KEY = 'hashpaystream:upfront-assessments:v1'
 const DEFAULT_OWNERSHIP_STORE_KEY = 'hashpaystream:upfront-agreement-owners:v1'
@@ -30,7 +31,7 @@ type OwnershipStore = { schema: 1; agreements: Record<string, { agreementId: str
 type AuthoritativeAgreement = {
   id: string; status: string; template: string; title: string; description: string
   recipient: string; durationSeconds: number; cancellationWindowSeconds: number
-  chain?: null | { network: string; chainId: number; amountUsdcUnits: string }
+  chain?: null | { network: string; chainId: number; amountUsdcUnits: string; expiresAt: string }
 }
 
 export type UpfrontAssessmentDependencies = {
@@ -180,11 +181,15 @@ async function fundedAgreementInput(body: Record<string, unknown>, identity: str
   if (!ownsAgreement) throw httpError('This funded agreement is not available to your HashPayStream account.', 404)
   const agreement = await dependencies.agreement(agreementId, { baseUrl: config.agreementBaseUrl, apiKey: config.arcApiKey })
   const units = clean(agreement.chain?.amountUsdcUnits, 32)
+  const protectionDeadline = Number(clean(agreement.chain?.expiresAt, 24))
   if (
     agreement.id !== agreementId || agreement.status !== 'active' || agreement.template !== 'fixed_unlock'
     || agreement.chain?.network !== 'arc' || agreement.chain.chainId !== 5_042_002
     || !/^0x[a-fA-F0-9]{40}$/.test(agreement.recipient) || getAddress(agreement.recipient) !== getAddress(config.arcRouter)
   ) throw httpError('Upfront requires an active one-release Arc agreement routed through the configured repayment contract.', 409)
+  if (!hasMinimumUpfrontProtectionWindow(protectionDeadline, dependencies.now(), minimumUpfrontRemainingSeconds(dependencies.env()))) {
+    throw httpError('This agreement is too close to its Arc end time for early pay.', 409)
+  }
   const draft = validateUpfrontDraft({
     template: 'fixed_unlock', title: agreement.title, description: agreement.description,
     amount: decimalUsdc(units), durationSeconds: agreement.durationSeconds,
@@ -196,6 +201,7 @@ async function fundedAgreementInput(body: Record<string, unknown>, identity: str
     draft,
     trustedEvidence: {
       agreementState: 'funded' as const,
+      protectionDeadline,
       providerHistoryIncluded: false,
       sources: ['hashpaystream-authoritative-agreement', 'arc-funded-agreement'],
       dataGaps: ['provider-history', 'delivery-history'],

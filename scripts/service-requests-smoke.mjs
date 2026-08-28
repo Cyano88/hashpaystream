@@ -11,16 +11,18 @@ let identity = customer
 let requestStore
 let ownershipStore
 let upstreamBody
+let registeredRecipient
 let eventStore
 const handler = createServiceRequestsHandler({
   hasStore: () => true,
-  env: () => ({ HASHPAYSTREAM_APP_OWNERSHIP_SECRET: secret, HASHPAYSTREAM_ARC_API_KEY: `hpl_test_${'a'.repeat(40)}` }),
+  env: () => ({ HASHPAYSTREAM_APP_OWNERSHIP_SECRET: secret, HASHPAYSTREAM_DIRECT_RECIPIENT_REGISTRY_SECRET: 'd'.repeat(48), HASHPAYSTREAM_ARC_API_KEY: `hpl_test_${'a'.repeat(40)}` }),
   identity: async () => identity,
   readRequests: async () => requestStore,
   readEvents: async () => eventStore,
   mutateRequests: async (_key, update) => (requestStore = await update(requestStore)),
   readAccounts: async () => ({ schema: 1, accounts: { [key(provider.email)]: { accountKey: key(provider.email), email: provider.email, displayName: 'Provider', pocketId: '1234567890', walletAddress: '0x1111111111111111111111111111111111111111' } } }),
   mutateOwnership: async (_key, update) => (ownershipStore = await update(ownershipStore)),
+  registerRecipient: async (_base, _apiKey, _secret, recipient, accountReference) => { registeredRecipient = { recipient, accountReference }; return { status: 201, body: { ok: true } } },
   upstream: async (_base, _apiKey, body) => { upstreamBody = body; return { status: 201, body: { ok: true, agreement: { id: 'agr_1234567890abcdef' }, payerReviewPath: '/agreements/agr_1234567890abcdef#access=private' } } },
   now: () => new Date('2026-08-26T12:00:00.000Z'), id: () => 'req_1234567890abcdef',
 })
@@ -48,6 +50,7 @@ assert.equal(upstreamBody.payerEmail, customer.email)
 assert.equal(upstreamBody.durationSeconds, 3600)
 assert.equal(upstreamBody.cancellationWindowSeconds, 900)
 assert.equal(upstreamBody.recipient, '0x1111111111111111111111111111111111111111')
+assert.deepEqual(registeredRecipient, { recipient: upstreamBody.recipient, accountReference: key(provider.email) })
 assert.equal(ownershipStore.agreements.agr_1234567890abcdef.ownerAccountKey, key(provider.email))
 assert.notEqual(ownershipStore.agreements.agr_1234567890abcdef.ownerHash, createHmac('sha256', secret).update(`hashpaystream.owner\0${customer.userId}`).digest('hex'))
 eventStore = { schema: 1, events: { evt_activated: { event: 'agreement.activated', agreementId: 'agr_1234567890abcdef', createdAt: '2026-08-26T12:01:00.000Z' } } }

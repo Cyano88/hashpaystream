@@ -29,6 +29,7 @@ const request = buildAgreementIntelligenceRequest({
     amount: '100.25', durationSeconds: 86400, cancellationWindowSeconds: 900,
     providerPayoutAddress: '0x3333333333333333333333333333333333333333', requestedAdvanceBps: 4000,
   },
+  trustedEvidence: { agreementState: 'funded', protectionDeadline: 1787227200, providerHistoryIncluded: false, sources: ['arc-funded-agreement'], dataGaps: ['provider-history'] },
 })
 const commitment = agreementIntelligenceRequestHash(request)
 const offer = {
@@ -76,6 +77,13 @@ assert.equal(verified.onchainOffer?.message.provider, request.advance.providerPa
 await assert.rejects(
   () => verifyPolyDeskDecision({ ...envelope, decision: { ...envelope.decision, onchainOffer: {
     ...offer, message: { ...offer.message, provider: '0x4444444444444444444444444444444444444444' },
+  } } }, input),
+  /invalid onchain underwriting offer/,
+)
+
+await assert.rejects(
+  () => verifyPolyDeskDecision({ ...envelope, decision: { ...envelope.decision, onchainOffer: {
+    ...offer, message: { ...offer.message, protectionDeadline: offer.message.protectionDeadline + 1 },
   } } }, input),
   /invalid onchain underwriting offer/,
 )

@@ -6,6 +6,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { readDurableJson } from './durable-store.js'
 import type { AgreementIntelligenceRequest } from './agreement-intelligence-schema.js'
 import { signProtectionAttestation, signRepaymentCredit, type AuthoritativeArcAgreement, type UpfrontPosition } from './upfront-protection-attestation.js'
+import { minimumUpfrontRemainingSeconds } from './early-pay-timing-policy.js'
 
 const DEFAULT_STORE_KEY = 'hashpaystream:upfront-assessments:v1'
 const POSITION_ABI = [{ type: 'function', name: 'positions', stateMutability: 'view', inputs: [{ name: 'positionId', type: 'bytes32' }], outputs: [
@@ -45,7 +46,7 @@ function configuration(env: NodeJS.ProcessEnv) {
   let baseUrl: URL; let rpcUrl: URL
   try { baseUrl = new URL(clean(env.HASHPAYSTREAM_HASH_PAYLINK_BASE_URL ?? 'https://app.hashpaylink.com', 240)); rpcUrl = new URL(clean(env.HASHPAYSTREAM_XLAYER_RPC_URL ?? 'https://testrpc.xlayer.tech/terigon', 240)) } catch { failure('Upfront network configuration is invalid.', 503) }
   if (baseUrl!.protocol !== 'https:' || rpcUrl!.protocol !== 'https:' || baseUrl!.username || rpcUrl!.username) failure('Upfront network configuration is invalid.', 503)
-  return { storeKey, apiKey, ownershipSecret, baseUrl: baseUrl!.origin, rpcUrl: rpcUrl!.toString(), xLayerEscrow, arcRouter, protectionKey, repaymentKey, xLayerChainId }
+  return { storeKey, apiKey, ownershipSecret, baseUrl: baseUrl!.origin, rpcUrl: rpcUrl!.toString(), xLayerEscrow, arcRouter, protectionKey, repaymentKey, xLayerChainId, minimumRemainingSeconds: minimumUpfrontRemainingSeconds(env) }
 }
 
 async function identity(req: Request): Promise<AuthIdentity> {
@@ -106,7 +107,7 @@ export function createUpfrontProtectionHandler(overrides: Partial<Dependencies> 
       const ownsPosition = wallets.has(xPosition.funder.toLowerCase()) || wallets.has(xPosition.repaymentRecipient.toLowerCase())
       if (record.ownerReference !== ownerReference && !ownsPosition) failure('The completed Upfront assessment was not found.', 404)
       const signed = action === 'release'
-        ? await signProtectionAttestation({ request: record.request, position: xPosition, agreement: arcAgreement, arcRouter: config.arcRouter, xLayerChainId: config.xLayerChainId, xLayerEscrow: config.xLayerEscrow, privateKey: config.protectionKey, now: dependencies.now() })
+        ? await signProtectionAttestation({ request: record.request, position: xPosition, agreement: arcAgreement, arcRouter: config.arcRouter, xLayerChainId: config.xLayerChainId, xLayerEscrow: config.xLayerEscrow, privateKey: config.protectionKey, now: dependencies.now(), minimumRemainingSeconds: config.minimumRemainingSeconds })
         : await signRepaymentCredit({ request: record.request, position: xPosition, agreement: arcAgreement, arcRouter: config.arcRouter, privateKey: config.repaymentKey, now: dependencies.now() })
       return res.json({ ok: true, action, attestation: signed })
     } catch (error) { const status = Number((error as { status?: number }).status) || 500; return res.status(status).json({ ok: false, error: status >= 500 ? 'HashPayStream Upfront protection is temporarily unavailable.' : (error as Error).message }) }

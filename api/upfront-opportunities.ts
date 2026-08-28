@@ -5,6 +5,7 @@ import { createPublicClient, getAddress, hashTypedData, http, isAddress, type Ad
 import { mutateDurableJson, readDurableJson } from './durable-store.js'
 import type { UpfrontAssessmentRecord, UpfrontAssessmentStore } from './upfront-assessment.js'
 import { fundingPartnerAccountKey, type FundingPartnerRecord, type FundingPartnerStore } from './funding-partners.js'
+import { hasMinimumUpfrontProtectionWindow, minimumUpfrontRemainingSeconds } from './early-pay-timing-policy.js'
 
 const DEFAULT_STORE_KEY = 'hashpaystream:upfront-assessments:v1'
 const DEFAULT_PARTNER_STORE_KEY = 'hashpaystream:funding-partners:v1'
@@ -75,7 +76,7 @@ function chainConfiguration(env: NodeJS.ProcessEnv): ChainConfig {
   return { rpcUrl: parsed!.toString(), escrow: getAddress(escrowText), chainId }
 }
 
-function opportunity(record: UpfrontAssessmentRecord, now: Date, config: ChainConfig) {
+function opportunity(record: UpfrontAssessmentRecord, now: Date, config: ChainConfig, minimumRemainingSeconds: number) {
   if (record.status !== 'completed' || !record.agreementId || record.request?.agreement.state !== 'funded') return undefined
   const response = record.response && typeof record.response === 'object' ? record.response : {}
   const intelligence = response.intelligence && typeof response.intelligence === 'object' ? response.intelligence as Record<string, unknown> : {}
@@ -93,8 +94,9 @@ function opportunity(record: UpfrontAssessmentRecord, now: Date, config: ChainCo
   const policyMaximum = BigInt(protectedUnits) * BigInt(maximumAdvanceBps) / 10_000n
   const fundableUnits = BigInt(requestedUnits) < policyMaximum ? BigInt(requestedUnits) : policyMaximum
   if (fundableUnits <= 0n) return undefined
+  const expiresAtSeconds = Math.floor(Date.parse(expiresAt) / 1000)
   const offerMessage = { provider: getAddress(String(message.provider)), termsHash: message.termsHash as Hex, intelligenceCommitment: message.intelligenceCommitment as Hex, protectedAmount: BigInt(String(message.protectedAmount)), maxAdvanceBps: Number(message.maxAdvanceBps), protectionDeadline: Number(message.protectionDeadline), underwritingDeadline: Number(message.underwritingDeadline), nonce: message.nonce as Hex }
-  if (!Number.isInteger(offerMessage.maxAdvanceBps) || !Number.isSafeInteger(offerMessage.protectionDeadline) || !Number.isSafeInteger(offerMessage.underwritingDeadline)) return undefined
+  if (!Number.isInteger(offerMessage.maxAdvanceBps) || !Number.isSafeInteger(offerMessage.protectionDeadline) || offerMessage.protectionDeadline !== record.request.agreement.protectionDeadline || !Number.isSafeInteger(offerMessage.underwritingDeadline) || offerMessage.protectionDeadline <= offerMessage.underwritingDeadline || offerMessage.underwritingDeadline !== expiresAtSeconds || offerMessage.underwritingDeadline <= Math.floor(now.getTime() / 1000) || !hasMinimumUpfrontProtectionWindow(offerMessage.protectionDeadline, now, minimumRemainingSeconds)) return undefined
   const positionId = hashTypedData({ domain: { name: 'HashPayStream Upfront', version: '1', chainId: config.chainId, verifyingContract: config.escrow }, types: OFFER_TYPES, primaryType: 'UnderwritingOffer', message: offerMessage })
   return { id: record.request.requestId, agreementId: record.agreementId, title: record.request.agreement.title, protectedUsdcUnits: protectedUnits, requestedAdvanceUsdcUnits: fundableUnits.toString(), maximumAdvanceBps, durationSeconds: record.request.agreement.durationSeconds, providerPayoutAddress: record.request.advance.providerPayoutAddress, evidenceGrade: clean(intelligence.evidenceGrade, 24), confidence: Number(intelligence.confidence), expiresAt, live: Date.parse(expiresAt) > now.getTime(), positionId, onchainOffer: offer }
 }
@@ -132,11 +134,11 @@ function findRecord(store: UpfrontAssessmentStore, requestId: string) {
   return Object.entries(store.records).find(([, record]) => record.request?.requestId === requestId)
 }
 
-async function reservedUnits(store: UpfrontAssessmentStore, partnerId: string, omitRequestId: string, now: Date, chain: ChainConfig, dependencies: Dependencies) {
+async function reservedUnits(store: UpfrontAssessmentStore, partnerId: string, omitRequestId: string, now: Date, chain: ChainConfig, minimumRemainingSeconds: number, dependencies: Dependencies) {
   const pending: Array<{ request: NonNullable<UpfrontAssessmentRecord['fundingRequest']>; candidate: NonNullable<ReturnType<typeof opportunity>> }> = []
   for (const record of Object.values(store.records)) {
     const request = record.fundingRequest
-    const candidate = opportunity(record, now, chain)
+    const candidate = opportunity(record, now, chain, minimumRemainingSeconds)
     if (request?.status === 'pending' && request.partnerApplicationId === partnerId && candidate && candidate.id !== omitRequestId && candidate.live) pending.push({ request, candidate })
   }
   const inspected = await Promise.all(pending.map(async item => ({ ...item, position: await dependencies.position(item.candidate.positionId, chain) })))
@@ -156,6 +158,7 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
       const identity = await dependencies.identity(req, env)
       const chain = chainConfiguration(env)
       const now = dependencies.now()
+      const minimumRemainingSeconds = minimumUpfrontRemainingSeconds(env)
       const storeKey = clean(env.HASHPAYSTREAM_UPFRONT_STORE_KEY ?? DEFAULT_STORE_KEY, 160)
       const partnerStoreKey = clean(env.HASHPAYSTREAM_FUNDING_PARTNER_STORE_KEY ?? DEFAULT_PARTNER_STORE_KEY, 160)
       const [storeValue, partners] = await Promise.all([dependencies.readStore(storeKey), dependencies.readPartners(partnerStoreKey)])
@@ -168,7 +171,7 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
         if (!REQUEST_ID.test(requestId)) failure('Early-pay request is invalid.', 400)
         const found = findRecord(store, requestId)
         if (!found || found[1].ownerReference !== providerReference(secret, identity.userId)) failure('Early-pay request was not found.', 404)
-        const candidate = opportunity(found[1], now, chain)
+        const candidate = opportunity(found[1], now, chain, minimumRemainingSeconds)
         if (!candidate) failure('This early-pay request is no longer available.', 409)
         const positionState = await dependencies.position(candidate.positionId, chain)
         const selectedProfile = found[1].fundingRequest ? partners?.applications?.[found[1].fundingRequest.partnerApplicationId] : undefined
@@ -185,7 +188,7 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
           const options = await Promise.all(approved.map(async item => {
             try {
               const wallet = partnerWallet(item)!
-              const [{ balance, allowed }, reserved] = await Promise.all([dependencies.capacity(wallet, chain), reservedUnits(store, item.id, requestId, now, chain, dependencies)])
+              const [{ balance, allowed }, reserved] = await Promise.all([dependencies.capacity(wallet, chain), reservedUnits(store, item.id, requestId, now, chain, minimumRemainingSeconds, dependencies)])
               const available = balance > reserved ? balance - reserved : 0n
               const maximum = available < BigInt(candidate.requestedAdvanceUsdcUnits) ? available : BigInt(candidate.requestedAdvanceUsdcUnits)
               return allowed && maximum > 0n ? { id: item.id, name: item.name, maximumRequestUsdcUnits: maximum.toString(), canCoverFullRequest: maximum >= BigInt(candidate.requestedAdvanceUsdcUnits) } : undefined
@@ -209,10 +212,10 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
           const next = safeStore(current)
           const currentFound = findRecord(next, requestId)
           if (!currentFound || currentFound[1].ownerReference !== found[1].ownerReference) failure('Early-pay request changed before assignment.', 409)
-          const currentCandidate = opportunity(currentFound[1], now, chain)
+          const currentCandidate = opportunity(currentFound[1], now, chain, minimumRemainingSeconds)
           if (!currentCandidate?.live || (await dependencies.position(currentCandidate.positionId, chain)).status !== 'available') failure('This early-pay request can no longer be assigned.', 409)
           if (currentFound[1].fundingRequest?.status === 'pending' && new Date(currentFound[1].fundingRequest.expiresAt).getTime() > now.getTime()) failure('This early-pay request already has a funding partner.', 409)
-          const [{ balance, allowed }, reserved] = await Promise.all([dependencies.capacity(wallet, chain), reservedUnits(next, partner.id, requestId, now, chain, dependencies)])
+          const [{ balance, allowed }, reserved] = await Promise.all([dependencies.capacity(wallet, chain), reservedUnits(next, partner.id, requestId, now, chain, minimumRemainingSeconds, dependencies)])
           const available = balance > reserved ? balance - reserved : 0n
           if (!allowed || requested > available || requested > BigInt(currentCandidate.requestedAdvanceUsdcUnits)) failure('This partner cannot cover that early-pay amount.', 409)
           selectedRecord = { ...currentFound[1], fundingRequest: { partnerApplicationId: partner.id, partnerWalletAddress: wallet, advanceUsdcUnits: requested.toString(), status: 'pending', requestedAt: now.toISOString(), expiresAt: currentCandidate.expiresAt } }
@@ -235,7 +238,7 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
           const next = safeStore(current)
           const found = findRecord(next, requestId)
           if (!found || found[1].fundingRequest?.partnerApplicationId !== profile.id || found[1].fundingRequest.status !== 'pending') failure('Funding request was not found.', 404)
-          const candidate = opportunity(found[1], now, chain)
+          const candidate = opportunity(found[1], now, chain, minimumRemainingSeconds)
           if (!candidate || (await dependencies.position(candidate.positionId, chain)).status !== 'available') failure('This funding request can no longer be declined.', 409)
           next.records[found[0]] = { ...found[1], fundingRequest: { ...found[1].fundingRequest, status: 'declined' } }
           return next
@@ -243,7 +246,7 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
         return res.json({ ok: true, status: 'declined' })
       }
 
-      const candidates = Object.values(store.records).flatMap(record => opportunity(record, now, chain) ? [{ record, candidate: opportunity(record, now, chain)! }] : [])
+      const candidates = Object.values(store.records).flatMap(record => opportunity(record, now, chain, minimumRemainingSeconds) ? [{ record, candidate: opportunity(record, now, chain, minimumRemainingSeconds)! }] : [])
       const inspected = await Promise.all(candidates.map(async item => ({ ...item, position: await dependencies.position(item.candidate.positionId, chain) })))
       const opportunities: Array<(typeof candidates)[number]['candidate'] & { positionStatus: PositionState['status']; funder?: Address; repaymentRecipient?: Address }> = []
       for (const { record, candidate, position } of inspected) {

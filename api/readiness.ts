@@ -47,6 +47,28 @@ function circleWalletConfigurationReady(env: NodeJS.ProcessEnv) {
     && clean(env.VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET, 180).length >= 16
 }
 
+function missingDirectEnvironmentNames(env: NodeJS.ProcessEnv) {
+  if (clean(env.HASHPAYSTREAM_DIRECT_ARC_ENABLED, 20).toLowerCase() !== 'true') return []
+  return ['HASHPAYSTREAM_ARC_API_KEY', 'HASHPAYSTREAM_DIRECT_RECIPIENT_REGISTRY_SECRET']
+    .filter(name => !clean(env[name], 300))
+    .sort()
+}
+
+function directConfigurationReady(env: NodeJS.ProcessEnv) {
+  if (clean(env.HASHPAYSTREAM_DIRECT_ARC_ENABLED, 20).toLowerCase() !== 'true') return true
+  return clean(env.HASHPAYSTREAM_ARC_API_KEY, 200).startsWith('hpl_test_')
+    && clean(env.HASHPAYSTREAM_ARC_API_KEY, 200).length >= 32
+    && clean(env.HASHPAYSTREAM_DIRECT_RECIPIENT_REGISTRY_SECRET, 300).length >= 32
+}
+
+function directConfigurationIssueCodes(env: NodeJS.ProcessEnv) {
+  if (clean(env.HASHPAYSTREAM_DIRECT_ARC_ENABLED, 20).toLowerCase() !== 'true') return []
+  const issues: string[] = []
+  if (!clean(env.HASHPAYSTREAM_ARC_API_KEY, 200).startsWith('hpl_test_') || clean(env.HASHPAYSTREAM_ARC_API_KEY, 200).length < 32) issues.push('DIRECT_ARC_API_KEY_INVALID')
+  if (clean(env.HASHPAYSTREAM_DIRECT_RECIPIENT_REGISTRY_SECRET, 300).length < 32) issues.push('DIRECT_RECIPIENT_REGISTRY_SECRET_INVALID')
+  return issues
+}
+
 function missingUpfrontEnvironmentNames(env: NodeJS.ProcessEnv) {
   if (clean(env.HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() !== 'true') return []
   const required = [
@@ -216,6 +238,7 @@ export function createHashPayStreamReadinessHandler(
       env = dependencies.env()
       if (!circleWalletConfigurationReady(env)) throw new Error('Circle wallet configuration is incomplete.')
       if (!upfrontConfigurationReady(env)) throw new Error('Upfront configuration is incomplete.')
+      if (!directConfigurationReady(env)) throw new Error('Direct agreement configuration is incomplete.')
       const ownershipStoreKeys = [
         String(env.HASHPAYSTREAM_HUMAN_AGREEMENT_STORE_KEY ?? DEFAULT_OWNERSHIP_STORE_KEYS[0]).trim(),
         String(env.HASHPAYSTREAM_UPFRONT_AGREEMENT_STORE_KEY ?? DEFAULT_OWNERSHIP_STORE_KEYS[1]).trim(),
@@ -230,9 +253,10 @@ export function createHashPayStreamReadinessHandler(
       return res.status(200).json({ ok: true, service: 'hashpaystream', status: 'ready' })
     } catch {
       try {
-        const missingEnvironment = [...new Set([...missingCircleWalletEnvironmentNames(env), ...missingUpfrontEnvironmentNames(env)])].sort()
+        const missingEnvironment = [...new Set([...missingCircleWalletEnvironmentNames(env), ...missingDirectEnvironmentNames(env), ...missingUpfrontEnvironmentNames(env)])].sort()
         const configurationIssues = [...new Set([
           ...(!circleWalletConfigurationReady(env) ? ['CIRCLE_WALLET_CONFIGURATION_INVALID'] : []),
+          ...directConfigurationIssueCodes(env),
           ...upfrontConfigurationIssueCodes(env),
         ])].sort()
         dependencies.logError({

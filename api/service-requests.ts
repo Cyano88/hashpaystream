@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from 'node:crypto'
+import { createHash, createHmac, randomUUID } from 'node:crypto'
 import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
 import { getAddress, isAddress } from 'viem'
@@ -40,6 +40,7 @@ type Dependencies = {
   mutateOwnership: (key: string, update: (value: OwnershipStore | undefined) => OwnershipStore | Promise<OwnershipStore>) => Promise<OwnershipStore>
   identity: (req: Request, env: NodeJS.ProcessEnv) => Promise<Identity>
   upstream: (baseUrl: string, apiKey: string, body: Record<string, unknown>, idempotencyKey: string) => Promise<{ status: number; body: Record<string, unknown> }>
+  registerRecipient: (baseUrl: string, apiKey: string, secret: string, recipient: string, accountReference: string, now: Date) => Promise<{ status: number; body: Record<string, unknown> }>
   payerUpstream: (baseUrl: string, apiKey: string, capability: string, body: Record<string, unknown>) => Promise<{ status: number; body: Record<string, unknown> }>
   env: () => NodeJS.ProcessEnv; now: () => Date; id: () => string
 }
@@ -78,6 +79,19 @@ async function upstream(baseUrl: string, apiKey: string, body: Record<string, un
   return { status: response.status, body: await response.json().catch(() => ({})) as Record<string, unknown> }
 }
 
+async function registerRecipient(baseUrl: string, apiKey: string, secret: string, recipient: string, accountReference: string, now: Date) {
+  const timestamp = Math.floor(now.getTime() / 1000).toString()
+  const payload = 'v1\n' + createHash('sha256').update(apiKey).digest('hex') + '\n' + timestamp + '\n' + getAddress(recipient).toLowerCase() + '\n' + accountReference
+  const signature = createHmac('sha256', secret).update(payload).digest('hex')
+  const response = await fetch(baseUrl + '/api/v2/agreements/verified-recipient', {
+    method: 'POST', cache: 'no-store',
+    headers: { 'x-api-key': apiKey, 'x-recipient-timestamp': timestamp, 'x-recipient-signature': signature, 'content-type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify({ recipient: getAddress(recipient), accountReference }),
+    signal: AbortSignal.timeout(20_000),
+  })
+  return { status: response.status, body: await response.json().catch(() => ({})) as Record<string, unknown> }
+}
+
 async function payerUpstream(baseUrl: string, apiKey: string, capability: string, body: Record<string, unknown>) {
   const response = await fetch(`${baseUrl}/api/v2/agreements/project-payer`, {
     method: 'POST',
@@ -94,7 +108,7 @@ const defaults: Dependencies = {
   mutateRequests: (key, update) => mutateDurableJson<RequestStore>(key, update), readAccounts: readDurableJson,
   readEvents: readDurableJson,
   mutateOwnership: (key, update) => mutateDurableJson<OwnershipStore>(key, update), identity: verifiedIdentity,
-  upstream, payerUpstream, env: () => process.env, now: () => new Date(), id: () => `req_${randomUUID().replace(/-/g, '')}`,
+  upstream, registerRecipient, payerUpstream, env: () => process.env, now: () => new Date(), id: () => `req_${randomUUID().replace(/-/g, '')}`,
 }
 
 function safeStore(value?: RequestStore): RequestStore { return value?.schema === 1 && value.requests ? { schema: 1, requests: { ...value.requests }, idempotency: { ...(value.idempotency ?? {}) } } : { schema: 1, requests: {}, idempotency: {} } }
@@ -121,6 +135,7 @@ function parseTerms(body: Record<string, unknown>, proposedBy: Role, version: nu
   if (!Number.isInteger(durationSeconds) || durationSeconds < 3600 || durationSeconds > 31_536_000) fail('Delivery period is invalid.', 400)
   if (!Number.isInteger(cancellationWindowSeconds) || cancellationWindowSeconds < 0 || cancellationWindowSeconds >= durationSeconds) fail('Cancellation period must be shorter than delivery period.', 400)
   if (upfrontRequested && upfrontReason.length < 10) fail('Explain why early payment is needed.', 400)
+  if (upfrontRequested && durationSeconds < 86_400) fail('Early pay requires a delivery period of at least 1 day.', 400)
   return { version, title, description, amount, amountUsdcUnits: units(amount), durationSeconds, cancellationWindowSeconds, upfrontRequested, ...(upfrontRequested ? { upfrontReason } : {}), proposedBy, createdAt: now }
 }
 
@@ -264,6 +279,12 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
           if (!apiKey.startsWith('hpl_test_')) fail('Agreement creation is temporarily unavailable.', 503)
           const recipient = upfront ? clean(env.HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS, 42) : getAddress(provider.walletAddress)
           if (!isAddress(recipient)) fail('Agreement recipient routing is unavailable.', 503)
+          if (!upfront) {
+            const registrySecret = clean(env.HASHPAYSTREAM_DIRECT_RECIPIENT_REGISTRY_SECRET, 300)
+            if (registrySecret.length < 32) fail('Direct recipient verification is temporarily unavailable.', 503)
+            const registered = await dependencies.registerRecipient(cfg.base, apiKey, registrySecret, recipient, result.providerAccountKey, dependencies.now())
+            if (registered.status < 200 || registered.status >= 300 || registered.body.ok !== true) fail(clean(registered.body.error, 300) || 'The service provider wallet could not be verified for Direct payment.', registered.status >= 400 && registered.status < 600 ? registered.status : 502)
+          }
           const created = await dependencies.upstream(cfg.base, apiKey, { template: 'fixed_unlock', title: terms.title, description: terms.description, amount: terms.amount, payerEmail: identity.email, recipient, durationSeconds: terms.durationSeconds, cancellationWindowSeconds: terms.cancellationWindowSeconds, externalId: `hps-request-${result.id.slice(-24)}`, resourceId: `request:${result.id}` }, `hps-request:${result.id}:${terms.version}`)
           if (created.status < 200 || created.status >= 300 || created.body.ok !== true) fail(clean(created.body.error, 300) || 'The protected agreement could not be created.', created.status >= 400 && created.status < 600 ? created.status : 502)
           const agreement = created.body.agreement && typeof created.body.agreement === 'object' ? created.body.agreement as Record<string, unknown> : {}

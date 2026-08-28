@@ -142,7 +142,7 @@ const fundedHandler = createHashPayStreamUpfrontAssessmentHandler({
     id, status: 'active', template: 'fixed_unlock', title: 'Authoritative funded delivery',
     description: 'Deliver the authoritative funded agreement package to the payer.',
     recipient: env.HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS, durationSeconds: 86400, cancellationWindowSeconds: 900,
-    chain: { network: 'arc', chainId: 5042002, amountUsdcUnits: '100250000' },
+    chain: { network: 'arc', chainId: 5042002, amountUsdcUnits: '100250000', expiresAt: '1787227200' },
   }),
   assess: async request => {
     fundedAssessmentRequest = request
@@ -170,6 +170,7 @@ const funded = await call(fundedHandler, { agreementId: fundedAgreementId, provi
 assert.equal(funded.statusCode, 201)
 assert.equal(funded.body.assessment.decision.decision, 'APPROVE')
 assert.equal(fundedAssessmentRequest.agreement.state, 'funded')
+assert.equal(fundedAssessmentRequest.agreement.protectionDeadline, 1787227200)
 assert.equal(fundedAssessmentRequest.agreement.title, 'Authoritative funded delivery')
 assert.deepEqual(fundedAssessmentRequest.evidence.sources, ['hashpaystream-authoritative-agreement', 'arc-funded-agreement'])
 assert.deepEqual(fundedAssessmentRequest.evidence.dataGaps, ['provider-history', 'delivery-history'])

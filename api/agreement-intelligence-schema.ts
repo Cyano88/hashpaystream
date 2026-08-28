@@ -1,4 +1,5 @@
 import { createHash, createHmac } from 'node:crypto'
+import { MIN_UPFRONT_DURATION_SECONDS } from './early-pay-timing-policy.js'
 
 export const AGREEMENT_INTELLIGENCE_REQUEST_SCHEMA = 'zeroscout.agreement-intelligence.request' as const
 export const AGREEMENT_INTELLIGENCE_REQUEST_VERSION = '1.0.0' as const
@@ -26,7 +27,7 @@ export type AgreementIntelligenceRequest = {
   agreement: {
     state: 'draft' | 'funded'; template: 'fixed_unlock'; title: string; deliveryDescription: string
     amountUsdcUnits: string; durationSeconds: number; cancellationWindowSeconds: number
-    releasePercentages: [100]; termsHash: string
+    releasePercentages: [100]; termsHash: string; protectionDeadline?: number
   }
   advance: {
     requestedBps: number; requestedUsdcUnits: string; fundingNetwork: 'x-layer-testnet'
@@ -43,6 +44,7 @@ export type AgreementIntelligenceRequest = {
 
 export type TrustedAgreementEvidence = {
   agreementState: 'funded'
+  protectionDeadline: number
   providerHistoryIncluded: boolean
   sources: string[]
   dataGaps: string[]
@@ -87,7 +89,7 @@ export function validateUpfrontDraft(value: unknown): UpfrontDraftInput {
   const description = clean(body.description, 800)
   if (title.length < 3) inputError('Agreement title must contain at least 3 characters.')
   if (description.length < 10) inputError('Delivery description must contain at least 10 characters.')
-  const durationSeconds = integer(body.durationSeconds, 3_600, 2_592_000, 'Agreement duration')
+  const durationSeconds = integer(body.durationSeconds, MIN_UPFRONT_DURATION_SECONDS, 2_592_000, 'Agreement duration')
   const cancellationWindowSeconds = integer(body.cancellationWindowSeconds, 0, 86_400, 'Cancellation window')
   if (cancellationWindowSeconds >= durationSeconds) inputError('Cancellation window must end before the agreement expires.')
   const providerPayoutAddress = clean(body.providerPayoutAddress, 42)
@@ -122,7 +124,12 @@ export function buildAgreementIntelligenceRequest(input: {
       environment: 'testnet',
       providerReference: 'hps_provider_' + createHmac('sha256', input.providerReferenceSecret).update('upfront\0' + input.providerIdentity).digest('hex').slice(0, 32),
     },
-    agreement: { state: input.trustedEvidence?.agreementState ?? 'draft', ...terms, termsHash: 'sha256:' + createHash('sha256').update(canonical(terms)).digest('hex') },
+    agreement: {
+      state: input.trustedEvidence?.agreementState ?? 'draft',
+      ...terms,
+      termsHash: 'sha256:' + createHash('sha256').update(canonical(terms)).digest('hex'),
+      ...(input.trustedEvidence ? { protectionDeadline: input.trustedEvidence.protectionDeadline } : {}),
+    },
     advance: {
       requestedBps: input.draft.requestedAdvanceBps,
       requestedUsdcUnits: (units * BigInt(input.draft.requestedAdvanceBps) / 10_000n).toString(),
