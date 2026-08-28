@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
-import { ArrowLeftIcon, ArrowPathIcon, BanknotesIcon, ChevronRightIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, BanknotesIcon, ChevronRightIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
 import { Navigate } from '../lib/router'
 import { upfrontTreasuryEnabled } from '../lib/upfrontChains'
 import UpfrontTreasuryWallet from './UpfrontTreasuryWallet'
@@ -60,11 +60,13 @@ export default function StreamPayFundingDesk() {
   const [error, setError] = useState('')
   const [selectedId, setSelectedId] = useState('')
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     if (!authenticated) { setAuthorized(false); setLoading(false); return }
-    setLoading(true)
-    setAuthorized(false)
-    setError('')
+    if (!silent) {
+      setLoading(true)
+      setAuthorized(false)
+      setError('')
+    }
     try {
       const token = await getAccessToken()
       if (!token) throw new Error('Sign in again to open funding.')
@@ -74,13 +76,23 @@ export default function StreamPayFundingDesk() {
       setAuthorized(true)
       setOpportunities(body.opportunities ?? [])
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Funding opportunities could not be loaded.')
+      if (!silent) setError(reason instanceof Error ? reason.message : 'Funding opportunities could not be loaded.')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [authenticated, getAccessToken])
 
-  useEffect(() => { if (ready) void load() }, [load, ready])
+  useEffect(() => {
+    if (!ready) return
+    void load()
+    const timer = window.setInterval(() => void load(true), 15_000)
+    const visible = () => { if (document.visibilityState === 'visible') void load(true) }
+    document.addEventListener('visibilitychange', visible)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', visible)
+    }
+  }, [load, ready])
 
   const openOffers = useMemo(() => opportunities.filter(item => item.positionStatus === 'available'), [opportunities])
   const positions = useMemo(() => opportunities.filter(item => item.positionStatus !== 'available'), [opportunities])
@@ -94,10 +106,7 @@ export default function StreamPayFundingDesk() {
   if (selected) return <FundingDetail item={selected} onBack={() => setSelectedId('')} onUpdated={load} />
 
   return <section className="w-full max-w-md space-y-4 py-5 sm:py-8">
-    <div className="flex items-center justify-between gap-3">
-      <div><h1 className="text-xl font-black tracking-tight text-gray-950 dark:text-white">Earn</h1><p className="mt-0.5 text-[11px] text-gray-400">Fund verified work on X Layer</p></div>
-      <button type="button" onClick={() => void load()} aria-label="Refresh funding" className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-gray-500 shadow-sm dark:bg-white/[0.06]"><ArrowPathIcon className="h-4 w-4" /></button>
-    </div>
+    <div><h1 className="text-xl font-black tracking-tight text-gray-950 dark:text-white">Funding</h1><p className="mt-0.5 text-[11px] text-gray-400">Fund verified work on X Layer</p></div>
 
     {authorized && (upfrontTreasuryEnabled
       ? <UpfrontTreasuryWallet deployedUsdcUnits={deployedUnits} activePositions={activePositions.length} />

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useCreateWallet, usePrivy, useWallets } from '@privy-io/react-auth'
-import { ArrowPathIcon, ClipboardDocumentIcon, PlusIcon, WalletIcon } from '@heroicons/react/24/outline'
+import { ClipboardDocumentIcon, WalletIcon } from '@heroicons/react/24/outline'
 import { createPublicClient, formatUnits, getAddress, http, isAddress } from 'viem'
 import { upfrontXLayerChain } from '../lib/upfrontChains'
 
@@ -35,9 +35,7 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
   const [createdTreasury, setCreatedTreasury] = useState('')
   const [availableUnits, setAvailableUnits] = useState<string | null>(null)
   const [loadingBalance, setLoadingBalance] = useState(false)
-  const [assetAddress, setAssetAddress] = useState('')
   const [escrowAssetAddress, setEscrowAssetAddress] = useState('')
-  const [lastUpdated, setLastUpdated] = useState('')
 
   const embeddedWallets = wallets.filter(wallet => wallet.walletClientType === 'privy' || wallet.walletClientType === 'privy-v2')
   const linkedEmbeddedWallets = (user?.linkedAccounts ?? []).flatMap(account =>
@@ -77,10 +75,8 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
       const client = createPublicClient({ chain: upfrontXLayerChain, transport: http() })
       const escrowAsset = await client.readContract({ address: getAddress(ESCROW), abi: ESCROW_ABI, functionName: 'asset' })
       const balance = await client.readContract({ address: NATIVE_XLAYER_USDC, abi: ERC20_ABI, functionName: 'balanceOf', args: [getAddress(treasury)] })
-      setAssetAddress(NATIVE_XLAYER_USDC)
       setEscrowAssetAddress(escrowAsset)
       setAvailableUnits(balance.toString())
-      setLastUpdated(new Date().toISOString())
     } catch {
       setAvailableUnits(null)
       setError('Funding balance could not be refreshed.')
@@ -89,7 +85,16 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
     }
   }, [treasury])
 
-  useEffect(() => { void refreshBalance() }, [refreshBalance, deployedUsdcUnits])
+  useEffect(() => {
+    void refreshBalance()
+    const timer = window.setInterval(() => void refreshBalance(), 15_000)
+    const visible = () => { if (document.visibilityState === 'visible') void refreshBalance() }
+    document.addEventListener('visibilitychange', visible)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', visible)
+    }
+  }, [refreshBalance, deployedUsdcUnits])
 
   async function prepare() {
     setCreating(true)
@@ -136,29 +141,19 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
       <span className="rounded-full bg-white/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] dark:bg-gray-950/[0.07]">X Layer</span>
     </div>
 
-    <div className="mt-5 grid grid-cols-2 gap-2">
-      <button type="button" onClick={() => void copyTreasury()} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white text-xs font-black text-gray-950 transition active:scale-[0.98] dark:bg-gray-950 dark:text-white">
-        {copied ? <ClipboardDocumentIcon className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
-        {copied ? 'Address copied' : 'Add funds'}
-      </button>
-      <button type="button" disabled={loadingBalance} onClick={() => void refreshBalance()} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white/10 text-xs font-black transition active:scale-[0.98] disabled:opacity-50 dark:bg-gray-950/[0.06]">
-        <ArrowPathIcon className="h-4 w-4" />
-        Refresh
-      </button>
-    </div>
 
     <div className="mt-3 grid grid-cols-2 gap-2">
       <div className="rounded-2xl bg-white/[0.07] px-3.5 py-3 dark:bg-gray-950/[0.05]"><p className="text-[9px] font-bold uppercase tracking-[0.15em] opacity-40">Deployed</p><p className="mt-1 text-sm font-black tabular-nums">{displayUsdc(deployedUsdcUnits)} USDC</p></div>
       <div className="rounded-2xl bg-white/[0.07] px-3.5 py-3 dark:bg-gray-950/[0.05]"><p className="text-[9px] font-bold uppercase tracking-[0.15em] opacity-40">Positions</p><p className="mt-1 text-sm font-black tabular-nums">{activePositions}</p></div>
     </div>
 
-    <div className="mt-4 flex items-center gap-2 border-t border-white/10 pt-3 dark:border-gray-950/10">
+    <button type="button" onClick={() => void copyTreasury()} className="mt-4 flex w-full items-center gap-2 border-t border-white/10 pt-3 text-left dark:border-gray-950/10">
       <WalletIcon className="h-4 w-4 shrink-0 opacity-50" />
       <span className="min-w-0 flex-1 truncate font-mono text-[10px] opacity-65">{short(treasury)}</span>
-      <span className="text-[9px] font-bold opacity-40">{lastUpdated ? 'Live' : 'Waiting'}</span>
-    </div>
-
-    <p className="mt-2 text-[9px] leading-4 opacity-35">USDC {assetAddress ? short(assetAddress) : 'asset checking'} / Repayments settle on Arc.</p>
+      <ClipboardDocumentIcon className="h-4 w-4 opacity-45" />
+      <span className="sr-only">{copied ? 'Address copied' : 'Copy funding address'}</span>
+    </button>
+    <p className="mt-2 text-[9px] leading-4 opacity-35">Repayments settle on Arc.</p>
     {escrowNeedsUpgrade && <p role="status" className="mt-3 rounded-xl bg-amber-400/15 px-3 py-2.5 text-[11px] leading-5 text-amber-100 dark:text-amber-800">Your native USDC is available. Funding is paused while the escrow is upgraded to native USDC.</p>}
     {walletKnownButConnectorPending && <p className="mt-3 text-[11px] text-amber-300 dark:text-amber-700">Wallet recovered. Transaction signing is still connecting.</p>}
     {knownTreasuries.length > 1 && <p className="mt-3 text-[11px] text-rose-300 dark:text-rose-700">Multiple embedded wallets are linked. Funding is locked for review.</p>}

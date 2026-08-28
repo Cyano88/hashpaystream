@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { BanknotesIcon, CheckBadgeIcon, ClockIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
 import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSplash'
+import { useLocation } from '../lib/router'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
+import StreamPayGrow from './StreamPayGrow'
 import StreamPayFundingDesk from './StreamPayFundingDesk'
 import { LoadingRing } from './ui/LoadingRing'
 import { StreamSelect } from './ui/StreamSelect'
@@ -18,6 +20,8 @@ type Profile = {
 
 export default function StreamPayFunding() {
   const { ready, authenticated, getAccessToken } = usePrivy()
+  const { search } = useLocation()
+  const fundingMode = new URLSearchParams(search).get('view') === 'funding'
   const splashState = useHashPayStreamSessionSplash(!authenticated)
   const [profile, setProfile] = useState<Profile>()
   const [loading, setLoading] = useState(true)
@@ -59,6 +63,7 @@ export default function StreamPayFunding() {
 
   if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
   if (!ready || loading) return <div className="flex min-h-[58vh] items-center justify-center"><LoadingRing className="h-5 w-5 text-gray-300" /></div>
+  if (!fundingMode) return <StreamPayGrow fundingStatus={profile?.status} />
   if (profile?.status === 'approved') return <StreamPayFundingDesk />
 
   if (profile?.status === 'pending') return (

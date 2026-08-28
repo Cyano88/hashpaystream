@@ -5,14 +5,15 @@ import { StreamPayHeader } from './StreamPayHeader'
 import { StreamPayMobileNav } from './StreamPayMobileNav'
 
 export function StreamPayLayout({ children }: { children: ReactNode }) {
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const { authenticated } = usePrivy()
   const foundationPage = (pathname.replace(/\/+$/, '') || '/') === '/'
   const route = pathname.replace(/\/+$/, '')
   const mobileAppPage = authenticated && ['/home', '/agreements', '/agreements/new', '/upfront', '/funding', '/move', '/send', '/receive', '/activity', '/notifications', '/requests', '/account'].includes(route)
+  const earnPage = mobileAppPage && route === '/funding' && new URLSearchParams(search).get('view') !== 'funding'
 
   return (
-    <div className="min-h-screen w-full bg-[#F5F5F7] dark:bg-[#111113] font-sans flex flex-col">
+    <div className={'min-h-screen w-full font-sans flex flex-col ' + (earnPage ? 'bg-black' : 'bg-[#F5F5F7] dark:bg-[#111113]')}>
       {!foundationPage && !mobileAppPage && <StreamPayHeader />}
 
       <main className={`flex-1 w-full flex flex-col items-center px-4 ${foundationPage ? 'pb-0' : mobileAppPage ? 'pb-24' : 'pb-10 md:px-8'}`}>
