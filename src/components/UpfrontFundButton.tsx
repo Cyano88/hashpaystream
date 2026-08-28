@@ -127,7 +127,7 @@ function parseOffer(opportunity: Opportunity): SignedOffer {
 }
 
 export default function UpfrontFundButton({ opportunity, onFunded }: { opportunity: Opportunity; onFunded?: () => Promise<void> | void }) {
-  const { wallets, ready } = useWallets()
+  const { wallets } = useWallets()
   const [stage, setStage] = useState('')
   const [error, setError] = useState('')
   const [fundingHash, setFundingHash] = useState('')
@@ -141,7 +141,7 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
     setError('')
     setFundingHash('')
     try {
-      if (!ready || !signer) throw new Error('Your HashPayStream funding wallet is not ready. Refresh this page and try again.')
+      if (!signer) throw new Error('Your funding wallet is still connecting. Return to Earn and open this request again.')
       const offer = parseOffer(opportunity)
       if (!isAddress(opportunity.providerPayoutAddress) || getAddress(opportunity.providerPayoutAddress) !== offer.message.provider) {
         throw new Error('The displayed payout address does not match the signed underwriting offer.')
@@ -212,7 +212,7 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
 
   if (fundingHash) return <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-[11px] text-emerald-800"><strong>Advance funded.</strong><p className="mt-1 break-all font-mono">{fundingHash}</p></div>
   return <div className="mt-3">
-    <button type="button" disabled={busy || !ready || !signer} onClick={() => void fund()} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{stage || `Approve and fund ${amountLabel}`}</button>
+    <button type="button" disabled={busy} onClick={() => void fund()} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{stage || `Approve and fund ${amountLabel}`}</button>
     {!signer && <p className="mt-2 text-[11px] leading-5 text-amber-700">Your HashPayStream funding wallet is still connecting.</p>}
     {error && <p className="mt-2 text-[11px] leading-5 text-rose-700">{error}</p>}
   </div>
