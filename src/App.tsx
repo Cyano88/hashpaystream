@@ -20,6 +20,7 @@ import StreamPayFunding from './components/StreamPayFunding'
 import StreamPaySend from './components/StreamPaySend'
 import StreamPayReceive from './components/StreamPayReceive'
 import StreamPayMove from './components/StreamPayMove'
+import StreamPayXLayerSend from './components/StreamPayXLayerSend'
 import { HashPayStreamSessionSplash } from './components/HashPayStreamSessionSplash'
 import { BrowserRouter, Navigate, useLocation } from './lib/router'
 import { useHashPayStreamSessionSplash } from './lib/useHashPayStreamSessionSplash'
@@ -27,7 +28,7 @@ import { useStreamPayPath } from './lib/useStreamPayPath'
 import { StreamPayLoadingState } from './components/ui/StreamPayLoadingState'
 import { CircleWalletGate } from './components/CircleWalletGate'
 
-const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/upfront', '/funding', '/move', '/send', '/receive', '/activity', '/notifications', '/requests', '/account', '/operations', '/admin/analytics'])
+const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/upfront', '/funding', '/move', '/move/xlayer/send', '/send', '/receive', '/activity', '/notifications', '/requests', '/account', '/operations', '/admin/analytics'])
 const CIRCLE_ROUTES = new Set(['/home', '/agreements', '/agreements/new', '/upfront', '/move', '/send', '/receive', '/activity', '/notifications', '/requests', '/account'])
 const SESSION_READY_TIMEOUT_MS = 12_000
 
@@ -95,6 +96,7 @@ function StreamPayRoute() {
   else if (route === '/upfront') content = <StreamPayUpfront />
   else if (route === '/funding') content = <StreamPayFunding />
   else if (route === '/move') content = <StreamPayMove />
+  else if (route === '/move/xlayer/send') content = <StreamPayXLayerSend />
   else if (route === '/send') content = <StreamPaySend />
   else if (route === '/receive') content = <StreamPayReceive />
   else if (route === '/upfront/funding') content = <Navigate to={fundingTo} replace />

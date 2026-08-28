@@ -1,4 +1,4 @@
-import { ArrowDownTrayIcon, ArrowLeftIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline'
+import { ArrowDownTrayIcon, ArrowLeftIcon, PaperAirplaneIcon, WalletIcon } from '@heroicons/react/24/outline'
 import { Link } from '../lib/router'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 
@@ -6,15 +6,21 @@ export default function StreamPayMove() {
   const homeTo = useStreamPayPath('/home')
   const sendTo = useStreamPayPath('/send')
   const depositTo = useStreamPayPath('/receive')
+  const xLayerSendTo = useStreamPayPath('/move/xlayer/send')
 
   return <section className="stream-screen w-full max-w-md py-5 sm:py-8">
     <div className="flex items-center gap-3">
       <Link to={homeTo} aria-label="Back home" className="stream-icon-button"><ArrowLeftIcon className="h-4 w-4" /></Link>
       <h1 className="text-xl font-extrabold tracking-tight text-gray-950 dark:text-white">Move USDC</h1>
     </div>
-    <div className="mt-5 space-y-3">
+    <p className="mt-6 px-1 text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">Payments on Arc</p>
+    <div className="mt-3 space-y-3">
       <MoveChoice to={sendTo} Icon={PaperAirplaneIcon} title="Send" detail="Send to a Pocket ID or Arc wallet address" />
       <MoveChoice to={depositTo} Icon={ArrowDownTrayIcon} title="Deposit" detail="Receive with your Pocket ID or Arc wallet address" />
+    </div>
+    <p className="mt-6 px-1 text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">Early pay on X Layer</p>
+    <div className="mt-3">
+      <MoveChoice to={xLayerSendTo} Icon={WalletIcon} title="Use early-pay funds" detail="Send X Layer USDC to a wallet or OKX deposit address" />
     </div>
   </section>
 }

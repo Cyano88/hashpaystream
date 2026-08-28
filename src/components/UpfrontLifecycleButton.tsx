@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import {
   createPublicClient,
@@ -90,6 +90,7 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
   const [stage, setStage] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [repaymentState, setRepaymentState] = useState<'checking' | 'waiting' | 'ready' | 'unavailable'>(opportunity.positionStatus === 'released' ? 'checking' : 'ready')
   const embedded = wallets.filter(wallet => wallet.walletClientType === 'privy' || wallet.walletClientType === 'privy-v2')
   const signer = embedded.length === 1 ? embedded[0] : undefined
   const busy = Boolean(stage)
@@ -103,9 +104,31 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
       body: JSON.stringify({ action, requestId: opportunity.id, agreementId: opportunity.agreementId, positionId: opportunity.positionId }),
     })
     const body = await response.json().catch(() => ({})) as { attestation?: SignedAttestation; error?: string }
-    if (!response.ok || !body.attestation) throw new Error(body.error || 'The protected lifecycle proof is unavailable.')
+    if (!response.ok || !body.attestation) {
+      const failure = new Error(body.error || 'The protected lifecycle proof is unavailable.')
+      throw Object.assign(failure, { status: response.status })
+    }
     return body.attestation
   }
+
+  useEffect(() => {
+    if (opportunity.positionStatus !== 'released' || repaymentState === 'ready') return
+    let cancelled = false
+    const check = async () => {
+      try {
+        await attestation('repayment')
+        if (!cancelled) setRepaymentState('ready')
+      } catch (reason) {
+        if (cancelled) return
+        setRepaymentState(Number((reason as { status?: number }).status) === 409 ? 'waiting' : 'unavailable')
+      }
+    }
+    void check()
+    const timer = window.setInterval(() => void check(), 20_000)
+    const onFocus = () => void check()
+    window.addEventListener('focus', onFocus)
+    return () => { cancelled = true; window.clearInterval(timer); window.removeEventListener('focus', onFocus) }
+  }, [opportunity.agreementId, opportunity.id, opportunity.positionId, opportunity.positionStatus, repaymentState])
 
   async function release() {
     setStage('Checking Arc protection...'); setError(''); setSuccess('')
@@ -189,10 +212,18 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
   }
 
   if (opportunity.positionStatus === 'refunded') return <p className="mt-3 text-[11px] text-gray-500">Advance refunded.</p>
+  const repaymentBlocked = opportunity.positionStatus === 'released' && repaymentState !== 'ready'
+  const label = opportunity.positionStatus === 'funded'
+    ? 'Send early payment'
+    : repaymentState === 'checking' ? 'Checking customer payment…'
+      : repaymentState === 'waiting' ? 'Waiting for customer payment'
+        : repaymentState === 'unavailable' ? 'Repayment status unavailable' : 'Claim repayment'
   return <div className="mt-3">
-    <button type="button" disabled={busy} onClick={() => void (opportunity.positionStatus === 'funded' ? release() : claim())} className="w-full rounded-xl bg-gray-950 px-4 py-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-950">
-      {stage || (opportunity.positionStatus === 'funded' ? 'Release protected advance' : 'Check and claim repayment')}
+    <button type="button" disabled={busy || repaymentBlocked} onClick={() => void (opportunity.positionStatus === 'funded' ? release() : claim())} className="w-full rounded-xl bg-gray-950 px-4 py-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-950">
+      {stage || label}
     </button>
+    {repaymentState === 'waiting' && <p className="mt-2 text-[11px] leading-5 text-gray-500">The service provider must submit the work and the customer must approve the protected Arc payment.</p>}
+    {repaymentState === 'unavailable' && <button type="button" onClick={() => setRepaymentState('checking')} className="mt-2 text-[11px] font-bold text-gray-500 underline underline-offset-2">Try again</button>}
     {success && <p className="mt-2 text-[11px] leading-5 text-emerald-700">{success}</p>}
     {error && <p role="alert" className="mt-2 text-[11px] leading-5 text-rose-700">{error}</p>}
   </div>

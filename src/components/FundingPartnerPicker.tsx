@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { CheckCircleIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import { formatUsdcBalance } from '../lib/useAgreements'
+import { Link } from '../lib/router'
+import { useStreamPayPath } from '../lib/useStreamPayPath'
 
 type Partner = { id: string; name: string; maximumRequestUsdcUnits: string; canCoverFullRequest: boolean }
 type Selection = { partnerId: string; partnerName: string; advanceUsdcUnits: string; status: 'pending' | 'declined' | 'funded' | 'released' | 'refunded' | 'expired' }
@@ -9,6 +11,7 @@ const API = '/api/hashpaystream/v1/upfront/opportunities'
 
 export default function FundingPartnerPicker({ requestId }: { requestId: string }) {
   const { getAccessToken } = usePrivy()
+  const useFundsTo = useStreamPayPath('/move/xlayer/send')
   const [partners, setPartners] = useState<Partner[]>([])
   const [selection, setSelection] = useState<Selection>()
   const [loading, setLoading] = useState(true)
@@ -31,7 +34,7 @@ export default function FundingPartnerPicker({ requestId }: { requestId: string 
 
   useEffect(() => { void load() }, [load])
   useEffect(() => {
-    if (selection?.status !== 'pending') return
+    if (!selection || !['pending', 'funded'].includes(selection.status)) return
     const timer = window.setInterval(() => void load(true), 15_000)
     return () => window.clearInterval(timer)
   }, [load, selection?.status])
@@ -52,7 +55,7 @@ export default function FundingPartnerPicker({ requestId }: { requestId: string 
 
   if (loading) return <div className="mt-4 space-y-2" aria-label="Loading funding partners"><div className="h-16 animate-pulse rounded-2xl bg-gray-100 dark:bg-white/[0.05]" /><div className="h-16 animate-pulse rounded-2xl bg-gray-100 dark:bg-white/[0.05]" /></div>
   if (selection && ['pending', 'funded', 'released'].includes(selection.status)) return <div className="mt-4 rounded-2xl bg-emerald-50 p-4 text-emerald-900 dark:bg-emerald-400/10 dark:text-emerald-100">
-    <div className="flex items-start gap-3"><CheckCircleIcon className="mt-0.5 h-5 w-5 shrink-0" /><div><p className="text-xs font-black">{selection.status === 'pending' ? 'Funding request sent' : selection.status === 'funded' ? 'Early pay funded' : 'Early pay released'}</p><p className="mt-1 text-[11px] leading-5 opacity-75">{selection.partnerName} / {formatUsdcBalance(selection.advanceUsdcUnits)}</p>{selection.status === 'pending' && <p className="mt-1 text-[10px] opacity-60">Waiting for the partner to fund or decline.</p>}</div></div>
+    <div className="flex items-start gap-3"><CheckCircleIcon className="mt-0.5 h-5 w-5 shrink-0" /><div className="min-w-0 flex-1"><p className="text-xs font-black">{selection.status === 'pending' ? 'Funding request sent' : selection.status === 'funded' ? 'Early pay funded' : 'Early pay received'}</p><p className="mt-1 text-[11px] leading-5 opacity-75">{selection.partnerName} / {formatUsdcBalance(selection.advanceUsdcUnits)}</p>{selection.status === 'pending' && <p className="mt-1 text-[10px] opacity-60">Waiting for the partner to fund or decline.</p>}{selection.status === 'funded' && <p className="mt-1 text-[10px] opacity-60">The partner funded the protected release. Waiting for X Layer confirmation.</p>}{selection.status === 'released' && <><p className="mt-1 text-[10px] opacity-70">Confirmed on X Layer and available in your HashPayStream wallet.</p><Link to={useFundsTo} className="mt-3 inline-flex min-h-9 items-center rounded-full bg-emerald-900 px-4 text-[11px] font-black text-white dark:bg-emerald-300 dark:text-emerald-950">Use funds</Link></>}</div></div>
   </div>
 
   return <div className="mt-4">
