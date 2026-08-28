@@ -35,6 +35,7 @@ type Application = {
   walletAddress?: string;
 };
 type Filter = "pending" | "all";
+type FundingState = "checking" | "enabled" | "disabled" | "unavailable";
 
 function statusLabel(application: Application) {
   if (application.status === "approved" && !application.walletAddress) return "Wallet verification needed";
@@ -67,6 +68,7 @@ export default function FundingPartnerReviewPanel() {
   const [error, setError] = useState("");
   const [reviewing, setReviewing] = useState("");
   const [filter, setFilter] = useState<Filter>("pending");
+  const [fundingState, setFundingState] = useState<Record<string, FundingState>>({});
 
   const token = useCallback(async () => {
     const value = await getAccessToken();
@@ -105,6 +107,70 @@ export default function FundingPartnerReviewPanel() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const candidates = applications.filter(
+      (application) =>
+        application.status === "approved" &&
+        Boolean(application.walletAddress) &&
+        isAddress(application.walletAddress!),
+    );
+    if (!candidates.length || !isAddress(ESCROW)) return;
+
+    let cancelled = false;
+    setFundingState((current) => ({
+      ...current,
+      ...Object.fromEntries(
+        candidates.map((application) => [application.id, "checking"]),
+      ),
+    }));
+    const publicClient = createPublicClient({
+      chain: upfrontXLayerChain,
+      transport: http(),
+    });
+    void Promise.all([
+      publicClient.readContract({
+        address: getAddress(ESCROW),
+        abi: ESCROW_ABI,
+        functionName: "paused",
+      }),
+      Promise.all(
+        candidates.map((application) =>
+          publicClient.readContract({
+            address: getAddress(ESCROW),
+            abi: ESCROW_ABI,
+            functionName: "allowedFunders",
+            args: [getAddress(application.walletAddress!)],
+          }),
+        ),
+      ),
+    ])
+      .then(([paused, allowed]) => {
+        if (cancelled) return;
+        setFundingState((current) => ({
+          ...current,
+          ...Object.fromEntries(
+            candidates.map((application, index) => [
+              application.id,
+              !paused && allowed[index] ? "enabled" : "disabled",
+            ]),
+          ),
+        }));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setFundingState((current) => ({
+          ...current,
+          ...Object.fromEntries(
+            candidates.map((application) => [application.id, "unavailable"]),
+          ),
+        }));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applications]);
 
   async function review(
     application: Application,
@@ -157,6 +223,10 @@ export default function FundingPartnerReviewPanel() {
           item.id === application.id ? body.application! : item,
         ),
       );
+      setFundingState((current) => ({
+        ...current,
+        [application.id]: status === "approved" ? "enabled" : "disabled",
+      }));
     } catch (reason) {
       setError(
         reason instanceof Error
@@ -305,15 +375,29 @@ export default function FundingPartnerReviewPanel() {
                     </button>
                   )}
                   {application.status === "approved" && application.walletAddress && (
-                    <button
-                      type="button"
-                      disabled={reviewing === application.id}
-                      onClick={() => void review(application, "approved")}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-gray-950 px-3 py-2 text-[11px] font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950"
-                    >
-                      <CheckIcon className="h-3.5 w-3.5" />
-                      Enable funding
-                    </button>
+                    (fundingState[application.id] ?? "checking") === "enabled" ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-100 px-3 py-2 text-[11px] font-bold text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200">
+                        <CheckIcon className="h-3.5 w-3.5" />
+                        Funding enabled
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={
+                          reviewing === application.id ||
+                          (fundingState[application.id] ?? "checking") === "checking"
+                        }
+                        onClick={() => void review(application, "approved")}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-gray-950 px-3 py-2 text-[11px] font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950"
+                      >
+                        <CheckIcon className="h-3.5 w-3.5" />
+                        {(fundingState[application.id] ?? "checking") === "checking"
+                          ? "Checking funding"
+                          : fundingState[application.id] === "unavailable"
+                            ? "Check funding"
+                            : "Enable funding"}
+                      </button>
+                    )
                   )}
                 </div>
               </div>
