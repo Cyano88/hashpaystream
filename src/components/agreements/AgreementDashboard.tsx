@@ -353,7 +353,7 @@ export default function AgreementDashboard() {
   }
 
   return (
-    <section className="w-full max-w-md py-5 sm:py-8">
+    <section className="stream-screen w-full max-w-md py-5 sm:py-8">
       <div className="grid grid-cols-2 rounded-full bg-gray-200/70 p-1 dark:bg-white/[0.06]" aria-label="Agreement status filters">
         {([['ongoing', 'Ongoing'], ['completed', 'Completed']] as const).map(([value, label]) => <button key={value} type="button" onClick={() => chooseFilter(value)} className={`min-h-11 rounded-full px-2 text-xs font-extrabold transition ${filter === value ? 'bg-gray-950 text-white shadow-sm dark:bg-white dark:text-gray-950' : 'text-gray-500 dark:text-gray-400'}`}>{label}</button>)}
       </div>

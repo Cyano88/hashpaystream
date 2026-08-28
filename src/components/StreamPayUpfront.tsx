@@ -161,8 +161,8 @@ export default function StreamPayUpfront() {
 
   if (!ready || loading) return <StreamPayLoadingState active="agreements" />
   if (!authenticated) return null
-  if (!agreements.length && !error) return <section className="w-full max-w-md py-5 sm:py-8">
-    <Link to={homeTo} className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm dark:bg-white/[0.06] dark:text-white" aria-label="Back home"><ArrowLeftIcon className="h-4 w-4" /></Link>
+  if (!agreements.length && !error) return <section className="stream-screen w-full max-w-md py-5 sm:py-8">
+    <Link to={homeTo} className="stream-icon-button" aria-label="Back home"><ArrowLeftIcon className="h-4 w-4" /></Link>
     <div className="flex min-h-[62vh] flex-col items-center justify-center px-6 text-center">
       <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-gray-500 shadow-sm dark:bg-white/[0.06]"><BanknotesIcon className="h-6 w-6" /></span>
       <h1 className="mt-4 text-lg font-extrabold text-gray-950 dark:text-white">No early-pay request yet</h1>
@@ -171,10 +171,10 @@ export default function StreamPayUpfront() {
     </div>
   </section>
 
-  return <section className="w-full max-w-md py-5 sm:py-8">
-    <Link to={homeTo} className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm dark:bg-white/[0.06] dark:text-white" aria-label="Back home"><ArrowLeftIcon className="h-4 w-4" /></Link>
+  return <section className="stream-screen w-full max-w-md py-5 sm:py-8">
+    <Link to={homeTo} className="stream-icon-button" aria-label="Back home"><ArrowLeftIcon className="h-4 w-4" /></Link>
     <h1 className="mt-5 text-2xl font-extrabold tracking-tight text-gray-950 dark:text-white">Early pay</h1>
-    <form onSubmit={submit} className="mt-5 space-y-5 rounded-[24px] border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035]">
+    <form onSubmit={submit} className="stream-card mt-5 space-y-5 p-5">
       <label className="block"><span className="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-300">Funded agreement</span><StreamSelect label="Funded agreement" value={agreementId} onChange={value => changeDraft(() => setAgreementId(value))} options={agreements.map(item => ({ value: item.id, label: `${item.title || item.id} · ${decimalUsdc(item.chain?.amountUsdcUnits)} USDC` }))} /></label>
       {selected && <div className="rounded-xl bg-gray-50 px-3.5 py-3 dark:bg-white/[0.04]"><p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{selected.title}</p><p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-400">{selected.description}</p></div>}
       <label className="block"><span className="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-300">Advance amount</span><StreamSelect label="Advance percentage" value={String(requestedAdvanceBps)} onChange={value => changeDraft(() => setRequestedAdvanceBps(Number(value)))} options={[20, 30, 40, 50].map(percent => ({ value: String(percent * 100), label: `${percent}% of protected amount` }))} /></label>
@@ -207,7 +207,7 @@ function AssessmentResult({ assessment, review, reviewing, onSubmitReview }: { a
   const approvedAmount = decimalUsdc(approvedUnits)
   const underwritingDeadline = assessment.decision.onchainOffer?.message.underwritingDeadline
   const expiresAt = Number.isSafeInteger(underwritingDeadline) ? new Date(Number(underwritingDeadline) * 1_000) : undefined
-  return <div className="mt-4 rounded-[24px] border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035]">
+  return <div className="stream-card mt-4 p-5">
     <div className="flex items-center gap-2"><CheckBadgeIcon className="h-5 w-5 text-blue-600" /><p className="text-sm font-bold text-gray-950 dark:text-white">{assessment.decision.decision}</p></div>
     <div className="mt-4 grid grid-cols-2 gap-2"><Result label="Evidence" value={assessment.intelligence.evidenceGrade} /><Result label="Confidence" value={`${assessment.intelligence.confidence}%`} /><Result label="Clarity" value={`${assessment.intelligence.deliveryClarityScore}%`} /><Result label="Limit" value={`${assessment.decision.maximumAdvanceBps / 100}%`} /></div>
     <p className="mt-4 text-xs leading-5 text-gray-500 dark:text-gray-400">{assessment.intelligence.summary}</p>

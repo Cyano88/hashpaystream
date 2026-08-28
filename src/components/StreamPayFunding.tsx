@@ -96,9 +96,9 @@ export default function StreamPayFunding() {
   )
 
   return (
-    <section className="w-full max-w-md py-5 sm:py-8">
+    <section className="stream-screen w-full max-w-md py-5 sm:py-8">
       <button type="button" onClick={() => setFormOpen(false)} className="mb-4 text-xs font-bold text-gray-500">← Funding partners</button>
-      <div className="rounded-[24px] border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035]">
+      <div className="stream-card p-5">
         <div className="flex items-start gap-3">
           <CheckBadgeIcon className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
           <div><h2 className="text-base font-bold text-gray-950 dark:text-white">Apply with your HashPayStream account</h2><p className="mt-1 text-xs leading-5 text-gray-500">Your verified email is {profile?.email || 'connected to this account'}. KYC will be required before live-money access.</p></div>

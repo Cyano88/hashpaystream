@@ -122,7 +122,7 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
     <p className="mt-2 text-xs leading-5 opacity-60">Your HashPayStream account uses one Privy wallet for X Layer funding.</p>
     {!ready && !walletCheckTimedOut && <p className="mt-4 text-xs opacity-60">Checking wallet...</p>}
     {(ready || walletCheckTimedOut) && <button type="button" disabled={creating || !authReady || !authenticated} onClick={() => void prepare()} className="mt-5 min-h-12 w-full rounded-full bg-white px-4 text-sm font-bold text-zinc-950 disabled:opacity-50">{creating ? 'Creating wallet...' : 'Create funding wallet'}</button>}
-    {error && <p className="mt-3 text-xs text-rose-300 dark:text-rose-600">{error}</p>}
+    {error && <p className="mt-3 text-xs text-rose-300">{error}</p>}
   </section>
 
   const balance = availableUnits === null ? null : displayUsdc(availableUnits)
@@ -133,18 +133,18 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
       <div className="min-w-0">
         <p className="text-[10px] font-black uppercase tracking-[0.18em] opacity-45">Funding balance</p>
         <p aria-live="polite" className="mt-2 text-[clamp(2rem,10vw,2.75rem)] font-black tabular-nums tracking-[-0.04em]">
-          {loadingBalance && balance === null ? <span className="inline-block h-10 w-28 animate-pulse rounded-xl bg-white/10 dark:bg-gray-950/10" /> : balance ?? 'Unavailable'}
+          {loadingBalance && balance === null ? <span className="inline-block h-10 w-28 animate-pulse rounded-xl bg-white/10" /> : balance ?? 'Unavailable'}
           {balance !== null && <span className="ml-1.5 text-xs font-semibold tracking-normal opacity-45">USDC</span>}
         </p>
         <p className="mt-1 text-[10px] font-semibold opacity-40">{error ? 'Balance unavailable' : loadingBalance ? 'Refreshing balance' : 'Available on X Layer'}</p>
       </div>
-      <span className="rounded-full bg-white/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] dark:bg-gray-950/[0.07]">X Layer</span>
+      <span className="rounded-full bg-white/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em]">X Layer</span>
     </div>
 
 
     <div className="mt-3 grid grid-cols-2 gap-2">
-      <div className="rounded-2xl bg-white/[0.07] px-3.5 py-3 dark:bg-gray-950/[0.05]"><p className="text-[9px] font-bold uppercase tracking-[0.15em] opacity-40">Deployed</p><p className="mt-1 text-sm font-black tabular-nums">{displayUsdc(deployedUsdcUnits)} USDC</p></div>
-      <div className="rounded-2xl bg-white/[0.07] px-3.5 py-3 dark:bg-gray-950/[0.05]"><p className="text-[9px] font-bold uppercase tracking-[0.15em] opacity-40">Positions</p><p className="mt-1 text-sm font-black tabular-nums">{activePositions}</p></div>
+      <div className="rounded-2xl bg-white/[0.07] px-3.5 py-3"><p className="text-[9px] font-bold uppercase tracking-[0.15em] opacity-40">Deployed</p><p className="mt-1 text-sm font-black tabular-nums">{displayUsdc(deployedUsdcUnits)} USDC</p></div>
+      <div className="rounded-2xl bg-white/[0.07] px-3.5 py-3"><p className="text-[9px] font-bold uppercase tracking-[0.15em] opacity-40">Positions</p><p className="mt-1 text-sm font-black tabular-nums">{activePositions}</p></div>
     </div>
 
     <button type="button" onClick={() => void copyTreasury()} className="mt-4 flex w-full items-center gap-2 border-t border-white/10 pt-3 text-left dark:border-gray-950/10">
@@ -154,9 +154,9 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
       <span className="sr-only">{copied ? 'Address copied' : 'Copy funding address'}</span>
     </button>
     <p className="mt-2 text-[9px] leading-4 opacity-35">Repayments settle on Arc.</p>
-    {escrowNeedsUpgrade && <p role="status" className="mt-3 rounded-xl bg-amber-400/15 px-3 py-2.5 text-[11px] leading-5 text-amber-100 dark:text-amber-800">Your native USDC is available. Funding is paused while the escrow is upgraded to native USDC.</p>}
-    {walletKnownButConnectorPending && <p className="mt-3 text-[11px] text-amber-300 dark:text-amber-700">Wallet recovered. Transaction signing is still connecting.</p>}
-    {knownTreasuries.length > 1 && <p className="mt-3 text-[11px] text-rose-300 dark:text-rose-700">Multiple embedded wallets are linked. Funding is locked for review.</p>}
-    {error && <p role="alert" className="mt-3 text-[11px] text-rose-300 dark:text-rose-700">{error}</p>}
+    {escrowNeedsUpgrade && <p role="status" className="mt-3 rounded-xl bg-amber-400/15 px-3 py-2.5 text-[11px] leading-5 text-amber-100">Your native USDC is available. Funding is paused while the escrow is upgraded to native USDC.</p>}
+    {walletKnownButConnectorPending && <p className="mt-3 text-[11px] text-amber-300">Wallet recovered. Transaction signing is still connecting.</p>}
+    {knownTreasuries.length > 1 && <p className="mt-3 text-[11px] text-rose-300">Multiple embedded wallets are linked. Funding is locked for review.</p>}
+    {error && <p role="alert" className="mt-3 text-[11px] text-rose-300">{error}</p>}
   </section>
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ArrowLeftIcon, BanknotesIcon, ChevronRightIcon, CircleStackIcon, ShieldCheckIcon, SparklesIcon } from '@heroicons/react/24/outline'
 import { Link } from '../lib/router'
+import { useStreamPayPath } from '../lib/useStreamPayPath'
 
 type FundingStatus = 'not_applied' | 'pending' | 'approved' | 'restricted' | undefined
 
@@ -10,6 +11,7 @@ function UsdcMark() {
 
 export default function StreamPayGrow({ fundingStatus }: { fundingStatus: FundingStatus }) {
   const [savingsOpen, setSavingsOpen] = useState(false)
+  const fundingTo = useStreamPayPath('/funding?view=funding')
 
   if (savingsOpen) return (
     <section className="stream-screen min-h-[calc(100dvh-6rem)] w-full max-w-md pb-28 pt-5">
@@ -50,7 +52,7 @@ export default function StreamPayGrow({ fundingStatus }: { fundingStatus: Fundin
           <span className="min-w-0 flex-1"><span className="block text-sm font-black">Savings</span><span className="mt-1 block text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">Deposit into reviewed USDC yield markets when they become available.</span></span>
           <ChevronRightIcon className="h-4 w-4 text-zinc-400 transition group-hover:translate-x-0.5" />
         </button>
-        <Link to="/funding?view=funding" className="stream-feature-card group">
+        <Link to={fundingTo} className="stream-feature-card group">
           <span className="stream-feature-icon bg-blue-500/10 text-blue-500"><BanknotesIcon className="h-6 w-6" /></span>
           <span className="min-w-0 flex-1"><span className="block text-sm font-black">Funding opportunities</span><span className="mt-1 block text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">{fundingCopy}</span></span>
           <ChevronRightIcon className="h-4 w-4 text-zinc-400 transition group-hover:translate-x-0.5" />

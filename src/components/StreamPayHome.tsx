@@ -71,7 +71,7 @@ export default function StreamPayHome() {
   ]
 
   return (
-    <section className="w-full max-w-md space-y-4 py-5 sm:py-8">
+    <section className="stream-screen w-full max-w-md space-y-4 py-5 sm:py-8">
       <h1 className="sr-only">Agreements</h1>
       {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300">{error}</div>}
 
@@ -104,14 +104,14 @@ export default function StreamPayHome() {
 
       <section className="grid grid-cols-4 gap-2">
         {actions.map(({ label, Icon, to }) => (
-          <Link key={label} to={to} className="flex min-h-20 flex-col items-center justify-center gap-2 rounded-2xl border border-gray-100 bg-white px-1 text-[10px] font-bold text-gray-700 shadow-sm transition active:scale-[0.98] dark:border-white/[0.07] dark:bg-white/[0.035] dark:text-gray-200">
+          <Link key={label} to={to} className="stream-card flex min-h-20 flex-col items-center justify-center gap-2 rounded-2xl px-1 text-[10px] font-bold text-gray-700 transition active:scale-[0.98] dark:text-gray-200">
             <Icon className="h-5 w-5" />
             {label}
           </Link>
         ))}
       </section>
 
-      <section className="rounded-[24px] border border-gray-100 bg-white p-4 shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035]">
+      <section className="stream-card p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-black text-gray-950 dark:text-white">Recent activity</h2>

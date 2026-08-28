@@ -58,10 +58,10 @@ export default function StreamPayActivity() {
   if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
   if (!ready || loading || account.loading || requests.loading) return <section className="flex min-h-[58vh] items-center"><LoadingRing className="h-5 w-5 text-gray-300" /></section>
 
-  return <section className="w-full max-w-md py-5 sm:py-8">
+  return <section className="stream-screen w-full max-w-md py-5 sm:py-8">
     <h1 className="sr-only">Activity</h1>
     {(error || account.error || requests.error) && <p className="mb-4 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700 dark:bg-red-400/10 dark:text-red-200">{error || account.error || requests.error}</p>}
-    <div className="overflow-hidden rounded-[24px] border border-gray-100 bg-white shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035]">
+    <div className="stream-list-card">
       {visible.map((item, index) => {
         const transfer = item.event === 'wallet.sent' || item.event === 'wallet.received'
         const notice = 'notice' in item ? item.notice as (typeof requestNotices)[number] : undefined

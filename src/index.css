@@ -22,6 +22,9 @@ body {
   .stream-icon-button { @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-700 shadow-sm transition active:scale-95 dark:border-[#262626] dark:bg-[#171717] dark:text-white dark:shadow-none; }
   .stream-pill { @apply inline-flex shrink-0 rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1.5 text-[9px] font-black text-zinc-500 dark:border-[#262626] dark:bg-[#171717] dark:text-zinc-400; }
   .stream-empty { @apply rounded-[24px] border border-zinc-200/80 bg-white px-5 py-10 text-center shadow-[0_16px_44px_rgba(0,0,0,0.04)] dark:border-[#262626] dark:bg-[#121212] dark:shadow-none; }
+  .stream-list-card { @apply overflow-hidden rounded-[24px] border border-zinc-200/80 bg-white shadow-[0_16px_44px_rgba(0,0,0,0.06)] dark:border-[#262626] dark:bg-[#121212] dark:shadow-none; }
+  .stream-primary { @apply flex min-h-11 items-center justify-center rounded-full bg-zinc-950 px-4 text-sm font-bold text-white transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-zinc-950; }
+  .stream-segment { @apply grid gap-1 rounded-full border border-zinc-200/70 bg-zinc-200/70 p-1 dark:border-[#262626] dark:bg-[#111]; }
 }
 * { box-sizing: border-box; }
 button, input, textarea, select { font: inherit; }

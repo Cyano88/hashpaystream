@@ -18,8 +18,8 @@ export default function StreamPayReceive() {
   if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
   async function copy(value: string, key: string) { if (!value) return; await navigator.clipboard.writeText(value); setCopied(key); window.setTimeout(() => setCopied(''), 1300) }
   const address = wallet.address
-  return <section className="w-full max-w-md py-5 sm:py-8">
-    <div className="flex items-center gap-3"><Link to={homeTo} aria-label="Back home" className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-gray-700 shadow-sm dark:bg-white/[0.06] dark:text-white"><ArrowLeftIcon className="h-4 w-4" /></Link><div><h1 className="text-xl font-extrabold tracking-tight text-gray-950 dark:text-white">Deposit</h1><p className="text-[11px] text-gray-400">Receive USDC</p></div></div>
+  return <section className="stream-screen w-full max-w-md py-5 sm:py-8">
+    <div className="flex items-center gap-3"><Link to={homeTo} aria-label="Back home" className="stream-icon-button"><ArrowLeftIcon className="h-4 w-4" /></Link><div><h1 className="text-xl font-extrabold tracking-tight text-gray-950 dark:text-white">Deposit</h1><p className="text-[11px] text-gray-400">Receive USDC</p></div></div>
     <div className="mt-5 space-y-3">
       <ReceiveRow label="Pocket ID" value={account.profile?.pocketId || 'Loading…'} icon={<span className="text-xs font-black">ID</span>} copied={copied === 'id'} onCopy={() => void copy(account.profile?.pocketId || '', 'id')} />
       <ReceiveRow label="Wallet address" value={address} mono icon={<WalletIcon className="h-5 w-5" />} copied={copied === 'address'} onCopy={() => void copy(address, 'address')} />
