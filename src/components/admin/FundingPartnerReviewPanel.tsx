@@ -5,7 +5,6 @@ import { upfrontXLayerChain } from "../../lib/upfrontChains";
 import {
   ArrowPathIcon,
   CheckIcon,
-  ShieldCheckIcon,
   UserGroupIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
@@ -114,7 +113,7 @@ export default function FundingPartnerReviewPanel() {
     setReviewing(application.id);
     setError("");
     try {
-      if (!application.walletAddress || !isAddress(application.walletAddress) || !isAddress(ESCROW)) throw new Error("This profile’s Privy wallet is not verified yet.");
+      if (!application.walletAddress || !isAddress(application.walletAddress) || !isAddress(ESCROW)) throw new Error("This profile's Privy wallet is not verified yet.");
       const embedded = wallets.filter(wallet => wallet.walletClientType === "privy" || wallet.walletClientType === "privy-v2");
       if (embedded.length !== 1) throw new Error("Your admin Privy wallet is not ready.");
       const account = getAddress(embedded[0].address);
@@ -192,8 +191,7 @@ export default function FundingPartnerReviewPanel() {
             requests
           </p>
           <p className="mt-1 text-[11px] leading-5 text-gray-500 dark:text-gray-400">
-            Approve marketplace review access for verified HashPayStream
-            accounts.
+            Approve private funding-request access for verified HashPayStream accounts.
           </p>
         </div>
         <button
@@ -242,7 +240,7 @@ export default function FundingPartnerReviewPanel() {
       )}
       {!loading && !error && visible.length === 0 && (
         <div className="mt-4 rounded-2xl border border-dashed border-gray-200 py-9 text-center dark:border-white/10">
-          <ShieldCheckIcon className="mx-auto h-6 w-6 text-gray-300" />
+          <UserGroupIcon className="mx-auto h-6 w-6 text-gray-300" />
           <p className="mt-2 text-xs font-semibold text-gray-700 dark:text-gray-300">
             {filter === "pending"
               ? "No requests need review"
@@ -275,8 +273,8 @@ export default function FundingPartnerReviewPanel() {
                   {application.walletAddress && <p className="mt-1 break-all font-mono text-[10px] text-gray-400">{application.walletAddress}</p>}
                   {application.status === "approved" && !application.walletAddress && <p className="mt-2 text-[10px] leading-5 text-amber-600 dark:text-amber-300">Ask this account to open Funding partners once so HashPayStream can verify its Privy wallet.</p>}
                   <p className="mt-2 text-[11px] leading-5 text-gray-500">
-                    {application.country} · {application.applicantType} ·{" "}
-                    {application.experience} ·{" "}
+                    {application.country} / {application.applicantType} /{" "}
+                    {application.experience} /{" "}
                     {formatRange(application.expectedFundingRange)}
                   </p>
                   <p className="mt-1 text-[10px] text-gray-400">
@@ -324,7 +322,7 @@ export default function FundingPartnerReviewPanel() {
         </div>
       )}
       <p className="mt-4 rounded-xl bg-blue-50 px-3 py-2.5 text-[10px] leading-5 text-blue-700 dark:bg-blue-400/10 dark:text-blue-200">
-        Approval grants access to review the private marketplace. X Layer
+        Approval allows this account to receive private funding requests. X Layer
         funding remains protected by the escrow owner's separate wallet
         allowlist and every transaction still requires explicit confirmation.
       </p>

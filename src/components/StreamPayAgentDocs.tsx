@@ -4,7 +4,6 @@ import {
   CheckCircleIcon,
   CommandLineIcon,
   KeyIcon,
-  ShieldCheckIcon,
 } from '@heroicons/react/24/outline'
 import { Link } from '../lib/router'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
@@ -72,7 +71,7 @@ export default function StreamPayAgentDocs({ embedded = false }: { embedded?: bo
       )}
 
       <div className={`${embedded ? '' : 'mt-7'} max-w-3xl`}>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Agent API · Private pilot</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Agent API / Private pilot</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-4xl">Arc Agreements for autonomous agents.</h1>
         <p className="mt-4 text-sm leading-7 text-gray-500 dark:text-gray-400">
           Create and manage protected USDC agreements from an agent backend using a connected Circle Agent Wallet or another compatible Arc wallet.
@@ -83,7 +82,7 @@ export default function StreamPayAgentDocs({ embedded = false }: { embedded?: bo
         {[
           { Icon: KeyIcon, title: 'Server credentials', body: 'Each HashPayStream pilot key authenticates one registered agent identity.' },
           { Icon: CommandLineIcon, title: 'Bounded execution', body: 'Use the connected Circle Agent Wallet or sign the exact prepared Arc call with another compatible wallet.' },
-          { Icon: ShieldCheckIcon, title: 'Guarded lifecycle', body: 'Hash PayLink remains authoritative for policy, confirmation, releases, cancellations, refunds, and receipts.' },
+          { Icon: KeyIcon, title: 'Guarded lifecycle', body: 'Hash PayLink remains authoritative for policy, confirmation, releases, cancellations, refunds, and receipts.' },
         ].map(({ Icon, title, body }) => (
           <div key={title} className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#18181b]">
             <Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -125,7 +124,7 @@ export default function StreamPayAgentDocs({ embedded = false }: { embedded?: bo
 
       <section className="mt-12">
         <h2 className="text-xl font-semibold tracking-tight text-gray-950 dark:text-white">List owned agreements</h2>
-        <p className="mt-3 text-sm leading-6 text-gray-500 dark:text-gray-400">Ownership is derived from the authenticated pilot agent. An agent cannot list or read another identity’s agreements.</p>
+        <p className="mt-3 text-sm leading-6 text-gray-500 dark:text-gray-400">Ownership is derived from the authenticated pilot agent. An agent cannot list or read another identityâ€™s agreements.</p>
         <CodeBlock>{listExample}</CodeBlock>
       </section>
 

@@ -15,7 +15,15 @@ export type UpfrontReviewState = {
   reviewedAt?: string
   reviewerReference?: string
 }
-export type UpfrontAssessmentRecord = { ownerReference: string; requestHash: string; agreementId?: string; status: 'pending' | 'completed'; createdAt: string; request?: AgreementIntelligenceRequest; response?: Record<string, unknown>; review?: UpfrontReviewState }
+export type UpfrontFundingRequest = {
+  partnerApplicationId: string
+  partnerWalletAddress: Address
+  advanceUsdcUnits: string
+  status: 'pending' | 'declined'
+  requestedAt: string
+  expiresAt: string
+}
+export type UpfrontAssessmentRecord = { ownerReference: string; requestHash: string; agreementId?: string; status: 'pending' | 'completed'; createdAt: string; request?: AgreementIntelligenceRequest; response?: Record<string, unknown>; review?: UpfrontReviewState; fundingRequest?: UpfrontFundingRequest }
 export type UpfrontAssessmentStore = { schema: 1; records: Record<string, UpfrontAssessmentRecord> }
 type AssessmentStore = UpfrontAssessmentStore
 type OwnershipStore = { schema: 1; agreements: Record<string, { agreementId: string; ownerHash: string; ownerAccountKey?: string }> }
@@ -258,6 +266,19 @@ function validAssessmentResponse(response: ReturnType<typeof safeAssessmentRespo
   )
 }
 
+function providerAssessment(value: Record<string, unknown>) {
+  const decision = value.decision && typeof value.decision === 'object' && !Array.isArray(value.decision) ? value.decision as Record<string, unknown> : {}
+  const offer = decision.onchainOffer && typeof decision.onchainOffer === 'object' && !Array.isArray(decision.onchainOffer) ? decision.onchainOffer as Record<string, unknown> : undefined
+  const message = offer?.message && typeof offer.message === 'object' && !Array.isArray(offer.message) ? offer.message as Record<string, unknown> : undefined
+  const { onchainOffer: _privateOffer, ...publicDecision } = decision
+  return {
+    ...value,
+    decision: {
+      ...publicDecision,
+      ...(message ? { onchainOffer: { message: { protectedAmount: clean(message.protectedAmount, 32), underwritingDeadline: Number(message.underwritingDeadline) } } } : {}),
+    },
+  }
+}
 export function createHashPayStreamUpfrontAssessmentHandler(overrides: Partial<UpfrontAssessmentDependencies> = {}) {
   const dependencies = { ...defaults, ...overrides }
   return async function hashPayStreamUpfrontAssessment(req: Request, res: Response) {
@@ -309,7 +330,7 @@ export function createHashPayStreamUpfrontAssessmentHandler(overrides: Partial<U
         next.records[replayKey] = { ownerReference, requestHash: payloadHash, agreementId: verified.agreementId, status: 'pending', createdAt: issuedAt, request }
         return next
       })
-      if (replay) return res.json({ ok: true, assessment: replay, replayed: true })
+      if (replay) return res.json({ ok: true, assessment: providerAssessment(replay), replayed: true })
       stage = 'zeroscout'
       const result = await dependencies.assess(request, { baseUrl: config.baseUrl, apiKey: config.apiKey })
       if (result.status < 200 || result.status >= 300) throw httpError(clean(result.body.error, 300) || 'ZeroScout rejected the Agreement Intelligence request.', result.status >= 400 && result.status < 600 ? result.status : 502)
@@ -334,7 +355,7 @@ export function createHashPayStreamUpfrontAssessmentHandler(overrides: Partial<U
         next.records[replayKey] = { ownerReference, requestHash: payloadHash, agreementId: verified.agreementId, status: 'completed', createdAt: issuedAt, request, response: combinedAssessment }
         return next
       })
-      return res.status(201).json({ ok: true, assessment: combinedAssessment, replayed: false })
+      return res.status(201).json({ ok: true, assessment: providerAssessment(combinedAssessment), replayed: false })
     } catch (error) {
       if (storeKey && replayKey) await dependencies.mutate(storeKey, current => { const next = safeStore(current); if (next.records[replayKey]?.status === 'pending') delete next.records[replayKey]; return next }).catch(() => undefined)
       const status = Number((error as { status?: number }).status) || 500

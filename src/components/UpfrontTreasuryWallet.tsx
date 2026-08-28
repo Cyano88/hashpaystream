@@ -31,6 +31,7 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+  const [fundingDetailsOpen, setFundingDetailsOpen] = useState(false)
   const [walletCheckTimedOut, setWalletCheckTimedOut] = useState(false)
   const [createdTreasury, setCreatedTreasury] = useState('')
   const [availableUnits, setAvailableUnits] = useState<string | null>(null)
@@ -129,35 +130,53 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
   const balance = availableUnits === null ? null : displayUsdc(availableUnits)
   const escrowNeedsUpgrade = Boolean(escrowAssetAddress && getAddress(escrowAssetAddress) !== NATIVE_XLAYER_USDC)
 
-  return <section className="overflow-hidden rounded-[28px] border border-zinc-800 bg-zinc-950 p-5 text-white shadow-[0_18px_48px_rgba(15,23,42,0.14)] dark:border-[#262626] dark:bg-[#121212]">
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
-        <p className="text-[10px] font-black uppercase tracking-[0.18em] opacity-45">Funding balance</p>
-        <p aria-live="polite" className="mt-2 text-[clamp(2rem,10vw,2.75rem)] font-black tabular-nums tracking-[-0.04em]">
-          {loadingBalance && balance === null ? <span className="inline-block h-10 w-28 animate-pulse rounded-xl bg-white/10" /> : balance ?? 'Unavailable'}
-          {balance !== null && <span className="ml-1.5 text-xs font-semibold tracking-normal opacity-45">USDC</span>}
-        </p>
-        <p className="mt-1 text-[10px] font-semibold opacity-40">{error && balance === null ? 'Balance unavailable' : 'Available on X Layer'}</p>
+  return <>
+    <section className="overflow-hidden rounded-[24px] border border-zinc-800 bg-zinc-950 px-4 py-4 text-white shadow-[0_14px_38px_rgba(15,23,42,0.12)] dark:border-[#262626] dark:bg-[#121212]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] opacity-45">Available to fund</p>
+          <p aria-live="polite" className="mt-1 text-[clamp(1.75rem,9vw,2.25rem)] font-black tabular-nums tracking-[-0.04em]">
+            {loadingBalance && balance === null ? <span className="inline-block h-9 w-24 animate-pulse rounded-lg bg-white/10" /> : balance ?? 'Unavailable'}
+            {balance !== null && <span className="ml-1.5 text-[10px] font-semibold tracking-normal opacity-45">USDC</span>}
+          </p>
+          <p className="mt-0.5 text-[9px] font-semibold opacity-35">X Layer</p>
+        </div>
+        <button type="button" onClick={() => setFundingDetailsOpen(true)} className="rounded-full bg-white px-3 py-2 text-[10px] font-black text-zinc-950 transition active:scale-95">Add funds</button>
       </div>
-      <span className="rounded-full bg-white/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em]">X Layer</span>
-    </div>
 
+      <div className="mt-3 grid grid-cols-2 border-t border-white/10 pt-3">
+        <div>
+          <p className="text-[9px] font-bold uppercase tracking-[0.14em] opacity-40">Deployed</p>
+          <p className="mt-0.5 text-xs font-black tabular-nums">{displayUsdc(deployedUsdcUnits)} USDC</p>
+        </div>
+        <div className="border-l border-white/10 pl-4">
+          <p className="text-[9px] font-bold uppercase tracking-[0.14em] opacity-40">Active</p>
+          <p className="mt-0.5 text-xs font-black tabular-nums">{activePositions}</p>
+        </div>
+      </div>
 
-    <div className="mt-3 grid grid-cols-2 gap-2">
-      <div className="rounded-2xl bg-white/[0.07] px-3.5 py-3"><p className="text-[9px] font-bold uppercase tracking-[0.15em] opacity-40">Deployed</p><p className="mt-1 text-sm font-black tabular-nums">{displayUsdc(deployedUsdcUnits)} USDC</p></div>
-      <div className="rounded-2xl bg-white/[0.07] px-3.5 py-3"><p className="text-[9px] font-bold uppercase tracking-[0.15em] opacity-40">Positions</p><p className="mt-1 text-sm font-black tabular-nums">{activePositions}</p></div>
-    </div>
+      {escrowNeedsUpgrade && <p role="status" className="mt-3 rounded-xl bg-amber-400/15 px-3 py-2.5 text-[11px] leading-5 text-amber-100">Funding is paused while the escrow is upgraded to native USDC.</p>}
+      {walletKnownButConnectorPending && <p className="mt-3 text-[11px] text-amber-300">Wallet recovered. Transaction signing is still connecting.</p>}
+      {knownTreasuries.length > 1 && <p className="mt-3 text-[11px] text-rose-300">Multiple embedded wallets are linked. Funding is locked for review.</p>}
+      {error && balance === null && <p role="alert" className="mt-3 text-[11px] text-rose-300">{error}</p>}
+    </section>
 
-    <button type="button" onClick={() => void copyTreasury()} className="mt-4 flex w-full items-center gap-2 border-t border-white/10 pt-3 text-left dark:border-gray-950/10">
-      <WalletIcon className="h-4 w-4 shrink-0 opacity-50" />
-      <span className="min-w-0 flex-1 truncate font-mono text-[10px] opacity-65">{short(treasury)}</span>
-      <ClipboardDocumentIcon className="h-4 w-4 opacity-45" />
-      <span className="sr-only">{copied ? 'Address copied' : 'Copy funding address'}</span>
-    </button>
-    <p className="mt-2 text-[9px] leading-4 opacity-35">Repayments settle on Arc.</p>
-    {escrowNeedsUpgrade && <p role="status" className="mt-3 rounded-xl bg-amber-400/15 px-3 py-2.5 text-[11px] leading-5 text-amber-100">Your native USDC is available. Funding is paused while the escrow is upgraded to native USDC.</p>}
-    {walletKnownButConnectorPending && <p className="mt-3 text-[11px] text-amber-300">Wallet recovered. Transaction signing is still connecting.</p>}
-    {knownTreasuries.length > 1 && <p className="mt-3 text-[11px] text-rose-300">Multiple embedded wallets are linked. Funding is locked for review.</p>}
-    {error && balance === null && <p role="alert" className="mt-3 text-[11px] text-rose-300">{error}</p>}
-  </section>
+    {fundingDetailsOpen && <div className="fixed inset-0 z-[170] flex items-end justify-center" role="dialog" aria-modal="true" aria-labelledby="funding-wallet-title">
+      <button type="button" aria-label="Close funding wallet" onClick={() => setFundingDetailsOpen(false)} className="absolute inset-0 bg-black/65 backdrop-blur-sm" />
+      <section className="relative z-10 w-full max-w-md rounded-t-[28px] border border-b-0 border-zinc-800 bg-zinc-950 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 text-white shadow-2xl">
+        <div className="mx-auto h-1 w-10 rounded-full bg-white/20" />
+        <div className="mt-5 flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10"><WalletIcon className="h-5 w-5" /></span>
+          <div><h2 id="funding-wallet-title" className="text-base font-black">Add funds</h2><p className="mt-0.5 text-[10px] text-white/45">USDC on X Layer</p></div>
+        </div>
+        <button type="button" onClick={() => void copyTreasury()} className="mt-5 flex w-full items-center gap-3 rounded-2xl bg-white/[0.07] p-4 text-left transition active:scale-[0.99]">
+          <span className="min-w-0 flex-1 break-all font-mono text-[11px] leading-5 text-white/70">{treasury}</span>
+          <ClipboardDocumentIcon className="h-5 w-5 shrink-0 text-white/45" />
+        </button>
+        <p aria-live="polite" className="mt-2 min-h-4 text-center text-[10px] font-semibold text-emerald-400">{copied ? 'Address copied' : 'Tap the address to copy'}</p>
+        <p className="mt-3 text-center text-[10px] leading-4 text-white/40">Only send native USDC on X Layer to this address.</p>
+        <button type="button" onClick={() => setFundingDetailsOpen(false)} className="mt-5 min-h-12 w-full rounded-full bg-white px-4 text-sm font-black text-zinc-950">Done</button>
+      </section>
+    </div>}
+  </>
 }

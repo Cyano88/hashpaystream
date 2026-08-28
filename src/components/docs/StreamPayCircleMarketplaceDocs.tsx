@@ -1,4 +1,4 @@
-import { ArrowDownTrayIcon, BoltIcon, CheckCircleIcon, CurrencyDollarIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
+import { ArrowDownTrayIcon, BoltIcon, CheckCircleIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline'
 import { DocsCallout, DocsCode, DocsEyebrow, StreamPayDocsShell } from './StreamPayDocsShell'
 
 const endpoint = 'https://hashpaystream.app/api/hashpaystream/v1/circle-marketplace/agreement-plan'
@@ -23,7 +23,7 @@ export default function StreamPayCircleMarketplaceDocs() {
     <div className="mt-9 grid gap-3 sm:grid-cols-3">{[
       { Icon: CurrencyDollarIcon, title: '$0.01 per request', body: 'The service fee is settled through Circle Gateway x402.' },
       { Icon: BoltIcon, title: 'x402 v2 exact', body: 'A valid unpaid request receives HTTP 402 and PAYMENT-REQUIRED.' },
-      { Icon: ShieldCheckIcon, title: 'Planning only', body: 'The response never creates or funds escrow and exposes no payer credential.' },
+      { Icon: CheckCircleIcon, title: 'Planning only', body: 'The response never creates or funds escrow and exposes no payer credential.' },
     ].map(({ Icon, title, body }) => <div key={title} className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#18181b]"><Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" /><h2 className="mt-4 text-sm font-semibold text-gray-950 dark:text-white">{title}</h2><p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{body}</p></div>)}</div>
     <section className="mt-12"><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400">POST endpoint</p><p className="mt-2 break-all font-mono text-sm font-semibold text-gray-950 dark:text-white">{endpoint}</p></section>
     <section className="mt-10"><h2 className="text-xl font-semibold text-gray-950 dark:text-white">Request</h2><p className="mt-3 text-sm leading-6 text-gray-500 dark:text-gray-400">The complete JSON body is validated before HashPayStream presents a payment requirement.</p><div className="mt-5"><DocsCode>{request}</DocsCode></div></section>

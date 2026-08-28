@@ -1,4 +1,4 @@
-import { CheckCircleIcon, DocumentCheckIcon, ShieldCheckIcon, UserCircleIcon, WalletIcon } from '@heroicons/react/24/outline'
+import { CheckCircleIcon, DocumentCheckIcon, UserCircleIcon, WalletIcon } from '@heroicons/react/24/outline'
 import { DocsCallout, DocsEyebrow, StreamPayDocsShell } from './StreamPayDocsShell'
 
 export default function StreamPayArcAgreementDocs() {
@@ -9,7 +9,7 @@ export default function StreamPayArcAgreementDocs() {
     <div className="mt-9 grid gap-3 sm:grid-cols-3">{[
       { Icon: UserCircleIcon, title: 'Customer', body: 'Creates the job request, chooses the service provider, sets the protected amount and funds accepted terms.' },
       { Icon: WalletIcon, title: 'Service provider', body: 'Reviews the request, accepts or proposes new terms, then delivers the agreed work.' },
-      { Icon: ShieldCheckIcon, title: 'HashPayStream', body: 'Presents the experience and reconciles authoritative Hash PayLink and Arc state.' },
+      { Icon: DocumentCheckIcon, title: 'HashPayStream', body: 'Presents the experience and reconciles authoritative Hash PayLink and Arc state.' },
     ].map(({ Icon, title, body }) => <div key={title} className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#18181b]"><Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" /><h2 className="mt-4 text-sm font-semibold text-gray-950 dark:text-white">{title}</h2><p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{body}</p></div>)}</div>
     <DocsCallout title="Service provider email is enforced" tone="blue">The customer sends each private job request to a service provider&apos;s email. Only that verified person or business can accept, decline or propose new terms. The customer funds the agreement after both sides accept the final terms.</DocsCallout>
     <section className="mt-12"><h2 className="text-xl font-semibold text-gray-950 dark:text-white">Supported release structures</h2><div className="mt-5 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[#18181b]">{[

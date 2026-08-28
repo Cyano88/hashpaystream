@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
-import { CheckIcon, ShieldCheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { CheckIcon, ClipboardDocumentCheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { LoadingRing } from '../ui/LoadingRing'
 
 const API = '/api/hashpaystream/v1/upfront/reviews'
@@ -52,7 +52,7 @@ export default function UpfrontReviewPanel() {
   }
   const pending = items.filter(item => item.review?.status === 'pending')
   return <section id="upfront-reviews" className="mt-5 rounded-2xl border border-gray-200 p-5 dark:border-white/10">
-    <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-950 dark:text-white"><ShieldCheckIcon className="h-4 w-4 text-blue-500" /> Early-pay reviews</h2>
+    <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-950 dark:text-white"><ClipboardDocumentCheckIcon className="h-4 w-4 text-blue-500" /> Early-pay reviews</h2>
     <p className="mt-1 text-[11px] leading-5 text-gray-500">Review delivery clarity. Hard safety blocks and evidence limits cannot be overridden.</p>
     {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-xs text-red-700">{error}</p>}
     {loading && !items.length && <div className="flex min-h-32 items-center justify-center"><LoadingRing className="h-4 w-4 text-gray-300" label="Loading early-pay reviews" /></div>}

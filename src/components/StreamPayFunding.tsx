@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
-import { BanknotesIcon, CheckBadgeIcon, ClockIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
+import { BanknotesIcon, CheckBadgeIcon, ClockIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSplash'
 import { useLocation } from '../lib/router'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
@@ -78,7 +78,7 @@ export default function StreamPayFunding() {
 
   if (profile?.status === 'restricted') return (
     <section className="flex min-h-[65vh] w-full max-w-lg flex-col items-center justify-center text-center">
-      <ShieldCheckIcon className="h-12 w-12 text-gray-400" />
+      <ExclamationTriangleIcon className="h-12 w-12 text-gray-400" />
       <h1 className="mt-5 text-3xl font-bold tracking-tight text-gray-950 dark:text-white">Funding access is unavailable</h1>
       <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Contact HashPayStream support if you believe this decision is incorrect.</p>
     </section>
@@ -89,7 +89,7 @@ export default function StreamPayFunding() {
       <span className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-400/10 dark:text-blue-300"><BanknotesIcon className="h-7 w-7" /></span>
       <p className="mt-6 text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">Funding partners</p>
       <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-gray-950 dark:text-white">Fund good work early.</h1>
-      <p className="mt-3 max-w-sm text-sm leading-6 text-gray-500 dark:text-gray-400">Apply to review approved agreements and earn the return shown on each opportunity you choose.</p>
+      <p className="mt-3 max-w-sm text-sm leading-6 text-gray-500 dark:text-gray-400">Apply to receive private early-pay requests and earn the return shown on each request you accept.</p>
       <button type="button" onClick={() => setFormOpen(true)} className="mt-7 w-full rounded-full bg-gray-950 px-6 py-4 text-sm font-bold text-white shadow-sm dark:bg-white dark:text-gray-950">Apply to be a funding partner</button>
       <p className="mt-3 text-[10px] leading-4 text-gray-400">Your existing HashPayStream account is used. No second sign-in.</p>
     </section>
@@ -97,7 +97,7 @@ export default function StreamPayFunding() {
 
   return (
     <section className="stream-screen w-full max-w-md py-5 sm:py-8">
-      <button type="button" onClick={() => setFormOpen(false)} className="mb-4 text-xs font-bold text-gray-500">← Funding partners</button>
+      <button type="button" onClick={() => setFormOpen(false)} className="mb-4 text-xs font-bold text-gray-500">&larr; Funding partners</button>
       <div className="stream-card p-5">
         <div className="flex items-start gap-3">
           <CheckBadgeIcon className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
@@ -108,10 +108,10 @@ export default function StreamPayFunding() {
           <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Country<input className={inputClass} value={form.country} onChange={event => setForm(current => ({ ...current, country: event.target.value }))} autoComplete="country-name" /></label>
           <label className="space-y-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">Applicant type<StreamSelect label="Applicant type" value={form.applicantType} options={[{ value: 'individual', label: 'Individual' }, { value: 'company', label: 'Company' }]} onChange={applicantType => setForm(current => ({ ...current, applicantType }))} /></label>
           <label className="space-y-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">Funding experience<StreamSelect label="Funding experience" value={form.experience} options={[{ value: 'new', label: 'New to private funding' }, { value: 'some', label: 'Some experience' }, { value: 'experienced', label: 'Experienced' }]} onChange={experience => setForm(current => ({ ...current, experience }))} /></label>
-          <label className="space-y-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 sm:col-span-2">Expected funding range<StreamSelect label="Expected funding range" value={form.expectedFundingRange} options={[{ value: '', label: 'Select a range' }, { value: 'under_1k', label: 'Under 1,000 USDC' }, { value: '1k_10k', label: '1,000–10,000 USDC' }, { value: '10k_plus', label: 'More than 10,000 USDC' }]} onChange={expectedFundingRange => setForm(current => ({ ...current, expectedFundingRange }))} /></label>
+          <label className="space-y-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 sm:col-span-2">Expected funding range<StreamSelect label="Expected funding range" value={form.expectedFundingRange} options={[{ value: '', label: 'Select a range' }, { value: 'under_1k', label: 'Under 1,000 USDC' }, { value: '1k_10k', label: '1,000-10,000 USDC' }, { value: '10k_plus', label: 'More than 10,000 USDC' }]} onChange={expectedFundingRange => setForm(current => ({ ...current, expectedFundingRange }))} /></label>
         </div>
         {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-xs text-red-700 dark:bg-red-400/10 dark:text-red-300">{error}</p>}
-        <button type="button" disabled={submitting || form.name.trim().length < 2 || form.country.trim().length < 2 || !form.expectedFundingRange} onClick={() => void apply()} className="mt-6 flex w-full items-center justify-center rounded-xl bg-gray-950 px-4 py-3.5 text-sm font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950">{submitting ? 'Submitting…' : 'Submit for team review'}</button>
+        <button type="button" disabled={submitting || form.name.trim().length < 2 || form.country.trim().length < 2 || !form.expectedFundingRange} onClick={() => void apply()} className="mt-6 flex w-full items-center justify-center rounded-xl bg-gray-950 px-4 py-3.5 text-sm font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950">{submitting ? 'Submitting...' : 'Submit for team review'}</button>
         <p className="mt-3 text-center text-[10px] leading-4 text-gray-400">Submitting does not guarantee approval or move any funds.</p>
       </div>
     </section>

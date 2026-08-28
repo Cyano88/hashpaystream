@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowRightIcon, BanknotesIcon, ChartBarIcon, CheckBadgeIcon, CheckCircleIcon, CpuChipIcon, DocumentCheckIcon, ShieldCheckIcon, UserGroupIcon } from '@heroicons/react/24/outline'
+import { ArrowRightIcon, BanknotesIcon, ChartBarIcon, CheckBadgeIcon, CheckCircleIcon, CpuChipIcon, DocumentCheckIcon, UserGroupIcon } from '@heroicons/react/24/outline'
 import { Link } from '../lib/router'
 import { LoadingRing } from './ui/LoadingRing'
 
@@ -62,7 +62,7 @@ export default function StreamPayStats() {
 
   const participationTotal = Math.max(1, stats.participation.human + stats.participation.agentic)
   return <section className='w-full max-w-5xl py-8 sm:py-14'>
-    <div className='max-w-3xl'><div className='flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400'><ShieldCheckIcon className='h-4 w-4' />Public product proof</div>
+    <div className='max-w-3xl'><div className='flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400'><CheckBadgeIcon className='h-4 w-4' />Public product proof</div>
       <h1 className='mt-3 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-4xl'>HashPayStream is operating on Arc Testnet.</h1>
       <p className='mt-4 text-sm leading-7 text-gray-500 dark:text-gray-400'>A privacy-safe view of agreement creation, protected test USDC, delivery approval, and confirmed completion across Human and Agentic HashPayStream projects.</p>
     </div>

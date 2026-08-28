@@ -111,7 +111,12 @@ app.all('/api/hashpaystream/v1/upfront/reviews', (_req, res) => {
   return res.status(405).json({ ok: false, error: 'Method not allowed.' })
 })
 app.post('/api/hashpaystream/v1/upfront/protection', rateLimit({ name: 'upfront-protection', windowMs: 60_000, max: 10 }), upfrontProtection)
-app.get('/api/hashpaystream/v1/upfront/opportunities', rateLimit({ name: 'upfront-opportunities', windowMs: 60_000, max: 60 }), upfrontOpportunities)
+app.get('/api/hashpaystream/v1/upfront/opportunities', rateLimit({ name: 'upfront-opportunities-read', windowMs: 60_000, max: 60 }), upfrontOpportunities)
+app.post('/api/hashpaystream/v1/upfront/opportunities', rateLimit({ name: 'upfront-opportunities-write', windowMs: 60_000, max: 20 }), upfrontOpportunities)
+app.all('/api/hashpaystream/v1/upfront/opportunities', (_req, res) => {
+  res.setHeader('Allow', 'GET, POST')
+  return res.status(405).json({ ok: false, error: 'Method not allowed.' })
+})
 app.get('/api/hashpaystream/v1/funding-partners', rateLimit({ name: 'funding-partner-read', windowMs: 60_000, max: 60 }), fundingPartners)
 app.post('/api/hashpaystream/v1/funding-partners', rateLimit({ name: 'funding-partner-write', windowMs: 60_000, max: 10 }), fundingPartners)
 app.all('/api/hashpaystream/v1/funding-partners', (_req, res) => {

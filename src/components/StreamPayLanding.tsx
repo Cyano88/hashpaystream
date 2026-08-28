@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import {
   CheckIcon,
   DocumentCheckIcon,
-  ShieldCheckIcon,
 } from '@heroicons/react/24/outline'
 import { usePrivy } from '@privy-io/react-auth'
 import { Navigate } from '../lib/router'
@@ -75,7 +74,7 @@ export default function StreamPayLanding() {
 
             <div className="absolute left-5 right-5 top-5 flex items-center justify-between sm:left-6 sm:right-6 sm:top-6">
               <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-slate-950/35 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white backdrop-blur-md">
-                <ShieldCheckIcon className="h-3.5 w-3.5" />
+                <DocumentCheckIcon className="h-3.5 w-3.5" />
                 Arc Agreement
               </span>
               <span className="rounded-full border border-emerald-200/25 bg-emerald-300/90 px-2.5 py-1 text-[10px] font-semibold text-emerald-950 shadow-sm">Protected</span>

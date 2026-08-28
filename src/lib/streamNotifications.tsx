@@ -3,7 +3,6 @@ import {
   BriefcaseIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
-  ShieldCheckIcon,
 } from '@heroicons/react/24/outline'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
@@ -26,7 +25,7 @@ function agreementEventNotice(agreement: AgreementSummary, event: { id: string; 
   switch (event.event) {
     case 'delivery.submitted': return { ...base, role: 'Service provider', title: 'Service provider submitted delivery', tone: 'text-blue-600', Icon: BriefcaseIcon }
     case 'delivery.updated': return { ...base, role: 'Service provider', title: 'Service provider updated delivery', tone: 'text-blue-600', Icon: BriefcaseIcon }
-    case 'delivery.release_approved': return { ...base, role: 'Customer', title: 'Customer approved release', tone: 'text-violet-600', Icon: ShieldCheckIcon }
+    case 'delivery.release_approved': return { ...base, role: 'Customer', title: 'Customer approved release', tone: 'text-violet-600', Icon: CheckCircleIcon }
     case 'delivery.issue_reported': return { ...base, role: 'Customer', title: 'Customer reported a concern', tone: 'text-violet-600', Icon: ExclamationTriangleIcon }
     case 'agreement.activated': return { ...base, role: 'Payment', title: 'Customer funded agreement', tone: 'text-emerald-600', Icon: CheckCircleIcon }
     case 'agreement.step_released': return { ...base, role: 'Payment', title: 'Payment released', tone: 'text-emerald-600', Icon: CheckCircleIcon }

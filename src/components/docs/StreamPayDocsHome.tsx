@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { ArrowDownIcon, ArrowRightIcon, ArrowTopRightOnSquareIcon, BanknotesIcon, CheckBadgeIcon, CircleStackIcon, CloudIcon, CodeBracketSquareIcon, CpuChipIcon, DocumentCheckIcon, ShieldCheckIcon, UserGroupIcon } from '@heroicons/react/24/outline'
+import { ArrowDownIcon, ArrowRightIcon, ArrowTopRightOnSquareIcon, BanknotesIcon, CheckBadgeIcon, CircleStackIcon, CloudIcon, CodeBracketSquareIcon, CpuChipIcon, DocumentCheckIcon, UserGroupIcon } from '@heroicons/react/24/outline'
 import { Link, useLocation } from '../../lib/router'
 import { DocsCallout, DocsEyebrow, StreamPayDocsShell } from './StreamPayDocsShell'
 
@@ -10,7 +10,7 @@ const useCases = [
   { Icon: CpuChipIcon, title: 'Agent agreements', body: 'Create, execute, record and reconcile bounded actions from an invited agent backend.' },
   { Icon: CodeBracketSquareIcon, title: 'x402 planning', body: 'Buy a deterministic fixed-agreement plan from the Circle Agent Marketplace endpoint.' },
   { Icon: BanknotesIcon, title: 'Upfront public test', body: 'Request a restricted AI-assessed advance paid in real USDC on X Layer Mainnet after an Arc Testnet agreement is funded.' },
-  { Icon: ShieldCheckIcon, title: 'Verified lifecycle', body: 'Track confirmed activation, release, completion, cancellation and refund events.' },
+  { Icon: CheckBadgeIcon, title: 'Verified lifecycle', body: 'Track confirmed activation, release, completion, cancellation and refund events.' },
 ]
 
 const operatingLayers = [
@@ -61,7 +61,7 @@ export default function StreamPayDocsHome() {
           <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">The standalone domain, product UI, identity and ownership mapping, agent access, customer activity, documentation and support surface.</p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#18181b]">
-          <ShieldCheckIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+          <CheckBadgeIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           <h3 className="mt-4 text-sm font-semibold text-gray-950 dark:text-white">Hash PayLink APIs provide</h3>
           <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">Agreement policy, prepared Arc actions, lifecycle controls, reconciliation, signed webhooks and authoritative receipt data.</p>
         </div>
@@ -89,9 +89,9 @@ export default function StreamPayDocsHome() {
         </div>
         <div className="mt-7 grid gap-3 sm:grid-cols-3">
           {[
-            ['Agreement', 'agr_927c646e183c4681b925ff2e', 'Fixed · one release'],
+            ['Agreement', 'agr_927c646e183c4681b925ff2e', 'Fixed / one release'],
             ['Outcome', '0.1 USDC released', '0 USDC remaining'],
-            ['Arc confirmation', 'Block 55,953,829', 'Success · 8 Aug 2026'],
+            ['Arc confirmation', 'Block 55,953,829', 'Success / 8 Aug 2026'],
           ].map(([label, value, detail]) => <div key={label} className="rounded-2xl bg-gray-50 p-4 dark:bg-white/[0.04]"><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400">{label}</p><p className="mt-2 break-all text-xs font-semibold text-gray-950 dark:text-white">{value}</p><p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{detail}</p></div>)}
         </div>
         <div className="mt-6 flex flex-col gap-4 border-t border-gray-200 pt-5 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
