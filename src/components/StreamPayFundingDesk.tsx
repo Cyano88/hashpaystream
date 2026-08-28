@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowLeftIcon, BanknotesIcon, ChevronRightIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
-import { Navigate } from '../lib/router'
+import { Link, Navigate } from '../lib/router'
 import { upfrontTreasuryEnabled } from '../lib/upfrontChains'
 import UpfrontTreasuryWallet from './UpfrontTreasuryWallet'
 import UpfrontFundButton from './UpfrontFundButton'
@@ -105,8 +105,11 @@ export default function StreamPayFundingDesk() {
 
   if (selected) return <FundingDetail item={selected} onBack={() => setSelectedId('')} onUpdated={load} />
 
-  return <section className="w-full max-w-md space-y-4 py-5 sm:py-8">
-    <div><h1 className="text-xl font-black tracking-tight text-gray-950 dark:text-white">Funding</h1><p className="mt-0.5 text-[11px] text-gray-400">Fund verified work on X Layer</p></div>
+  return <section className="stream-screen w-full max-w-md space-y-4 py-5 sm:py-8">
+    <div className="flex items-center gap-3">
+      <Link to="/funding" aria-label="Back to Earn" className="stream-icon-button"><ArrowLeftIcon className="h-4 w-4" /></Link>
+      <div><h1 className="text-xl font-black tracking-tight text-gray-950 dark:text-white">Funding opportunities</h1><p className="mt-0.5 text-[11px] text-gray-400">Choose verified work to fund on X Layer.</p></div>
+    </div>
 
     {authorized && (upfrontTreasuryEnabled
       ? <UpfrontTreasuryWallet deployedUsdcUnits={deployedUnits} activePositions={activePositions.length} />
@@ -114,13 +117,13 @@ export default function StreamPayFundingDesk() {
 
     {error && <div className="rounded-2xl bg-rose-50 px-4 py-3 text-xs text-rose-700 dark:bg-rose-400/10 dark:text-rose-300"><p>{error}</p><button type="button" onClick={() => void load()} className="mt-2 font-bold underline">Try again</button></div>}
 
-    {!error && <OpportunitySection title="Funding opportunities" count={openOffers.length}>
+    {!error && <OpportunitySection title="Open agreements" count={openOffers.length}>
       {openOffers.length > 0
         ? openOffers.map(item => <OpportunityRow key={item.id} item={item} onOpen={() => setSelectedId(item.id)} />)
         : <EmptyState title="No live offers" detail="Approved funding opportunities will appear here." />}
     </OpportunitySection>}
 
-    {!error && positions.length > 0 && <OpportunitySection title="Your funding" count={positions.length}>
+    {!error && positions.length > 0 && <OpportunitySection title="Your positions" count={positions.length}>
       {positions.map(item => <OpportunityRow key={item.id} item={item} onOpen={() => setSelectedId(item.id)} />)}
     </OpportunitySection>}
 
@@ -148,7 +151,7 @@ function OpportunityRow({ item, onOpen }: { item: Opportunity; onOpen: () => voi
 }
 
 function FundingDetail({ item, onBack, onUpdated }: { item: Opportunity; onBack: () => void; onUpdated: () => Promise<void> | void }) {
-  return <section className="w-full max-w-md py-5 sm:py-8">
+  return <section className="stream-screen w-full max-w-md py-5 sm:py-8">
     <div className="flex items-center gap-3">
       <button type="button" onClick={onBack} aria-label="Back to funding" className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-gray-700 shadow-sm dark:bg-white/[0.06] dark:text-white"><ArrowLeftIcon className="h-4 w-4" /></button>
       <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">{positionLabel(item.positionStatus)}</p><h1 className="truncate text-xl font-black tracking-tight text-gray-950 dark:text-white">{item.title}</h1></div>

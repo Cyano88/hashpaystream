@@ -75,7 +75,7 @@ export default function StreamPayHome() {
       <h1 className="sr-only">Agreements</h1>
       {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300">{error}</div>}
 
-      <section className="overflow-hidden rounded-[26px] bg-gray-950 px-5 py-5 text-white shadow-[0_18px_48px_rgba(15,23,42,0.14)] dark:bg-white dark:text-gray-950">
+      <section className="overflow-hidden rounded-[26px] border border-zinc-800 bg-zinc-950 px-5 py-5 text-white shadow-[0_18px_48px_rgba(15,23,42,0.14)] dark:border-[#262626] dark:bg-[#121212]">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50 dark:text-gray-500">Total balance</p>
@@ -83,9 +83,9 @@ export default function StreamPayHome() {
               {wallet.loadingBalance || wallet.balanceError ? '—' : formatUsdc(totalBalance).replace(/ USDC$/, '')} <span className="text-xs font-medium tracking-normal opacity-50">USDC</span>
             </p>
           </div>
-          <Link to={notificationsTo} aria-label={unreadCount ? `Open notifications, ${unreadCount} unread` : 'Open notifications'} className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/75 transition active:scale-95 dark:bg-gray-950/[0.07] dark:text-gray-600"><BellIcon className="h-5 w-5" />{unreadCount > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-blue-500 ring-2 ring-gray-950 dark:ring-white" />}</Link>
+          <Link to={notificationsTo} aria-label={unreadCount ? `Open notifications, ${unreadCount} unread` : 'Open notifications'} className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/75 transition active:scale-95"><BellIcon className="h-5 w-5" />{unreadCount > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-blue-500 ring-2 ring-zinc-950" />}</Link>
         </div>
-        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-4 dark:border-gray-950/10">
+        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">
           <div>
             <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/40 dark:text-gray-500">Available</p>
             <p className="mt-1 text-xs font-bold tabular-nums">{wallet.loadingBalance || wallet.balanceError ? '—' : formatUsdc(availableBalance)}</p>

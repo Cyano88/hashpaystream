@@ -116,19 +116,19 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
     window.setTimeout(() => setCopied(false), 1300)
   }
 
-  if (!treasury) return <section className="rounded-[26px] bg-gray-950 p-5 text-white shadow-[0_18px_48px_rgba(15,23,42,0.14)] dark:bg-white dark:text-gray-950">
+  if (!treasury) return <section className="rounded-[26px] border border-zinc-800 bg-zinc-950 p-5 text-white shadow-[0_18px_48px_rgba(15,23,42,0.14)] dark:border-[#262626] dark:bg-[#121212]">
     <WalletIcon className="h-6 w-6 opacity-60" />
     <h2 className="mt-5 text-lg font-black">Create your funding wallet</h2>
     <p className="mt-2 text-xs leading-5 opacity-60">Your HashPayStream account uses one Privy wallet for X Layer funding.</p>
     {!ready && !walletCheckTimedOut && <p className="mt-4 text-xs opacity-60">Checking wallet...</p>}
-    {(ready || walletCheckTimedOut) && <button type="button" disabled={creating || !authReady || !authenticated} onClick={() => void prepare()} className="mt-5 min-h-12 w-full rounded-full bg-white px-4 text-sm font-bold text-gray-950 disabled:opacity-50 dark:bg-gray-950 dark:text-white">{creating ? 'Creating wallet...' : 'Create funding wallet'}</button>}
+    {(ready || walletCheckTimedOut) && <button type="button" disabled={creating || !authReady || !authenticated} onClick={() => void prepare()} className="mt-5 min-h-12 w-full rounded-full bg-white px-4 text-sm font-bold text-zinc-950 disabled:opacity-50">{creating ? 'Creating wallet...' : 'Create funding wallet'}</button>}
     {error && <p className="mt-3 text-xs text-rose-300 dark:text-rose-600">{error}</p>}
   </section>
 
   const balance = availableUnits === null ? null : displayUsdc(availableUnits)
   const escrowNeedsUpgrade = Boolean(escrowAssetAddress && getAddress(escrowAssetAddress) !== NATIVE_XLAYER_USDC)
 
-  return <section className="overflow-hidden rounded-[28px] bg-gray-950 p-5 text-white shadow-[0_18px_48px_rgba(15,23,42,0.14)] dark:bg-white dark:text-gray-950">
+  return <section className="overflow-hidden rounded-[28px] border border-zinc-800 bg-zinc-950 p-5 text-white shadow-[0_18px_48px_rgba(15,23,42,0.14)] dark:border-[#262626] dark:bg-[#121212]">
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
         <p className="text-[10px] font-black uppercase tracking-[0.18em] opacity-45">Funding balance</p>
