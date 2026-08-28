@@ -87,6 +87,10 @@ function publicReview(record: UpfrontAssessmentRecord) {
   const { intelligence, decision } = parts(record)
   const request = record.request
   if (!request) fail('The assessment request is unavailable.', 409)
+  const offer = decision.onchainOffer && typeof decision.onchainOffer === 'object' && !Array.isArray(decision.onchainOffer) ? decision.onchainOffer as Record<string, unknown> : undefined
+  const offerMessage = offer?.message && typeof offer.message === 'object' && !Array.isArray(offer.message) ? offer.message as Record<string, unknown> : undefined
+  const protectedAmount = clean(offerMessage?.protectedAmount, 32)
+  const underwritingDeadline = Number(offerMessage?.underwritingDeadline)
   return {
     requestId: request.requestId,
     title: request.agreement.title,
@@ -102,6 +106,7 @@ function publicReview(record: UpfrontAssessmentRecord) {
     ].map(item => clean(item, 80)).filter(Boolean))],
     summary: clean(intelligence.summary, 500),
     decision: clean(decision.decision, 20),
+    ...(protectedAmount && Number.isSafeInteger(underwritingDeadline) ? { onchainOffer: { message: { protectedAmount, underwritingDeadline } } } : {}),
     review: record.review,
   }
 }

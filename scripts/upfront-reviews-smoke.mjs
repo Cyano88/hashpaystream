@@ -31,7 +31,7 @@ const handler = createUpfrontReviewsHandler({
     underwriteCalls += 1
     assert.equal(input.manualReview.decision, 'approve')
     assert.match(input.manualReview.reviewerReference, /^hps_operator_[a-f0-9]{32}$/)
-    return { requestId, decision: 'APPROVE', maximumAdvanceBps: 2000, reasonCodes: ['OPERATOR_REVIEW_APPROVED'], onchainOffer: { message: { protectedAmount: '10000' } } }
+    return { requestId, decision: 'APPROVE', maximumAdvanceBps: 2000, reasonCodes: ['OPERATOR_REVIEW_APPROVED'], onchainOffer: { signature: 'private-signature', message: { protectedAmount: '10000', underwritingDeadline: 1_800_000_000 } } }
   },
   env: () => env, now: () => new Date('2026-08-27T10:00:00.000Z'),
 })
@@ -47,8 +47,13 @@ assert.equal(queue.body.reviews[0].agreementId, undefined)
 const approved = await call(handler, { method: 'POST', token: 'admin', body: { action: 'approve', requestId } })
 assert.equal(approved.body.assessment.decision, 'APPROVE')
 assert.equal(approved.body.assessment.review.status, 'approved')
+assert.deepEqual(approved.body.assessment.onchainOffer, { message: { protectedAmount: '10000', underwritingDeadline: 1_800_000_000 } })
+assert.equal(approved.body.assessment.onchainOffer.signature, undefined)
 assert.equal(underwriteCalls, 1)
-assert.equal((await call(handler, { query: { requestId } })).body.assessment.decision, 'APPROVE')
+const refreshed = await call(handler, { query: { requestId } })
+assert.equal(refreshed.body.assessment.decision, 'APPROVE')
+assert.deepEqual(refreshed.body.assessment.onchainOffer, { message: { protectedAmount: '10000', underwritingDeadline: 1_800_000_000 } })
+assert.equal(refreshed.body.assessment.onchainOffer.signature, undefined)
 store.records.record.response.decision.decision = 'ESCALATE'
 store.records.record.review = { status: 'pending', submittedAt: '2026-08-27T10:00:00.000Z' }
 assert.equal((await call(handler, { method: 'POST', token: 'admin', body: { action: 'decline', requestId } })).body.assessment.review.status, 'declined')

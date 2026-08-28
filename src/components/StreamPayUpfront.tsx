@@ -17,6 +17,7 @@ type Assessment = {
 type Review = { status: 'pending' | 'approved' | 'declined'; submittedAt: string; reviewedAt?: string }
 type ReviewAssessment = {
   requestId: string; maximumAdvanceBps: number; decision: Assessment['decision']['decision']
+  onchainOffer?: Assessment['decision']['onchainOffer']
   review?: Review
 }
 type UpfrontAgreement = {
@@ -150,7 +151,7 @@ export default function StreamPayUpfront() {
         if (!cancelled && response.ok && body.assessment?.review) {
           setReview(body.assessment.review)
           if (body.assessment.decision === 'APPROVE') {
-            setAssessment(current => current ? { ...current, decision: { ...current.decision, decision: 'APPROVE', maximumAdvanceBps: body.assessment!.maximumAdvanceBps } } : current)
+            setAssessment(current => current ? { ...current, decision: { ...current.decision, decision: 'APPROVE', maximumAdvanceBps: body.assessment!.maximumAdvanceBps, onchainOffer: body.assessment!.onchainOffer } } : current)
           }
         }
       } catch { /* The next poll can recover a transient read failure. */ }
