@@ -86,7 +86,7 @@ function address(value: unknown, label: string) {
 
 export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opportunity: Opportunity; onUpdated: () => Promise<void> | void }) {
   const { getAccessToken } = usePrivy()
-  const { wallets, ready } = useWallets()
+  const { wallets } = useWallets()
   const [stage, setStage] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -110,7 +110,7 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
   async function release() {
     setStage('Checking Arc protection...'); setError(''); setSuccess('')
     try {
-      if (!ready || !signer || !isAddress(ESCROW)) throw new Error('The funding wallet is not ready.')
+      if (!signer || !isAddress(ESCROW)) throw new Error('The funding wallet is still connecting. Return to Earn and open this position again.')
       const account = getAddress(signer.address)
       const signed = await attestation('release')
       const domain = signed.domain ?? {}; const raw = signed.message ?? {}
@@ -145,7 +145,7 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
   async function claim() {
     setStage('Checking customer repayment...'); setError(''); setSuccess('')
     try {
-      if (!ready || !signer || !isAddress(ARC_ROUTER)) throw new Error('The repayment wallet is not ready.')
+      if (!signer || !isAddress(ARC_ROUTER)) throw new Error('The repayment wallet is still connecting. Return to Earn and open this position again.')
       const account = getAddress(signer.address)
       const signed = await attestation('repayment')
       const domain = signed.domain ?? {}; const raw = signed.message ?? {}
@@ -190,7 +190,7 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
 
   if (opportunity.positionStatus === 'refunded') return <p className="mt-3 text-[11px] text-gray-500">Advance refunded.</p>
   return <div className="mt-3">
-    <button type="button" disabled={busy || !ready || !signer} onClick={() => void (opportunity.positionStatus === 'funded' ? release() : claim())} className="w-full rounded-xl bg-gray-950 px-4 py-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-950">
+    <button type="button" disabled={busy} onClick={() => void (opportunity.positionStatus === 'funded' ? release() : claim())} className="w-full rounded-xl bg-gray-950 px-4 py-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-950">
       {stage || (opportunity.positionStatus === 'funded' ? 'Release protected advance' : 'Check and claim repayment')}
     </button>
     {success && <p className="mt-2 text-[11px] leading-5 text-emerald-700">{success}</p>}
