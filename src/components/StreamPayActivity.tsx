@@ -6,7 +6,7 @@ import { useStreamAccount } from '../lib/streamAccount'
 import { useServiceRequests } from '../lib/serviceRequests'
 import { buildStreamNotices } from '../lib/streamNotifications'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
-import { LoadingRing } from './ui/LoadingRing'
+import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
 
 const EVENTS = {
   'agreement.activated': { label: 'Agreement funded', Icon: BanknotesIcon, tone: 'text-emerald-600' },
@@ -56,7 +56,7 @@ export default function StreamPayActivity() {
   }, [account.activity, agreements, requestNotices])
   const visible = showAll ? activity : activity.slice(0, 20)
   if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
-  if (!ready || loading || account.loading || requests.loading) return <section className="flex min-h-[58vh] items-center"><LoadingRing className="h-5 w-5 text-gray-300" /></section>
+  if (!ready || loading || account.loading || requests.loading) return <StreamPayLoadingState active="agreements" />
 
   return <section className="stream-screen w-full max-w-md py-5 sm:py-8">
     <h1 className="sr-only">Activity</h1>

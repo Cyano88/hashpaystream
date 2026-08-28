@@ -45,6 +45,19 @@ export function formatUsdc(units: bigint | string = 0n) {
   }
 }
 
+export function formatUsdcBalance(units: bigint | string = 0n) {
+  try {
+    const value = typeof units === 'bigint' ? units : BigInt(units || '0')
+    if (value > 0n && value < 10_000n) return '<0.01 USDC'
+    const cents = (value + 5_000n) / 10_000n
+    const whole = cents / 100n
+    const fraction = (cents % 100n).toString().padStart(2, '0')
+    return `${whole}.${fraction} USDC`
+  } catch {
+    return '0.00 USDC'
+  }
+}
+
 export function useAgreements(apiPath = AGREEMENTS_API) {
   const { ready, authenticated, getAccessToken } = usePrivy()
   const [agreements, setAgreements] = useState<AgreementSummary[]>([])

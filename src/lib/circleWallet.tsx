@@ -2,21 +2,20 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { usePrivy } from '@privy-io/react-auth'
 import type { W3SSdk as CircleSdk } from '@circle-fin/w3s-pw-web-sdk'
 import { formatUnits, getAddress, parseUnits, type Address, type Hex } from 'viem'
-import { circleUserTokenExpiresAt, clearStoredCircleSession, readStoredCircleSession, writeStoredCircleSession } from './circleSession'
+import { clearStoredCircleSession, readStoredCircleSession, writeStoredCircleSession } from './circleSession'
 
 type CircleWallet = { id: string; address: Address; blockchain: string; accountType?: string; state?: string }
 type CircleSession = { userToken: string; encryptionKey: string; refreshToken?: string; deviceId: string; wallet: CircleWallet }
 type WalletState = 'idle' | 'connecting' | 'ready' | 'error'
 type ConnectionStage = 'restoring' | 'verifying'
 type CircleWalletContextValue = {
-  state: WalletState; stage: ConnectionStage; error: string; session?: CircleSession; address: string; balance: string; balanceError: string; loadingBalance: boolean
+  state: WalletState; stage: ConnectionStage; error: string; session?: CircleSession; address: string; balance: string; balanceReady: boolean; balanceError: string; loadingBalance: boolean
   reconnect: () => Promise<void>; refreshBalance: () => Promise<void>; sendUsdc: (recipient: Address, amount: string) => Promise<Hex>
   executeChallenge: (challengeId: string) => Promise<{ transactionHash: string }>
 }
 
 const Context = createContext<CircleWalletContextValue | null>(null)
 const APP_ID = String(import.meta.env.VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET ?? import.meta.env.VITE_CIRCLE_USER_WALLET_APP_ID ?? '').trim()
-const MIN_RESTORE_LIFETIME_MS = 30_000
 
 class CircleRequestError extends Error {
   constructor(message: string, readonly status: number) { super(message) }
@@ -41,10 +40,12 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState('')
   const [session, setSession] = useState<CircleSession>()
   const [balance, setBalance] = useState('0')
+  const [balanceReady, setBalanceReady] = useState(false)
   const [balanceError, setBalanceError] = useState('')
   const [loadingBalance, setLoadingBalance] = useState(false)
   const connecting = useRef<Promise<void> | null>(null)
   const activeEmail = useRef('')
+  const balanceReadyRef = useRef(false)
 
   const request = useCallback(async (payload: Record<string, unknown>) => {
     const token = await getAccessToken()
@@ -79,8 +80,7 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
 
         const stored = readStoredCircleSession(window.localStorage, APP_ID, email, deviceId)
         if (stored) {
-          const expiresAt = circleUserTokenExpiresAt(stored.userToken)
-          if (expiresAt > Date.now() + MIN_RESTORE_LIFETIME_MS) {
+          if (stored.refreshToken) {
             try {
               const refreshed = await request({ action: 'refresh_session', userToken: stored.userToken, refreshToken: stored.refreshToken, deviceId }) as { userToken?: string; encryptionKey?: string; refreshToken?: string }
               if (!refreshed.userToken || !refreshed.encryptionKey) throw new Error('Circle did not return a refreshed wallet session.')
@@ -169,6 +169,10 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
       clearStoredCircleSession(window.localStorage)
       setState('idle')
       setSession(undefined)
+      setBalance('0')
+      setBalanceError('')
+      balanceReadyRef.current = false
+      setBalanceReady(false)
       return
     }
     if (activeEmail.current && activeEmail.current !== email) {
@@ -177,22 +181,32 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
       setSession(undefined)
       setBalance('0')
       setBalanceError('')
+      balanceReadyRef.current = false
+      setBalanceReady(false)
     }
     activeEmail.current = email
   }, [authenticated, email, ready])
 
   const refreshBalance = useCallback(async () => {
-    if (!session?.wallet.address) { setBalance('0'); setBalanceError(''); return }
-    setLoadingBalance(true)
+    if (!session?.wallet.address) {
+      setBalance('0'); setBalanceError(''); balanceReadyRef.current = false; setBalanceReady(false)
+      return
+    }
+    const foreground = !balanceReadyRef.current
+    if (foreground) setLoadingBalance(true)
     try {
       const result = await request({ action: 'get_balance', userToken: session.userToken, walletId: session.wallet.id, walletAddress: session.wallet.address })
       const units = find(result, ['balanceUsdcUnits'])
       if (!/^\d+$/.test(units)) throw new Error('Arc returned an invalid USDC balance.')
       setBalance(formatUnits(BigInt(units), 6))
+      balanceReadyRef.current = true
+      setBalanceReady(true)
       setBalanceError('')
     } catch (reason) {
       setBalanceError(apiError(reason, 'Arc USDC balance is temporarily unavailable.'))
-    } finally { setLoadingBalance(false) }
+    } finally {
+      if (foreground) setLoadingBalance(false)
+    }
   }, [request, session])
   useEffect(() => {
     if (state !== 'ready') return
@@ -239,7 +253,7 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
     return { transactionHash: find(result, ['txHash', 'transactionHash']) }
   }, [execute, session])
 
-  const value = useMemo(() => ({ state, stage, error, session, address: session?.wallet.address ?? '', balance, balanceError, loadingBalance, reconnect, refreshBalance, sendUsdc, executeChallenge }), [balance, balanceError, error, executeChallenge, loadingBalance, reconnect, refreshBalance, sendUsdc, session, stage, state])
+  const value = useMemo(() => ({ state, stage, error, session, address: session?.wallet.address ?? '', balance, balanceReady, balanceError, loadingBalance, reconnect, refreshBalance, sendUsdc, executeChallenge }), [balance, balanceError, balanceReady, error, executeChallenge, loadingBalance, reconnect, refreshBalance, sendUsdc, session, stage, state])
   return <Context.Provider value={value}>{children}</Context.Provider>
 }
 

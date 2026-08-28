@@ -6,7 +6,7 @@ import { useLocation } from '../lib/router'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
 import StreamPayGrow from './StreamPayGrow'
 import StreamPayFundingDesk from './StreamPayFundingDesk'
-import { LoadingRing } from './ui/LoadingRing'
+import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
 import { StreamSelect } from './ui/StreamSelect'
 
 const API = '/api/hashpaystream/v1/funding-partners'
@@ -62,7 +62,7 @@ export default function StreamPayFunding() {
   }
 
   if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
-  if (!ready || loading) return <div className="flex min-h-[58vh] items-center justify-center"><LoadingRing className="h-5 w-5 text-gray-300" /></div>
+  if (!ready || loading) return <StreamPayLoadingState active="home" />
   if (!fundingMode) return <StreamPayGrow fundingStatus={profile?.status} />
   if (profile?.status === 'approved') return <StreamPayFundingDesk />
 

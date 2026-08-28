@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useCreateWallet, usePrivy, useWallets } from '@privy-io/react-auth'
 import { ClipboardDocumentIcon, WalletIcon } from '@heroicons/react/24/outline'
-import { createPublicClient, formatUnits, getAddress, http, isAddress } from 'viem'
+import { createPublicClient, getAddress, http, isAddress } from 'viem'
+import { formatUsdcBalance } from '../lib/useAgreements'
 import { upfrontXLayerChain } from '../lib/upfrontChains'
 
 const short = (value: string) =>
@@ -20,8 +21,7 @@ const NATIVE_XLAYER_USDC = getAddress('0xB6CEceAB302E2E4948951eE7843FC24E9293306
 
 function displayUsdc(units: string) {
   if (!/^\d+$/.test(units)) return '0'
-  const value = formatUnits(BigInt(units), 6)
-  return value.includes('.') ? value.replace(/0+$/, '').replace(/\.$/, '') : value
+  return formatUsdcBalance(units).replace(/ USDC$/, '')
 }
 
 export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activePositions = 0 }: { deployedUsdcUnits?: string; activePositions?: number }) {
@@ -63,32 +63,33 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
     return () => window.clearTimeout(timer)
   }, [authReady, authenticated, ready])
 
-  const refreshBalance = useCallback(async () => {
+  const refreshBalance = useCallback(async (foreground = false) => {
     if (!treasury || !isAddress(treasury) || !isAddress(ESCROW)) {
-      setAvailableUnits(null)
+      if (foreground) setAvailableUnits(null)
       setError('Funding balance is unavailable.')
       return
     }
-    setLoadingBalance(true)
-    setError('')
+    if (foreground) setLoadingBalance(true)
+    if (foreground) setError('')
     try {
       const client = createPublicClient({ chain: upfrontXLayerChain, transport: http() })
       const escrowAsset = await client.readContract({ address: getAddress(ESCROW), abi: ESCROW_ABI, functionName: 'asset' })
       const balance = await client.readContract({ address: NATIVE_XLAYER_USDC, abi: ERC20_ABI, functionName: 'balanceOf', args: [getAddress(treasury)] })
       setEscrowAssetAddress(escrowAsset)
       setAvailableUnits(balance.toString())
+      setError('')
     } catch {
-      setAvailableUnits(null)
+      if (foreground) setAvailableUnits(null)
       setError('Funding balance could not be refreshed.')
     } finally {
-      setLoadingBalance(false)
+      if (foreground) setLoadingBalance(false)
     }
   }, [treasury])
 
   useEffect(() => {
-    void refreshBalance()
-    const timer = window.setInterval(() => void refreshBalance(), 15_000)
-    const visible = () => { if (document.visibilityState === 'visible') void refreshBalance() }
+    void refreshBalance(true)
+    const timer = window.setInterval(() => void refreshBalance(false), 15_000)
+    const visible = () => { if (document.visibilityState === 'visible') void refreshBalance(false) }
     document.addEventListener('visibilitychange', visible)
     return () => {
       window.clearInterval(timer)
@@ -136,7 +137,7 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
           {loadingBalance && balance === null ? <span className="inline-block h-10 w-28 animate-pulse rounded-xl bg-white/10" /> : balance ?? 'Unavailable'}
           {balance !== null && <span className="ml-1.5 text-xs font-semibold tracking-normal opacity-45">USDC</span>}
         </p>
-        <p className="mt-1 text-[10px] font-semibold opacity-40">{error ? 'Balance unavailable' : loadingBalance ? 'Refreshing balance' : 'Available on X Layer'}</p>
+        <p className="mt-1 text-[10px] font-semibold opacity-40">{error && balance === null ? 'Balance unavailable' : 'Available on X Layer'}</p>
       </div>
       <span className="rounded-full bg-white/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em]">X Layer</span>
     </div>
@@ -157,6 +158,6 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
     {escrowNeedsUpgrade && <p role="status" className="mt-3 rounded-xl bg-amber-400/15 px-3 py-2.5 text-[11px] leading-5 text-amber-100">Your native USDC is available. Funding is paused while the escrow is upgraded to native USDC.</p>}
     {walletKnownButConnectorPending && <p className="mt-3 text-[11px] text-amber-300">Wallet recovered. Transaction signing is still connecting.</p>}
     {knownTreasuries.length > 1 && <p className="mt-3 text-[11px] text-rose-300">Multiple embedded wallets are linked. Funding is locked for review.</p>}
-    {error && <p role="alert" className="mt-3 text-[11px] text-rose-300">{error}</p>}
+    {error && balance === null && <p role="alert" className="mt-3 text-[11px] text-rose-300">{error}</p>}
   </section>
 }

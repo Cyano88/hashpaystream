@@ -7,7 +7,7 @@ import { useStreamPayPath } from '../lib/useStreamPayPath'
 import UpfrontTreasuryWallet from './UpfrontTreasuryWallet'
 import UpfrontFundButton from './UpfrontFundButton'
 import UpfrontLifecycleButton from './UpfrontLifecycleButton'
-import { LoadingRing } from './ui/LoadingRing'
+import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
 
 type Opportunity = {
   id: string
@@ -102,7 +102,7 @@ export default function StreamPayFundingDesk() {
   const deployedUnits = useMemo(() => activePositions.reduce((total, item) => total + (/^\d+$/.test(item.requestedAdvanceUsdcUnits) ? BigInt(item.requestedAdvanceUsdcUnits) : 0n), 0n).toString(), [activePositions])
   const selected = opportunities.find(item => item.id === selectedId)
 
-  if (!ready || loading) return <div className="flex min-h-[58vh] items-center justify-center"><LoadingRing className="h-5 w-5 text-gray-300" /></div>
+  if (!ready || loading) return <StreamPayLoadingState active="home" />
   if (!authenticated) return <Navigate to={earnTo} replace />
 
   if (selected) return <FundingDetail item={selected} onBack={() => setSelectedId('')} onUpdated={load} />

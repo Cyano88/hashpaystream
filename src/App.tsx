@@ -23,14 +23,22 @@ import StreamPayMove from './components/StreamPayMove'
 import { HashPayStreamSessionSplash } from './components/HashPayStreamSessionSplash'
 import { BrowserRouter, Navigate, useLocation } from './lib/router'
 import { useHashPayStreamSessionSplash } from './lib/useHashPayStreamSessionSplash'
-import { LoadingRing } from './components/ui/LoadingRing'
+import { useStreamPayPath } from './lib/useStreamPayPath'
+import { StreamPayLoadingState } from './components/ui/StreamPayLoadingState'
 import { CircleWalletGate } from './components/CircleWalletGate'
 
 const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/upfront', '/funding', '/move', '/send', '/receive', '/activity', '/notifications', '/requests', '/account', '/operations', '/admin/analytics'])
 const CIRCLE_ROUTES = new Set(['/home', '/agreements', '/agreements/new', '/upfront', '/move', '/send', '/receive', '/activity', '/notifications', '/requests', '/account'])
 const SESSION_READY_TIMEOUT_MS = 12_000
 
-function SessionLoadingSurface({ sessionDelayed, onRetry }: { sessionDelayed: boolean; onRetry: () => void }) {
+function loadingSurface(route: string) {
+  if (route === '/account') return 'account' as const
+  if (route === '/requests' || route === '/notifications') return 'requests' as const
+  if (route === '/home') return 'home' as const
+  return 'agreements' as const
+}
+
+function SessionLoadingSurface({ route, sessionDelayed, onRetry }: { route: string; sessionDelayed: boolean; onRetry: () => void }) {
   return (
     <div className={'flex min-h-screen w-full items-center justify-center bg-gray-50 dark:bg-[#111113]'} aria-busy={true} aria-label={'Loading HashPayStream'}>
       {sessionDelayed ? (
@@ -41,9 +49,7 @@ function SessionLoadingSurface({ sessionDelayed, onRetry }: { sessionDelayed: bo
             Retry
           </button>
         </div>
-      ) : (
-        <LoadingRing className="h-4 w-4 text-gray-300 dark:text-gray-600" />
-      )}
+      ) : <StreamPayLoadingState active={loadingSurface(route)} />}
     </div>
   )
 }
@@ -57,6 +63,9 @@ function StreamPayRoute() {
   const [sessionDelayed, setSessionDelayed] = useState(false)
   let content
 
+  const composeRequestTo = useStreamPayPath('/requests?compose=1')
+  const fundingTo = useStreamPayPath('/funding')
+  const adminTo = useStreamPayPath('/admin/analytics#funding-partners')
   useEffect(() => {
     setSessionDelayed(false)
     if (ready || !authDecisionRoute) return
@@ -69,31 +78,31 @@ function StreamPayRoute() {
   if (splashState !== 'idle') {
     return (
       <>
-        <SessionLoadingSurface sessionDelayed={false} onRetry={retrySession} />
+        <SessionLoadingSurface route={route} sessionDelayed={false} onRetry={retrySession} />
         <HashPayStreamSessionSplash splashState={splashState} sessionDelayed={sessionDelayed} onRetry={retrySession} />
       </>
     )
   }
 
   if (!ready && authDecisionRoute) {
-    return <SessionLoadingSurface sessionDelayed={sessionDelayed} onRetry={retrySession} />
+    return <SessionLoadingSurface route={route} sessionDelayed={sessionDelayed} onRetry={retrySession} />
   }
 
   if (route === '/') content = <StreamPayLanding />
   else if (route === '/home') content = <StreamPayHome />
   else if (route === '/agreements') content = <AgreementDashboard />
-  else if (route === '/agreements/new') content = <Navigate to="/requests?compose=1" replace />
+  else if (route === '/agreements/new') content = <Navigate to={composeRequestTo} replace />
   else if (route === '/upfront') content = <StreamPayUpfront />
   else if (route === '/funding') content = <StreamPayFunding />
   else if (route === '/move') content = <StreamPayMove />
   else if (route === '/send') content = <StreamPaySend />
   else if (route === '/receive') content = <StreamPayReceive />
-  else if (route === '/upfront/funding') content = <Navigate to="/funding" replace />
+  else if (route === '/upfront/funding') content = <Navigate to={fundingTo} replace />
   else if (route === '/activity') content = <StreamPayActivity />
   else if (route === '/notifications') content = <StreamPayNotifications />
   else if (route === '/requests') content = <StreamPayRequests />
   else if (route === '/account') content = <StreamPayAccount />
-  else if (route === '/operations') content = <Navigate to="/admin/analytics#funding-partners" replace />
+  else if (route === '/operations') content = <Navigate to={adminTo} replace />
   else if (route === '/admin/analytics') content = <StreamPayAnalytics />
   else if (route === '/stats') content = <StreamPayStats />
   else if (route === '/docs') content = <StreamPayDocsHome />

@@ -2,12 +2,23 @@ import { useEffect, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowLeftIcon, LockClosedIcon } from '@heroicons/react/24/outline'
 import { useCircleWallet } from '../lib/circleWallet'
+import { useLocation } from '../lib/router'
+import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
 import { clearStoredCircleSession } from '../lib/circleSession'
 
 const RETRY_DELAY_MS = 10_000
 
+function loadingSurface(pathname: string) {
+  const route = pathname.replace(/\/+$/, '')
+  if (route === '/account') return 'account' as const
+  if (route === '/requests' || route === '/notifications') return 'requests' as const
+  if (route === '/home') return 'home' as const
+  return 'agreements' as const
+}
+
 export function CircleWalletGate({ children }: { children: React.ReactNode }) {
   const wallet = useCircleWallet()
+  const { pathname } = useLocation()
   const { logout } = usePrivy()
   const [retryVisible, setRetryVisible] = useState(false)
   const [leaving, setLeaving] = useState(false)
@@ -24,6 +35,7 @@ export function CircleWalletGate({ children }: { children: React.ReactNode }) {
     return () => window.clearTimeout(timer)
   }, [wallet.stage, wallet.state])
   if (wallet.state === 'ready') return children
+  if (wallet.state !== 'error' && wallet.stage === 'restoring') return <StreamPayLoadingState active={loadingSurface(pathname)} />
   async function useAnotherEmail() {
     if (leaving) return
     setLeaving(true)

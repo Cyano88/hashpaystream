@@ -9,7 +9,7 @@ import {
 import { useMemo } from 'react'
 import { Link } from '../lib/router'
 import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSplash'
-import { formatUsdc, useAgreements } from '../lib/useAgreements'
+import { formatUsdcBalance, useAgreements } from '../lib/useAgreements'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
 import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
@@ -61,7 +61,7 @@ export default function StreamPayHome() {
   const totalBalance = availableBalance + customerEscrow.protected + customerEscrow.refundable
 
   if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
-  if (!ready || loading) return <StreamPayLoadingState active="home" />
+  if (!ready || loading || (!wallet.balanceReady && !wallet.balanceError)) return <StreamPayLoadingState active="home" />
 
   const actions = [
     { label: 'New', Icon: DocumentPlusIcon, to: createTo },
@@ -80,7 +80,7 @@ export default function StreamPayHome() {
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50 dark:text-gray-500">Total balance</p>
             <p className="mt-1.5 min-w-0 text-[clamp(1.75rem,9vw,2.5rem)] font-bold tabular-nums tracking-tight">
-              {wallet.loadingBalance || wallet.balanceError ? '—' : formatUsdc(totalBalance).replace(/ USDC$/, '')} <span className="text-xs font-medium tracking-normal opacity-50">USDC</span>
+              {!wallet.balanceReady ? 'â€”' : formatUsdcBalance(totalBalance).replace(/ USDC$/, '')} <span className="text-xs font-medium tracking-normal opacity-50">USDC</span>
             </p>
           </div>
           <Link to={notificationsTo} aria-label={unreadCount ? `Open notifications, ${unreadCount} unread` : 'Open notifications'} className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/75 transition active:scale-95"><BellIcon className="h-5 w-5" />{unreadCount > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-blue-500 ring-2 ring-zinc-950" />}</Link>
@@ -88,18 +88,18 @@ export default function StreamPayHome() {
         <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">
           <div>
             <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/40 dark:text-gray-500">Available</p>
-            <p className="mt-1 text-xs font-bold tabular-nums">{wallet.loadingBalance || wallet.balanceError ? '—' : formatUsdc(availableBalance)}</p>
+            <p className="mt-1 text-xs font-bold tabular-nums">{!wallet.balanceReady ? 'â€”' : formatUsdcBalance(availableBalance)}</p>
           </div>
           <div>
             <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/40 dark:text-gray-500">Protected</p>
-            <p className="mt-1 text-xs font-bold tabular-nums">{formatUsdc(customerEscrow.protected)}</p>
+            <p className="mt-1 text-xs font-bold tabular-nums">{formatUsdcBalance(customerEscrow.protected)}</p>
           </div>
           <div>
             <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/40 dark:text-gray-500">Refundable</p>
-            <p className="mt-1 text-xs font-bold tabular-nums">{formatUsdc(customerEscrow.refundable)}</p>
+            <p className="mt-1 text-xs font-bold tabular-nums">{formatUsdcBalance(customerEscrow.refundable)}</p>
           </div>
         </div>
-        {wallet.balanceError && <button type="button" onClick={() => void wallet.refreshBalance()} className="mt-3 text-[10px] font-bold text-white/65 underline underline-offset-2 dark:text-gray-500">Balance unavailable. Tap to retry.</button>}
+        {wallet.balanceError && !wallet.balanceReady && <button type="button" onClick={() => void wallet.refreshBalance()} className="mt-3 text-[10px] font-bold text-white/65 underline underline-offset-2 dark:text-gray-500">Balance unavailable. Tap to retry.</button>}
       </section>
 
       <section className="grid grid-cols-4 gap-2">
