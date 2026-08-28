@@ -12,6 +12,9 @@ export function CircleWalletGate({ children }: { children: React.ReactNode }) {
   const [retryVisible, setRetryVisible] = useState(false)
   const [leaving, setLeaving] = useState(false)
   useEffect(() => {
+    if (wallet.state === 'idle') void wallet.reconnect()
+  }, [wallet.reconnect, wallet.state])
+  useEffect(() => {
     if (wallet.state === 'ready' || wallet.state === 'error') {
       setRetryVisible(wallet.state === 'error')
       return

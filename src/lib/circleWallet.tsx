@@ -44,6 +44,7 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
   const [balanceError, setBalanceError] = useState('')
   const [loadingBalance, setLoadingBalance] = useState(false)
   const connecting = useRef<Promise<void> | null>(null)
+  const activeEmail = useRef('')
 
   const request = useCallback(async (payload: Record<string, unknown>) => {
     const token = await getAccessToken()
@@ -163,10 +164,22 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!ready) return
-    if (!authenticated || !email) { clearStoredCircleSession(window.localStorage); setState('idle'); setSession(undefined); return }
-    const timer = window.setTimeout(() => { void reconnect() }, 350)
-    return () => window.clearTimeout(timer)
-  }, [authenticated, email, ready, reconnect])
+    if (!authenticated || !email) {
+      activeEmail.current = ''
+      clearStoredCircleSession(window.localStorage)
+      setState('idle')
+      setSession(undefined)
+      return
+    }
+    if (activeEmail.current && activeEmail.current !== email) {
+      clearStoredCircleSession(window.localStorage)
+      setState('idle')
+      setSession(undefined)
+      setBalance('0')
+      setBalanceError('')
+    }
+    activeEmail.current = email
+  }, [authenticated, email, ready])
 
   const refreshBalance = useCallback(async () => {
     if (!session?.wallet.address) { setBalance('0'); setBalanceError(''); return }
