@@ -18,6 +18,7 @@ const ESCROW_ABI = [
   { type: "function", name: "allowedFunders", stateMutability: "view", inputs: [{ name: "funder", type: "address" }], outputs: [{ type: "bool" }] },
   { type: "function", name: "authorizeFunderAndActivate", stateMutability: "nonpayable", inputs: [{ name: "funder", type: "address" }], outputs: [] },
   { type: "function", name: "setFunderAllowed", stateMutability: "nonpayable", inputs: [{ name: "funder", type: "address" }, { name: "allowed", type: "bool" }], outputs: [] },
+  { type: "function", name: "setPaused", stateMutability: "nonpayable", inputs: [{ name: "shouldPause", type: "bool" }], outputs: [] },
 ] as const;
 
 type ApplicationStatus = "pending" | "approved" | "restricted";
@@ -69,6 +70,8 @@ export default function FundingPartnerReviewPanel() {
   const [reviewing, setReviewing] = useState("");
   const [filter, setFilter] = useState<Filter>("pending");
   const [fundingState, setFundingState] = useState<Record<string, FundingState>>({});
+  const [escrowPaused, setEscrowPaused] = useState<boolean>();
+  const [pausing, setPausing] = useState(false);
 
   const token = useCallback(async () => {
     const value = await getAccessToken();
@@ -147,6 +150,7 @@ export default function FundingPartnerReviewPanel() {
     ])
       .then(([paused, allowed]) => {
         if (cancelled) return;
+        setEscrowPaused(paused);
         setFundingState((current) => ({
           ...current,
           ...Object.fromEntries(
@@ -171,6 +175,36 @@ export default function FundingPartnerReviewPanel() {
       cancelled = true;
     };
   }, [applications]);
+
+  async function pauseFunding() {
+    setPausing(true);
+    setError("");
+    try {
+      if (!isAddress(ESCROW)) throw new Error("The X Layer escrow is not configured.");
+      const embedded = wallets.filter(wallet => wallet.walletClientType === "privy" || wallet.walletClientType === "privy-v2");
+      if (embedded.length !== 1) throw new Error("Your admin Privy wallet is not ready.");
+      const account = getAddress(embedded[0].address);
+      const escrow = getAddress(ESCROW);
+      const publicClient = createPublicClient({ chain: upfrontXLayerChain, transport: http() });
+      const owner = await publicClient.readContract({ address: escrow, abi: ESCROW_ABI, functionName: "owner" });
+      if (getAddress(owner) !== account) throw new Error("This admin profile does not control the X Layer escrow.");
+      const paused = await publicClient.readContract({ address: escrow, abi: ESCROW_ABI, functionName: "paused" });
+      if (!paused) {
+        await embedded[0].switchChain(upfrontXLayerChain.id);
+        const walletClient = createWalletClient({ account, chain: upfrontXLayerChain, transport: custom(await embedded[0].getEthereumProvider()) });
+        const request = await publicClient.simulateContract({ account, address: escrow, abi: ESCROW_ABI, functionName: "setPaused", args: [true] });
+        const hash = await walletClient.writeContract(request.request);
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        if (receipt.status !== "success") throw new Error("The X Layer pause transaction reverted.");
+      }
+      setEscrowPaused(true);
+      setFundingState(current => Object.fromEntries(Object.keys(current).map(id => [id, "disabled"])));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Funding could not be paused.");
+    } finally {
+      setPausing(false);
+    }
+  }
 
   async function review(
     application: Application,
@@ -264,6 +298,18 @@ export default function FundingPartnerReviewPanel() {
             Approve private funding-request access for verified HashPayStream accounts.
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+        {escrowPaused === false && (
+          <button
+            type="button"
+            onClick={() => void pauseFunding()}
+            disabled={pausing}
+            className="inline-flex h-9 items-center gap-2 rounded-full bg-amber-500 px-3 text-[11px] font-bold text-gray-950 disabled:opacity-50"
+          >
+            <XMarkIcon className="h-3.5 w-3.5" /> {pausing ? "Pausing" : "Pause funding"}
+          </button>
+        )}
+        {escrowPaused === true && <span className="inline-flex h-9 items-center rounded-full bg-amber-100 px-3 text-[11px] font-bold text-amber-700 dark:bg-amber-400/15 dark:text-amber-200">Funding paused</span>}
         <button
           type="button"
           onClick={() => void load()}
@@ -272,6 +318,7 @@ export default function FundingPartnerReviewPanel() {
         >
           <ArrowPathIcon className="h-3.5 w-3.5" /> Refresh
         </button>
+        </div>
       </div>
       <div
         className="mt-4 flex w-fit rounded-full bg-gray-100 p-1 dark:bg-white/[0.05]"
