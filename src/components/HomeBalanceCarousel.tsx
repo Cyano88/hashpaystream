@@ -44,7 +44,7 @@ export default function HomeBalanceCarousel(props: Props) {
 
       <section className="relative min-w-full snap-center overflow-hidden rounded-[26px] border border-emerald-900/70 bg-[#07140d] px-5 py-5 text-white shadow-[0_18px_48px_rgba(6,78,45,0.14)] dark:border-emerald-900/70 dark:bg-[#07140d]">
         <GrowthMark />
-        <div className="relative z-10 min-w-0 pr-24"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/60">X Layer balance</p><p className="mt-1.5 min-w-0 text-[clamp(1.75rem,9vw,2.5rem)] font-bold tabular-nums tracking-tight">{xLayer.balanceReady && xLayer.units !== undefined ? formatUsdcBalance(xLayer.units).replace(/ USDC$/, '') : xLayer.ready && !xLayer.address ? '0' : '—'} <span className="text-xs font-medium tracking-normal opacity-50">USDC</span></p></div>
+        <div className="relative z-10 min-w-0 pr-16"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/60">X Layer balance</p><p className="mt-1.5 min-w-0 text-[clamp(1.75rem,9vw,2.5rem)] font-bold tabular-nums tracking-tight">{xLayer.balanceReady && xLayer.units !== undefined ? formatUsdcBalance(xLayer.units).replace(/ USDC$/, '') : xLayer.ready && !xLayer.address ? '0' : '—'} <span className="text-xs font-medium tracking-normal opacity-50">USDC</span></p></div>
         <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">
           <Metric label="Available" value={xLayer.balanceReady && xLayer.units !== undefined ? formatUsdcBalance(xLayer.units) : xLayer.ready && !xLayer.address ? '0 USDC' : '—'} />
           <Metric label="In savings" value="0 USDC" />
@@ -63,7 +63,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 function GrowthMark() {
   return (
-    <svg aria-hidden="true" viewBox="0 0 112 100" className="pointer-events-none absolute right-2 top-4 h-20 w-24">
+    <svg aria-hidden="true" viewBox="0 0 112 100" className="pointer-events-none absolute right-4 top-5 h-14 w-16">
       <defs>
         <linearGradient id="growth-coin-face" x1="20" y1="38" x2="67" y2="86" gradientUnits="userSpaceOnUse">
           <stop stopColor="#4ADE80" />
