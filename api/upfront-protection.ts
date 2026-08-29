@@ -7,6 +7,7 @@ import { readDurableJson } from './durable-store.js'
 import type { AgreementIntelligenceRequest } from './agreement-intelligence-schema.js'
 import { signProtectionAttestation, signSplitSettlement, type AuthoritativeArcAgreement, type UpfrontPosition } from './upfront-protection-attestation.js'
 import { minimumUpfrontRemainingSeconds } from './early-pay-timing-policy.js'
+import { requireUpfrontSettlementV3 } from './upfront-v3.js'
 
 const DEFAULT_STORE_KEY = 'hashpaystream:upfront-assessments:v1'
 const POSITION_ABI = [{ type: 'function', name: 'positions', stateMutability: 'view', inputs: [{ name: 'positionId', type: 'bytes32' }], outputs: [
@@ -33,6 +34,7 @@ function privateKey(value: unknown, label: string) { const text = clean(value, 6
 
 function configuration(env: NodeJS.ProcessEnv) {
   if (clean(env.HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() !== 'true') failure('HashPayStream Upfront is not enabled.', 404)
+  requireUpfrontSettlementV3(env)
   const storeKey = clean(env.HASHPAYSTREAM_UPFRONT_STORE_KEY ?? DEFAULT_STORE_KEY, 160)
   const apiKey = clean(env.HASHPAYSTREAM_UPFRONT_ARC_API_KEY, 200)
   const ownershipSecret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300)

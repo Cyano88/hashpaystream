@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { createPublicClient, createWalletClient, custom, getAddress, http, isAddress } from "viem";
-import { upfrontXLayerChain } from "../../lib/upfrontChains";
+import {
+  upfrontSettlementV3Enabled,
+  upfrontXLayerChain,
+} from "../../lib/upfrontChains";
 import {
   ArrowPathIcon,
   CheckIcon,
@@ -112,6 +115,7 @@ export default function FundingPartnerReviewPanel() {
   }, [load]);
 
   useEffect(() => {
+    if (!upfrontSettlementV3Enabled) return;
     const candidates = applications.filter(
       (application) =>
         application.status === "approved" &&
@@ -213,28 +217,31 @@ export default function FundingPartnerReviewPanel() {
     setReviewing(application.id);
     setError("");
     try {
-      if (!application.walletAddress || !isAddress(application.walletAddress) || !isAddress(ESCROW)) throw new Error("This profile's Privy wallet is not verified yet.");
-      const embedded = wallets.filter(wallet => wallet.walletClientType === "privy" || wallet.walletClientType === "privy-v2");
-      if (embedded.length !== 1) throw new Error("Your admin Privy wallet is not ready.");
-      const account = getAddress(embedded[0].address);
-      const escrow = getAddress(ESCROW);
-      const funder = getAddress(application.walletAddress);
-      const publicClient = createPublicClient({ chain: upfrontXLayerChain, transport: http() });
-      const [owner, allowed, paused] = await Promise.all([
-        publicClient.readContract({ address: escrow, abi: ESCROW_ABI, functionName: "owner" }),
-        publicClient.readContract({ address: escrow, abi: ESCROW_ABI, functionName: "allowedFunders", args: [funder] }),
-        publicClient.readContract({ address: escrow, abi: ESCROW_ABI, functionName: "paused" }),
-      ]);
-      if (getAddress(owner) !== account) throw new Error("This admin profile does not control the X Layer escrow.");
-      const needsTransaction = status === "approved" ? (!allowed || paused) : allowed;
-      if (needsTransaction) {
-        await embedded[0].switchChain(upfrontXLayerChain.id);
-        const walletClient = createWalletClient({ account, chain: upfrontXLayerChain, transport: custom(await embedded[0].getEthereumProvider()) });
-        const hash = status === "approved"
-          ? await walletClient.writeContract((await publicClient.simulateContract({ account, address: escrow, abi: ESCROW_ABI, functionName: "authorizeFunderAndActivate", args: [funder] })).request)
-          : await walletClient.writeContract((await publicClient.simulateContract({ account, address: escrow, abi: ESCROW_ABI, functionName: "setFunderAllowed", args: [funder, false] })).request);
-        const receipt = await publicClient.waitForTransactionReceipt({ hash });
-        if (receipt.status !== "success") throw new Error("The X Layer authorization transaction reverted.");
+      const shouldUpdateEscrow = status === "restricted" || upfrontSettlementV3Enabled;
+      if (shouldUpdateEscrow) {
+        if (!application.walletAddress || !isAddress(application.walletAddress) || !isAddress(ESCROW)) throw new Error("This profile's Privy wallet is not verified yet.");
+        const embedded = wallets.filter(wallet => wallet.walletClientType === "privy" || wallet.walletClientType === "privy-v2");
+        if (embedded.length !== 1) throw new Error("Your admin Privy wallet is not ready.");
+        const account = getAddress(embedded[0].address);
+        const escrow = getAddress(ESCROW);
+        const funder = getAddress(application.walletAddress);
+        const publicClient = createPublicClient({ chain: upfrontXLayerChain, transport: http() });
+        const [owner, allowed, paused] = await Promise.all([
+          publicClient.readContract({ address: escrow, abi: ESCROW_ABI, functionName: "owner" }),
+          publicClient.readContract({ address: escrow, abi: ESCROW_ABI, functionName: "allowedFunders", args: [funder] }),
+          publicClient.readContract({ address: escrow, abi: ESCROW_ABI, functionName: "paused" }),
+        ]);
+        if (getAddress(owner) !== account) throw new Error("This admin profile does not control the X Layer escrow.");
+        const needsTransaction = status === "approved" ? (!allowed || paused) : allowed;
+        if (needsTransaction) {
+          await embedded[0].switchChain(upfrontXLayerChain.id);
+          const walletClient = createWalletClient({ account, chain: upfrontXLayerChain, transport: custom(await embedded[0].getEthereumProvider()) });
+          const hash = status === "approved"
+            ? await walletClient.writeContract((await publicClient.simulateContract({ account, address: escrow, abi: ESCROW_ABI, functionName: "authorizeFunderAndActivate", args: [funder] })).request)
+            : await walletClient.writeContract((await publicClient.simulateContract({ account, address: escrow, abi: ESCROW_ABI, functionName: "setFunderAllowed", args: [funder, false] })).request);
+          const receipt = await publicClient.waitForTransactionReceipt({ hash });
+          if (receipt.status !== "success") throw new Error("The X Layer authorization transaction reverted.");
+        }
       }
       const response = await fetch(API, {
         method: "POST",
@@ -259,7 +266,7 @@ export default function FundingPartnerReviewPanel() {
       );
       setFundingState((current) => ({
         ...current,
-        [application.id]: status === "approved" ? "enabled" : "disabled",
+        [application.id]: status === "approved" && upfrontSettlementV3Enabled ? "enabled" : "disabled",
       }));
     } catch (reason) {
       setError(
@@ -422,7 +429,11 @@ export default function FundingPartnerReviewPanel() {
                     </button>
                   )}
                   {application.status === "approved" && application.walletAddress && (
-                    (fundingState[application.id] ?? "checking") === "enabled" ? (
+                    !upfrontSettlementV3Enabled ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-xl bg-amber-100 px-3 py-2 text-[11px] font-bold text-amber-700 dark:bg-amber-400/15 dark:text-amber-200">
+                        Funding paused for upgrade
+                      </span>
+                    ) : (fundingState[application.id] ?? "checking") === "enabled" ? (
                       <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-100 px-3 py-2 text-[11px] font-bold text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200">
                         <CheckIcon className="h-3.5 w-3.5" />
                         Funding enabled

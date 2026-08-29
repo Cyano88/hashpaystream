@@ -120,6 +120,28 @@ const completeUpfront = createHashPayStreamReadinessHandler({
 })
 assert.equal((await call(completeUpfront)).statusCode, 200)
 
+const completeV3Environment = {
+  ...completeUpfrontEnvironment,
+  HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED: 'true',
+  VITE_HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED: 'true',
+  HASHPAYSTREAM_PLATFORM_TREASURY_ADDRESS: '0xF3bE84452e17e9F0656F54884113cD2D7288C2E3',
+}
+assert.equal((await call(createHashPayStreamReadinessHandler({
+  hasStore: () => true,
+  read: async () => undefined,
+  env: () => completeV3Environment,
+}))).statusCode, 200)
+assert.equal((await call(createHashPayStreamReadinessHandler({
+  hasStore: () => true,
+  read: async () => undefined,
+  env: () => ({ ...completeV3Environment, HASHPAYSTREAM_PLATFORM_TREASURY_ADDRESS: '' }),
+}))).statusCode, 503)
+assert.equal((await call(createHashPayStreamReadinessHandler({
+  hasStore: () => true,
+  read: async () => undefined,
+  env: () => ({ ...completeV3Environment, VITE_HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED: 'false' }),
+}))).statusCode, 503)
+
 for (const requiredName of ['CIRCLE_TEST_API_KEY', 'VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET']) {
   const environment = { ...completeUpfrontEnvironment, [requiredName]: '' }
   const missingCircle = createHashPayStreamReadinessHandler({ hasStore: () => true, read: async () => undefined, env: () => environment })

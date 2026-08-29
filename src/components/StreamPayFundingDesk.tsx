@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowLeftIcon, BanknotesIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import { Link, Navigate } from '../lib/router'
-import { upfrontTreasuryEnabled } from '../lib/upfrontChains'
+import { upfrontSettlementV3Enabled, upfrontTreasuryEnabled } from '../lib/upfrontChains'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 import UpfrontTreasuryWallet from './UpfrontTreasuryWallet'
 import UpfrontFundButton from './UpfrontFundButton'
@@ -72,6 +72,7 @@ export default function StreamPayFundingDesk() {
   const [selectedId, setSelectedId] = useState('')
 
   const load = useCallback(async (silent = false) => {
+    if (!upfrontSettlementV3Enabled) { setAuthorized(false); setLoading(false); return }
     if (!authenticated) { setAuthorized(false); setLoading(false); return }
     if (!silent) {
       setLoading(true)
@@ -113,6 +114,17 @@ export default function StreamPayFundingDesk() {
 
   if (!ready || loading) return <StreamPayLoadingState active="home" />
   if (!authenticated) return <Navigate to={earnTo} replace />
+  if (!upfrontSettlementV3Enabled) return <section className="stream-screen w-full max-w-md py-5 sm:py-8">
+    <div className="flex items-center gap-3">
+      <Link to={earnTo} aria-label="Back to Earn" className="stream-icon-button"><ArrowLeftIcon className="h-4 w-4" /></Link>
+      <h1 className="text-xl font-black tracking-tight text-gray-950 dark:text-white">Funding requests</h1>
+    </div>
+    <div className="stream-empty mt-5 px-6 py-12">
+      <BanknotesIcon className="mx-auto h-7 w-7 text-gray-300" />
+      <p className="mt-3 text-sm font-black text-gray-950 dark:text-white">Funding is paused</p>
+      <p className="mt-1 text-[11px] leading-5 text-gray-400">The signed settlement upgrade must pass on-chain verification before funding resumes.</p>
+    </div>
+  </section>
 
   if (selected) return <FundingDetail item={selected} onBack={() => setSelectedId('')} onUpdated={load} />
 

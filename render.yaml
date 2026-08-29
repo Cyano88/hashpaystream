@@ -46,6 +46,10 @@ services:
         value: "true"
       - key: VITE_HASHPAYSTREAM_UPFRONT_ENABLED
         value: "true"
+      - key: HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED
+        value: "false"
+      - key: VITE_HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED
+        value: "false"
       - key: HASHPAYSTREAM_DIRECT_ARC_ENABLED
         value: "true"
       - key: VITE_HASHPAYSTREAM_DIRECT_ARC_ENABLED
@@ -99,7 +103,7 @@ services:
       - key: HASHPAYSTREAM_UPFRONT_REPAYMENT_SIGNER
         value: "0x83Bd6A645cBE8d04b5F33f2c2c87A1d1FDD71D5b"
       - key: HASHPAYSTREAM_PLATFORM_TREASURY_ADDRESS
-        sync: false
+        value: "0xF3bE84452e17e9F0656F54884113cD2D7288C2E3"
       - key: HASHPAYSTREAM_FUNDING_PARTNER_STORE_KEY
         value: hashpaystream:funding-partners:v1
       - key: HASHPAYSTREAM_AGENT_CREDENTIAL_PEPPER

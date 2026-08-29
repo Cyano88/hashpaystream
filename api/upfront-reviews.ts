@@ -5,6 +5,7 @@ import { getAddress, isAddress } from 'viem'
 import { mutateDurableJson, readDurableJson } from './durable-store.js'
 import { requestPolyDeskUnderwriting } from './polydesk-upfront-client.js'
 import type { UpfrontAssessmentRecord, UpfrontAssessmentStore } from './upfront-assessment.js'
+import { requireUpfrontSettlementV3 } from './upfront-v3.js'
 
 const DEFAULT_STORE_KEY = 'hashpaystream:upfront-assessments:v1'
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -48,6 +49,7 @@ async function verifiedIdentity(req: Request, env: NodeJS.ProcessEnv): Promise<I
 }
 
 function configuration(env: NodeJS.ProcessEnv) {
+  requireUpfrontSettlementV3(env)
   const secret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300)
   const storeKey = clean(env.HASHPAYSTREAM_UPFRONT_STORE_KEY ?? DEFAULT_STORE_KEY, 160)
   if (secret.length < 32 || !storeKey) fail('Upfront review is temporarily unavailable.', 503)

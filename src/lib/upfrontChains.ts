@@ -31,3 +31,7 @@ export const upfrontXLayerChain = String(import.meta.env.VITE_HASHPAYSTREAM_UPFR
   : xLayerTestnet
 
 export const upfrontTreasuryEnabled = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED ?? 'false').toLowerCase() === 'true'
+
+export const upfrontSettlementV3Enabled = String(
+  import.meta.env.VITE_HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED ?? 'false',
+).toLowerCase() === 'true'

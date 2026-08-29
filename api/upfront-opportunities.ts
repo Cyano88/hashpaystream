@@ -8,6 +8,7 @@ import type { UpfrontAssessmentRecord, UpfrontAssessmentStore } from './upfront-
 import { fundingPartnerAccountKey, type FundingPartnerRecord, type FundingPartnerStore } from './funding-partners.js'
 import { hasMinimumUpfrontProtectionWindow, minimumUpfrontRemainingSeconds } from './early-pay-timing-policy.js'
 import { FUNDING_TERMS_TYPES, signFundingTerms, type SignedFundingTerms } from './upfront-funding-terms.js'
+import { requireUpfrontSettlementV3 } from './upfront-v3.js'
 
 const DEFAULT_STORE_KEY = 'hashpaystream:upfront-assessments:v1'
 const DEFAULT_PARTNER_STORE_KEY = 'hashpaystream:funding-partners:v1'
@@ -180,7 +181,7 @@ async function reservedUnits(store: UpfrontAssessmentStore, partnerId: string, o
   for (const record of Object.values(store.records)) {
     const request = record.fundingRequest
     const candidate = opportunity(record, now, chain, minimumRemainingSeconds)
-    if (request?.status === 'pending' && request.fundingTerms && request.providerSignature && request.partnerApplicationId === partnerId && candidate && candidate.id !== omitRequestId && candidate.live) pending.push({ request, candidate })
+    if (request?.settlementVersion === 3 && request.status === 'pending' && request.fundingTerms && request.providerSignature && request.partnerApplicationId === partnerId && candidate && candidate.id !== omitRequestId && candidate.live) pending.push({ request, candidate })
   }
   const inspected = await Promise.all(pending.map(async item => ({ ...item, position: await dependencies.position(item.candidate.positionId, chain) })))
   return inspected.reduce((total, item) => total + (item.position.status === 'available' ? BigInt(item.request.advanceUsdcUnits) : 0n), 0n)
@@ -194,6 +195,7 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
     try {
       const env = dependencies.env()
       if (clean(env.HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() !== 'true') failure('HashPayStream Upfront is not enabled.', 404)
+      requireUpfrontSettlementV3(env)
       const secret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300)
       if (secret.length < 32) failure('Private funding matching is unavailable.', 503)
       const identity = await dependencies.identity(req, env)
@@ -222,7 +224,7 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
           partnerName: selectedProfile?.name || 'Funding partner',
           advanceUsdcUnits: found[1].fundingRequest.advanceUsdcUnits,
           quote: found[1].fundingRequest.fundingTerms?.quote,
-          status: positionState.status !== 'available' ? positionState.status : !candidate.live || !found[1].fundingRequest.fundingTerms || !found[1].fundingRequest.providerSignature ? 'expired' : found[1].fundingRequest.status,
+          status: positionState.status !== 'available' ? positionState.status : !candidate.live || found[1].fundingRequest.settlementVersion !== 3 || !found[1].fundingRequest.fundingTerms || !found[1].fundingRequest.providerSignature ? 'expired' : found[1].fundingRequest.status,
         } : undefined
         if (req.method === 'GET') {
           if (selected?.status === 'pending' || selected?.status === 'funded' || selected?.status === 'released') return res.json({ ok: true, partners: [], selection: selected })
@@ -261,7 +263,7 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
           if (!currentFound || currentFound[1].ownerReference !== found[1].ownerReference) failure('Early-pay request changed before assignment.', 409)
           const currentCandidate = opportunity(currentFound[1], now, chain, minimumRemainingSeconds)
           if (!currentCandidate?.live || (await dependencies.position(currentCandidate.positionId, chain)).status !== 'available') failure('This early-pay request can no longer be assigned.', 409)
-          if (currentFound[1].fundingRequest?.status === 'pending' && currentFound[1].fundingRequest.fundingTerms && currentFound[1].fundingRequest.providerSignature && new Date(currentFound[1].fundingRequest.expiresAt).getTime() > now.getTime()) failure('This early-pay request already has a funding partner.', 409)
+          if (currentFound[1].fundingRequest?.settlementVersion === 3 && currentFound[1].fundingRequest.status === 'pending' && currentFound[1].fundingRequest.fundingTerms && currentFound[1].fundingRequest.providerSignature && new Date(currentFound[1].fundingRequest.expiresAt).getTime() > now.getTime()) failure('This early-pay request already has a funding partner.', 409)
           const [{ balance, allowed }, reserved] = await Promise.all([dependencies.capacity(wallet, chain), reservedUnits(next, partner.id, requestId, now, chain, minimumRemainingSeconds, dependencies)])
           const available = balance > reserved ? balance - reserved : 0n
           if (!allowed || requested > available || requested > BigInt(currentCandidate.requestedAdvanceUsdcUnits)) failure('This partner cannot cover that early-pay amount.', 409)
@@ -279,7 +281,7 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
             signature: providerSignature as Hex,
           })
           if (recoveredProvider !== getAddress(currentCandidate.providerPayoutAddress)) failure('Funding terms were not accepted by this provider wallet.', 403)
-          selectedRecord = { ...currentFound[1], fundingRequest: { partnerApplicationId: partner.id, partnerWalletAddress: wallet, advanceUsdcUnits: requested.toString(), fundingTerms, providerSignature: providerSignature as Hex, status: 'pending', requestedAt: now.toISOString(), expiresAt: currentCandidate.expiresAt } }
+          selectedRecord = { ...currentFound[1], fundingRequest: { settlementVersion: 3, partnerApplicationId: partner.id, partnerWalletAddress: wallet, advanceUsdcUnits: requested.toString(), fundingTerms, providerSignature: providerSignature as Hex, status: 'pending', requestedAt: now.toISOString(), expiresAt: currentCandidate.expiresAt } }
           next.records[currentFound[0]] = selectedRecord
           return next
         })
@@ -289,7 +291,7 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
       const profile = approvedPartner(identity, partners, secret)
       const wallet = partnerWallet(profile)
       if (!profile) failure('This HashPayStream account is not approved for funding requests.', 403)
-      if (!wallet || identity.wallets.length !== 1 || identity.wallets[0].toLowerCase() !== wallet.toLowerCase()) failure('Open Funding partners once to verify this profileâ€™s Privy wallet.', 409)
+      if (!wallet || identity.wallets.length !== 1 || identity.wallets[0].toLowerCase() !== wallet.toLowerCase()) failure("Open Funding partners once to verify this profile's Privy wallet.", 409)
 
       if (req.method === 'POST') {
         if (clean(body.action, 24) !== 'decline') failure('Funding request action is invalid.', 400)
@@ -318,7 +320,7 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
       }> = []
       for (const { record, candidate, position } of inspected) {
         if (position.status === 'available') {
-          if (candidate.live && record.fundingRequest?.status === 'pending' && record.fundingRequest.fundingTerms && record.fundingRequest.providerSignature && record.fundingRequest.partnerApplicationId === profile.id) opportunities.push({ ...candidate, requestedAdvanceUsdcUnits: record.fundingRequest.advanceUsdcUnits, fundingTerms: record.fundingRequest.fundingTerms, providerSignature: record.fundingRequest.providerSignature, positionStatus: 'available' })
+          if (candidate.live && record.fundingRequest?.settlementVersion === 3 && record.fundingRequest.status === 'pending' && record.fundingRequest.fundingTerms && record.fundingRequest.providerSignature && record.fundingRequest.partnerApplicationId === profile.id) opportunities.push({ ...candidate, requestedAdvanceUsdcUnits: record.fundingRequest.advanceUsdcUnits, fundingTerms: record.fundingRequest.fundingTerms, providerSignature: record.fundingRequest.providerSignature, positionStatus: 'available' })
           continue
         }
         const ownsPosition = identity.wallets.some(item => item.toLowerCase() === position.funder.toLowerCase() || item.toLowerCase() === position.repaymentRecipient.toLowerCase())

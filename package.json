@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit",
     "test:agreement-gateway": "node --import tsx scripts/agreement-gateway-smoke.mjs",
     "test:upfront-agreement-gateway": "node --import tsx scripts/upfront-agreement-gateway-smoke.mjs",
-    "test:upfront-assessment": "node --import tsx scripts/upfront-fees-smoke.mjs && node --import tsx scripts/upfront-assessment-smoke.mjs && node --import tsx scripts/polydesk-upfront-client-smoke.mjs && node --import tsx scripts/upfront-protection-attestation-smoke.mjs && node --import tsx scripts/upfront-protection-handler-smoke.mjs && node --import tsx scripts/upfront-opportunities-smoke.mjs",
+    "test:upfront-assessment": "node --import tsx scripts/upfront-v3-smoke.mjs && node --import tsx scripts/upfront-fees-smoke.mjs && node --import tsx scripts/upfront-assessment-smoke.mjs && node --import tsx scripts/polydesk-upfront-client-smoke.mjs && node --import tsx scripts/upfront-protection-attestation-smoke.mjs && node --import tsx scripts/upfront-protection-handler-smoke.mjs && node --import tsx scripts/upfront-opportunities-smoke.mjs",
     "test:upfront-reviews": "node --import tsx scripts/upfront-reviews-smoke.mjs",
     "test:funding-partners": "node --import tsx scripts/funding-partners-smoke.mjs",
     "test:stream-accounts": "node --import tsx scripts/stream-accounts-smoke.mjs",

@@ -7,6 +7,7 @@ import { agreementIntelligencePayloadHash, agreementIntelligenceRequestHash, bui
 import { requestPolyDeskUnderwriting, type PolyDeskDecision } from './polydesk-upfront-client.js'
 import { hasMinimumUpfrontProtectionWindow, minimumUpfrontRemainingSeconds } from './early-pay-timing-policy.js'
 import type { SignedFundingTerms } from './upfront-funding-terms.js'
+import { requireUpfrontSettlementV3 } from './upfront-v3.js'
 
 const DEFAULT_STORE_KEY = 'hashpaystream:upfront-assessments:v1'
 const DEFAULT_OWNERSHIP_STORE_KEY = 'hashpaystream:upfront-agreement-owners:v1'
@@ -19,6 +20,7 @@ export type UpfrontReviewState = {
   reviewerReference?: string
 }
 export type UpfrontFundingRequest = {
+  settlementVersion: 3
   partnerApplicationId: string
   partnerWalletAddress: Address
   advanceUsdcUnits: string
@@ -132,6 +134,7 @@ async function verifiedProviderArcWallet(identity: string, env: NodeJS.ProcessEn
 
 function configuration(env: NodeJS.ProcessEnv) {
   if (clean(env.HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() !== 'true') throw httpError('HashPayStream Upfront is not enabled.', 404)
+  requireUpfrontSettlementV3(env)
   const apiKey = clean(env.HASHPAYSTREAM_ZEROSCOUT_API_KEY, 300)
   const polyDeskServiceToken = clean(env.HASHPAYSTREAM_POLYDESK_SERVICE_TOKEN, 300)
   const polyDeskSigningSecret = clean(env.HASHPAYSTREAM_POLYDESK_SIGNING_SECRET, 300)

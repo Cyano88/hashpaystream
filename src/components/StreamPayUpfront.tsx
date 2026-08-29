@@ -4,6 +4,7 @@ import { ArrowLeftIcon, BanknotesIcon, CheckBadgeIcon } from '@heroicons/react/2
 import { isAddress } from 'viem'
 import { Link, useLocation } from '../lib/router'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
+import { upfrontSettlementV3Enabled } from '../lib/upfrontChains'
 import { LoadingRing } from './ui/LoadingRing'
 import { StreamSelect } from './ui/StreamSelect'
 import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
@@ -69,6 +70,7 @@ export default function StreamPayUpfront() {
   const valid = Boolean(selected && isAddress(providerPayoutAddress) && !/^0x0{40}$/i.test(providerPayoutAddress))
 
   useEffect(() => {
+    if (!upfrontSettlementV3Enabled) { setLoading(false); return }
     if (!ready || !authenticated) { setLoading(false); return }
     let cancelled = false
     void (async () => {
@@ -163,6 +165,15 @@ export default function StreamPayUpfront() {
 
   if (!ready || loading) return <StreamPayLoadingState active="agreements" />
   if (!authenticated) return null
+  if (!upfrontSettlementV3Enabled) return <section className="stream-screen w-full max-w-md py-5 sm:py-8">
+    <Link to={homeTo} className="stream-icon-button" aria-label="Back home"><ArrowLeftIcon className="h-4 w-4" /></Link>
+    <div className="flex min-h-[62vh] flex-col items-center justify-center px-6 text-center">
+      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-gray-500 shadow-sm dark:bg-white/[0.06]"><BanknotesIcon className="h-6 w-6" /></span>
+      <h1 className="mt-4 text-lg font-extrabold text-gray-950 dark:text-white">Early pay is paused</h1>
+      <p className="mt-1 max-w-xs text-xs leading-5 text-gray-400">HashPayStream is verifying the new signed settlement contracts. Existing agreements remain protected.</p>
+      <Link to={requestsTo} className="mt-5 flex min-h-12 items-center justify-center rounded-full bg-gray-950 px-6 text-sm font-bold text-white dark:bg-white dark:text-gray-950">Open requests</Link>
+    </div>
+  </section>
   if (!agreements.length && !error) return <section className="stream-screen w-full max-w-md py-5 sm:py-8">
     <Link to={homeTo} className="stream-icon-button" aria-label="Back home"><ArrowLeftIcon className="h-4 w-4" /></Link>
     <div className="flex min-h-[62vh] flex-col items-center justify-center px-6 text-center">

@@ -20,6 +20,7 @@ async function call(handler, body, idempotencyKey = 'upfront:user-a:0001') {
 
 const env = {
   HASHPAYSTREAM_UPFRONT_ENABLED: 'true',
+  HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED: 'true',
   HASHPAYSTREAM_ZEROSCOUT_BASE_URL: 'https://zeroscout.example',
   HASHPAYSTREAM_ZEROSCOUT_API_KEY: 'zs_live_test_key_123456789',
   HASHPAYSTREAM_APP_OWNERSHIP_SECRET: 'standalone-ownership-secret-32-characters',
@@ -239,5 +240,16 @@ const disabled = createHashPayStreamUpfrontAssessmentHandler({
 })
 const hidden = await call(disabled, draft, 'upfront:user-a:0003')
 assert.equal(hidden.statusCode, 404)
+
+const v3Disabled = createHashPayStreamUpfrontAssessmentHandler({
+  identity: async () => 'user-a',
+  providerWallets: async () => [draft.providerPayoutAddress],
+  providerArcWallet: async () => providerArcAddress,
+  mutate: async (_key, update) => { store = update(store); return store },
+  assess: async () => { throw new Error('must not run') },
+  underwrite: async () => { throw new Error('must not run') },
+  env: () => ({ ...env, HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED: 'false' }),
+})
+assert.equal((await call(v3Disabled, draft, 'upfront:user-a:0004')).statusCode, 503)
 
 console.log('HashPayStream Upfront assessment smoke checks passed.')

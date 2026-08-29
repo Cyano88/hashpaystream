@@ -3,6 +3,7 @@ import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
 import { getAddress, isAddress } from 'viem'
 import { hasRenderDurableStore, mutateDurableJson, readDurableJson } from './durable-store.js'
+import { requireUpfrontSettlementV3 } from './upfront-v3.js'
 
 const DEFAULT_REQUEST_STORE_KEY = 'hashpaystream:service-requests:v1'
 const DEFAULT_ACCOUNT_STORE_KEY = 'hashpaystream:accounts:v1'
@@ -179,6 +180,7 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
           const next = safeStore(current); const replay = next.idempotency[scoped]
           if (replay && next.requests[replay]) { created = next.requests[replay]; return next }
           const terms = parseTerms(body, 'customer', 1, now)
+          if (terms.upfrontRequested) requireUpfrontSettlementV3(env)
           const id = dependencies.id(); created = { id, customerAccountKey: viewer, providerAccountKey: provider, providerLabel: maskEmail(providerEmail), status: 'sent', activeVersion: 1, terms: [terms], events: [{ id: `${id}:1`, type: 'request.created', actor: 'customer', createdAt: now, version: 1 }], createdAt: now, updatedAt: now }
           next.requests[id] = created; next.idempotency[scoped] = id; return next
         })
@@ -249,13 +251,15 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
           updated.providerAcceptedVersion = version; updated.status = 'provider_accepted'
         } else if (action === 'provider_counter') {
           if (role !== 'provider' || !['sent', 'countered'].includes(item.status)) fail('Only the invited service provider can propose new terms.', 403)
-          const terms = parseTerms(body, 'provider', version + 1, now, item.terms[item.terms.length - 1]); updated.terms.push(terms); updated.activeVersion = terms.version; updated.providerAcceptedVersion = terms.version; updated.customerAcceptedVersion = undefined; updated.status = 'countered'
+          const terms = parseTerms(body, 'provider', version + 1, now, item.terms[item.terms.length - 1]); if (terms.upfrontRequested) requireUpfrontSettlementV3(env); updated.terms.push(terms); updated.activeVersion = terms.version; updated.providerAcceptedVersion = terms.version; updated.customerAcceptedVersion = undefined; updated.status = 'countered'
         } else if (action === 'provider_decline') {
           if (role !== 'provider') fail('Only the invited service provider can decline.', 403); updated.status = 'declined'
         } else if (action === 'customer_cancel') {
           if (role !== 'customer') fail('Only the customer can cancel.', 403); updated.status = 'cancelled'
         } else if (action === 'customer_accept') {
           if (role !== 'customer' || !['countered', 'provider_accepted'].includes(item.status) || item.providerAcceptedVersion !== version) fail('The service provider must accept the current terms first.', 409)
+          const terms = item.terms.find(value => value.version === version)
+          if (terms?.upfrontRequested) requireUpfrontSettlementV3(env)
           updated.customerAcceptedVersion = version; updated.status = 'provider_accepted'
         } else fail('Request action is invalid.', 400)
         // Customer acceptance is committed only after Hash PayLink creates the
