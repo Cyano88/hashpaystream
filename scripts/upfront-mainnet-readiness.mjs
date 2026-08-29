@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { createPublicClient, formatEther, formatUnits, getAddress, http } from "viem";
 import { xLayer } from "viem/chains";
 
-const escrow = getAddress("0x53326e1c72c622c11661E161314a496d0Ddf55Fb");
+const escrow = getAddress("0xCA4f547527A64a94c9b45306f311D8658d8A3Dbf");
 const configuredFunderValue = String(process.env.HASHPAYSTREAM_READINESS_FUNDER_ADDRESS ?? "").trim();
 const configuredFunder = configuredFunderValue ? getAddress(configuredFunderValue) : null;
 const expected = {
   owner: getAddress("0xA16D33E7B36099F0EF82048fb78b25754Bf49931"),
   asset: getAddress("0xB6CEceAB302E2E4948951eE7843FC24E92933061"),
-  router: getAddress("0x0E47e6dD4f86C5Cf1843Dce310b710FaE64c0C16"),
+  router: getAddress("0xF4D6700B383b6b8Eb14c3b43d5124444D2ecb7b9"),
   underwritingSigner: getAddress("0xB089C3d5F06074856d7665A1Aa53Dc0d761930aE"),
   protectionSigner: getAddress("0xfd23c4697e41Bb6874d72D5f2b56Af8aB00CAb99"),
 };

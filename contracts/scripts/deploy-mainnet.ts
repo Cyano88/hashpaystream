@@ -22,6 +22,7 @@ async function main() {
 
   const existing = String(process.env.POLYDESK_UPFRONT_MAINNET_ESCROW_CONTRACT_ADDRESS ?? '').trim()
   let replacedEscrow: string | undefined
+  let retiredUnpausedLegacyEscrow = false
   if (existing) {
     const deployedAddress = address('POLYDESK_UPFRONT_MAINNET_ESCROW_CONTRACT_ADDRESS')
     if (await ethers.provider.getCode(deployedAddress) !== '0x') {
@@ -38,7 +39,13 @@ async function main() {
         existingEscrow.paused(),
         token.balanceOf(deployedAddress),
       ])
-      if (!paused || balance !== 0n) throw new Error('Refusing to replace an active or funded production Upfront escrow.')
+      if (balance !== 0n) throw new Error('Refusing to replace a funded production Upfront escrow.')
+      if (!paused) {
+        if (process.env.UPFRONT_UNPAUSED_LEGACY_RETIRE_CONFIRM !== 'RETIRE_EMPTY_UNPAUSED_LEGACY_MAINNET') {
+          throw new Error('Refusing to replace an unpaused production Upfront escrow without the exact retirement confirmation.')
+        }
+        retiredUnpausedLegacyEscrow = true
+      }
       replacedEscrow = deployedAddress
     }
   }
@@ -57,7 +64,7 @@ async function main() {
   console.log(JSON.stringify({
     chainId: network.chainId.toString(), contract: await escrow.getAddress(), asset: configuredAsset,
     arcRepaymentRouter, underwritingSigner, protectionSigner, owner, paused: true,
-    allowlistedFunders: [], deployer: deployer.address, predictedContract, replacedEscrow,
+    allowlistedFunders: [], deployer: deployer.address, predictedContract, replacedEscrow, retiredUnpausedLegacyEscrow,
     transactionHash: escrow.deploymentTransaction()?.hash,
   }, null, 2))
 }

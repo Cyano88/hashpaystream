@@ -39,11 +39,11 @@ The underwriting service is isolated from PolyDesk's OKX.AI marketplace agent.
 
 ### Onchain proof
 
-- Arc testnet split-settlement router: `0x300D0D41a10006f3cb1Da01aed2Fc28418c7E6Be`
+- Arc testnet split-settlement router: `0xF4D6700B383b6b8Eb14c3b43d5124444D2ecb7b9`
 - X Layer testnet escrow: `0x300D0D41a10006f3cb1Da01aed2Fc28418c7E6Be`
-- X Layer mainnet escrow: `0x53326e1c72c622c11661E161314a496d0Ddf55Fb`
-- Mainnet deployment transaction: `0xc1bacb8dc77fdd0724a7d82f52767216bd8f5d03767b7836290580551b11806b`
-- Mainnet explorer: https://www.xlayerscan.com/address/0x53326e1c72c622c11661E161314a496d0Ddf55Fb
+- X Layer mainnet escrow: `0xCA4f547527A64a94c9b45306f311D8658d8A3Dbf`
+- Mainnet deployment transaction: `0x5527265433154b7168201dd94a4da946ec811a0435b7f937503aba196bc9f845`
+- Mainnet explorer: https://www.xlayerscan.com/address/0xCA4f547527A64a94c9b45306f311D8658d8A3Dbf
 - Mainnet USDC: `0xB6CEceAB302E2E4948951eE7843FC24E92933061`
 
 ## Why this is AI-RWA

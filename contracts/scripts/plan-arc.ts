@@ -21,15 +21,23 @@ async function main() {
   const gasEstimate = await ethers.provider.estimateGas({ from: deployer.address, data: transaction.data })
   const fee = await ethers.provider.getFeeData()
   const gasPrice = fee.maxFeePerGas ?? fee.gasPrice ?? 0n
+  const deployerNativeBalance = await ethers.provider.getBalance(deployer.address)
+  const maximumEstimatedNativeCost = gasEstimate * gasPrice
+  const reservedAddresses = [asset, creditSigner, owner]
+  const addressCollision = reservedAddresses.includes(predictedContract)
   console.log(JSON.stringify({
     action: 'DEPLOY_ARC_REPAYMENT_ROUTER',
+    dryRun: true,
     chainId: network.chainId.toString(),
     deployer: deployer.address,
+    deployerNativeBalance: deployerNativeBalance.toString(),
     nonce,
     predictedContract,
+    addressCollision,
+    deployable: !addressCollision && deployerNativeBalance >= maximumEstimatedNativeCost,
     constructor: { asset, creditSigner, owner },
     gasEstimate: gasEstimate.toString(),
-    maximumEstimatedNativeCost: ethers.formatEther(gasEstimate * gasPrice),
+    maximumEstimatedNativeCost: ethers.formatEther(maximumEstimatedNativeCost),
   }, null, 2))
 }
 

@@ -581,8 +581,8 @@ assert.match(readinessMonitor, /cron: '3-58\/5 \* \* \* \*'/)
 assert.match(readinessMonitor, /https:\/\/hashpaystream\.app\/readyz/)
 assert.match(readinessMonitor, /Production readiness failed three consecutive probes\./)
 for (const publicDeploymentValue of [
-  '0x0E47e6dD4f86C5Cf1843Dce310b710FaE64c0C16',
-  '0x53326e1c72c622c11661E161314a496d0Ddf55Fb',
+  '0xF4D6700B383b6b8Eb14c3b43d5124444D2ecb7b9',
+  '0xCA4f547527A64a94c9b45306f311D8658d8A3Dbf',
   '0xB089C3d5F06074856d7665A1Aa53Dc0d761930aE',
   '0xfd23c4697e41Bb6874d72D5f2b56Af8aB00CAb99',
   '0x83Bd6A645cBE8d04b5F33f2c2c87A1d1FDD71D5b',
