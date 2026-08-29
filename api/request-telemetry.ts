@@ -15,6 +15,7 @@ export type HashPayStreamApiRoute =
   | 'funding_partners'
   | 'upfront_reviews'
   | 'public_stats'
+  | 'circle_wallet'
   | 'unmatched'
 
 export type HashPayStreamApiTelemetryEvent = {
@@ -60,6 +61,7 @@ function route(path: string): HashPayStreamApiRoute {
   if (path === '/api/hashpaystream/v1/funding-partners') return 'funding_partners'
   if (path === '/api/hashpaystream/v1/upfront/reviews') return 'upfront_reviews'
   if (path === '/api/hashpaystream/v1/public/stats') return 'public_stats'
+  if (path === '/api/hashpaystream/v1/circle-wallet') return 'circle_wallet'
   return 'unmatched'
 }
 

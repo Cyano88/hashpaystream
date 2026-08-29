@@ -48,9 +48,11 @@ try {
   const listed = await call(handler, { action: 'list_wallets', userToken: 'user-token' })
   assert.equal(listed.body.wallet.id, wallet.id)
   assert.equal(listed.body.wallets.length, 1)
+  const circleCallsBeforeBalance = calls.length
   const balance = await call(handler, { action: 'get_balance', userToken: 'user-token', walletId: wallet.id, walletAddress: wallet.address })
   assert.equal(balance.statusCode, 200)
   assert.equal(balance.body.balanceUsdcUnits, '65992064')
+  assert.equal(calls.length, circleCallsBeforeBalance, 'Public Arc balance reads must not depend on Circle wallet-list availability')
   const send = await call(handler, { action: 'send_usdc', userToken: 'user-token', walletId: wallet.id, walletAddress: wallet.address, recipient, amountUnits: '1250000' })
   assert.equal(send.body.challengeId, challengeId)
   const contractCall = calls.find(item => item.path.endsWith('/contractExecution'))

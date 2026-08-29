@@ -129,9 +129,12 @@ export function createCircleWalletHandler(overrides: { env?: () => NodeJS.Proces
         const walletId = clean(body.walletId, 256)
         const walletAddress = clean(body.walletAddress, 42)
         if (!walletId || !isAddress(walletAddress)) fail('Circle wallet details are invalid.', 400)
-        const wallet = await readOwnedWallet(userToken, walletId, walletAddress, env)
-        const balanceUsdcUnits = await balance(wallet.address, env)
-        return res.json({ ok: true, walletAddress: getAddress(wallet.address), balanceUsdcUnits: balanceUsdcUnits.toString() })
+        // ERC-20 balances are public chain data. Requiring Circle's wallet-list API
+        // on every 15-second read made an otherwise healthy Arc balance depend on a
+        // second upstream session call. Ownership is still enforced for every write.
+        const address = getAddress(walletAddress)
+        const balanceUsdcUnits = await balance(address, env)
+        return res.json({ ok: true, walletAddress: address, balanceUsdcUnits: balanceUsdcUnits.toString() })
       }
       if (action === 'send_usdc') {
         const walletId = clean(body.walletId, 256)

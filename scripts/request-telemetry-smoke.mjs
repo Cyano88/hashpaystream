@@ -89,6 +89,7 @@ for (const path of [
   '/api/hashpaystream/v1/funding-partners',
   '/api/hashpaystream/v1/upfront/reviews',
   '/api/hashpaystream/v1/public/stats',
+  '/api/hashpaystream/v1/circle-wallet',
 ]) {
   const response = responseRecorder()
   routeTelemetry({ method: 'POST', path }, response, () => {})
@@ -103,6 +104,7 @@ assert.deepEqual(routeEvents.map(event => event.route), [
   'funding_partners',
   'upfront_reviews',
   'public_stats',
+  'circle_wallet',
 ])
 
 const loggerFailure = createHashPayStreamApiTelemetry({
