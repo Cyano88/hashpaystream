@@ -1,7 +1,7 @@
 import crypto from 'node:crypto'
 import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
-import { createPublicClient, encodeFunctionData, getAddress, http, isAddress, parseAbi } from 'viem'
+import { createPublicClient, encodeFunctionData, fallback, getAddress, http, isAddress, parseAbi } from 'viem'
 
 const ARC_BLOCKCHAIN = 'ARC-TESTNET'
 const ARC_USDC = getAddress('0x3600000000000000000000000000000000000000')
@@ -77,11 +77,18 @@ async function readOwnedWallet(userToken: string, walletId: string, walletAddres
   return wallet
 }
 
-async function readArcUsdcBalance(walletAddress: string, env: NodeJS.ProcessEnv) {
-  const rpcUrl = clean(env.HASHPAYSTREAM_ARC_RPC_URL ?? 'https://rpc.testnet.arc.network', 500)
-  if (!rpcUrl.startsWith('https://')) fail('Arc balance access is unavailable.', 503)
-  const client = createPublicClient({ transport: http(rpcUrl) })
-  return client.readContract({ address: ARC_USDC, abi: balanceAbi, functionName: 'balanceOf', args: [getAddress(walletAddress)] })
+export async function readArcUsdcBalance(walletAddress: string, env: NodeJS.ProcessEnv) {
+  const publicRpcUrl = 'https://rpc.testnet.arc.network'
+  const configuredRpcUrl = clean(env.HASHPAYSTREAM_ARC_RPC_URL ?? publicRpcUrl, 500)
+  if (!configuredRpcUrl.startsWith('https://')) fail('Arc balance access is unavailable.', 503)
+  const rpcUrls = [...new Set([configuredRpcUrl, publicRpcUrl])]
+  const transports = rpcUrls.map(url => http(url, { retryCount: 1, timeout: 5_000 }))
+  const client = createPublicClient({ transport: transports.length === 1 ? transports[0] : fallback(transports, { rank: false }) })
+  try {
+    return await client.readContract({ address: ARC_USDC, abi: balanceAbi, functionName: 'balanceOf', args: [getAddress(walletAddress)] })
+  } catch {
+    fail('Arc balance access is temporarily unavailable.', 503)
+  }
 }
 
 export function createCircleWalletHandler(overrides: { env?: () => NodeJS.ProcessEnv; identity?: typeof verifiedEmail; balance?: typeof readArcUsdcBalance } = {}) {

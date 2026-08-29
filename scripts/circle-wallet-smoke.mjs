@@ -1,15 +1,26 @@
 import assert from 'node:assert/strict'
-import { createCircleWalletHandler } from '../api/circle-wallet.ts'
+import { createCircleWalletHandler, readArcUsdcBalance } from '../api/circle-wallet.ts'
 
 const wallet = { id: 'wallet-arc', address: '0x1111111111111111111111111111111111111111', blockchain: 'ARC-TESTNET', accountType: 'SCA', state: 'LIVE' }
 const recipient = '0x2222222222222222222222222222222222222222'
 const challengeId = 'challenge_abc123'
 const transactionId = '11111111-1111-4111-8111-111111111111'
 const calls = []
+const rpcHosts = []
 const originalFetch = globalThis.fetch
 
 globalThis.fetch = async (url, init = {}) => {
-  const path = new URL(String(url)).pathname
+  const parsedUrl = new URL(String(url))
+  if (parsedUrl.hostname === 'unavailable.example') {
+    rpcHosts.push(parsedUrl.hostname)
+    return Response.json({ error: 'unavailable' }, { status: 503 })
+  }
+  if (parsedUrl.hostname === 'rpc.testnet.arc.network') {
+    rpcHosts.push(parsedUrl.hostname)
+    const rpcBody = JSON.parse(String(init.body))
+    return Response.json({ jsonrpc: '2.0', id: rpcBody.id, result: '0x0000000000000000000000000000000000000000000000000000000003eef580' })
+  }
+  const path = parsedUrl.pathname
   const body = init.body ? JSON.parse(String(init.body)) : undefined
   calls.push({ path, init, body })
   if (path === '/v1/w3s/users/email/token') return Response.json({ data: { deviceToken: 'device-token', deviceEncryptionKey: 'device-key', otpToken: 'otp-token' } })
@@ -30,6 +41,10 @@ async function call(handler, body) {
 }
 
 try {
+  const publicFallbackBalance = await readArcUsdcBalance(wallet.address, { HASHPAYSTREAM_ARC_RPC_URL: 'https://unavailable.example' })
+  assert.equal(publicFallbackBalance, 65_992_064n)
+  assert.equal(rpcHosts.at(-1), 'rpc.testnet.arc.network')
+  assert.ok(rpcHosts.slice(0, -1).every(host => host === 'unavailable.example'))
   const handler = createCircleWalletHandler({ env: () => ({ CIRCLE_TEST_API_KEY: 'TEST_API_KEY' }), identity: async () => 'member@example.com', balance: async address => {
     assert.equal(address, wallet.address)
     return 65_992_064n
