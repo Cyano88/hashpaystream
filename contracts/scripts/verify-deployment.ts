@@ -24,18 +24,20 @@ async function main() {
     const contract = address('ARC_REPAYMENT_ROUTER_ADDRESS')
     if (await ethers.provider.getCode(contract) === '0x') throw new Error('Arc repayment router has no bytecode.')
     const router = await ethers.getContractAt('ArcRepaymentRouter', contract)
-    const [asset, creditSigner, owner, pendingOwner, zeroHashSettled] = await Promise.all([
-      router.asset(), router.creditSigner(), router.owner(), router.pendingOwner(), router.settledAgreements(ethers.ZeroHash),
+    const [asset, creditSigner, owner, pendingOwner, zeroHashSettled, settlementTypehash] = await Promise.all([
+      router.asset(), router.creditSigner(), router.owner(), router.pendingOwner(), router.settledAgreements(ethers.ZeroHash), router.SPLIT_SETTLEMENT_TYPEHASH(),
     ])
     assertEqual('asset', asset, address('ARC_TEST_USDC_ADDRESS'))
     assertEqual('credit signer', creditSigner, address('UPFRONT_REPAYMENT_CREDIT_SIGNER'))
     assertEqual('owner', owner, address('UPFRONT_ARC_CONTRACT_OWNER'))
     assertEqual('pending owner', pendingOwner, ethers.ZeroAddress)
+    const expectedSettlementTypehash = ethers.keccak256(ethers.toUtf8Bytes('SplitSettlement(bytes32 arcAgreementHash,bytes32 arcTermsHash,address funder,address provider,address treasury,uint256 funderAmount,uint256 providerAmount,uint256 treasuryAmount,uint48 observedAt,uint48 deadline)'))
+    if (settlementTypehash !== expectedSettlementTypehash) throw new Error('Arc repayment router is not settlement version 3.')
     const token = await ethers.getContractAt('IERC20', asset)
     const balance = await token.balanceOf(contract)
     console.log(JSON.stringify({
       verified: true, chainId: network.chainId.toString(), contract, asset, creditSigner, owner,
-      pendingOwner, settlementVersion: 2, zeroHashSettled, tokenBalance: balance.toString(),
+      pendingOwner, settlementVersion: 3, zeroHashSettled, tokenBalance: balance.toString(),
       receipt: await verifiedReceipt(),
     }, null, 2))
     return
@@ -47,9 +49,9 @@ async function main() {
     : 'POLYDESK_UPFRONT_ESCROW_CONTRACT_ADDRESS')
   if (await ethers.provider.getCode(contract) === '0x') throw new Error('Upfront escrow has no bytecode.')
   const escrow = await ethers.getContractAt('UpfrontAdvanceEscrow', contract)
-  const [asset, arcRepaymentRouter, underwritingSigner, protectionSigner, owner, pendingOwner, paused] = await Promise.all([
+  const [asset, arcRepaymentRouter, underwritingSigner, protectionSigner, owner, pendingOwner, paused, fundingTermsTypehash] = await Promise.all([
     escrow.asset(), escrow.arcRepaymentRouter(), escrow.underwritingSigner(), escrow.protectionSigner(),
-    escrow.owner(), escrow.pendingOwner(), escrow.paused(),
+    escrow.owner(), escrow.pendingOwner(), escrow.paused(), escrow.FUNDING_TERMS_TYPEHASH(),
   ])
   assertEqual('asset', asset, address(network.chainId === 196n ? 'XLAYER_MAINNET_USDC_ADDRESS' : 'XLAYER_TEST_USDC_ADDRESS'))
   assertEqual('Arc repayment router', arcRepaymentRouter, address('ARC_REPAYMENT_ROUTER_ADDRESS'))
@@ -58,6 +60,8 @@ async function main() {
   assertEqual('owner', owner, address('UPFRONT_XLAYER_CONTRACT_OWNER'))
   assertEqual('pending owner', pendingOwner, ethers.ZeroAddress)
   if (!paused) throw new Error('New Upfront escrow must remain paused.')
+  const expectedFundingTermsTypehash = ethers.keccak256(ethers.toUtf8Bytes('FundingTerms(bytes32 offerHash,address funder,address repaymentRecipient,address providerArcRecipient,address platformTreasury,uint256 advanceAmount,uint256 funderRepaymentAmount,uint256 platformFeeAmount,uint48 deadline,bytes32 nonce)'))
+  if (fundingTermsTypehash !== expectedFundingTermsTypehash) throw new Error('X Layer escrow does not enforce signed funding terms.')
   const token = await ethers.getContractAt('IERC20', asset)
   const balance = await token.balanceOf(contract)
   const verifyFunder = String(process.env.UPFRONT_VERIFY_FUNDER_ADDRESS ?? '').trim()

@@ -10,9 +10,11 @@ import { minimumUpfrontRemainingSeconds } from './early-pay-timing-policy.js'
 
 const DEFAULT_STORE_KEY = 'hashpaystream:upfront-assessments:v1'
 const POSITION_ABI = [{ type: 'function', name: 'positions', stateMutability: 'view', inputs: [{ name: 'positionId', type: 'bytes32' }], outputs: [
-  { name: 'funder', type: 'address' }, { name: 'repaymentRecipient', type: 'address' }, { name: 'provider', type: 'address' }, { name: 'protectionSigner', type: 'address' },
-  { name: 'termsHash', type: 'bytes32' }, { name: 'intelligenceCommitment', type: 'bytes32' }, { name: 'arcAgreementHash', type: 'bytes32' },
-  { name: 'protectedAmount', type: 'uint256' }, { name: 'advanceAmount', type: 'uint256' }, { name: 'protectionDeadline', type: 'uint48' }, { name: 'status', type: 'uint8' },
+  { name: 'funder', type: 'address' }, { name: 'repaymentRecipient', type: 'address' }, { name: 'provider', type: 'address' },
+  { name: 'providerArcRecipient', type: 'address' }, { name: 'platformTreasury', type: 'address' }, { name: 'protectionSigner', type: 'address' },
+  { name: 'termsHash', type: 'bytes32' }, { name: 'fundingTermsHash', type: 'bytes32' }, { name: 'intelligenceCommitment', type: 'bytes32' },
+  { name: 'arcAgreementHash', type: 'bytes32' }, { name: 'protectedAmount', type: 'uint256' }, { name: 'advanceAmount', type: 'uint256' },
+  { name: 'funderRepaymentAmount', type: 'uint256' }, { name: 'platformFeeAmount', type: 'uint256' }, { name: 'protectionDeadline', type: 'uint48' }, { name: 'status', type: 'uint8' },
 ] }] as const
 
 type Store = { schema: 1; records: Record<string, { ownerReference: string; status: string; request?: AgreementIntelligenceRequest }> }
@@ -81,9 +83,9 @@ async function agreement(id: string, config: Config) {
 async function position(id: Hex, config: Config): Promise<UpfrontPosition> {
   const client = createPublicClient({ transport: http(config.rpcUrl) })
   const value = await client.readContract({ address: config.xLayerEscrow, abi: POSITION_ABI, functionName: 'positions', args: [id] })
-  const [funder, repaymentRecipient, provider, , termsHash, intelligenceCommitment, , protectedAmount, advanceAmount, protectionDeadline, status] = value
+  const [funder, repaymentRecipient, provider, providerArcRecipient, platformTreasury, , termsHash, fundingTermsHash, intelligenceCommitment, , protectedAmount, advanceAmount, funderRepaymentAmount, platformFeeAmount, protectionDeadline, status] = value
   const statusName = status === 1 ? 'Funded' : status === 2 ? 'Released' : status === 3 ? 'Refunded' : failure('X Layer position is not funded.', 409)
-  return { positionId: id, funder, repaymentRecipient, provider, termsHash, intelligenceCommitment, protectedAmount: protectedAmount.toString(), advanceAmount: advanceAmount.toString(), protectionDeadline: Number(protectionDeadline), status: statusName }
+  return { positionId: id, funder, repaymentRecipient, provider, providerArcRecipient, platformTreasury, termsHash, fundingTermsHash, intelligenceCommitment, protectedAmount: protectedAmount.toString(), advanceAmount: advanceAmount.toString(), funderRepaymentAmount: funderRepaymentAmount.toString(), platformFeeAmount: platformFeeAmount.toString(), protectionDeadline: Number(protectionDeadline), status: statusName }
 }
 
 const defaults: Dependencies = { identity, readStore: key => readDurableJson<Store>(key), agreement, position, env: () => process.env, now: () => new Date() }

@@ -8,6 +8,7 @@ export const PROTECTION_TYPES = {
   ProtectionAttestation: [
     { name: 'positionId', type: 'bytes32' }, { name: 'arcAgreementHash', type: 'bytes32' },
     { name: 'arcTermsHash', type: 'bytes32' }, { name: 'termsHash', type: 'bytes32' },
+    { name: 'fundingTermsHash', type: 'bytes32' },
     { name: 'arcRecipient', type: 'address' }, { name: 'funder', type: 'address' },
     { name: 'repaymentRecipient', type: 'address' },
     { name: 'provider', type: 'address' }, { name: 'protectedAmount', type: 'uint256' },
@@ -20,15 +21,18 @@ export const REPAYMENT_TYPES = {
   SplitSettlement: [
     { name: 'arcAgreementHash', type: 'bytes32' }, { name: 'arcTermsHash', type: 'bytes32' },
     { name: 'funder', type: 'address' }, { name: 'provider', type: 'address' },
+    { name: 'treasury', type: 'address' },
     { name: 'funderAmount', type: 'uint256' }, { name: 'providerAmount', type: 'uint256' },
+    { name: 'treasuryAmount', type: 'uint256' },
     { name: 'observedAt', type: 'uint48' }, { name: 'deadline', type: 'uint48' },
   ],
 } as const
 
 export type UpfrontPosition = {
   positionId: Hex; funder: Address; repaymentRecipient: Address; provider: Address; termsHash: Hex
-  intelligenceCommitment: Hex
-  protectedAmount: string; advanceAmount: string; protectionDeadline: number; status: 'Funded' | 'Released' | 'Refunded'
+  providerArcRecipient: Address; platformTreasury: Address; fundingTermsHash: Hex; intelligenceCommitment: Hex
+  protectedAmount: string; advanceAmount: string; funderRepaymentAmount: string; platformFeeAmount: string
+  protectionDeadline: number; status: 'Funded' | 'Released' | 'Refunded'
 }
 
 export type AuthoritativeArcAgreement = {
@@ -54,9 +58,20 @@ function assertBinding(input: {
   if (!/^agr_[a-z0-9]{12,64}$/i.test(agreement.id)) invalid('Arc agreement identity is invalid.')
   if (position.status === 'Refunded') invalid('The X Layer advance has already been refunded.')
   if (!sameAddress(position.provider, request.advance.providerPayoutAddress)) invalid('X Layer provider does not match the assessed agreement.')
+  if (!sameAddress(position.providerArcRecipient, request.settlement.providerRecipient)) invalid('Arc provider recipient does not match the assessed agreement.')
+  if (!/^0x[a-fA-F0-9]{64}$/.test(position.fundingTermsHash) || position.fundingTermsHash === '0x' + '0'.repeat(64)) invalid('Signed funding terms are unavailable.')
+  if (sameAddress(position.repaymentRecipient, position.providerArcRecipient) || sameAddress(position.repaymentRecipient, position.platformTreasury) || sameAddress(position.providerArcRecipient, position.platformTreasury)) invalid('Settlement wallets must be different.')
   if (position.termsHash.toLowerCase() !== ('0x' + request.agreement.termsHash.slice(7)).toLowerCase()) invalid('X Layer terms commitment does not match the assessed agreement.')
   if (position.intelligenceCommitment.toLowerCase() !== ('0x' + agreementIntelligenceRequestHash(request).slice(7)).toLowerCase()) invalid('X Layer intelligence commitment does not match the assessment.')
   if (position.protectedAmount !== request.agreement.amountUsdcUnits) invalid('X Layer protected amount does not match the assessed agreement.')
+  const protectedAmount = BigInt(units(position.protectedAmount))
+  const advanceAmount = BigInt(units(position.advanceAmount))
+  const funderRepaymentAmount = BigInt(units(position.funderRepaymentAmount))
+  const platformFeeAmount = BigInt(units(position.platformFeeAmount))
+  if (
+    advanceAmount <= 0n || funderRepaymentAmount <= advanceAmount || platformFeeAmount <= 0n
+      || funderRepaymentAmount + platformFeeAmount >= protectedAmount
+  ) invalid('X Layer funding terms are invalid.')
   if (
     agreement.template !== 'fixed_unlock' || request.agreement.template !== 'fixed_unlock'
     || !sameText(agreement.title, request.agreement.title)
@@ -85,7 +100,8 @@ export async function signProtectionAttestation(input: {
   if (!Number.isSafeInteger(observedAt) || deadline <= observedAt) invalid('The protection attestation window has expired.')
   const message = {
     positionId: input.position.positionId, arcAgreementHash: chain.onchainAgreementId,
-    arcTermsHash: chain.termsHash, termsHash: input.position.termsHash, arcRecipient: getAddress(input.arcRouter),
+    arcTermsHash: chain.termsHash, termsHash: input.position.termsHash, fundingTermsHash: input.position.fundingTermsHash,
+    arcRecipient: getAddress(input.arcRouter),
     funder: getAddress(input.position.funder), repaymentRecipient: getAddress(input.position.repaymentRecipient),
     provider: getAddress(input.position.provider),
     protectedAmount: BigInt(input.position.protectedAmount), advanceAmount: BigInt(input.position.advanceAmount),
@@ -104,25 +120,27 @@ export async function signSplitSettlement(input: {
   if (input.position.status !== 'Released' || input.agreement.status !== 'completed') invalid('Repayment credit requires a released advance and completed Arc agreement.')
   if (chain.releasedUsdcUnits !== input.position.protectedAmount || chain.remainingUsdcUnits !== '0') invalid('Arc repayment is not complete.')
   const protectedAmount = BigInt(input.position.protectedAmount)
-  const funderAmount = BigInt(input.position.advanceAmount)
-  if (funderAmount <= 0n || funderAmount >= protectedAmount) invalid('The protected payment cannot be split safely.')
-  const providerAmount = protectedAmount - funderAmount
+  const funderAmount = BigInt(input.position.funderRepaymentAmount)
+  const treasuryAmount = BigInt(input.position.platformFeeAmount)
+  if (funderAmount <= 0n || treasuryAmount <= 0n || funderAmount + treasuryAmount >= protectedAmount) invalid('The protected payment cannot be split safely.')
+  const providerAmount = protectedAmount - funderAmount - treasuryAmount
   const funder = getAddress(input.position.repaymentRecipient)
-  const provider = getAddress(input.request.settlement.providerRecipient)
-  if (funder === provider) invalid('The repayment and provider wallets must be different.')
+  const provider = getAddress(input.position.providerArcRecipient)
+  const treasury = getAddress(input.position.platformTreasury)
+  if (funder === provider || funder === treasury || provider === treasury) invalid('Settlement wallets must be different.')
   const observedAt = Math.floor(input.now.getTime() / 1000)
   const deadline = observedAt + 600
   const message = {
     arcAgreementHash: chain.onchainAgreementId, arcTermsHash: chain.termsHash,
-    funder, provider,
-    funderAmount, providerAmount, observedAt, deadline,
+    funder, provider, treasury,
+    funderAmount, providerAmount, treasuryAmount, observedAt, deadline,
   }
   const account = privateKeyToAccount(input.privateKey)
-  const domain = { name: 'HashPayStream Upfront Repayment', version: '2', chainId: 5_042_002, verifyingContract: getAddress(input.arcRouter) } as const
+  const domain = { name: 'HashPayStream Upfront Repayment', version: '3', chainId: 5_042_002, verifyingContract: getAddress(input.arcRouter) } as const
   return {
     domain,
     primaryType: 'SplitSettlement' as const,
-    message: { ...message, funderAmount: message.funderAmount.toString(), providerAmount: message.providerAmount.toString() },
+    message: { ...message, funderAmount: message.funderAmount.toString(), providerAmount: message.providerAmount.toString(), treasuryAmount: message.treasuryAmount.toString() },
     signer: account.address,
     signature: await account.signTypedData({ domain, types: REPAYMENT_TYPES, primaryType: 'SplitSettlement', message }),
   }

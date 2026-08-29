@@ -9,8 +9,10 @@ const settlementTypes = {
     { name: 'arcTermsHash', type: 'bytes32' },
     { name: 'funder', type: 'address' },
     { name: 'provider', type: 'address' },
+    { name: 'treasury', type: 'address' },
     { name: 'funderAmount', type: 'uint256' },
     { name: 'providerAmount', type: 'uint256' },
+    { name: 'treasuryAmount', type: 'uint256' },
     { name: 'observedAt', type: 'uint48' },
     { name: 'deadline', type: 'uint48' },
   ],
@@ -18,62 +20,62 @@ const settlementTypes = {
 
 describe('ArcRepaymentRouter', () => {
   async function fixture() {
-    const [owner, creditSigner, funder, provider, outsider] = await ethers.getSigners()
+    const [owner, creditSigner, funder, provider, treasury, outsider] = await ethers.getSigners()
     const token = await ethers.deployContract('MockUSDC') as unknown as MockUSDC
     const router = await ethers.deployContract('ArcRepaymentRouter', [token.target, creditSigner.address, owner.address]) as unknown as ArcRepaymentRouter
-    const domain = {
-      name: 'HashPayStream Upfront Repayment', version: '2',
-      chainId: (await ethers.provider.getNetwork()).chainId, verifyingContract: await router.getAddress(),
-    }
-    return { owner, creditSigner, funder, provider, outsider, token, router, domain }
+    const domain = { name: 'HashPayStream Upfront Repayment', version: '3', chainId: (await ethers.provider.getNetwork()).chainId, verifyingContract: await router.getAddress() }
+    return { owner, creditSigner, funder, provider, treasury, outsider, token, router, domain }
   }
 
-  it('atomically repays the funder principal and sends the remainder to the provider', async () => {
-    const context = await fixture()
-    const funderAmount = 25_000_000n
-    const providerAmount = 75_000_000n
-    await context.token.mint(await context.router.getAddress(), funderAmount + providerAmount)
+  async function settlement(context: Awaited<ReturnType<typeof fixture>>, seed = 'agreement-1') {
     const observedAt = await time.latest()
-    const settlement = {
-      arcAgreementHash: ethers.keccak256(ethers.toUtf8Bytes('agr_1')),
-      arcTermsHash: ethers.keccak256(ethers.toUtf8Bytes('arc_terms_1')),
-      funder: context.funder.address, provider: context.provider.address,
-      funderAmount, providerAmount, observedAt, deadline: observedAt + 600,
+    return {
+      arcAgreementHash: ethers.keccak256(ethers.toUtf8Bytes(seed)),
+      arcTermsHash: ethers.keccak256(ethers.toUtf8Bytes('arc-terms')),
+      funder: context.funder.address,
+      provider: context.provider.address,
+      treasury: context.treasury.address,
+      funderAmount: 30_240_000n,
+      providerAmount: 68_700_000n,
+      treasuryAmount: 1_060_000n,
+      observedAt,
+      deadline: observedAt + 600,
     }
-    const signature = await context.creditSigner.signTypedData(context.domain, settlementTypes, settlement)
-    await expect(context.router.connect(context.outsider).settleRepayment(settlement, signature))
+  }
+
+  it('atomically pays the funder, provider, and HashPayStream treasury', async () => {
+    const context = await fixture()
+    const message = await settlement(context)
+    await context.token.mint(await context.router.getAddress(), 100_000_000n)
+    const signature = await context.creditSigner.signTypedData(context.domain, settlementTypes, message)
+    await expect(context.router.connect(context.outsider).settleRepayment(message, signature))
       .to.emit(context.router, 'RepaymentSettled')
-      .withArgs(settlement.arcAgreementHash, settlement.arcTermsHash, context.funder.address, context.provider.address, funderAmount, providerAmount)
-    expect(await context.token.balanceOf(context.funder.address)).to.equal(funderAmount)
-    expect(await context.token.balanceOf(context.provider.address)).to.equal(providerAmount)
-    await expect(context.router.settleRepayment(settlement, signature)).to.be.revertedWithCustomError(context.router, 'AgreementAlreadyCredited')
+      .withArgs(message.arcAgreementHash, message.arcTermsHash, context.funder.address, context.provider.address, context.treasury.address, message.funderAmount, message.providerAmount, message.treasuryAmount)
+    expect(await context.token.balanceOf(context.funder.address)).to.equal(message.funderAmount)
+    expect(await context.token.balanceOf(context.provider.address)).to.equal(message.providerAmount)
+    expect(await context.token.balanceOf(context.treasury.address)).to.equal(message.treasuryAmount)
+    await expect(context.router.settleRepayment(message, signature)).to.be.revertedWithCustomError(context.router, 'AgreementAlreadyCredited')
   })
 
-  it('rejects unbacked or incorrectly signed credits', async () => {
+  it('rejects a tampered amount or signer', async () => {
     const context = await fixture()
-    const observedAt = await time.latest()
-    const settlement = {
-      arcAgreementHash: ethers.keccak256(ethers.toUtf8Bytes('agr_2')),
-      arcTermsHash: ethers.keccak256(ethers.toUtf8Bytes('arc_terms_2')),
-      funder: context.funder.address, provider: context.provider.address,
-      funderAmount: 10_000_000n, providerAmount: 40_000_000n, observedAt, deadline: observedAt + 600,
-    }
-    const badSignature = await context.outsider.signTypedData(context.domain, settlementTypes, settlement)
-    await expect(context.router.settleRepayment(settlement, badSignature)).to.be.revertedWithCustomError(context.router, 'InvalidSignature')
-    const signature = await context.creditSigner.signTypedData(context.domain, settlementTypes, settlement)
-    await expect(context.router.settleRepayment(settlement, signature)).to.be.revertedWithCustomError(context.router, 'InsufficientRepaymentBalance')
+    const message = await settlement(context)
+    await context.token.mint(await context.router.getAddress(), 100_000_000n)
+    const badSignature = await context.outsider.signTypedData(context.domain, settlementTypes, message)
+    await expect(context.router.settleRepayment(message, badSignature)).to.be.revertedWithCustomError(context.router, 'InvalidSignature')
+    const signature = await context.creditSigner.signTypedData(context.domain, settlementTypes, message)
+    await expect(context.router.settleRepayment({ ...message, treasuryAmount: message.treasuryAmount + 1n }, signature)).to.be.revertedWithCustomError(context.router, 'InvalidSignature')
   })
 
-  it('rejects a settlement without a real split', async () => {
+  it('rejects an unbacked, expired, or non-distinct split', async () => {
     const context = await fixture()
-    const observedAt = await time.latest()
-    const settlement = {
-      arcAgreementHash: ethers.keccak256(ethers.toUtf8Bytes('agr_3')),
-      arcTermsHash: ethers.keccak256(ethers.toUtf8Bytes('arc_terms_3')),
-      funder: context.funder.address, provider: context.provider.address,
-      funderAmount: 50_000_000n, providerAmount: 0n, observedAt, deadline: observedAt + 600,
-    }
-    const signature = await context.creditSigner.signTypedData(context.domain, settlementTypes, settlement)
-    await expect(context.router.settleRepayment(settlement, signature)).to.be.revertedWithCustomError(context.router, 'InvalidCredit')
+    const message = await settlement(context)
+    const signature = await context.creditSigner.signTypedData(context.domain, settlementTypes, message)
+    await expect(context.router.settleRepayment(message, signature)).to.be.revertedWithCustomError(context.router, 'InsufficientRepaymentBalance')
+    await time.increaseTo(message.deadline + 1)
+    await expect(context.router.settleRepayment(message, signature)).to.be.revertedWithCustomError(context.router, 'InvalidCredit')
+    const invalid = { ...await settlement(context, 'agreement-2'), treasury: context.provider.address }
+    const invalidSignature = await context.creditSigner.signTypedData(context.domain, settlementTypes, invalid)
+    await expect(context.router.settleRepayment(invalid, invalidSignature)).to.be.revertedWithCustomError(context.router, 'InvalidCredit')
   })
 })

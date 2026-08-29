@@ -23,7 +23,10 @@ contract UpfrontAdvanceEscrow is EIP712, Ownable2Step, Pausable, ReentrancyGuard
         'UnderwritingOffer(address provider,bytes32 termsHash,bytes32 intelligenceCommitment,uint256 protectedAmount,uint16 maxAdvanceBps,uint48 protectionDeadline,uint48 underwritingDeadline,bytes32 nonce)'
     );
     bytes32 public constant PROTECTION_ATTESTATION_TYPEHASH = keccak256(
-        'ProtectionAttestation(bytes32 positionId,bytes32 arcAgreementHash,bytes32 arcTermsHash,bytes32 termsHash,address arcRecipient,address funder,address repaymentRecipient,address provider,uint256 protectedAmount,uint256 advanceAmount,uint48 observedAt,uint48 deadline)'
+        'ProtectionAttestation(bytes32 positionId,bytes32 arcAgreementHash,bytes32 arcTermsHash,bytes32 termsHash,bytes32 fundingTermsHash,address arcRecipient,address funder,address repaymentRecipient,address provider,uint256 protectedAmount,uint256 advanceAmount,uint48 observedAt,uint48 deadline)'
+    );
+    bytes32 public constant FUNDING_TERMS_TYPEHASH = keccak256(
+        'FundingTerms(bytes32 offerHash,address funder,address repaymentRecipient,address providerArcRecipient,address platformTreasury,uint256 advanceAmount,uint256 funderRepaymentAmount,uint256 platformFeeAmount,uint48 deadline,bytes32 nonce)'
     );
 
     enum Status {
@@ -49,6 +52,7 @@ contract UpfrontAdvanceEscrow is EIP712, Ownable2Step, Pausable, ReentrancyGuard
         bytes32 arcAgreementHash;
         bytes32 arcTermsHash;
         bytes32 termsHash;
+        bytes32 fundingTermsHash;
         address arcRecipient;
         address funder;
         address repaymentRecipient;
@@ -59,16 +63,34 @@ contract UpfrontAdvanceEscrow is EIP712, Ownable2Step, Pausable, ReentrancyGuard
         uint48 deadline;
     }
 
+    struct FundingTerms {
+        bytes32 offerHash;
+        address funder;
+        address repaymentRecipient;
+        address providerArcRecipient;
+        address platformTreasury;
+        uint256 advanceAmount;
+        uint256 funderRepaymentAmount;
+        uint256 platformFeeAmount;
+        uint48 deadline;
+        bytes32 nonce;
+    }
+
     struct Position {
         address funder;
         address repaymentRecipient;
         address provider;
+        address providerArcRecipient;
+        address platformTreasury;
         address protectionSigner;
         bytes32 termsHash;
+        bytes32 fundingTermsHash;
         bytes32 intelligenceCommitment;
         bytes32 arcAgreementHash;
         uint256 protectedAmount;
         uint256 advanceAmount;
+        uint256 funderRepaymentAmount;
+        uint256 platformFeeAmount;
         uint48 protectionDeadline;
         Status status;
     }
@@ -101,8 +123,12 @@ contract UpfrontAdvanceEscrow is EIP712, Ownable2Step, Pausable, ReentrancyGuard
         address indexed funder,
         address indexed provider,
         address repaymentRecipient,
+        address providerArcRecipient,
+        address platformTreasury,
         uint256 protectedAmount,
         uint256 advanceAmount,
+        uint256 funderRepaymentAmount,
+        uint256 platformFeeAmount,
         bytes32 termsHash,
         bytes32 intelligenceCommitment,
         uint48 protectionDeadline
@@ -182,6 +208,7 @@ contract UpfrontAdvanceEscrow is EIP712, Ownable2Step, Pausable, ReentrancyGuard
             attestation.arcAgreementHash,
             attestation.arcTermsHash,
             attestation.termsHash,
+            attestation.fundingTermsHash,
             attestation.arcRecipient,
             attestation.funder,
             attestation.repaymentRecipient,
@@ -193,51 +220,94 @@ contract UpfrontAdvanceEscrow is EIP712, Ownable2Step, Pausable, ReentrancyGuard
         )));
     }
 
+    function hashFundingTerms(FundingTerms calldata terms) public view returns (bytes32) {
+        return _hashTypedDataV4(keccak256(abi.encode(
+            FUNDING_TERMS_TYPEHASH,
+            terms.offerHash,
+            terms.funder,
+            terms.repaymentRecipient,
+            terms.providerArcRecipient,
+            terms.platformTreasury,
+            terms.advanceAmount,
+            terms.funderRepaymentAmount,
+            terms.platformFeeAmount,
+            terms.deadline,
+            terms.nonce
+        )));
+    }
+
     function fundAdvance(
         UnderwritingOffer calldata offer,
-        uint256 advanceAmount,
-        address repaymentRecipient,
-        bytes calldata underwritingSignature
+        FundingTerms calldata fundingTerms,
+        bytes calldata underwritingSignature,
+        bytes calldata fundingTermsSignature,
+        bytes calldata providerSignature
     ) external whenNotPaused nonReentrant returns (bytes32 positionId) {
         if (!allowedFunders[msg.sender]) revert FunderNotAllowed();
-        if (offer.provider == address(0) || repaymentRecipient == address(0)) revert InvalidAddress();
+        if (
+            offer.provider == address(0) || fundingTerms.repaymentRecipient == address(0)
+                || fundingTerms.providerArcRecipient == address(0) || fundingTerms.platformTreasury == address(0)
+        ) revert InvalidAddress();
         if (offer.termsHash == bytes32(0) || offer.intelligenceCommitment == bytes32(0)) revert ProtectionMismatch();
-        if (offer.protectedAmount == 0 || advanceAmount == 0) revert InvalidAmount();
+        if (
+            offer.protectedAmount == 0 || fundingTerms.advanceAmount == 0
+                || fundingTerms.funderRepaymentAmount <= fundingTerms.advanceAmount || fundingTerms.platformFeeAmount == 0
+                || fundingTerms.funderRepaymentAmount + fundingTerms.platformFeeAmount >= offer.protectedAmount
+        ) revert InvalidAmount();
         if (offer.maxAdvanceBps < MIN_ADVANCE_BPS || offer.maxAdvanceBps > MAX_ADVANCE_BPS) revert InvalidAdvanceRate();
         if (
             block.timestamp > offer.underwritingDeadline
                 || offer.protectionDeadline <= offer.underwritingDeadline
                 || offer.protectionDeadline > block.timestamp + MAX_PROTECTION_WINDOW
         ) revert InvalidDeadline();
-        if (advanceAmount > offer.protectedAmount * offer.maxAdvanceBps / BPS_DENOMINATOR) revert InvalidAmount();
+        if (fundingTerms.advanceAmount > offer.protectedAmount * offer.maxAdvanceBps / BPS_DENOMINATOR) revert InvalidAmount();
         positionId = hashUnderwritingOffer(offer);
         if (positions[positionId].status != Status.None) revert OfferAlreadyUsed();
         if (ECDSA.recover(positionId, underwritingSignature) != underwritingSigner) revert InvalidSignature();
+        bytes32 fundingTermsHash = hashFundingTerms(fundingTerms);
+        if (
+            fundingTerms.offerHash != positionId || fundingTerms.funder != msg.sender
+                || fundingTerms.deadline > offer.underwritingDeadline || block.timestamp > fundingTerms.deadline
+                || fundingTerms.providerArcRecipient == fundingTerms.repaymentRecipient
+                || fundingTerms.providerArcRecipient == fundingTerms.platformTreasury
+                || fundingTerms.repaymentRecipient == fundingTerms.platformTreasury
+        ) revert ProtectionMismatch();
+        if (ECDSA.recover(fundingTermsHash, fundingTermsSignature) != protectionSigner) revert InvalidSignature();
+        if (ECDSA.recover(fundingTermsHash, providerSignature) != offer.provider) revert InvalidSignature();
 
         positions[positionId] = Position({
             funder: msg.sender,
-            repaymentRecipient: repaymentRecipient,
+            repaymentRecipient: fundingTerms.repaymentRecipient,
             provider: offer.provider,
+            providerArcRecipient: fundingTerms.providerArcRecipient,
+            platformTreasury: fundingTerms.platformTreasury,
             protectionSigner: protectionSigner,
             termsHash: offer.termsHash,
+            fundingTermsHash: fundingTermsHash,
             intelligenceCommitment: offer.intelligenceCommitment,
             arcAgreementHash: bytes32(0),
             protectedAmount: offer.protectedAmount,
-            advanceAmount: advanceAmount,
+            advanceAmount: fundingTerms.advanceAmount,
+            funderRepaymentAmount: fundingTerms.funderRepaymentAmount,
+            platformFeeAmount: fundingTerms.platformFeeAmount,
             protectionDeadline: offer.protectionDeadline,
             status: Status.Funded
         });
         uint256 balanceBefore = asset.balanceOf(address(this));
-        asset.safeTransferFrom(msg.sender, address(this), advanceAmount);
-        if (asset.balanceOf(address(this)) - balanceBefore != advanceAmount) revert UnsupportedTransferFee();
+        asset.safeTransferFrom(msg.sender, address(this), fundingTerms.advanceAmount);
+        if (asset.balanceOf(address(this)) - balanceBefore != fundingTerms.advanceAmount) revert UnsupportedTransferFee();
 
         emit AdvanceFunded(
             positionId,
             msg.sender,
             offer.provider,
-            repaymentRecipient,
+            fundingTerms.repaymentRecipient,
+            fundingTerms.providerArcRecipient,
+            fundingTerms.platformTreasury,
             offer.protectedAmount,
-            advanceAmount,
+            fundingTerms.advanceAmount,
+            fundingTerms.funderRepaymentAmount,
+            fundingTerms.platformFeeAmount,
             offer.termsHash,
             offer.intelligenceCommitment,
             offer.protectionDeadline
@@ -254,6 +324,7 @@ contract UpfrontAdvanceEscrow is EIP712, Ownable2Step, Pausable, ReentrancyGuard
             attestation.arcAgreementHash == bytes32(0)
                 || attestation.arcTermsHash == bytes32(0)
                 || attestation.termsHash != position.termsHash
+                || attestation.fundingTermsHash != position.fundingTermsHash
                 || attestation.arcRecipient != arcRepaymentRouter
                 || attestation.funder != position.funder
                 || attestation.repaymentRecipient != position.repaymentRecipient

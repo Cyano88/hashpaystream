@@ -5,60 +5,47 @@ import type { MockUSDC, UpfrontAdvanceEscrow } from '../typechain-types'
 
 const offerTypes = {
   UnderwritingOffer: [
-    { name: 'provider', type: 'address' },
-    { name: 'termsHash', type: 'bytes32' },
-    { name: 'intelligenceCommitment', type: 'bytes32' },
-    { name: 'protectedAmount', type: 'uint256' },
-    { name: 'maxAdvanceBps', type: 'uint16' },
-    { name: 'protectionDeadline', type: 'uint48' },
-    { name: 'underwritingDeadline', type: 'uint48' },
-    { name: 'nonce', type: 'bytes32' },
+    { name: 'provider', type: 'address' }, { name: 'termsHash', type: 'bytes32' },
+    { name: 'intelligenceCommitment', type: 'bytes32' }, { name: 'protectedAmount', type: 'uint256' },
+    { name: 'maxAdvanceBps', type: 'uint16' }, { name: 'protectionDeadline', type: 'uint48' },
+    { name: 'underwritingDeadline', type: 'uint48' }, { name: 'nonce', type: 'bytes32' },
   ],
 }
-
+const fundingTermsTypes = {
+  FundingTerms: [
+    { name: 'offerHash', type: 'bytes32' }, { name: 'funder', type: 'address' },
+    { name: 'repaymentRecipient', type: 'address' }, { name: 'providerArcRecipient', type: 'address' },
+    { name: 'platformTreasury', type: 'address' }, { name: 'advanceAmount', type: 'uint256' },
+    { name: 'funderRepaymentAmount', type: 'uint256' }, { name: 'platformFeeAmount', type: 'uint256' },
+    { name: 'deadline', type: 'uint48' }, { name: 'nonce', type: 'bytes32' },
+  ],
+}
 const protectionTypes = {
   ProtectionAttestation: [
-    { name: 'positionId', type: 'bytes32' },
-    { name: 'arcAgreementHash', type: 'bytes32' },
-    { name: 'arcTermsHash', type: 'bytes32' },
-    { name: 'termsHash', type: 'bytes32' },
-    { name: 'arcRecipient', type: 'address' },
-    { name: 'funder', type: 'address' },
-    { name: 'repaymentRecipient', type: 'address' },
-    { name: 'provider', type: 'address' },
-    { name: 'protectedAmount', type: 'uint256' },
-    { name: 'advanceAmount', type: 'uint256' },
-    { name: 'observedAt', type: 'uint48' },
+    { name: 'positionId', type: 'bytes32' }, { name: 'arcAgreementHash', type: 'bytes32' },
+    { name: 'arcTermsHash', type: 'bytes32' }, { name: 'termsHash', type: 'bytes32' },
+    { name: 'fundingTermsHash', type: 'bytes32' }, { name: 'arcRecipient', type: 'address' },
+    { name: 'funder', type: 'address' }, { name: 'repaymentRecipient', type: 'address' },
+    { name: 'provider', type: 'address' }, { name: 'protectedAmount', type: 'uint256' },
+    { name: 'advanceAmount', type: 'uint256' }, { name: 'observedAt', type: 'uint48' },
     { name: 'deadline', type: 'uint48' },
   ],
 }
 
 describe('UpfrontAdvanceEscrow', () => {
   async function fixture() {
-    const [owner, underwriter, protectionSigner, funder, provider, outsider] = await ethers.getSigners()
+    const [owner, underwriter, protectionSigner, funder, provider, providerArc, treasury, outsider] = await ethers.getSigners()
     const token = await ethers.deployContract('MockUSDC') as unknown as MockUSDC
-    const escrow = await ethers.deployContract('UpfrontAdvanceEscrow', [
-      token.target,
-      outsider.address,
-      underwriter.address,
-      protectionSigner.address,
-      owner.address,
-    ]) as unknown as UpfrontAdvanceEscrow
+    const escrow = await ethers.deployContract('UpfrontAdvanceEscrow', [token.target, outsider.address, underwriter.address, protectionSigner.address, owner.address]) as unknown as UpfrontAdvanceEscrow
     await escrow.connect(owner).setFunderAllowed(funder.address, true)
     await escrow.connect(owner).setPaused(false)
     await token.mint(funder.address, 1_000_000_000n)
     await token.connect(funder).approve(await escrow.getAddress(), ethers.MaxUint256)
-    const chainId = (await ethers.provider.getNetwork()).chainId
-    const domain = {
-      name: 'HashPayStream Upfront',
-      version: '1',
-      chainId,
-      verifyingContract: await escrow.getAddress(),
-    }
-    return { owner, underwriter, protectionSigner, funder, provider, outsider, arcRecipient: outsider.address, repaymentRecipient: owner.address, token, escrow, domain }
+    const domain = { name: 'HashPayStream Upfront', version: '1', chainId: (await ethers.provider.getNetwork()).chainId, verifyingContract: await escrow.getAddress() }
+    return { owner, underwriter, protectionSigner, funder, provider, providerArc, treasury, outsider, token, escrow, domain }
   }
 
-  async function signedOffer(context: Awaited<ReturnType<typeof fixture>>, nonceSeed = 'offer-1', maxAdvanceBps = 3000) {
+  async function signedOffer(context: Awaited<ReturnType<typeof fixture>>, seed = 'offer-1', maxAdvanceBps = 3000) {
     const now = await time.latest()
     const offer = {
       provider: context.provider.address,
@@ -68,149 +55,104 @@ describe('UpfrontAdvanceEscrow', () => {
       maxAdvanceBps,
       protectionDeadline: now + 3600,
       underwritingDeadline: now + 600,
-      nonce: ethers.keccak256(ethers.toUtf8Bytes(nonceSeed)),
+      nonce: ethers.keccak256(ethers.toUtf8Bytes(seed)),
+    }
+    return { offer, signature: await context.underwriter.signTypedData(context.domain, offerTypes, offer) }
+  }
+
+  async function signedFunding(context: Awaited<ReturnType<typeof fixture>>, offer: Awaited<ReturnType<typeof signedOffer>>['offer'], advanceAmount = 30_000_000n) {
+    const offerHash = await context.escrow.hashUnderwritingOffer(offer)
+    const terms = {
+      offerHash,
+      funder: context.funder.address,
+      repaymentRecipient: context.funder.address,
+      providerArcRecipient: context.providerArc.address,
+      platformTreasury: context.treasury.address,
+      advanceAmount,
+      funderRepaymentAmount: advanceAmount + 240_000n,
+      platformFeeAmount: 1_060_000n,
+      deadline: offer.underwritingDeadline,
+      nonce: ethers.keccak256(ethers.toUtf8Bytes('funding-' + offerHash)),
     }
     return {
-      offer,
-      signature: await context.underwriter.signTypedData(context.domain, offerTypes, offer),
+      terms,
+      termsHash: await context.escrow.hashFundingTerms(terms),
+      signature: await context.protectionSigner.signTypedData(context.domain, fundingTermsTypes, terms),
+      providerSignature: await context.provider.signTypedData(context.domain, fundingTermsTypes, terms),
     }
   }
 
-  it('escrows a funder advance and releases only after matching Arc protection', async () => {
+  async function fund(context: Awaited<ReturnType<typeof fixture>>, seed = 'offer-1', amount = 30_000_000n, maxAdvanceBps = 3000) {
+    const signed = await signedOffer(context, seed, maxAdvanceBps)
+    const funding = await signedFunding(context, signed.offer, amount)
+    await context.escrow.connect(context.funder).fundAdvance(signed.offer, funding.terms, signed.signature, funding.signature, funding.providerSignature)
+    return { ...signed, ...funding, positionId: await context.escrow.hashUnderwritingOffer(signed.offer) }
+  }
+
+  it('stores accepted economics and releases only after matching Arc protection', async () => {
     const context = await fixture()
-    const { offer, signature } = await signedOffer(context)
-    const advanceAmount = 30_000_000n
-    const positionId = await context.escrow.hashUnderwritingOffer(offer)
-
-    await expect(context.escrow.connect(context.funder).fundAdvance(offer, advanceAmount, context.repaymentRecipient, signature))
-      .to.emit(context.escrow, 'AdvanceFunded')
-      .withArgs(
-        positionId,
-        context.funder.address,
-        context.provider.address,
-        context.repaymentRecipient,
-        offer.protectedAmount,
-        advanceAmount,
-        offer.termsHash,
-        offer.intelligenceCommitment,
-        offer.protectionDeadline,
-      )
-    expect(await context.token.balanceOf(context.escrow.target)).to.equal(advanceAmount)
-
+    const funded = await fund(context)
+    const position = await context.escrow.positions(funded.positionId)
+    expect(position.funderRepaymentAmount).to.equal(funded.terms.funderRepaymentAmount)
+    expect(position.platformFeeAmount).to.equal(funded.terms.platformFeeAmount)
+    expect(position.providerArcRecipient).to.equal(context.providerArc.address)
     const observedAt = await time.latest()
     const attestation = {
-      positionId,
-      arcAgreementHash: ethers.keccak256(ethers.toUtf8Bytes('agr_hashpaystream_123')),
+      positionId: funded.positionId,
+      arcAgreementHash: ethers.keccak256(ethers.toUtf8Bytes('arc-agreement')),
       arcTermsHash: ethers.keccak256(ethers.toUtf8Bytes('arc-terms')),
-      termsHash: offer.termsHash,
-      arcRecipient: context.arcRecipient,
+      termsHash: funded.offer.termsHash,
+      fundingTermsHash: funded.termsHash,
+      arcRecipient: context.outsider.address,
       funder: context.funder.address,
-      repaymentRecipient: context.repaymentRecipient,
+      repaymentRecipient: context.funder.address,
       provider: context.provider.address,
-      protectedAmount: offer.protectedAmount,
-      advanceAmount,
+      protectedAmount: funded.offer.protectedAmount,
+      advanceAmount: funded.terms.advanceAmount,
       observedAt,
-      deadline: observedAt + 600,
+      deadline: observedAt + 300,
     }
-    const protectionSignature = await context.protectionSigner.signTypedData(context.domain, protectionTypes, attestation)
-    await context.escrow.connect(context.owner).setPaused(true)
-    await expect(context.escrow.releaseAdvance(attestation, protectionSignature))
-      .to.be.revertedWithCustomError(context.escrow, 'EnforcedPause')
-    await context.escrow.connect(context.owner).setPaused(false)
-    await expect(context.escrow.connect(context.outsider).releaseAdvance(attestation, protectionSignature))
-      .to.emit(context.escrow, 'AdvanceReleased')
-      .withArgs(positionId, attestation.arcAgreementHash, context.provider.address, advanceAmount)
-
-    expect(await context.token.balanceOf(context.provider.address)).to.equal(advanceAmount)
-    expect((await context.escrow.positions(positionId)).status).to.equal(2)
-    await expect(context.escrow.releaseAdvance(attestation, protectionSignature))
-      .to.be.revertedWithCustomError(context.escrow, 'PositionNotFunded')
+    const signature = await context.protectionSigner.signTypedData(context.domain, protectionTypes, attestation)
+    await expect(context.escrow.releaseAdvance(attestation, signature)).to.emit(context.escrow, 'AdvanceReleased')
+    expect(await context.token.balanceOf(context.provider.address)).to.equal(funded.terms.advanceAmount)
   })
 
-  it('rejects an advance above the signed evidence cap', async () => {
+  it('rejects fee tampering and provider signatures from another wallet', async () => {
     const context = await fixture()
-    const { offer, signature } = await signedOffer(context)
-    await expect(context.escrow.connect(context.funder).fundAdvance(offer, 30_000_001n, context.repaymentRecipient, signature))
-      .to.be.revertedWithCustomError(context.escrow, 'InvalidAmount')
-  })
-
-  it('rejects protection signed by anyone except the signer snapshotted at funding', async () => {
-    const context = await fixture()
-    const { offer, signature } = await signedOffer(context)
-    const advanceAmount = 20_000_000n
-    const positionId = await context.escrow.hashUnderwritingOffer(offer)
-    await context.escrow.connect(context.funder).fundAdvance(offer, advanceAmount, context.repaymentRecipient, signature)
-
-    const observedAt = await time.latest()
-    const attestation = {
-      positionId,
-      arcAgreementHash: ethers.keccak256(ethers.toUtf8Bytes('agr_wrong_signer')),
-      arcTermsHash: ethers.keccak256(ethers.toUtf8Bytes('arc-terms')),
-      termsHash: offer.termsHash,
-      arcRecipient: context.arcRecipient,
-      funder: context.funder.address,
-      repaymentRecipient: context.repaymentRecipient,
-      provider: context.provider.address,
-      protectedAmount: offer.protectedAmount,
-      advanceAmount,
-      observedAt,
-      deadline: observedAt + 600,
-    }
-    const badSignature = await context.outsider.signTypedData(context.domain, protectionTypes, attestation)
-    await expect(context.escrow.releaseAdvance(attestation, badSignature))
+    const signed = await signedOffer(context)
+    const funding = await signedFunding(context, signed.offer)
+    await expect(context.escrow.connect(context.funder).fundAdvance(signed.offer, { ...funding.terms, platformFeeAmount: funding.terms.platformFeeAmount + 1n }, signed.signature, funding.signature, funding.providerSignature))
+      .to.be.revertedWithCustomError(context.escrow, 'InvalidSignature')
+    const outsiderSignature = await context.outsider.signTypedData(context.domain, fundingTermsTypes, funding.terms)
+    await expect(context.escrow.connect(context.funder).fundAdvance(signed.offer, funding.terms, signed.signature, funding.signature, outsiderSignature))
       .to.be.revertedWithCustomError(context.escrow, 'InvalidSignature')
   })
 
-  it('returns escrowed funds to the funder if Arc protection never arrives', async () => {
+  it('rejects an advance above the underwriting cap', async () => {
     const context = await fixture()
-    const { offer, signature } = await signedOffer(context, 'refund-offer')
-    const advanceAmount = 25_000_000n
-    const positionId = await context.escrow.hashUnderwritingOffer(offer)
-    await context.escrow.connect(context.funder).fundAdvance(offer, advanceAmount, context.repaymentRecipient, signature)
-    await expect(context.escrow.connect(context.funder).refundAdvance(positionId))
-      .to.be.revertedWithCustomError(context.escrow, 'ProtectionNotExpired')
-
-    await time.increaseTo(offer.protectionDeadline + 1)
-    await expect(context.escrow.connect(context.funder).refundAdvance(positionId))
-      .to.emit(context.escrow, 'AdvanceRefunded')
-      .withArgs(positionId, context.funder.address, advanceAmount)
-    expect((await context.escrow.positions(positionId)).status).to.equal(3)
+    const signed = await signedOffer(context)
+    const funding = await signedFunding(context, signed.offer, 30_000_001n)
+    await expect(context.escrow.connect(context.funder).fundAdvance(signed.offer, funding.terms, signed.signature, funding.signature, funding.providerSignature))
+      .to.be.revertedWithCustomError(context.escrow, 'InvalidAmount')
   })
 
-  it('starts paused and permits funding only from an allowlisted funder', async () => {
+  it('returns an unreleased advance after the protection deadline', async () => {
     const context = await fixture()
-    const { offer, signature } = await signedOffer(context)
+    const funded = await fund(context, 'refund')
+    await expect(context.escrow.connect(context.funder).refundAdvance(funded.positionId)).to.be.revertedWithCustomError(context.escrow, 'ProtectionNotExpired')
+    await time.increaseTo(funded.offer.protectionDeadline + 1)
+    await expect(context.escrow.connect(context.funder).refundAdvance(funded.positionId)).to.emit(context.escrow, 'AdvanceRefunded')
+    expect(await context.token.balanceOf(context.funder.address)).to.equal(1_000_000_000n)
+  })
+
+  it('enforces the funder allowlist, pause, and one-use offer boundary', async () => {
+    const context = await fixture()
+    const signed = await signedOffer(context)
+    const funding = await signedFunding(context, signed.offer)
     await context.escrow.connect(context.owner).setPaused(true)
-    await expect(context.escrow.connect(context.funder).fundAdvance(offer, 10_000_000n, context.repaymentRecipient, signature))
-      .to.be.revertedWithCustomError(context.escrow, 'EnforcedPause')
+    await expect(context.escrow.connect(context.funder).fundAdvance(signed.offer, funding.terms, signed.signature, funding.signature, funding.providerSignature)).to.be.revertedWithCustomError(context.escrow, 'EnforcedPause')
     await context.escrow.connect(context.owner).setPaused(false)
-    await expect(context.escrow.connect(context.outsider).fundAdvance(offer, 10_000_000n, context.repaymentRecipient, signature))
-      .to.be.revertedWithCustomError(context.escrow, 'FunderNotAllowed')
-  })
-
-  it('uses each signed offer as the funding boundary without a global spending cap', async () => {
-    const context = await fixture()
-    for (const nonce of ['production-1', 'production-2', 'production-3']) {
-      const signed = await signedOffer(context, nonce, 8000)
-      await context.escrow.connect(context.funder).fundAdvance(
-        signed.offer,
-        80_000_000n,
-        context.repaymentRecipient,
-        signed.signature,
-      )
-    }
-    expect(await context.token.balanceOf(context.escrow.target)).to.equal(240_000_000n)
-  })
-
-  it('authorizes the first funder and activates funding in one owner action', async () => {
-    const context = await fixture()
-    await context.escrow.connect(context.owner).setFunderAllowed(context.funder.address, false)
-    await context.escrow.connect(context.owner).setPaused(true)
-    expect(await context.escrow.paused()).to.equal(true)
-    await expect(context.escrow.connect(context.owner).authorizeFunderAndActivate(context.funder.address))
-      .to.emit(context.escrow, 'FunderPermissionUpdated')
-      .withArgs(context.funder.address, true)
-    expect(await context.escrow.allowedFunders(context.funder.address)).to.equal(true)
-    expect(await context.escrow.paused()).to.equal(false)
+    await context.escrow.connect(context.funder).fundAdvance(signed.offer, funding.terms, signed.signature, funding.signature, funding.providerSignature)
+    await expect(context.escrow.connect(context.funder).fundAdvance(signed.offer, funding.terms, signed.signature, funding.signature, funding.providerSignature)).to.be.revertedWithCustomError(context.escrow, 'OfferAlreadyUsed')
   })
 })

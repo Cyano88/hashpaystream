@@ -1,11 +1,13 @@
 import { createHmac } from 'node:crypto'
 import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
-import { createPublicClient, getAddress, hashTypedData, http, isAddress, type Address, type Hex } from 'viem'
+import { createPublicClient, getAddress, hashTypedData, http, isAddress, keccak256, recoverTypedDataAddress, toBytes, type Address, type Hex } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import { mutateDurableJson, readDurableJson } from './durable-store.js'
 import type { UpfrontAssessmentRecord, UpfrontAssessmentStore } from './upfront-assessment.js'
 import { fundingPartnerAccountKey, type FundingPartnerRecord, type FundingPartnerStore } from './funding-partners.js'
 import { hasMinimumUpfrontProtectionWindow, minimumUpfrontRemainingSeconds } from './early-pay-timing-policy.js'
+import { FUNDING_TERMS_TYPES, signFundingTerms, type SignedFundingTerms } from './upfront-funding-terms.js'
 
 const DEFAULT_STORE_KEY = 'hashpaystream:upfront-assessments:v1'
 const DEFAULT_PARTNER_STORE_KEY = 'hashpaystream:funding-partners:v1'
@@ -14,6 +16,7 @@ const NATIVE_XLAYER_USDC = getAddress('0xB6CEceAB302E2E4948951eE7843FC24E9293306
 
 type Identity = { userId: string; emails: string[]; wallets: Address[] }
 type ChainConfig = { rpcUrl: string; escrow: Address; chainId: number }
+type TermsConfig = { privateKey: Hex; signer: Address; treasury: Address }
 type PositionState = { funder: Address; repaymentRecipient: Address; status: 'available' | 'funded' | 'released' | 'refunded' }
 type Capacity = { balance: bigint; allowed: boolean }
 type Dependencies = {
@@ -28,9 +31,11 @@ type Dependencies = {
 }
 
 const POSITION_ABI = [{ type: 'function', name: 'positions', stateMutability: 'view', inputs: [{ name: 'positionId', type: 'bytes32' }], outputs: [
-  { name: 'funder', type: 'address' }, { name: 'repaymentRecipient', type: 'address' }, { name: 'provider', type: 'address' }, { name: 'protectionSigner', type: 'address' },
-  { name: 'termsHash', type: 'bytes32' }, { name: 'intelligenceCommitment', type: 'bytes32' }, { name: 'arcAgreementHash', type: 'bytes32' },
-  { name: 'protectedAmount', type: 'uint256' }, { name: 'advanceAmount', type: 'uint256' }, { name: 'protectionDeadline', type: 'uint48' }, { name: 'status', type: 'uint8' },
+  { name: 'funder', type: 'address' }, { name: 'repaymentRecipient', type: 'address' }, { name: 'provider', type: 'address' },
+  { name: 'providerArcRecipient', type: 'address' }, { name: 'platformTreasury', type: 'address' }, { name: 'protectionSigner', type: 'address' },
+  { name: 'termsHash', type: 'bytes32' }, { name: 'fundingTermsHash', type: 'bytes32' }, { name: 'intelligenceCommitment', type: 'bytes32' },
+  { name: 'arcAgreementHash', type: 'bytes32' }, { name: 'protectedAmount', type: 'uint256' }, { name: 'advanceAmount', type: 'uint256' },
+  { name: 'funderRepaymentAmount', type: 'uint256' }, { name: 'platformFeeAmount', type: 'uint256' }, { name: 'protectionDeadline', type: 'uint48' }, { name: 'status', type: 'uint8' },
 ] }] as const
 const ESCROW_ABI = [{ type: 'function', name: 'allowedFunders', stateMutability: 'view', inputs: [{ name: 'funder', type: 'address' }], outputs: [{ type: 'bool' }] }] as const
 const ERC20_ABI = [{ type: 'function', name: 'balanceOf', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ type: 'uint256' }] }] as const
@@ -76,6 +81,16 @@ function chainConfiguration(env: NodeJS.ProcessEnv): ChainConfig {
   return { rpcUrl: parsed!.toString(), escrow: getAddress(escrowText), chainId }
 }
 
+function termsConfiguration(env: NodeJS.ProcessEnv): TermsConfig {
+  const privateKey = clean(env.HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY, 66)
+  const signer = clean(env.HASHPAYSTREAM_UPFRONT_PROTECTION_SIGNER, 42)
+  const treasury = clean(env.HASHPAYSTREAM_PLATFORM_TREASURY_ADDRESS, 42)
+  if (!/^0x[a-fA-F0-9]{64}$/.test(privateKey) || !isAddress(signer) || !isAddress(treasury)) failure('Funding terms are not configured.', 503)
+  const account = privateKeyToAccount(privateKey as Hex)
+  if (account.address !== getAddress(signer)) failure('Funding terms signer does not match its private key.', 503)
+  return { privateKey: privateKey as Hex, signer: account.address, treasury: getAddress(treasury) }
+}
+
 function opportunity(record: UpfrontAssessmentRecord, now: Date, config: ChainConfig, minimumRemainingSeconds: number) {
   if (record.status !== 'completed' || !record.agreementId || record.request?.agreement.state !== 'funded') return undefined
   const response = record.response && typeof record.response === 'object' ? record.response : {}
@@ -103,7 +118,7 @@ function opportunity(record: UpfrontAssessmentRecord, now: Date, config: ChainCo
 
 async function position(id: Hex, config: ChainConfig): Promise<PositionState> {
   const value = await createPublicClient({ transport: http(config.rpcUrl) }).readContract({ address: config.escrow, abi: POSITION_ABI, functionName: 'positions', args: [id] })
-  const status = value[10] === 1 ? 'funded' : value[10] === 2 ? 'released' : value[10] === 3 ? 'refunded' : 'available'
+  const status = value[15] === 1 ? 'funded' : value[15] === 2 ? 'released' : value[15] === 3 ? 'refunded' : 'available'
   return { funder: getAddress(value[0]), repaymentRecipient: getAddress(value[1]), status }
 }
 async function capacity(wallet: Address, config: ChainConfig): Promise<Capacity> {
@@ -134,12 +149,38 @@ function findRecord(store: UpfrontAssessmentStore, requestId: string) {
   return Object.entries(store.records).find(([, record]) => record.request?.requestId === requestId)
 }
 
+async function signedTerms(input: {
+  candidate: NonNullable<ReturnType<typeof opportunity>>
+  record: UpfrontAssessmentRecord
+  partnerWallet: Address
+  advanceAmount: bigint
+  chain: ChainConfig
+  terms: TermsConfig
+}) {
+  if (!input.record.request || !isAddress(input.record.request.settlement.providerRecipient)) failure('Provider settlement wallet is unavailable.', 409)
+  const deadline = Math.floor(Date.parse(input.candidate.expiresAt) / 1000)
+  return signFundingTerms({
+    offerHash: input.candidate.positionId,
+    funder: input.partnerWallet,
+    providerArcRecipient: getAddress(input.record.request.settlement.providerRecipient),
+    platformTreasury: input.terms.treasury,
+    advanceAmount: input.advanceAmount,
+    protectedAmount: BigInt(input.candidate.protectedUsdcUnits),
+    durationSeconds: input.candidate.durationSeconds,
+    deadline,
+    nonce: keccak256(toBytes(`hashpaystream.funding-terms\0${input.candidate.id}\0${input.partnerWallet}\0${input.advanceAmount}`)),
+    chainId: input.chain.chainId,
+    escrow: input.chain.escrow,
+    privateKey: input.terms.privateKey,
+  })
+}
+
 async function reservedUnits(store: UpfrontAssessmentStore, partnerId: string, omitRequestId: string, now: Date, chain: ChainConfig, minimumRemainingSeconds: number, dependencies: Dependencies) {
   const pending: Array<{ request: NonNullable<UpfrontAssessmentRecord['fundingRequest']>; candidate: NonNullable<ReturnType<typeof opportunity>> }> = []
   for (const record of Object.values(store.records)) {
     const request = record.fundingRequest
     const candidate = opportunity(record, now, chain, minimumRemainingSeconds)
-    if (request?.status === 'pending' && request.partnerApplicationId === partnerId && candidate && candidate.id !== omitRequestId && candidate.live) pending.push({ request, candidate })
+    if (request?.status === 'pending' && request.fundingTerms && request.providerSignature && request.partnerApplicationId === partnerId && candidate && candidate.id !== omitRequestId && candidate.live) pending.push({ request, candidate })
   }
   const inspected = await Promise.all(pending.map(async item => ({ ...item, position: await dependencies.position(item.candidate.positionId, chain) })))
   return inspected.reduce((total, item) => total + (item.position.status === 'available' ? BigInt(item.request.advanceUsdcUnits) : 0n), 0n)
@@ -157,6 +198,7 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
       if (secret.length < 32) failure('Private funding matching is unavailable.', 503)
       const identity = await dependencies.identity(req, env)
       const chain = chainConfiguration(env)
+      const terms = termsConfiguration(env)
       const now = dependencies.now()
       const minimumRemainingSeconds = minimumUpfrontRemainingSeconds(env)
       const storeKey = clean(env.HASHPAYSTREAM_UPFRONT_STORE_KEY ?? DEFAULT_STORE_KEY, 160)
@@ -179,7 +221,8 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
           partnerId: found[1].fundingRequest.partnerApplicationId,
           partnerName: selectedProfile?.name || 'Funding partner',
           advanceUsdcUnits: found[1].fundingRequest.advanceUsdcUnits,
-          status: positionState.status !== 'available' ? positionState.status : !candidate.live ? 'expired' : found[1].fundingRequest.status,
+          quote: found[1].fundingRequest.fundingTerms?.quote,
+          status: positionState.status !== 'available' ? positionState.status : !candidate.live || !found[1].fundingRequest.fundingTerms || !found[1].fundingRequest.providerSignature ? 'expired' : found[1].fundingRequest.status,
         } : undefined
         if (req.method === 'GET') {
           if (selected?.status === 'pending' || selected?.status === 'funded' || selected?.status === 'released') return res.json({ ok: true, partners: [], selection: selected })
@@ -191,7 +234,9 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
               const [{ balance, allowed }, reserved] = await Promise.all([dependencies.capacity(wallet, chain), reservedUnits(store, item.id, requestId, now, chain, minimumRemainingSeconds, dependencies)])
               const available = balance > reserved ? balance - reserved : 0n
               const maximum = available < BigInt(candidate.requestedAdvanceUsdcUnits) ? available : BigInt(candidate.requestedAdvanceUsdcUnits)
-              return allowed && maximum > 0n ? { id: item.id, name: item.name, maximumRequestUsdcUnits: maximum.toString(), canCoverFullRequest: maximum >= BigInt(candidate.requestedAdvanceUsdcUnits) } : undefined
+              if (!allowed || maximum <= 0n) return undefined
+              const fundingTerms = await signedTerms({ candidate, record: found[1], partnerWallet: wallet, advanceAmount: maximum, chain, terms })
+              return { id: item.id, name: item.name, maximumRequestUsdcUnits: maximum.toString(), canCoverFullRequest: maximum >= BigInt(candidate.requestedAdvanceUsdcUnits), fundingTerms }
             } catch {
               return undefined
             }
@@ -207,6 +252,8 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
         const requestedText = clean(body.advanceUsdcUnits, 32)
         if (!/^[1-9]\d*$/.test(requestedText)) failure('Choose a valid early-pay amount.', 400)
         const requested = BigInt(requestedText)
+        const providerSignature = clean(body.providerSignature, 132)
+        if (!/^0x[a-fA-F0-9]{130}$/.test(providerSignature)) failure('Accept the exact funding terms with your payout wallet.', 400)
         let selectedRecord!: UpfrontAssessmentRecord
         await dependencies.mutateStore(storeKey, async current => {
           const next = safeStore(current)
@@ -214,15 +261,29 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
           if (!currentFound || currentFound[1].ownerReference !== found[1].ownerReference) failure('Early-pay request changed before assignment.', 409)
           const currentCandidate = opportunity(currentFound[1], now, chain, minimumRemainingSeconds)
           if (!currentCandidate?.live || (await dependencies.position(currentCandidate.positionId, chain)).status !== 'available') failure('This early-pay request can no longer be assigned.', 409)
-          if (currentFound[1].fundingRequest?.status === 'pending' && new Date(currentFound[1].fundingRequest.expiresAt).getTime() > now.getTime()) failure('This early-pay request already has a funding partner.', 409)
+          if (currentFound[1].fundingRequest?.status === 'pending' && currentFound[1].fundingRequest.fundingTerms && currentFound[1].fundingRequest.providerSignature && new Date(currentFound[1].fundingRequest.expiresAt).getTime() > now.getTime()) failure('This early-pay request already has a funding partner.', 409)
           const [{ balance, allowed }, reserved] = await Promise.all([dependencies.capacity(wallet, chain), reservedUnits(next, partner.id, requestId, now, chain, minimumRemainingSeconds, dependencies)])
           const available = balance > reserved ? balance - reserved : 0n
           if (!allowed || requested > available || requested > BigInt(currentCandidate.requestedAdvanceUsdcUnits)) failure('This partner cannot cover that early-pay amount.', 409)
-          selectedRecord = { ...currentFound[1], fundingRequest: { partnerApplicationId: partner.id, partnerWalletAddress: wallet, advanceUsdcUnits: requested.toString(), status: 'pending', requestedAt: now.toISOString(), expiresAt: currentCandidate.expiresAt } }
+          const fundingTerms = await signedTerms({ candidate: currentCandidate, record: currentFound[1], partnerWallet: wallet, advanceAmount: requested, chain, terms })
+          const recoveredProvider = await recoverTypedDataAddress({
+            domain: fundingTerms.domain,
+            types: FUNDING_TERMS_TYPES,
+            primaryType: 'FundingTerms',
+            message: {
+              ...fundingTerms.message,
+              advanceAmount: BigInt(fundingTerms.message.advanceAmount),
+              funderRepaymentAmount: BigInt(fundingTerms.message.funderRepaymentAmount),
+              platformFeeAmount: BigInt(fundingTerms.message.platformFeeAmount),
+            },
+            signature: providerSignature as Hex,
+          })
+          if (recoveredProvider !== getAddress(currentCandidate.providerPayoutAddress)) failure('Funding terms were not accepted by this provider wallet.', 403)
+          selectedRecord = { ...currentFound[1], fundingRequest: { partnerApplicationId: partner.id, partnerWalletAddress: wallet, advanceUsdcUnits: requested.toString(), fundingTerms, providerSignature: providerSignature as Hex, status: 'pending', requestedAt: now.toISOString(), expiresAt: currentCandidate.expiresAt } }
           next.records[currentFound[0]] = selectedRecord
           return next
         })
-        return res.status(201).json({ ok: true, selection: { partnerId: partner.id, partnerName: partner.name, advanceUsdcUnits: selectedRecord.fundingRequest!.advanceUsdcUnits, status: 'pending' } })
+        return res.status(201).json({ ok: true, selection: { partnerId: partner.id, partnerName: partner.name, advanceUsdcUnits: selectedRecord.fundingRequest!.advanceUsdcUnits, quote: selectedRecord.fundingRequest!.fundingTerms.quote, status: 'pending' } })
       }
 
       const profile = approvedPartner(identity, partners, secret)
@@ -248,14 +309,20 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
 
       const candidates = Object.values(store.records).flatMap(record => opportunity(record, now, chain, minimumRemainingSeconds) ? [{ record, candidate: opportunity(record, now, chain, minimumRemainingSeconds)! }] : [])
       const inspected = await Promise.all(candidates.map(async item => ({ ...item, position: await dependencies.position(item.candidate.positionId, chain) })))
-      const opportunities: Array<(typeof candidates)[number]['candidate'] & { positionStatus: PositionState['status']; funder?: Address; repaymentRecipient?: Address }> = []
+      const opportunities: Array<(typeof candidates)[number]['candidate'] & {
+        positionStatus: PositionState['status']
+        funder?: Address
+        repaymentRecipient?: Address
+        fundingTerms?: SignedFundingTerms
+        providerSignature?: Hex
+      }> = []
       for (const { record, candidate, position } of inspected) {
         if (position.status === 'available') {
-          if (candidate.live && record.fundingRequest?.status === 'pending' && record.fundingRequest.partnerApplicationId === profile.id) opportunities.push({ ...candidate, requestedAdvanceUsdcUnits: record.fundingRequest.advanceUsdcUnits, positionStatus: 'available' })
+          if (candidate.live && record.fundingRequest?.status === 'pending' && record.fundingRequest.fundingTerms && record.fundingRequest.providerSignature && record.fundingRequest.partnerApplicationId === profile.id) opportunities.push({ ...candidate, requestedAdvanceUsdcUnits: record.fundingRequest.advanceUsdcUnits, fundingTerms: record.fundingRequest.fundingTerms, providerSignature: record.fundingRequest.providerSignature, positionStatus: 'available' })
           continue
         }
         const ownsPosition = identity.wallets.some(item => item.toLowerCase() === position.funder.toLowerCase() || item.toLowerCase() === position.repaymentRecipient.toLowerCase())
-        if (ownsPosition) opportunities.push({ ...candidate, requestedAdvanceUsdcUnits: record.fundingRequest?.advanceUsdcUnits ?? candidate.requestedAdvanceUsdcUnits, positionStatus: position.status, funder: position.funder, repaymentRecipient: position.repaymentRecipient })
+        if (ownsPosition) opportunities.push({ ...candidate, requestedAdvanceUsdcUnits: record.fundingRequest?.advanceUsdcUnits ?? candidate.requestedAdvanceUsdcUnits, fundingTerms: record.fundingRequest?.fundingTerms, providerSignature: record.fundingRequest?.providerSignature, positionStatus: position.status, funder: position.funder, repaymentRecipient: position.repaymentRecipient })
       }
       opportunities.sort((left, right) => left.expiresAt.localeCompare(right.expiresAt))
       return res.json({ ok: true, opportunities })

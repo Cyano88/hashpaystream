@@ -39,7 +39,8 @@ const ESCROW_ABI = [{
   type: 'function', name: 'releaseAdvance', stateMutability: 'nonpayable', inputs: [
     { name: 'attestation', type: 'tuple', components: [
       { name: 'positionId', type: 'bytes32' }, { name: 'arcAgreementHash', type: 'bytes32' }, { name: 'arcTermsHash', type: 'bytes32' },
-      { name: 'termsHash', type: 'bytes32' }, { name: 'arcRecipient', type: 'address' }, { name: 'funder', type: 'address' },
+      { name: 'termsHash', type: 'bytes32' }, { name: 'fundingTermsHash', type: 'bytes32' },
+      { name: 'arcRecipient', type: 'address' }, { name: 'funder', type: 'address' },
       { name: 'repaymentRecipient', type: 'address' }, { name: 'provider', type: 'address' }, { name: 'protectedAmount', type: 'uint256' },
       { name: 'advanceAmount', type: 'uint256' }, { name: 'observedAt', type: 'uint48' }, { name: 'deadline', type: 'uint48' },
     ] },
@@ -52,7 +53,8 @@ const ROUTER_ABI = [
   { type: 'function', name: 'settleRepayment', stateMutability: 'nonpayable', inputs: [
     { name: 'settlement', type: 'tuple', components: [
       { name: 'arcAgreementHash', type: 'bytes32' }, { name: 'arcTermsHash', type: 'bytes32' }, { name: 'funder', type: 'address' },
-      { name: 'provider', type: 'address' }, { name: 'funderAmount', type: 'uint256' }, { name: 'providerAmount', type: 'uint256' },
+      { name: 'provider', type: 'address' }, { name: 'treasury', type: 'address' },
+      { name: 'funderAmount', type: 'uint256' }, { name: 'providerAmount', type: 'uint256' }, { name: 'treasuryAmount', type: 'uint256' },
       { name: 'observedAt', type: 'uint48' }, { name: 'deadline', type: 'uint48' },
     ] },
     { name: 'signature', type: 'bytes' },
@@ -144,7 +146,8 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
       ) throw new Error('The release proof does not match this funding wallet.')
       const message = {
         positionId: hex32(raw.positionId, 'Position'), arcAgreementHash: hex32(raw.arcAgreementHash, 'Arc agreement'), arcTermsHash: hex32(raw.arcTermsHash, 'Arc terms'),
-        termsHash: hex32(raw.termsHash, 'Terms'), arcRecipient: address(raw.arcRecipient, 'Arc recipient'), funder: address(raw.funder, 'Funder'),
+        termsHash: hex32(raw.termsHash, 'Terms'), fundingTermsHash: hex32(raw.fundingTermsHash, 'Funding terms'),
+        arcRecipient: address(raw.arcRecipient, 'Arc recipient'), funder: address(raw.funder, 'Funder'),
         repaymentRecipient: address(raw.repaymentRecipient, 'Repayment wallet'), provider: address(raw.provider, 'Provider'),
         protectedAmount: integer(raw.protectedAmount, 'Protected amount'), advanceAmount: integer(raw.advanceAmount, 'Advance amount'),
         observedAt: timestamp(raw.observedAt, 'Observed time'), deadline: timestamp(raw.deadline, 'Deadline'),
@@ -173,17 +176,17 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
       const domain = signed.domain ?? {}; const raw = signed.message ?? {}
       if (
         signed.primaryType !== 'SplitSettlement' || !SIGNATURE.test(String(signed.signature ?? ''))
-        || domain.name !== 'HashPayStream Upfront Repayment' || domain.version !== '2'
+        || domain.name !== 'HashPayStream Upfront Repayment' || domain.version !== '3'
         || Number(domain.chainId) !== arcTestnet.id || address(domain.verifyingContract, 'Repayment router') !== getAddress(ARC_ROUTER)
         || address(raw.funder, 'Repayment wallet') !== account
       ) throw new Error('The repayment proof does not match this funding wallet.')
       const message = {
         arcAgreementHash: hex32(raw.arcAgreementHash, 'Arc agreement'), arcTermsHash: hex32(raw.arcTermsHash, 'Arc terms'),
-        funder: address(raw.funder, 'Repayment wallet'), provider: address(raw.provider, 'Service provider'),
-        funderAmount: integer(raw.funderAmount, 'Funding repayment'), providerAmount: integer(raw.providerAmount, 'Provider remainder'),
+        funder: address(raw.funder, 'Repayment wallet'), provider: address(raw.provider, 'Service provider'), treasury: address(raw.treasury, 'HashPayStream treasury'),
+        funderAmount: integer(raw.funderAmount, 'Funding repayment'), providerAmount: integer(raw.providerAmount, 'Provider remainder'), treasuryAmount: integer(raw.treasuryAmount, 'HashPayStream fee'),
         observedAt: timestamp(raw.observedAt, 'Observed time'), deadline: timestamp(raw.deadline, 'Deadline'),
       }
-      if (message.funder === message.provider || message.funderAmount <= 0n || message.providerAmount <= 0n) throw new Error('The repayment split is invalid.')
+      if (message.funder === message.provider || message.funder === message.treasury || message.provider === message.treasury || message.funderAmount <= 0n || message.providerAmount <= 0n || message.treasuryAmount <= 0n) throw new Error('The repayment split is invalid.')
       await signer.switchChain(arcTestnet.id)
       const publicClient = createPublicClient({ chain: arcTestnet, transport: http() })
       const [gasBalance, gasPrice] = await Promise.all([publicClient.getBalance({ address: account }), publicClient.getGasPrice()])
@@ -198,7 +201,7 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
       const hash = await walletClient.writeContract(request.request)
       const receipt = await publicClient.waitForTransactionReceipt({ hash })
       if (receipt.status !== 'success') throw new Error('The Arc split settlement reverted.')
-      setSuccess('Advance repaid and the remaining payment sent to the service provider.')
+      setSuccess('Funding partner, service provider, and HashPayStream were paid exactly as accepted.')
       await Promise.resolve(onUpdated()).catch(() => undefined)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'The payment could not be settled.')

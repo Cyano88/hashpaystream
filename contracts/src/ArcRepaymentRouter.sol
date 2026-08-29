@@ -14,7 +14,7 @@ contract ArcRepaymentRouter is EIP712, Ownable2Step, ReentrancyGuard {
 
     uint48 public constant MAX_ATTESTATION_AGE = 1 days;
     bytes32 public constant SPLIT_SETTLEMENT_TYPEHASH = keccak256(
-        'SplitSettlement(bytes32 arcAgreementHash,bytes32 arcTermsHash,address funder,address provider,uint256 funderAmount,uint256 providerAmount,uint48 observedAt,uint48 deadline)'
+        'SplitSettlement(bytes32 arcAgreementHash,bytes32 arcTermsHash,address funder,address provider,address treasury,uint256 funderAmount,uint256 providerAmount,uint256 treasuryAmount,uint48 observedAt,uint48 deadline)'
     );
 
     struct SplitSettlement {
@@ -22,8 +22,10 @@ contract ArcRepaymentRouter is EIP712, Ownable2Step, ReentrancyGuard {
         bytes32 arcTermsHash;
         address funder;
         address provider;
+        address treasury;
         uint256 funderAmount;
         uint256 providerAmount;
+        uint256 treasuryAmount;
         uint48 observedAt;
         uint48 deadline;
     }
@@ -44,12 +46,14 @@ contract ArcRepaymentRouter is EIP712, Ownable2Step, ReentrancyGuard {
         bytes32 indexed arcTermsHash,
         address indexed funder,
         address provider,
+        address treasury,
         uint256 funderAmount,
-        uint256 providerAmount
+        uint256 providerAmount,
+        uint256 treasuryAmount
     );
 
     constructor(IERC20 asset_, address creditSigner_, address initialOwner)
-        EIP712('HashPayStream Upfront Repayment', '2') Ownable(initialOwner)
+        EIP712('HashPayStream Upfront Repayment', '3') Ownable(initialOwner)
     {
         if (address(asset_) == address(0) || creditSigner_ == address(0) || initialOwner == address(0)) revert InvalidAddress();
         asset = asset_;
@@ -69,8 +73,10 @@ contract ArcRepaymentRouter is EIP712, Ownable2Step, ReentrancyGuard {
             settlement.arcTermsHash,
             settlement.funder,
             settlement.provider,
+            settlement.treasury,
             settlement.funderAmount,
             settlement.providerAmount,
+            settlement.treasuryAmount,
             settlement.observedAt,
             settlement.deadline
         )));
@@ -80,26 +86,30 @@ contract ArcRepaymentRouter is EIP712, Ownable2Step, ReentrancyGuard {
         if (
             settlement.arcAgreementHash == bytes32(0) || settlement.arcTermsHash == bytes32(0)
                 || settlement.funder == address(0) || settlement.provider == address(0)
-                || settlement.funder == settlement.provider
-                || settlement.funderAmount == 0 || settlement.providerAmount == 0
+                || settlement.treasury == address(0) || settlement.funder == settlement.provider
+                || settlement.funder == settlement.treasury || settlement.provider == settlement.treasury
+                || settlement.funderAmount == 0 || settlement.providerAmount == 0 || settlement.treasuryAmount == 0
                 || settlement.observedAt > block.timestamp || block.timestamp > settlement.deadline
                 || block.timestamp > settlement.observedAt + MAX_ATTESTATION_AGE
         ) revert InvalidCredit();
         if (settledAgreements[settlement.arcAgreementHash]) revert AgreementAlreadyCredited();
         if (ECDSA.recover(hashSplitSettlement(settlement), signature) != creditSigner) revert InvalidSignature();
-        uint256 total = settlement.funderAmount + settlement.providerAmount;
+        uint256 total = settlement.funderAmount + settlement.providerAmount + settlement.treasuryAmount;
         if (asset.balanceOf(address(this)) < total) revert InsufficientRepaymentBalance();
 
         settledAgreements[settlement.arcAgreementHash] = true;
         asset.safeTransfer(settlement.funder, settlement.funderAmount);
         asset.safeTransfer(settlement.provider, settlement.providerAmount);
+        asset.safeTransfer(settlement.treasury, settlement.treasuryAmount);
         emit RepaymentSettled(
             settlement.arcAgreementHash,
             settlement.arcTermsHash,
             settlement.funder,
             settlement.provider,
+            settlement.treasury,
             settlement.funderAmount,
-            settlement.providerAmount
+            settlement.providerAmount,
+            settlement.treasuryAmount
         );
     }
 }

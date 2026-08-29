@@ -18,6 +18,8 @@ type Opportunity = {
   providerPayoutAddress: string
   requestedAdvanceUsdcUnits: string
   onchainOffer: Record<string, unknown>
+  fundingTerms?: Record<string, unknown>
+  providerSignature?: string
 }
 
 type SignedOffer = {
@@ -64,9 +66,25 @@ const ESCROW_ABI = [
           { name: 'nonce', type: 'bytes32' },
         ],
       },
-      { name: 'advanceAmount', type: 'uint256' },
-      { name: 'repaymentRecipient', type: 'address' },
+      {
+        name: 'fundingTerms',
+        type: 'tuple',
+        components: [
+          { name: 'offerHash', type: 'bytes32' },
+          { name: 'funder', type: 'address' },
+          { name: 'repaymentRecipient', type: 'address' },
+          { name: 'providerArcRecipient', type: 'address' },
+          { name: 'platformTreasury', type: 'address' },
+          { name: 'advanceAmount', type: 'uint256' },
+          { name: 'funderRepaymentAmount', type: 'uint256' },
+          { name: 'platformFeeAmount', type: 'uint256' },
+          { name: 'deadline', type: 'uint48' },
+          { name: 'nonce', type: 'bytes32' },
+        ],
+      },
       { name: 'underwritingSignature', type: 'bytes' },
+      { name: 'fundingTermsSignature', type: 'bytes' },
+      { name: 'providerSignature', type: 'bytes' },
     ],
     outputs: [{ name: 'positionId', type: 'bytes32' }],
   },
@@ -127,6 +145,41 @@ function parseOffer(opportunity: Opportunity): SignedOffer {
   }
 }
 
+function parseFundingTerms(opportunity: Opportunity, escrow: Address) {
+  const signed = opportunity.fundingTerms
+  const domain = signed?.domain as Record<string, unknown> | undefined
+  const raw = signed?.message as Record<string, unknown> | undefined
+  const signature = String(signed?.signature ?? '')
+  const providerSignature = String(opportunity.providerSignature ?? '')
+  if (signed?.primaryType !== 'FundingTerms' || !domain || !raw || !SIGNATURE.test(signature) || !SIGNATURE.test(providerSignature)) {
+    throw new Error('The accepted funding terms are incomplete.')
+  }
+  if (domain.name !== 'HashPayStream Upfront' || domain.version !== '1' || Number(domain.chainId) !== upfrontXLayerChain.id || !isAddress(String(domain.verifyingContract ?? '')) || getAddress(String(domain.verifyingContract)) !== escrow) {
+    throw new Error('The accepted funding terms target a different contract.')
+  }
+  const offerHash = String(raw.offerHash ?? '')
+  const nonce = String(raw.nonce ?? '')
+  if (!BYTES32.test(offerHash) || !BYTES32.test(nonce) || !isAddress(String(raw.funder ?? '')) || !isAddress(String(raw.repaymentRecipient ?? '')) || !isAddress(String(raw.providerArcRecipient ?? '')) || !isAddress(String(raw.platformTreasury ?? ''))) {
+    throw new Error('The accepted funding terms are invalid.')
+  }
+  return {
+    message: {
+      offerHash: offerHash as Hex,
+      funder: getAddress(String(raw.funder)),
+      repaymentRecipient: getAddress(String(raw.repaymentRecipient)),
+      providerArcRecipient: getAddress(String(raw.providerArcRecipient)),
+      platformTreasury: getAddress(String(raw.platformTreasury)),
+      advanceAmount: integer(raw.advanceAmount, 'Advance amount'),
+      funderRepaymentAmount: integer(raw.funderRepaymentAmount, 'Funding repayment'),
+      platformFeeAmount: integer(raw.platformFeeAmount, 'Platform fee'),
+      deadline: unix(raw.deadline, 'Funding terms deadline'),
+      nonce: nonce as Hex,
+    },
+    signature: signature as Hex,
+    providerSignature: providerSignature as Hex,
+  }
+}
+
 export default function UpfrontFundButton({ opportunity, onFunded }: { opportunity: Opportunity; onFunded?: () => Promise<void> | void }) {
   const { wallets } = useWallets()
   const [stage, setStage] = useState('')
@@ -144,14 +197,18 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
     try {
       if (!signer) throw new Error('Your funding wallet is still connecting. Return to Earn and open this request again.')
       const offer = parseOffer(opportunity)
+      const fundingTerms = parseFundingTerms(opportunity, offer.escrow)
       if (!isAddress(opportunity.providerPayoutAddress) || getAddress(opportunity.providerPayoutAddress) !== offer.message.provider) {
         throw new Error('The displayed payout address does not match the signed underwriting offer.')
       }
       const account = getAddress(signer.address)
+      if (fundingTerms.message.funder !== account || fundingTerms.message.repaymentRecipient !== account) throw new Error('These funding terms belong to another funding wallet.')
+      if (fundingTerms.message.advanceAmount !== amount || fundingTerms.message.funderRepaymentAmount <= amount || fundingTerms.message.platformFeeAmount <= 0n) throw new Error('The displayed amounts do not match the accepted funding terms.')
       if (amount <= 0n || amount > offer.message.protectedAmount * BigInt(offer.message.maxAdvanceBps) / 10_000n) {
         throw new Error('The requested advance exceeds the signed PolyDesk limit.')
       }
       if (offer.message.underwritingDeadline <= Math.floor(Date.now() / 1000)) throw new Error('This underwriting offer has expired.')
+      if (fundingTerms.message.deadline <= Math.floor(Date.now() / 1000)) throw new Error('The accepted funding terms have expired.')
       if (offer.message.protectionDeadline - Math.floor(Date.now() / 1000) < MIN_REMAINING_PROTECTION_SECONDS) throw new Error('This agreement is too close to its end time for early pay.')
 
       setStage('Checking escrow controls...')
@@ -198,7 +255,7 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
         address: offer.escrow,
         abi: ESCROW_ABI,
         functionName: 'fundAdvance',
-        args: [offer.message, amount, account, offer.signature],
+        args: [offer.message, fundingTerms.message, offer.signature, fundingTerms.signature, fundingTerms.providerSignature],
       })
       const hash = await walletClient.writeContract(funding.request)
       const receipt = await publicClient.waitForTransactionReceipt({ hash })

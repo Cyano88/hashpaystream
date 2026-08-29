@@ -22,6 +22,15 @@ type Opportunity = {
   confidence: number
   expiresAt: string
   onchainOffer: Record<string, unknown>
+  fundingTerms?: {
+    quote: {
+      funderProfitUsdcUnits: string
+      funderRepaymentUsdcUnits: string
+      platformFeeUsdcUnits: string
+      providerRemainderUsdcUnits: string
+    }
+  }
+  providerSignature?: string
   positionId: `0x${string}`
   positionStatus: 'available' | 'funded' | 'released' | 'refunded'
   funder?: string
@@ -39,13 +48,6 @@ function usdc(units: string) {
 
 function short(value: string) {
   return value.length > 14 ? `${value.slice(0, 7)}...${value.slice(-5)}` : value
-}
-
-function remainder(protectedUnits: string, advanceUnits: string) {
-  if (!/^\d+$/.test(protectedUnits) || !/^\d+$/.test(advanceUnits)) return '0'
-  const protectedAmount = BigInt(protectedUnits)
-  const advanceAmount = BigInt(advanceUnits)
-  return protectedAmount > advanceAmount ? (protectedAmount - advanceAmount).toString() : '0'
 }
 
 function duration(seconds: number) {
@@ -160,6 +162,7 @@ function FundingDetail({ item, onBack, onUpdated }: { item: Opportunity; onBack:
   const { getAccessToken } = usePrivy()
   const [declining, setDeclining] = useState(false)
   const [declineError, setDeclineError] = useState('')
+  const quote = item.fundingTerms?.quote
   async function decline() {
     setDeclining(true); setDeclineError('')
     try {
@@ -183,8 +186,10 @@ function FundingDetail({ item, onBack, onUpdated }: { item: Opportunity; onBack:
       <div className="grid grid-cols-2 gap-x-4 gap-y-5">
         <Metric label="You fund" value={usdc(item.requestedAdvanceUsdcUnits)} />
         <Metric label="Protected" value={usdc(item.protectedUsdcUnits)} />
-        <Metric label="You receive" value={usdc(item.requestedAdvanceUsdcUnits)} />
-        <Metric label="Provider receives" value={usdc(remainder(item.protectedUsdcUnits, item.requestedAdvanceUsdcUnits))} />
+        <Metric label="You receive" value={usdc(quote?.funderRepaymentUsdcUnits ?? '0')} />
+        <Metric label="Your profit" value={usdc(quote?.funderProfitUsdcUnits ?? '0')} />
+        <Metric label="Provider receives later" value={usdc(quote?.providerRemainderUsdcUnits ?? '0')} />
+        <Metric label="HashPayStream fee" value={usdc(quote?.platformFeeUsdcUnits ?? '0')} />
         <Metric label="Term" value={duration(item.durationSeconds)} />
         <Metric label="AI confidence" value={`${item.confidence}%`} />
       </div>

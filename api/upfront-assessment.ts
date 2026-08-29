@@ -6,6 +6,7 @@ import { mutateDurableJson, readDurableJson } from './durable-store.js'
 import { agreementIntelligencePayloadHash, agreementIntelligenceRequestHash, buildAgreementIntelligenceRequest, validateUpfrontDraft, type AgreementIntelligenceRequest } from './agreement-intelligence-schema.js'
 import { requestPolyDeskUnderwriting, type PolyDeskDecision } from './polydesk-upfront-client.js'
 import { hasMinimumUpfrontProtectionWindow, minimumUpfrontRemainingSeconds } from './early-pay-timing-policy.js'
+import type { SignedFundingTerms } from './upfront-funding-terms.js'
 
 const DEFAULT_STORE_KEY = 'hashpaystream:upfront-assessments:v1'
 const DEFAULT_OWNERSHIP_STORE_KEY = 'hashpaystream:upfront-agreement-owners:v1'
@@ -21,6 +22,8 @@ export type UpfrontFundingRequest = {
   partnerApplicationId: string
   partnerWalletAddress: Address
   advanceUsdcUnits: string
+  fundingTerms: SignedFundingTerms
+  providerSignature: `0x${string}`
   status: 'pending' | 'declined'
   requestedAt: string
   expiresAt: string
