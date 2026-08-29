@@ -41,6 +41,13 @@ function short(value: string) {
   return value.length > 14 ? `${value.slice(0, 7)}...${value.slice(-5)}` : value
 }
 
+function remainder(protectedUnits: string, advanceUnits: string) {
+  if (!/^\d+$/.test(protectedUnits) || !/^\d+$/.test(advanceUnits)) return '0'
+  const protectedAmount = BigInt(protectedUnits)
+  const advanceAmount = BigInt(advanceUnits)
+  return protectedAmount > advanceAmount ? (protectedAmount - advanceAmount).toString() : '0'
+}
+
 function duration(seconds: number) {
   if (seconds % 86400 === 0) return `${seconds / 86400} day${seconds === 86400 ? '' : 's'}`
   return `${Math.round(seconds / 3600)} hour${seconds === 3600 ? '' : 's'}`
@@ -174,8 +181,10 @@ function FundingDetail({ item, onBack, onUpdated }: { item: Opportunity; onBack:
 
     <article className="stream-card mt-5 p-5">
       <div className="grid grid-cols-2 gap-x-4 gap-y-5">
-        <Metric label="Advance" value={usdc(item.requestedAdvanceUsdcUnits)} />
+        <Metric label="You fund" value={usdc(item.requestedAdvanceUsdcUnits)} />
         <Metric label="Protected" value={usdc(item.protectedUsdcUnits)} />
+        <Metric label="You receive" value={usdc(item.requestedAdvanceUsdcUnits)} />
+        <Metric label="Provider receives" value={usdc(remainder(item.protectedUsdcUnits, item.requestedAdvanceUsdcUnits))} />
         <Metric label="Term" value={duration(item.durationSeconds)} />
         <Metric label="AI confidence" value={`${item.confidence}%`} />
       </div>

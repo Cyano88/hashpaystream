@@ -35,7 +35,7 @@ type UpfrontAgreement = {
 const API = '/api/hashpaystream/v1/upfront/assessments'
 const REVIEW_API = '/api/hashpaystream/v1/upfront/reviews'
 const AGREEMENTS_API = '/api/hashpaystream/v1/human/upfront/agreements'
-const UPFRONT_ARC_ROUTER = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS || '0x0E47e6dD4f86C5Cf1843Dce310b710FaE64c0C16')
+const UPFRONT_ARC_ROUTER = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS ?? '').trim()
 function idempotencyKey() {
   const suffix = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`
   return `hashpaystream-upfront:${suffix}`

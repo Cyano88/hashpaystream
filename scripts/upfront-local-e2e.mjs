@@ -79,6 +79,7 @@ const verifiedRequest = buildAgreementIntelligenceRequest({
   issuedAt: new Date().toISOString(),
   providerIdentity: 'local-e2e-provider',
   providerReferenceSecret: required('HASHPAYSTREAM_APP_OWNERSHIP_SECRET'),
+  providerArcAddress: request.body.providerPayoutAddress,
   draft: verifiedDraft,
   trustedEvidence: {
     agreementState: 'funded',

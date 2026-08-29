@@ -13,38 +13,43 @@ contract ArcRepaymentRouter is EIP712, Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint48 public constant MAX_ATTESTATION_AGE = 1 days;
-    bytes32 public constant REPAYMENT_CREDIT_TYPEHASH = keccak256(
-        'RepaymentCredit(bytes32 arcAgreementHash,bytes32 arcTermsHash,address funder,uint256 amount,uint48 observedAt,uint48 deadline)'
+    bytes32 public constant SPLIT_SETTLEMENT_TYPEHASH = keccak256(
+        'SplitSettlement(bytes32 arcAgreementHash,bytes32 arcTermsHash,address funder,address provider,uint256 funderAmount,uint256 providerAmount,uint48 observedAt,uint48 deadline)'
     );
 
-    struct RepaymentCredit {
+    struct SplitSettlement {
         bytes32 arcAgreementHash;
         bytes32 arcTermsHash;
         address funder;
-        uint256 amount;
+        address provider;
+        uint256 funderAmount;
+        uint256 providerAmount;
         uint48 observedAt;
         uint48 deadline;
     }
 
     IERC20 public immutable asset;
     address public creditSigner;
-    uint256 public totalClaimable;
-    mapping(bytes32 arcAgreementHash => bool) public creditedAgreements;
-    mapping(address funder => uint256) public claimable;
+    mapping(bytes32 arcAgreementHash => bool) public settledAgreements;
 
     error InvalidAddress();
     error InvalidCredit();
     error InvalidSignature();
     error AgreementAlreadyCredited();
     error InsufficientRepaymentBalance();
-    error NothingToClaim();
 
     event CreditSignerUpdated(address indexed previousSigner, address indexed newSigner);
-    event RepaymentCredited(bytes32 indexed arcAgreementHash, bytes32 indexed arcTermsHash, address indexed funder, uint256 amount);
-    event RepaymentClaimed(address indexed funder, uint256 amount);
+    event RepaymentSettled(
+        bytes32 indexed arcAgreementHash,
+        bytes32 indexed arcTermsHash,
+        address indexed funder,
+        address provider,
+        uint256 funderAmount,
+        uint256 providerAmount
+    );
 
     constructor(IERC20 asset_, address creditSigner_, address initialOwner)
-        EIP712('HashPayStream Upfront Repayment', '1') Ownable(initialOwner)
+        EIP712('HashPayStream Upfront Repayment', '2') Ownable(initialOwner)
     {
         if (address(asset_) == address(0) || creditSigner_ == address(0) || initialOwner == address(0)) revert InvalidAddress();
         asset = asset_;
@@ -57,41 +62,44 @@ contract ArcRepaymentRouter is EIP712, Ownable2Step, ReentrancyGuard {
         creditSigner = nextSigner;
     }
 
-    function hashRepaymentCredit(RepaymentCredit calldata credit) public view returns (bytes32) {
+    function hashSplitSettlement(SplitSettlement calldata settlement) public view returns (bytes32) {
         return _hashTypedDataV4(keccak256(abi.encode(
-            REPAYMENT_CREDIT_TYPEHASH,
-            credit.arcAgreementHash,
-            credit.arcTermsHash,
-            credit.funder,
-            credit.amount,
-            credit.observedAt,
-            credit.deadline
+            SPLIT_SETTLEMENT_TYPEHASH,
+            settlement.arcAgreementHash,
+            settlement.arcTermsHash,
+            settlement.funder,
+            settlement.provider,
+            settlement.funderAmount,
+            settlement.providerAmount,
+            settlement.observedAt,
+            settlement.deadline
         )));
     }
 
-    function creditRepayment(RepaymentCredit calldata credit, bytes calldata signature) external nonReentrant {
+    function settleRepayment(SplitSettlement calldata settlement, bytes calldata signature) external nonReentrant {
         if (
-            credit.arcAgreementHash == bytes32(0) || credit.arcTermsHash == bytes32(0)
-                || credit.funder == address(0) || credit.amount == 0
-                || credit.observedAt > block.timestamp || block.timestamp > credit.deadline
-                || block.timestamp > credit.observedAt + MAX_ATTESTATION_AGE
+            settlement.arcAgreementHash == bytes32(0) || settlement.arcTermsHash == bytes32(0)
+                || settlement.funder == address(0) || settlement.provider == address(0)
+                || settlement.funder == settlement.provider
+                || settlement.funderAmount == 0 || settlement.providerAmount == 0
+                || settlement.observedAt > block.timestamp || block.timestamp > settlement.deadline
+                || block.timestamp > settlement.observedAt + MAX_ATTESTATION_AGE
         ) revert InvalidCredit();
-        if (creditedAgreements[credit.arcAgreementHash]) revert AgreementAlreadyCredited();
-        if (ECDSA.recover(hashRepaymentCredit(credit), signature) != creditSigner) revert InvalidSignature();
-        if (asset.balanceOf(address(this)) < totalClaimable + credit.amount) revert InsufficientRepaymentBalance();
+        if (settledAgreements[settlement.arcAgreementHash]) revert AgreementAlreadyCredited();
+        if (ECDSA.recover(hashSplitSettlement(settlement), signature) != creditSigner) revert InvalidSignature();
+        uint256 total = settlement.funderAmount + settlement.providerAmount;
+        if (asset.balanceOf(address(this)) < total) revert InsufficientRepaymentBalance();
 
-        creditedAgreements[credit.arcAgreementHash] = true;
-        totalClaimable += credit.amount;
-        claimable[credit.funder] += credit.amount;
-        emit RepaymentCredited(credit.arcAgreementHash, credit.arcTermsHash, credit.funder, credit.amount);
-    }
-
-    function claim() external nonReentrant {
-        uint256 amount = claimable[msg.sender];
-        if (amount == 0) revert NothingToClaim();
-        claimable[msg.sender] = 0;
-        totalClaimable -= amount;
-        asset.safeTransfer(msg.sender, amount);
-        emit RepaymentClaimed(msg.sender, amount);
+        settledAgreements[settlement.arcAgreementHash] = true;
+        asset.safeTransfer(settlement.funder, settlement.funderAmount);
+        asset.safeTransfer(settlement.provider, settlement.providerAmount);
+        emit RepaymentSettled(
+            settlement.arcAgreementHash,
+            settlement.arcTermsHash,
+            settlement.funder,
+            settlement.provider,
+            settlement.funderAmount,
+            settlement.providerAmount
+        );
     }
 }

@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict'
 import { recoverTypedDataAddress } from 'viem'
 import { agreementIntelligenceRequestHash, buildAgreementIntelligenceRequest } from '../api/agreement-intelligence-schema.ts'
-import { PROTECTION_TYPES, REPAYMENT_TYPES, signProtectionAttestation, signRepaymentCredit } from '../api/upfront-protection-attestation.ts'
+import { PROTECTION_TYPES, REPAYMENT_TYPES, signProtectionAttestation, signSplitSettlement } from '../api/upfront-protection-attestation.ts'
 
 const privateKey = '0x' + '11'.repeat(32)
 const request = buildAgreementIntelligenceRequest({
   requestId: 'uai_1234567890abcdef', issuedAt: '2026-08-19T12:00:00.000Z', providerIdentity: 'provider-a',
   providerReferenceSecret: 'standalone-ownership-secret-32-characters',
+  providerArcAddress: '0x9999999999999999999999999999999999999999',
   draft: { template: 'fixed_unlock', title: 'Verified research delivery', description: 'Deliver a cited research brief for payer review.', amount: '100.25', durationSeconds: 86400, cancellationWindowSeconds: 900, providerPayoutAddress: '0x3333333333333333333333333333333333333333', requestedAdvanceBps: 3000 },
   trustedEvidence: { agreementState: 'funded', protectionDeadline: 1787227200, providerHistoryIncluded: false, sources: ['arc-funded-agreement'], dataGaps: ['provider-history'] },
 })
@@ -41,10 +42,13 @@ await assert.rejects(() => signProtectionAttestation({ request: nearRequest, pos
 await assert.rejects(() => signProtectionAttestation({ request, position, agreement: { ...agreement, chain: { ...agreement.chain, expiresAt: '1787227201' } }, arcRouter, xLayerChainId: 1952, xLayerEscrow: '0x2222222222222222222222222222222222222222', privateKey, now: new Date('2026-08-19T12:05:00.000Z'), minimumRemainingSeconds: 21_600 }), /does not match the Arc agreement expiry/)
 
 const completedAgreement = { ...agreement, status: 'completed', chain: { ...agreement.chain, releasedUsdcUnits: position.protectedAmount, remainingUsdcUnits: '0' } }
-const repayment = await signRepaymentCredit({ request, position: { ...position, status: 'Released' }, agreement: completedAgreement, arcRouter, privateKey, now: new Date('2026-08-20T12:05:00.000Z') })
-const recoveredRepayment = await recoverTypedDataAddress({ ...repayment, types: REPAYMENT_TYPES, message: { ...repayment.message, amount: BigInt(repayment.message.amount) } })
+const repayment = await signSplitSettlement({ request, position: { ...position, status: 'Released' }, agreement: completedAgreement, arcRouter, privateKey, now: new Date('2026-08-20T12:05:00.000Z') })
+const recoveredRepayment = await recoverTypedDataAddress({ ...repayment, types: REPAYMENT_TYPES, message: { ...repayment.message, funderAmount: BigInt(repayment.message.funderAmount), providerAmount: BigInt(repayment.message.providerAmount) } })
 assert.equal(recoveredRepayment, repayment.signer)
 assert.equal(repayment.message.funder, position.repaymentRecipient)
-await assert.rejects(() => signRepaymentCredit({ request, position: { ...position, status: 'Released' }, agreement: { ...completedAgreement, chain: { ...completedAgreement.chain, releasedUsdcUnits: '1' } }, arcRouter, privateKey, now: new Date('2026-08-20T12:05:00.000Z') }), /not complete/)
+assert.equal(repayment.message.provider, request.settlement.providerRecipient)
+assert.equal(repayment.message.funderAmount, position.advanceAmount)
+assert.equal(BigInt(repayment.message.funderAmount) + BigInt(repayment.message.providerAmount), BigInt(position.protectedAmount))
+await assert.rejects(() => signSplitSettlement({ request, position: { ...position, status: 'Released' }, agreement: { ...completedAgreement, chain: { ...completedAgreement.chain, releasedUsdcUnits: '1' } }, arcRouter, privateKey, now: new Date('2026-08-20T12:05:00.000Z') }), /not complete/)
 
 console.log('HashPayStream Upfront protection and repayment attestation checks passed.')

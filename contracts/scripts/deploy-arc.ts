@@ -19,17 +19,11 @@ async function main() {
       if (process.env.UPFRONT_REPLACEMENT_CONFIRM !== 'REPLACE_EMPTY_PAUSED_STACK') {
         throw new Error('Arc repayment router is already deployed at ' + deployedAddress + '. Explicit coordinated replacement confirmation is missing.')
       }
-      const existingRouter = new ethers.Contract(deployedAddress, [
-        'function asset() view returns (address)',
-        'function totalClaimable() view returns (uint256)',
-      ], ethers.provider)
+      const existingRouter = new ethers.Contract(deployedAddress, ['function asset() view returns (address)'], ethers.provider)
       const existingAsset = await existingRouter.asset()
       const token = new ethers.Contract(existingAsset, ['function balanceOf(address) view returns (uint256)'], ethers.provider)
-      const [totalClaimable, balance] = await Promise.all([
-        existingRouter.totalClaimable(),
-        token.balanceOf(deployedAddress),
-      ])
-      if (totalClaimable !== 0n || balance !== 0n) throw new Error('Refusing to replace a repayment router with funds or claimable repayments.')
+      const balance = await token.balanceOf(deployedAddress)
+      if (balance !== 0n) throw new Error('Refusing to replace a repayment router that holds repayment funds.')
       replacedRouter = deployedAddress
     }
   }

@@ -39,7 +39,7 @@ The underwriting service is isolated from PolyDesk's OKX.AI marketplace agent.
 
 ### Onchain proof
 
-- Arc testnet repayment router: `0x0E47e6dD4f86C5Cf1843Dce310b710FaE64c0C16`
+- Arc testnet split-settlement router: `0x300D0D41a10006f3cb1Da01aed2Fc28418c7E6Be`
 - X Layer testnet escrow: `0x300D0D41a10006f3cb1Da01aed2Fc28418c7E6Be`
 - X Layer mainnet escrow: `0x53326e1c72c622c11661E161314a496d0Ddf55Fb`
 - Mainnet deployment transaction: `0xc1bacb8dc77fdd0724a7d82f52767216bd8f5d03767b7836290580551b11806b`

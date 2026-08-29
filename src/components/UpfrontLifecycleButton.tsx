@@ -48,16 +48,15 @@ const ESCROW_ABI = [{
 }] as const
 
 const ROUTER_ABI = [
-  { type: 'function', name: 'creditedAgreements', stateMutability: 'view', inputs: [{ name: 'arcAgreementHash', type: 'bytes32' }], outputs: [{ type: 'bool' }] },
-  { type: 'function', name: 'claimable', stateMutability: 'view', inputs: [{ name: 'funder', type: 'address' }], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'creditRepayment', stateMutability: 'nonpayable', inputs: [
-    { name: 'credit', type: 'tuple', components: [
+  { type: 'function', name: 'settledAgreements', stateMutability: 'view', inputs: [{ name: 'arcAgreementHash', type: 'bytes32' }], outputs: [{ type: 'bool' }] },
+  { type: 'function', name: 'settleRepayment', stateMutability: 'nonpayable', inputs: [
+    { name: 'settlement', type: 'tuple', components: [
       { name: 'arcAgreementHash', type: 'bytes32' }, { name: 'arcTermsHash', type: 'bytes32' }, { name: 'funder', type: 'address' },
-      { name: 'amount', type: 'uint256' }, { name: 'observedAt', type: 'uint48' }, { name: 'deadline', type: 'uint48' },
+      { name: 'provider', type: 'address' }, { name: 'funderAmount', type: 'uint256' }, { name: 'providerAmount', type: 'uint256' },
+      { name: 'observedAt', type: 'uint48' }, { name: 'deadline', type: 'uint48' },
     ] },
     { name: 'signature', type: 'bytes' },
   ], outputs: [] },
-  { type: 'function', name: 'claim', stateMutability: 'nonpayable', inputs: [], outputs: [] },
 ] as const
 
 function integer(value: unknown, label: string) {
@@ -173,15 +172,18 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
       const signed = await attestation('repayment')
       const domain = signed.domain ?? {}; const raw = signed.message ?? {}
       if (
-        signed.primaryType !== 'RepaymentCredit' || !SIGNATURE.test(String(signed.signature ?? ''))
+        signed.primaryType !== 'SplitSettlement' || !SIGNATURE.test(String(signed.signature ?? ''))
+        || domain.name !== 'HashPayStream Upfront Repayment' || domain.version !== '2'
         || Number(domain.chainId) !== arcTestnet.id || address(domain.verifyingContract, 'Repayment router') !== getAddress(ARC_ROUTER)
         || address(raw.funder, 'Repayment wallet') !== account
       ) throw new Error('The repayment proof does not match this funding wallet.')
       const message = {
         arcAgreementHash: hex32(raw.arcAgreementHash, 'Arc agreement'), arcTermsHash: hex32(raw.arcTermsHash, 'Arc terms'),
-        funder: address(raw.funder, 'Repayment wallet'), amount: integer(raw.amount, 'Repayment amount'),
+        funder: address(raw.funder, 'Repayment wallet'), provider: address(raw.provider, 'Service provider'),
+        funderAmount: integer(raw.funderAmount, 'Funding repayment'), providerAmount: integer(raw.providerAmount, 'Provider remainder'),
         observedAt: timestamp(raw.observedAt, 'Observed time'), deadline: timestamp(raw.deadline, 'Deadline'),
       }
+      if (message.funder === message.provider || message.funderAmount <= 0n || message.providerAmount <= 0n) throw new Error('The repayment split is invalid.')
       await signer.switchChain(arcTestnet.id)
       const publicClient = createPublicClient({ chain: arcTestnet, transport: http() })
       const [gasBalance, gasPrice] = await Promise.all([publicClient.getBalance({ address: account }), publicClient.getGasPrice()])
@@ -189,25 +191,17 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
       if (gasBalance < gasReserve) throw new Error(`Funding wallet needs at least ${formatEther(gasReserve)} Arc Testnet USDC for repayment gas.`)
       const walletClient = createWalletClient({ account, chain: arcTestnet, transport: custom(await signer.getEthereumProvider()) })
       const router = getAddress(ARC_ROUTER)
-      const credited = await publicClient.readContract({ address: router, abi: ROUTER_ABI, functionName: 'creditedAgreements', args: [message.arcAgreementHash] })
-      if (!credited) {
-        setStage('Crediting repayment...')
-        const credit = await publicClient.simulateContract({ account, address: router, abi: ROUTER_ABI, functionName: 'creditRepayment', args: [message, signed.signature as Hex] })
-        const creditHash = await walletClient.writeContract(credit.request)
-        const receipt = await publicClient.waitForTransactionReceipt({ hash: creditHash })
-        if (receipt.status !== 'success') throw new Error('The Arc repayment credit reverted.')
-      }
-      const amount = await publicClient.readContract({ address: router, abi: ROUTER_ABI, functionName: 'claimable', args: [account] })
-      if (amount === 0n) { setSuccess('This repayment has already been claimed.'); return }
-      setStage('Claiming repayment...')
-      const claimRequest = await publicClient.simulateContract({ account, address: router, abi: ROUTER_ABI, functionName: 'claim' })
-      const claimHash = await walletClient.writeContract(claimRequest.request)
-      const claimReceipt = await publicClient.waitForTransactionReceipt({ hash: claimHash })
-      if (claimReceipt.status !== 'success') throw new Error('The Arc repayment claim reverted.')
-      setSuccess('Repayment claimed to your funding wallet.')
+      const settled = await publicClient.readContract({ address: router, abi: ROUTER_ABI, functionName: 'settledAgreements', args: [message.arcAgreementHash] })
+      if (settled) { setSuccess('This payment has already been settled.'); return }
+      setStage('Splitting payment...')
+      const request = await publicClient.simulateContract({ account, address: router, abi: ROUTER_ABI, functionName: 'settleRepayment', args: [message, signed.signature as Hex] })
+      const hash = await walletClient.writeContract(request.request)
+      const receipt = await publicClient.waitForTransactionReceipt({ hash })
+      if (receipt.status !== 'success') throw new Error('The Arc split settlement reverted.')
+      setSuccess('Advance repaid and the remaining payment sent to the service provider.')
       await Promise.resolve(onUpdated()).catch(() => undefined)
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'The repayment could not be claimed.')
+      setError(reason instanceof Error ? reason.message : 'The payment could not be settled.')
     } finally { setStage('') }
   }
 
@@ -217,7 +211,7 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
     ? 'Send early payment'
     : repaymentState === 'checking' ? 'Checking customer payment…'
       : repaymentState === 'waiting' ? 'Waiting for customer payment'
-        : repaymentState === 'unavailable' ? 'Repayment status unavailable' : 'Claim repayment'
+        : repaymentState === 'unavailable' ? 'Repayment status unavailable' : 'Settle payment'
   return <div className="mt-3">
     <button type="button" disabled={busy || repaymentBlocked} onClick={() => void (opportunity.positionStatus === 'funded' ? release() : claim())} className="w-full rounded-xl bg-gray-950 px-4 py-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-950">
       {stage || label}

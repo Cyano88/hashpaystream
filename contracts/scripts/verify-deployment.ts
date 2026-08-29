@@ -24,8 +24,8 @@ async function main() {
     const contract = address('ARC_REPAYMENT_ROUTER_ADDRESS')
     if (await ethers.provider.getCode(contract) === '0x') throw new Error('Arc repayment router has no bytecode.')
     const router = await ethers.getContractAt('ArcRepaymentRouter', contract)
-    const [asset, creditSigner, owner, pendingOwner, totalClaimable] = await Promise.all([
-      router.asset(), router.creditSigner(), router.owner(), router.pendingOwner(), router.totalClaimable(),
+    const [asset, creditSigner, owner, pendingOwner, zeroHashSettled] = await Promise.all([
+      router.asset(), router.creditSigner(), router.owner(), router.pendingOwner(), router.settledAgreements(ethers.ZeroHash),
     ])
     assertEqual('asset', asset, address('ARC_TEST_USDC_ADDRESS'))
     assertEqual('credit signer', creditSigner, address('UPFRONT_REPAYMENT_CREDIT_SIGNER'))
@@ -35,7 +35,7 @@ async function main() {
     const balance = await token.balanceOf(contract)
     console.log(JSON.stringify({
       verified: true, chainId: network.chainId.toString(), contract, asset, creditSigner, owner,
-      pendingOwner, totalClaimable: totalClaimable.toString(), tokenBalance: balance.toString(),
+      pendingOwner, settlementVersion: 2, zeroHashSettled, tokenBalance: balance.toString(),
       receipt: await verifiedReceipt(),
     }, null, 2))
     return

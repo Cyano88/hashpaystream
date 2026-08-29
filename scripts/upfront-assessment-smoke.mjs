@@ -44,11 +44,13 @@ const draft = {
   providerPayoutAddress: '0x1111111111111111111111111111111111111111',
   requestedAdvanceBps: 5000,
 }
+const providerArcAddress = '0x9999999999999999999999999999999999999999'
 let store
 const assessmentCalls = []
 const handler = createHashPayStreamUpfrontAssessmentHandler({
   identity: async () => 'user-a',
   providerWallets: async () => [draft.providerPayoutAddress],
+  providerArcWallet: async () => providerArcAddress,
   mutate: async (_key, update) => { store = update(store); return store },
   assess: async request => {
     assessmentCalls.push(request)
@@ -105,6 +107,7 @@ assert.equal(assessmentCalls[0].schema, 'zeroscout.agreement-intelligence.reques
 assert.equal(assessmentCalls[0].agreement.amountUsdcUnits, '100250000')
 assert.equal(assessmentCalls[0].advance.requestedUsdcUnits, '50125000')
 assert.equal(assessmentCalls[0].settlement.assetBridgeRequired, false)
+assert.equal(assessmentCalls[0].settlement.providerRecipient, providerArcAddress)
 assert.match(assessmentCalls[0].agreement.termsHash, /^sha256:[a-f0-9]{64}$/)
 assert.match(assessmentCalls[0].source.providerReference, /^hps_provider_[a-f0-9]{32}$/)
 
@@ -132,6 +135,7 @@ let fundedAssessmentRequest
 const fundedHandler = createHashPayStreamUpfrontAssessmentHandler({
   identity: async () => 'user-a',
   providerWallets: async () => [draft.providerPayoutAddress],
+  providerArcWallet: async () => providerArcAddress,
   providerAccountKeys: async () => [providerAccountKey],
   mutate: async (_key, update) => { fundedStore = update(fundedStore); return fundedStore },
   readOwnership: async () => ({ schema: 1, agreements: {
@@ -178,7 +182,7 @@ const serviceOwned = await call(fundedHandler, { agreementId: serviceAgreementId
 assert.equal(serviceOwned.statusCode, 201)
 
 const notOwnedHandler = createHashPayStreamUpfrontAssessmentHandler({
-  identity: async () => 'user-a', providerWallets: async () => [draft.providerPayoutAddress], mutate: async (_key, update) => { fundedStore = update(fundedStore); return fundedStore },
+  identity: async () => 'user-a', providerWallets: async () => [draft.providerPayoutAddress], providerArcWallet: async () => providerArcAddress, mutate: async (_key, update) => { fundedStore = update(fundedStore); return fundedStore },
   readOwnership: async () => ({ schema: 1, agreements: {} }), agreement: async () => { throw new Error('must not fetch') }, env: () => env,
 })
 const notOwned = await call(notOwnedHandler, { agreementId: fundedAgreementId, providerPayoutAddress: draft.providerPayoutAddress, requestedAdvanceBps: 3000 }, 'upfront:user-a:funded-0002')
@@ -186,6 +190,7 @@ assert.equal(notOwned.statusCode, 404)
 
 const foreignWallet = createHashPayStreamUpfrontAssessmentHandler({
   identity: async () => 'user-a', providerWallets: async () => ['0x2222222222222222222222222222222222222222'],
+  providerArcWallet: async () => providerArcAddress,
   mutate: async (_key, update) => { store = update(store); return store }, env: () => env,
 })
 const rejectedForeignWallet = await call(foreignWallet, draft, 'upfront:user-a:foreign-wallet')
@@ -194,15 +199,28 @@ assert.match(rejectedForeignWallet.body.error, /does not belong/)
 
 const missingWallet = createHashPayStreamUpfrontAssessmentHandler({
   identity: async () => 'user-a', providerWallets: async () => [],
+  providerArcWallet: async () => providerArcAddress,
   mutate: async (_key, update) => { store = update(store); return store }, env: () => env,
 })
 const rejectedMissingWallet = await call(missingWallet, draft, 'upfront:user-a:missing-wallet')
 assert.equal(rejectedMissingWallet.statusCode, 409)
 assert.match(rejectedMissingWallet.body.error, /Create your X Layer payout wallet/)
 
+const missingArcWallet = createHashPayStreamUpfrontAssessmentHandler({
+  identity: async () => 'user-a',
+  providerWallets: async () => [draft.providerPayoutAddress],
+  providerArcWallet: async () => { throw Object.assign(new Error('Connect your Circle Arc wallet before requesting early pay.'), { status: 409 }) },
+  mutate: async (_key, update) => { store = update(store); return store },
+  env: () => env,
+})
+const rejectedMissingArcWallet = await call(missingArcWallet, draft, 'upfront:user-a:missing-arc-wallet')
+assert.equal(rejectedMissingArcWallet.statusCode, 409)
+assert.match(rejectedMissingArcWallet.body.error, /Circle Arc wallet/)
+
 const ambiguousWallet = createHashPayStreamUpfrontAssessmentHandler({
   identity: async () => 'user-a',
   providerWallets: async () => [draft.providerPayoutAddress, '0x2222222222222222222222222222222222222222'],
+  providerArcWallet: async () => providerArcAddress,
   mutate: async (_key, update) => { store = update(store); return store },
   env: () => env,
 })
@@ -213,6 +231,7 @@ assert.match(rejectedAmbiguousWallet.body.error, /Multiple embedded payout walle
 const disabled = createHashPayStreamUpfrontAssessmentHandler({
   identity: async () => 'user-a',
   providerWallets: async () => [draft.providerPayoutAddress],
+  providerArcWallet: async () => providerArcAddress,
   mutate: async (_key, update) => { store = update(store); return store },
   assess: async () => { throw new Error('must not run') },
   underwrite: async () => { throw new Error('must not run') },

@@ -2,8 +2,9 @@
 
 This workspace contains the non-upgradeable X Layer advance escrow and the Arc
 repayment router. The X Layer contract holds only the advance. The fixed Arc
-router is the Hash PayLink project recipient and credits confirmed repayment to
-the Arc repayment recipient bound at funding; no asset bridge is assumed.
+router is the Hash PayLink project recipient and atomically returns the advance
+principal to the bound funding wallet while sending the remaining protected
+payment to the provider's verified Circle Arc wallet; no asset bridge is assumed.
 
 ```text
 npm install

@@ -89,7 +89,7 @@ export default function StreamPayFunding() {
       <span className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-400/10 dark:text-blue-300"><BanknotesIcon className="h-7 w-7" /></span>
       <p className="mt-6 text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">Funding partners</p>
       <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-gray-950 dark:text-white">Fund good work early.</h1>
-      <p className="mt-3 max-w-sm text-sm leading-6 text-gray-500 dark:text-gray-400">Apply to receive private early-pay requests and earn the return shown on each request you accept.</p>
+      <p className="mt-3 max-w-sm text-sm leading-6 text-gray-500 dark:text-gray-400">Apply to receive private early-pay requests and review the exact settlement before you fund.</p>
       <button type="button" onClick={() => setFormOpen(true)} className="mt-7 w-full rounded-full bg-gray-950 px-6 py-4 text-sm font-bold text-white shadow-sm dark:bg-white dark:text-gray-950">Apply to be a funding partner</button>
       <p className="mt-3 text-[10px] leading-4 text-gray-400">Your existing HashPayStream account is used. No second sign-in.</p>
     </section>

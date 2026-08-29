@@ -5,7 +5,7 @@ import { createPublicClient, getAddress, http, isAddress, type Address, type Hex
 import { privateKeyToAccount } from 'viem/accounts'
 import { readDurableJson } from './durable-store.js'
 import type { AgreementIntelligenceRequest } from './agreement-intelligence-schema.js'
-import { signProtectionAttestation, signRepaymentCredit, type AuthoritativeArcAgreement, type UpfrontPosition } from './upfront-protection-attestation.js'
+import { signProtectionAttestation, signSplitSettlement, type AuthoritativeArcAgreement, type UpfrontPosition } from './upfront-protection-attestation.js'
 import { minimumUpfrontRemainingSeconds } from './early-pay-timing-policy.js'
 
 const DEFAULT_STORE_KEY = 'hashpaystream:upfront-assessments:v1'
@@ -108,7 +108,7 @@ export function createUpfrontProtectionHandler(overrides: Partial<Dependencies> 
       if (record.ownerReference !== ownerReference && !ownsPosition) failure('The completed Upfront assessment was not found.', 404)
       const signed = action === 'release'
         ? await signProtectionAttestation({ request: record.request, position: xPosition, agreement: arcAgreement, arcRouter: config.arcRouter, xLayerChainId: config.xLayerChainId, xLayerEscrow: config.xLayerEscrow, privateKey: config.protectionKey, now: dependencies.now(), minimumRemainingSeconds: config.minimumRemainingSeconds })
-        : await signRepaymentCredit({ request: record.request, position: xPosition, agreement: arcAgreement, arcRouter: config.arcRouter, privateKey: config.repaymentKey, now: dependencies.now() })
+        : await signSplitSettlement({ request: record.request, position: xPosition, agreement: arcAgreement, arcRouter: config.arcRouter, privateKey: config.repaymentKey, now: dependencies.now() })
       return res.json({ ok: true, action, attestation: signed })
     } catch (error) { const status = Number((error as { status?: number }).status) || 500; return res.status(status).json({ ok: false, error: status >= 500 ? 'HashPayStream Upfront protection is temporarily unavailable.' : (error as Error).message }) }
   }

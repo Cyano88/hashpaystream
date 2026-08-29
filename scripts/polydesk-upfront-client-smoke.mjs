@@ -24,6 +24,7 @@ const signingSecret = 'polydesk-signing-secret-with-32-characters'
 const request = buildAgreementIntelligenceRequest({
   requestId: 'uai_1234567890abcdef', issuedAt: '2026-08-19T12:00:00.000Z', providerIdentity: 'user-a',
   providerReferenceSecret: 'standalone-ownership-secret-32-characters',
+  providerArcAddress: '0x9999999999999999999999999999999999999999',
   draft: {
     template: 'fixed_unlock', title: 'Verified research delivery', description: 'Deliver a cited research brief for payer review.',
     amount: '100.25', durationSeconds: 86400, cancellationWindowSeconds: 900,

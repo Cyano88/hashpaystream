@@ -9,6 +9,7 @@ import { hasMinimumUpfrontProtectionWindow, minimumUpfrontRemainingSeconds } fro
 
 const DEFAULT_STORE_KEY = 'hashpaystream:upfront-assessments:v1'
 const DEFAULT_OWNERSHIP_STORE_KEY = 'hashpaystream:upfront-agreement-owners:v1'
+const DEFAULT_ACCOUNT_STORE_KEY = 'hashpaystream:accounts:v1'
 const AGREEMENT_ID = /^agr_[a-z0-9]{12,64}$/i
 export type UpfrontReviewState = {
   status: 'pending' | 'approved' | 'declined'
@@ -28,6 +29,7 @@ export type UpfrontAssessmentRecord = { ownerReference: string; requestHash: str
 export type UpfrontAssessmentStore = { schema: 1; records: Record<string, UpfrontAssessmentRecord> }
 type AssessmentStore = UpfrontAssessmentStore
 type OwnershipStore = { schema: 1; agreements: Record<string, { agreementId: string; ownerHash: string; ownerAccountKey?: string }> }
+type AccountStore = { schema: 1; accounts: Record<string, { accountKey: string; walletAddress?: string }> }
 type AuthoritativeAgreement = {
   id: string; status: string; template: string; title: string; description: string
   recipient: string; durationSeconds: number; cancellationWindowSeconds: number
@@ -37,6 +39,7 @@ type AuthoritativeAgreement = {
 export type UpfrontAssessmentDependencies = {
   identity: (req: Request) => Promise<string>
   providerWallets: (identity: string, env: NodeJS.ProcessEnv) => Promise<Address[]>
+  providerArcWallet: (identity: string, env: NodeJS.ProcessEnv) => Promise<Address>
   providerAccountKeys: (identity: string, env: NodeJS.ProcessEnv) => Promise<string[]>
   mutate: (key: string, update: (current: AssessmentStore | undefined) => AssessmentStore) => Promise<AssessmentStore>
   readOwnership: (key: string) => Promise<OwnershipStore | undefined>
@@ -109,6 +112,19 @@ async function verifiedProviderAccountKeys(identity: string, env: NodeJS.Process
   } catch (cause) {
     throw Object.assign(httpError('Your HashPayStream account ownership could not be verified.', 503), { cause })
   }
+}
+
+async function verifiedProviderArcWallet(identity: string, env: NodeJS.ProcessEnv) {
+  const accountKeys = await verifiedProviderAccountKeys(identity, env)
+  const storeKey = clean(env.HASHPAYSTREAM_ACCOUNT_STORE_KEY ?? DEFAULT_ACCOUNT_STORE_KEY, 160)
+  const store = await readDurableJson<AccountStore>(storeKey)
+  const wallets = [...new Set(Object.values(store?.accounts ?? {}).flatMap(account => (
+    accountKeys.includes(account.accountKey) && /^0x[a-fA-F0-9]{40}$/.test(account.walletAddress ?? '') && !/^0x0{40}$/i.test(account.walletAddress ?? '')
+      ? [getAddress(account.walletAddress!)]
+      : []
+  )))]
+  if (wallets.length !== 1) throw httpError('Connect your Circle Arc wallet before requesting early pay.', 409)
+  return wallets[0]
 }
 
 function configuration(env: NodeJS.ProcessEnv) {
@@ -227,6 +243,7 @@ async function requestAssessment(request: AgreementIntelligenceRequest, config: 
 const defaults: UpfrontAssessmentDependencies = {
   identity: verifiedIdentity,
   providerWallets: verifiedProviderWallets,
+  providerArcWallet: verifiedProviderArcWallet,
   providerAccountKeys: verifiedProviderAccountKeys,
   mutate: (key, update) => mutateDurableJson<AssessmentStore>(key, update),
   readOwnership: key => readDurableJson<OwnershipStore>(key),
@@ -303,7 +320,10 @@ export function createHashPayStreamUpfrontAssessmentHandler(overrides: Partial<U
       if (!/^0x[a-fA-F0-9]{40}$/.test(requestedPayoutAddress) || /^0x0{40}$/i.test(requestedPayoutAddress)) {
         throw httpError('Create your X Layer payout wallet before requesting an advance.', 400)
       }
-      const providerWallets = await dependencies.providerWallets(identity, dependencies.env())
+      const [providerWallets, providerArcWallet] = await Promise.all([
+        dependencies.providerWallets(identity, dependencies.env()),
+        dependencies.providerArcWallet(identity, dependencies.env()),
+      ])
       if (providerWallets.length === 0) throw httpError('Create your X Layer payout wallet before requesting an advance.', 409)
       if (providerWallets.length > 1) throw httpError('Multiple embedded payout wallets are linked to this account. Contact support before requesting an advance.', 409)
       if (providerWallets[0] !== getAddress(requestedPayoutAddress)) {
@@ -317,7 +337,7 @@ export function createHashPayStreamUpfrontAssessmentHandler(overrides: Partial<U
       const idempotencyKey = clean(req.headers['idempotency-key'], 160)
       if (idempotencyKey.length < 16) throw httpError('Idempotency-Key must contain at least 16 characters.', 400)
       const issuedAt = dependencies.now().toISOString()
-      const request = buildAgreementIntelligenceRequest({ requestId: dependencies.requestId(identity, idempotencyKey), issuedAt, providerIdentity: identity, providerReferenceSecret: config.secret, draft, trustedEvidence: verified.trustedEvidence })
+      const request = buildAgreementIntelligenceRequest({ requestId: dependencies.requestId(identity, idempotencyKey), issuedAt, providerIdentity: identity, providerReferenceSecret: config.secret, providerArcAddress: providerArcWallet, draft, trustedEvidence: verified.trustedEvidence })
       const ownerReference = request.source.providerReference
       const requestHash = agreementIntelligenceRequestHash(request)
       const payloadHash = agreementIntelligencePayloadHash(request)

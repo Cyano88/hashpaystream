@@ -35,7 +35,7 @@ export type AgreementIntelligenceRequest = {
   }
   settlement: {
     protectionNetwork: 'arc-testnet'; protectionAsset: 'test-usdc'
-    recipientSelection: 'fixed-repayment-router'; assetBridgeRequired: false
+    recipientSelection: 'fixed-repayment-router'; providerRecipient: string; assetBridgeRequired: false
   }
   evidence: {
     providerHistoryIncluded: boolean; sources: string[]; dataGaps: string[]
@@ -102,8 +102,9 @@ export function validateUpfrontDraft(value: unknown): UpfrontDraftInput {
 
 export function buildAgreementIntelligenceRequest(input: {
   requestId: string; issuedAt: string; providerIdentity: string
-  providerReferenceSecret: string; draft: UpfrontDraftInput; trustedEvidence?: TrustedAgreementEvidence
+  providerReferenceSecret: string; providerArcAddress: string; draft: UpfrontDraftInput; trustedEvidence?: TrustedAgreementEvidence
 }): AgreementIntelligenceRequest {
+  if (!ADDRESS.test(input.providerArcAddress) || /^0x0{40}$/i.test(input.providerArcAddress)) inputError('A verified Arc provider wallet is required.')
   const units = parseUsdcUnits(input.draft.amount)
   const terms = {
     template: input.draft.template,
@@ -141,6 +142,7 @@ export function buildAgreementIntelligenceRequest(input: {
       protectionNetwork: 'arc-testnet',
       protectionAsset: 'test-usdc',
       recipientSelection: 'fixed-repayment-router',
+      providerRecipient: input.providerArcAddress,
       assetBridgeRequired: false,
     },
     evidence: input.trustedEvidence ? {
