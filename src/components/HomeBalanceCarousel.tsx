@@ -63,7 +63,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 function GrowthTree() {
   return (
-    <svg aria-hidden="true" viewBox="0 0 112 100" className="pointer-events-none absolute -right-1 top-1 h-24 w-28">
+    <svg aria-hidden="true" viewBox="0 0 112 100" className="pointer-events-none absolute right-2 top-4 h-20 w-24">
       <defs>
         <linearGradient id="growth-tree-canopy" x1="20" y1="12" x2="88" y2="82" gradientUnits="userSpaceOnUse">
           <stop stopColor="#4ADE80" />
@@ -74,10 +74,12 @@ function GrowthTree() {
           <stop offset="1" stopColor="#047857" />
         </linearGradient>
       </defs>
-      <path d="M55 92c1-17 0-27-5-38m5 22c4-10 10-18 19-24M51 65c-5-8-11-14-19-18" fill="none" stroke="url(#growth-tree-trunk)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M41 48c-12 1-21-7-20-18 9-2 19 1 25 10 2-13 11-23 24-25 7 9 6 21 0 30 10-5 22-3 29 5-4 12-14 18-27 16-6 10-17 15-29 12-6-9-6-20-2-30Z" fill="url(#growth-tree-canopy)" />
-      <path d="M26 30c8 2 15 7 20 15m24-24c-7 8-11 18-13 29m36 2c-10 0-19 4-26 11" fill="none" stroke="#A7F3D0" strokeWidth="2" strokeLinecap="round" opacity=".42" />
-      <ellipse cx="55" cy="94" rx="25" ry="3" fill="#10B981" opacity=".18" />
+      <path d="M55 92c1-18 0-29-4-40m4 25c5-9 12-15 23-19M51 67c-7-7-14-11-23-13" fill="none" stroke="url(#growth-tree-trunk)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M19 55c-6-10 0-22 12-25 1-12 12-20 24-16 8-10 25-7 30 5 13-1 22 10 18 22 9 8 5 22-7 27-2 12-17 18-28 11-9 9-25 7-31-4-12 1-22-10-18-20Z" fill="url(#growth-tree-canopy)" />
+      <path d="M27 47c13-9 25-11 38-7m-22-17c10 2 17 8 22 17m10-12c-4 8-6 15-6 24m24-5c-9 1-17 5-23 11" fill="none" stroke="#A7F3D0" strokeWidth="2" strokeLinecap="round" opacity=".32" />
+      <circle cx="35" cy="37" r="3" fill="#A7F3D0" opacity=".16" />
+      <circle cx="84" cy="58" r="4" fill="#047857" opacity=".18" />
+      <ellipse cx="55" cy="94" rx="22" ry="2.5" fill="#10B981" opacity=".08" />
     </svg>
   )
 }
