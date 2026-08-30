@@ -40,6 +40,14 @@ type HashPayStreamArcWebhookStore = {
   events: Record<string, StoredHashPayStreamArcEvent>
 }
 
+export type ArcWebhookAcceptedEvent = {
+  id: string
+  event: string
+  projectId: string
+  agreementId: string
+  replayed: boolean
+}
+
 export type ArcWebhookDependencies = {
   hasStore: () => boolean
   mutate: (
@@ -49,6 +57,7 @@ export type ArcWebhookDependencies = {
   env: () => NodeJS.ProcessEnv
   now: () => Date
   logEvent: (event: ArcWebhookSecurityEvent) => void
+  onAccepted: (event: ArcWebhookAcceptedEvent) => void | Promise<void>
 }
 
 export type ArcWebhookSecurityEvent = {
@@ -64,6 +73,7 @@ const defaults: ArcWebhookDependencies = {
   mutate: (key, update) => mutateDurableJson<HashPayStreamArcWebhookStore>(key, update),
   env: () => process.env,
   now: () => new Date(),
+  onAccepted: () => {},
   logEvent: event => {
     const line = JSON.stringify(event)
     if (event.status >= 500) console.error(line)
@@ -245,6 +255,30 @@ export function createHashPayStreamArcWebhookHandler(dependencies: Partial<ArcWe
         }
         return { ...store, events: { ...store.events, [verified.id]: stored } }
       })
+      try {
+        const accepted = resolved.onAccepted({
+          id: verified.id,
+          event: verified.event,
+          projectId: verified.projectId,
+          agreementId: verified.agreementId,
+          replayed,
+        })
+        if (accepted && typeof accepted.catch === 'function') {
+          void accepted.catch(() => logWebhookEvent(resolved, {
+            component: 'hashpaystream-arc-webhook',
+            event: 'request_failed',
+            status: 500,
+            code: 'POST_ACCEPT_FAILED',
+          }))
+        }
+      } catch {
+        logWebhookEvent(resolved, {
+          component: 'hashpaystream-arc-webhook',
+          event: 'request_failed',
+          status: 500,
+          code: 'POST_ACCEPT_FAILED',
+        })
+      }
       return res.status(200).json({ ok: true, eventId: verified.id, replayed })
     } catch (error) {
       const status = error instanceof WebhookError ? error.status : 503

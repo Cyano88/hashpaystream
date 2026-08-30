@@ -197,21 +197,29 @@ export function startUpfrontSettlementWorker(overrides: Partial<UpfrontSettlemen
   const dependencies = { ...defaults, ...overrides }
   let running = false
   let stopped = false
+  let rerun = false
   let lastReport = ''
   const tick = async () => {
-    if (running || stopped) return
+    if (stopped) return
+    if (running) { rerun = true; return }
     running = true
     try {
-      const result = await runUpfrontSettlementPass(dependencies)
-      const report = JSON.stringify({ settled: result.settled, deferred: result.deferred, codes: result.codes })
-      if (result.settled > 0 || (result.deferred > 0 && report !== lastReport)) {
-        try { dependencies.log({ component: 'hashpaystream-upfront-settlement', event: result.settled > 0 ? 'settlement_completed' : 'settlement_deferred', ...result }) } catch {}
-      }
-      lastReport = report
+      do {
+        rerun = false
+        const result = await runUpfrontSettlementPass(dependencies)
+        const report = JSON.stringify({ settled: result.settled, deferred: result.deferred, codes: result.codes })
+        if (result.settled > 0 || (result.deferred > 0 && report !== lastReport)) {
+          try { dependencies.log({ component: 'hashpaystream-upfront-settlement', event: result.settled > 0 ? 'settlement_completed' : 'settlement_deferred', ...result }) } catch {}
+        }
+        lastReport = report
+      } while (rerun && !stopped)
     } finally { running = false }
   }
   const timer = setInterval(() => void tick(), Math.max(10_000, intervalMs))
   timer.unref?.()
   void tick()
-  return () => { stopped = true; clearInterval(timer) }
+  return {
+    trigger: () => { void tick() },
+    stop: () => { stopped = true; clearInterval(timer) },
+  }
 }

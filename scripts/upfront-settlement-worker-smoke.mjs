@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { privateKeyToAccount } from 'viem/accounts'
-import { runUpfrontSettlementPass } from '../api/upfront-settlement-worker.ts'
+import { runUpfrontSettlementPass, startUpfrontSettlementWorker } from '../api/upfront-settlement-worker.ts'
 
 const repaymentKey = `0x${'41'.repeat(32)}`
 const positionId = `0x${'11'.repeat(32)}`
@@ -65,5 +65,28 @@ let readWhileDisabled = false
 const disabled = await runUpfrontSettlementPass({ ...base, env: () => ({ ...env, HASHPAYSTREAM_UPFRONT_AUTO_SETTLEMENT_ENABLED: 'false' }), readStore: async () => { readWhileDisabled = true; return store } })
 assert.deepEqual(disabled, { eligible: 0, settled: 0, alreadySettled: 0, deferred: 0, codes: [] })
 assert.equal(readWhileDisabled, false)
+
+let releaseFirstPass
+let secondPassStarted
+const firstPassGate = new Promise(resolve => { releaseFirstPass = resolve })
+const secondPass = new Promise(resolve => { secondPassStarted = resolve })
+let passStarts = 0
+const scheduler = startUpfrontSettlementWorker({
+  ...base,
+  readStore: async () => {
+    passStarts += 1
+    if (passStarts === 1) await firstPassGate
+    if (passStarts === 2) secondPassStarted()
+    return { schema: 1, records: {} }
+  },
+}, 60_000)
+await new Promise(resolve => setImmediate(resolve))
+assert.equal(passStarts, 1)
+scheduler.trigger()
+scheduler.trigger()
+releaseFirstPass()
+await secondPass
+scheduler.stop()
+assert.equal(passStarts, 2)
 
 console.log('HashPayStream automatic settlement idempotency and retry checks passed.')

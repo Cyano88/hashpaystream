@@ -3,6 +3,10 @@ import {
   type ArcWebhookDependencies,
 } from './arc-agreement-webhook.js'
 
+type UpfrontArcWebhookDependencies = Partial<ArcWebhookDependencies> & {
+  triggerSettlement?: () => void
+}
+
 function upfrontWebhookEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   return {
     ...env,
@@ -14,12 +18,17 @@ function upfrontWebhookEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 }
 
 export function createHashPayStreamUpfrontArcWebhookHandler(
-  overrides: Partial<ArcWebhookDependencies> = {},
+  overrides: UpfrontArcWebhookDependencies = {},
 ) {
+  const { triggerSettlement = () => {}, onAccepted, ...webhookOverrides } = overrides
   const sourceEnv = overrides.env ?? (() => process.env)
   return createHashPayStreamArcWebhookHandler({
-    ...overrides,
+    ...webhookOverrides,
     env: () => upfrontWebhookEnvironment(sourceEnv()),
+    onAccepted: accepted => {
+      if (accepted.event === 'agreement.completed') triggerSettlement()
+      return onAccepted?.(accepted)
+    },
   })
 }
 
