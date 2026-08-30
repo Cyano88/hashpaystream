@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowTopRightOnSquareIcon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, ClipboardIcon } from '@heroicons/react/24/outline'
-import { Link } from '../../lib/router'
+import { Link, useLocation } from '../../lib/router'
 import { useHashPayStreamSessionSplash } from '../../lib/useHashPayStreamSessionSplash'
 import UnifiedReceipt from '../UnifiedReceipt'
 import { AgreementSignInLanding } from './AgreementSignInLanding'
@@ -175,10 +175,12 @@ function StatusBadge({ status }: { status: AgreementStatus }) {
 
 export default function AgreementDashboard() {
   const { ready, authenticated, getAccessToken } = usePrivy()
+  const { search } = useLocation()
+  const requestedAgreementId = new URLSearchParams(search).get('agreementId') || ''
   const [agreements, setAgreements] = useState<Agreement[]>([])
   const [filter, setFilter] = useState<AgreementFilter>('ongoing')
-  const [activeId, setActiveId] = useState('')
-  const [mobileDetailOpen, setMobileDetailOpen] = useState(false)
+  const [activeId, setActiveId] = useState(requestedAgreementId)
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(Boolean(requestedAgreementId))
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [actionError, setActionError] = useState('')

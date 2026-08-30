@@ -198,6 +198,9 @@ function RequestCard({
   const earlyPayTo = useStreamPayPath(
     '/upfront?agreementId=' + encodeURIComponent(item.agreementId),
   )
+  const agreementTo = useStreamPayPath(
+    '/agreements?agreementId=' + encodeURIComponent(item.agreementId),
+  )
   return (
     <article className="stream-card p-4">
       <div className="flex items-start gap-3">
@@ -278,18 +281,22 @@ function RequestCard({
           </button>
         </div>
       )}
+      {item.role === 'customer' && item.status === 'funded' && item.agreementId && (
+        <Link
+          to={agreementTo}
+          className={'mt-4 flex min-h-11 w-full items-center justify-center rounded-full bg-gray-950 text-xs font-bold text-white dark:bg-white dark:text-gray-950'}
+        >
+          Open agreement
+        </Link>
+      )}
       {item.role === 'customer' &&
-        ['awaiting_funding', 'funded', 'expired'].includes(item.status) &&
+        ['awaiting_funding', 'expired'].includes(item.status) &&
         item.payerReviewPath && (
           <button
             onClick={onFund}
             className="mt-4 flex min-h-11 w-full items-center justify-center rounded-full bg-gray-950 text-xs font-bold text-white dark:bg-white dark:text-gray-950"
           >
-            {item.status === 'expired'
-              ? 'Return USDC'
-              : item.status === 'funded'
-                ? 'Review delivery'
-                : 'Review and fund'}
+            {item.status === 'expired' ? 'Return USDC' : 'Review and fund'}
           </button>
         )}
       {providerCanCheckEarlyPay && (
