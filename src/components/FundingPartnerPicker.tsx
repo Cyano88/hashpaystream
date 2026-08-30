@@ -246,12 +246,7 @@ export default function FundingPartnerPicker({
         domain: terms.domain,
         types: { FundingTerms: [...FUNDING_TERMS_TYPES.FundingTerms] },
         primaryType: 'FundingTerms',
-        message: {
-          ...terms.message,
-          advanceAmount,
-          funderRepaymentAmount,
-          platformFeeAmount,
-        },
+        message: terms.message,
       }, {
         address: account,
         uiOptions: { showWalletUIs: false },
