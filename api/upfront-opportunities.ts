@@ -16,9 +16,9 @@ const REQUEST_ID = /^uai_[a-zA-Z0-9]{12,80}$/
 const NATIVE_XLAYER_USDC = getAddress('0xB6CEceAB302E2E4948951eE7843FC24E92933061')
 
 type Identity = { userId: string; emails: string[]; wallets: Address[] }
-type ChainConfig = { rpcUrl: string; escrow: Address; chainId: number }
+type ChainConfig = { rpcUrl: string; escrow: Address; chainId: number; arcRpcUrl: string; arcRouter: Address }
 type TermsConfig = { privateKey: Hex; signer: Address; treasury: Address }
-type PositionState = { funder: Address; repaymentRecipient: Address; status: 'available' | 'funded' | 'released' | 'refunded' }
+type PositionState = { funder: Address; repaymentRecipient: Address; status: 'available' | 'funded' | 'released' | 'settled' | 'refunded' }
 type Capacity = { balance: bigint; allowed: boolean }
 type Dependencies = {
   identity: (req: Request, env: NodeJS.ProcessEnv) => Promise<Identity>
@@ -39,6 +39,7 @@ const POSITION_ABI = [{ type: 'function', name: 'positions', stateMutability: 'v
   { name: 'funderRepaymentAmount', type: 'uint256' }, { name: 'platformFeeAmount', type: 'uint256' }, { name: 'protectionDeadline', type: 'uint48' }, { name: 'status', type: 'uint8' },
 ] }] as const
 const ESCROW_ABI = [{ type: 'function', name: 'allowedFunders', stateMutability: 'view', inputs: [{ name: 'funder', type: 'address' }], outputs: [{ type: 'bool' }] }] as const
+const ROUTER_ABI = [{ type: 'function', name: 'settledAgreements', stateMutability: 'view', inputs: [{ name: 'arcAgreementHash', type: 'bytes32' }], outputs: [{ type: 'bool' }] }] as const
 const ERC20_ABI = [{ type: 'function', name: 'balanceOf', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ type: 'uint256' }] }] as const
 const OFFER_TYPES = { UnderwritingOffer: [
   { name: 'provider', type: 'address' }, { name: 'termsHash', type: 'bytes32' }, { name: 'intelligenceCommitment', type: 'bytes32' },
@@ -74,12 +75,14 @@ async function verifiedIdentity(req: Request, env: NodeJS.ProcessEnv): Promise<I
 
 function chainConfiguration(env: NodeJS.ProcessEnv): ChainConfig {
   const rpcUrl = clean(env.HASHPAYSTREAM_XLAYER_RPC_URL, 240)
+  const arcRpcUrl = clean(env.HASHPAYSTREAM_ARC_RPC_URL ?? 'https://rpc.testnet.arc.network', 240)
   const escrowText = clean(env.HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS, 42)
+  const arcRouterText = clean(env.HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS, 42)
   const chainId = Number(clean(env.HASHPAYSTREAM_UPFRONT_CHAIN_ID, 20))
-  let parsed: URL
-  try { parsed = new URL(rpcUrl) } catch { failure('The X Layer funding network is unavailable.', 503) }
-  if (parsed!.protocol !== 'https:' || parsed!.username || parsed!.password || !isAddress(escrowText) || ![1952, 196].includes(chainId)) failure('The X Layer funding network is unavailable.', 503)
-  return { rpcUrl: parsed!.toString(), escrow: getAddress(escrowText), chainId }
+  let parsed: URL; let parsedArc: URL
+  try { parsed = new URL(rpcUrl); parsedArc = new URL(arcRpcUrl) } catch { failure('The funding networks are unavailable.', 503) }
+  if (parsed!.protocol !== 'https:' || parsedArc!.protocol !== 'https:' || parsed!.username || parsed!.password || parsedArc!.username || parsedArc!.password || !isAddress(escrowText) || !isAddress(arcRouterText) || ![1952, 196].includes(chainId)) failure('The funding networks are unavailable.', 503)
+  return { rpcUrl: parsed!.toString(), escrow: getAddress(escrowText), chainId, arcRpcUrl: parsedArc!.toString(), arcRouter: getAddress(arcRouterText) }
 }
 
 function termsConfiguration(env: NodeJS.ProcessEnv): TermsConfig {
@@ -121,7 +124,16 @@ function opportunity(record: UpfrontAssessmentRecord, now: Date, config: ChainCo
 
 async function position(id: Hex, config: ChainConfig): Promise<PositionState> {
   const value = await createPublicClient({ transport: http(config.rpcUrl) }).readContract({ address: config.escrow, abi: POSITION_ABI, functionName: 'positions', args: [id] })
-  const status = value[15] === 1 ? 'funded' : value[15] === 2 ? 'released' : value[15] === 3 ? 'refunded' : 'available'
+  let status: PositionState['status'] = value[15] === 1 ? 'funded' : value[15] === 2 ? 'released' : value[15] === 3 ? 'refunded' : 'available'
+  const arcAgreementHash = value[9]
+  if (status === 'released' && arcAgreementHash !== `0x${'0'.repeat(64)}`) {
+    try {
+      const settled = await createPublicClient({ transport: http(config.arcRpcUrl) }).readContract({ address: config.arcRouter, abi: ROUTER_ABI, functionName: 'settledAgreements', args: [arcAgreementHash] })
+      if (settled) status = 'settled'
+    } catch {
+      // Keep the recoverable X Layer state when Arc RPC is temporarily unavailable.
+    }
+  }
   return { funder: getAddress(value[0]), repaymentRecipient: getAddress(value[1]), status }
 }
 async function capacity(wallet: Address, config: ChainConfig): Promise<Capacity> {

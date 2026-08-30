@@ -32,7 +32,7 @@ type Opportunity = {
   }
   providerSignature?: string
   positionId: `0x${string}`
-  positionStatus: 'available' | 'funded' | 'released' | 'refunded'
+  positionStatus: 'available' | 'funded' | 'released' | 'settled' | 'refunded'
   funder?: string
   repaymentRecipient?: string
 }
@@ -58,6 +58,7 @@ function duration(seconds: number) {
 function positionLabel(status: Opportunity['positionStatus']) {
   if (status === 'funded') return 'Ready to release'
   if (status === 'released') return 'Awaiting repayment'
+  if (status === 'settled') return 'Completed'
   if (status === 'refunded') return 'Refunded'
   return 'Requested'
 }
@@ -109,7 +110,7 @@ export default function StreamPayFundingDesk() {
   const openOffers = useMemo(() => opportunities.filter(item => item.positionStatus === 'available'), [opportunities])
   const positions = useMemo(() => opportunities.filter(item => item.positionStatus !== 'available'), [opportunities])
   const activePositions = useMemo(() => positions.filter(item => item.positionStatus === 'funded' || item.positionStatus === 'released'), [positions])
-  const completedPositions = useMemo(() => positions.filter(item => item.positionStatus === 'refunded'), [positions])
+  const completedPositions = useMemo(() => positions.filter(item => item.positionStatus === 'settled' || item.positionStatus === 'refunded'), [positions])
   const deployedUnits = useMemo(() => activePositions.reduce((total, item) => total + (/^\d+$/.test(item.requestedAdvanceUsdcUnits) ? BigInt(item.requestedAdvanceUsdcUnits) : 0n), 0n).toString(), [activePositions])
   const selected = opportunities.find(item => item.id === selectedId)
 

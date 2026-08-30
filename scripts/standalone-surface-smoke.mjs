@@ -357,6 +357,8 @@ assert.ok(!upfrontLifecycleButton.includes('disabled={busy || !ready || !signer}
 assert.ok(!upfrontLifecycleButton.includes('if (!ready || !signer'))
 assert.match(upfrontLifecycleButton, /settleRepayment/)
 assert.match(upfrontLifecycleButton, /functionName: 'settledAgreements'/)
+assert.match(upfrontLifecycleButton, /positionStatus === 'settled'/)
+assert.match(fundingDesk, /item\.positionStatus === 'settled'/)
 assert.match(upfrontLifecycleButton, /Waiting for customer payment/)
 assert.match(upfrontLifecycleButton, /repaymentState !== 'ready'/)
 assert.match(upfrontLifecycleButton, /status\?\: number/)

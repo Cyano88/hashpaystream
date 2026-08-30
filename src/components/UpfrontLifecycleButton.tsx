@@ -17,7 +17,7 @@ type Opportunity = {
   id: string
   agreementId: string
   positionId: Hex
-  positionStatus: 'funded' | 'released' | 'refunded'
+  positionStatus: 'funded' | 'released' | 'settled' | 'refunded'
   funder?: string
   repaymentRecipient?: string
 }
@@ -209,6 +209,7 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
   }
 
   if (opportunity.positionStatus === 'refunded') return <p className="mt-3 text-[11px] text-gray-500">Advance refunded.</p>
+  if (opportunity.positionStatus === 'settled') return <p className='mt-3 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300'>Payment completed.</p>
   const repaymentBlocked = opportunity.positionStatus === 'released' && repaymentState !== 'ready'
   const label = opportunity.positionStatus === 'funded'
     ? 'Send early payment'

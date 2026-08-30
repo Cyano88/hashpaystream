@@ -161,6 +161,8 @@ const base = {
     HASHPAYSTREAM_XLAYER_RPC_URL: 'https://xlayer.example',
     HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS:
       '0x2222222222222222222222222222222222222222',
+    HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS:
+      '0x4444444444444444444444444444444444444444',
     HASHPAYSTREAM_UPFRONT_CHAIN_ID: '1952',
     HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY: protectionKey,
     HASHPAYSTREAM_UPFRONT_PROTECTION_SIGNER:
@@ -320,6 +322,21 @@ const historicalPosition = await call(
 )
 assert.equal(historicalPosition.body.opportunities.length, 1)
 assert.equal(historicalPosition.body.opportunities[0].positionStatus, 'released')
+
+const settledPosition = await call(
+  createUpfrontOpportunitiesHandler({
+    ...base,
+    identity: identity(partnerAIdentity),
+    now: () => new Date('2026-08-21T13:00:00.000Z'),
+    position: async () => ({
+      funder: funderA,
+      repaymentRecipient: funderA,
+      status: 'settled',
+    }),
+  }),
+)
+assert.equal(settledPosition.body.opportunities.length, 1)
+assert.equal(settledPosition.body.opportunities[0].positionStatus, 'settled')
 
 const providerSelection = await call(
   createUpfrontOpportunitiesHandler({
