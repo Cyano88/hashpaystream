@@ -198,15 +198,42 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
         payer_lifecycle_recover: 'lifecycle-recover',
         payer_lifecycle_record: 'lifecycle-record',
         payer_lifecycle_status: 'lifecycle-status',
+        payer_delivery_decision: 'delivery-decision',
       } as Record<string, string>)[action]
       if (payerAction) {
         const requestId = clean(body.requestId, 80)
         const stored = await dependencies.readRequests(cfg.requestStore)
         const item = stored?.requests?.[requestId]
         if (!item || item.customerAccountKey !== viewer) fail('Request not found.', 404)
-        if (item.status !== 'awaiting_funding' || !item.agreementId || !item.payerReviewPath) {
-          fail('This request is not ready for customer funding.', 409)
-        }
+        if (!item.agreementId || !item.payerReviewPath) fail('This request has no payer agreement.', 409)
+        const [humanEvents, upfrontEvents] = await Promise.all([
+          dependencies.readEvents(cfg.humanEvents),
+          dependencies.readEvents(cfg.upfrontEvents),
+        ])
+        const observed = Object.values({ ...(humanEvents?.events ?? {}), ...(upfrontEvents?.events ?? {}) })
+          .filter(event => event.agreementId === item.agreementId && [
+            'agreement.activated',
+            'agreement.step_released',
+            'agreement.expired',
+            'agreement.refunded',
+          ].includes(event.event))
+          .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+          .at(-1)
+        const effectiveStatus = observed?.event === 'agreement.expired'
+          ? 'expired'
+          : observed?.event === 'agreement.refunded'
+            ? 'refunded'
+            : observed && ['agreement.activated', 'agreement.step_released'].includes(observed.event)
+              ? 'funded'
+              : item.status
+        const allowedStatuses = payerAction === 'review'
+          ? ['awaiting_funding', 'funded', 'expired', 'refunded']
+          : payerAction === 'delivery-decision'
+            ? ['funded']
+            : payerAction.startsWith('lifecycle-')
+              ? ['funded', 'expired']
+              : ['awaiting_funding']
+        if (!allowedStatuses.includes(effectiveStatus)) fail('This customer action is not available for the request.', 409)
         const fragment = item.payerReviewPath.split('#', 2)[1] ?? ''
         const capability = new URLSearchParams(fragment).get('access')?.trim() ?? ''
         if (!/^agrp_[A-Za-z0-9_-]{40,100}$/.test(capability)) fail('Agreement payer access is unavailable.', 503)
@@ -229,6 +256,10 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
           if (payerAction === 'record') forwarded.transactionHash = clean(body.transactionHash, 66)
           if (payerAction === 'lifecycle-challenge') forwarded.lifecycleAction = clean(body.lifecycleAction, 20)
           if (payerAction === 'lifecycle-record') forwarded.transactionHash = clean(body.transactionHash, 66)
+        } else if (payerAction === 'delivery-decision') {
+          forwarded.deliveryId = clean(body.deliveryId, 40)
+          forwarded.decision = clean(body.decision, 20)
+          if (forwarded.decision === 'dispute') forwarded.issue = clean(body.issue, 300)
         }
         const upstreamResult = await dependencies.payerUpstream(cfg.base, apiKey, capability, forwarded)
         if (upstreamResult.status < 200 || upstreamResult.status >= 300 || upstreamResult.body.ok !== true) {

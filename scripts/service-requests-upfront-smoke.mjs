@@ -15,6 +15,7 @@ let requests
 let ownership
 let upstreamInput
 let payerUpstreamInput
+let agreementEvents
 let v3Enabled = true
 let idSequence = 0
 let upstreamResponse = {
@@ -32,7 +33,7 @@ const handler = createServiceRequestsHandler({
   }),
   identity: async () => identity,
   readRequests: async () => requests,
-  readEvents: async () => undefined,
+  readEvents: async () => agreementEvents,
   mutateRequests: async (_key, update) => (requests = await update(requests)),
   readAccounts: async () => ({
     schema: 1,
@@ -200,6 +201,31 @@ assert.deepEqual(payerUpstreamInput.body, {
   agreementId: 'agr_upfront123456789',
   payerEmail: customer.email,
   action: 'review',
+})
+
+agreementEvents = {
+  schema: 1,
+  events: {
+    activated: {
+      event: 'agreement.activated',
+      agreementId: 'agr_upfront123456789',
+      createdAt: '2026-08-20T12:05:00.000Z',
+    },
+  },
+}
+const deliveryDecision = await call('POST', {
+  action: 'payer_delivery_decision',
+  requestId: offer.body.request.id,
+  deliveryId: 'opa_1234567890abcdef12345678',
+  decision: 'accept',
+})
+assert.equal(deliveryDecision.statusCode, 200)
+assert.deepEqual(payerUpstreamInput.body, {
+  agreementId: 'agr_upfront123456789',
+  payerEmail: customer.email,
+  action: 'delivery-decision',
+  deliveryId: 'opa_1234567890abcdef12345678',
+  decision: 'accept',
 })
 
 v3Enabled = false
