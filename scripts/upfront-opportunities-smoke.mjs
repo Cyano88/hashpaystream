@@ -306,6 +306,21 @@ const hiddenFromB = await call(
 )
 assert.equal(hiddenFromB.body.opportunities.length, 0)
 
+const historicalPosition = await call(
+  createUpfrontOpportunitiesHandler({
+    ...base,
+    identity: identity(partnerAIdentity),
+    now: () => new Date('2026-08-21T13:00:00.000Z'),
+    position: async () => ({
+      funder: funderA,
+      repaymentRecipient: funderA,
+      status: 'released',
+    }),
+  }),
+)
+assert.equal(historicalPosition.body.opportunities.length, 1)
+assert.equal(historicalPosition.body.opportunities[0].positionStatus, 'released')
+
 const providerSelection = await call(
   createUpfrontOpportunitiesHandler({
     ...base,

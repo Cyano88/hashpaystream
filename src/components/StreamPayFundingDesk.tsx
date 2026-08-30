@@ -109,6 +109,7 @@ export default function StreamPayFundingDesk() {
   const openOffers = useMemo(() => opportunities.filter(item => item.positionStatus === 'available'), [opportunities])
   const positions = useMemo(() => opportunities.filter(item => item.positionStatus !== 'available'), [opportunities])
   const activePositions = useMemo(() => positions.filter(item => item.positionStatus === 'funded' || item.positionStatus === 'released'), [positions])
+  const completedPositions = useMemo(() => positions.filter(item => item.positionStatus === 'refunded'), [positions])
   const deployedUnits = useMemo(() => activePositions.reduce((total, item) => total + (/^\d+$/.test(item.requestedAdvanceUsdcUnits) ? BigInt(item.requestedAdvanceUsdcUnits) : 0n), 0n).toString(), [activePositions])
   const selected = opportunities.find(item => item.id === selectedId)
 
@@ -146,8 +147,12 @@ export default function StreamPayFundingDesk() {
         : <EmptyState title="No funding requests" detail="Private requests sent to you will appear here." />}
     </OpportunitySection>}
 
-    {!error && positions.length > 0 && <OpportunitySection title="Active positions" count={positions.length}>
-      {positions.map(item => <OpportunityRow key={item.id} item={item} onOpen={() => setSelectedId(item.id)} />)}
+    {!error && activePositions.length > 0 && <OpportunitySection title="Active positions" count={activePositions.length}>
+      {activePositions.map(item => <OpportunityRow key={item.id} item={item} onOpen={() => setSelectedId(item.id)} />)}
+    </OpportunitySection>}
+
+    {!error && completedPositions.length > 0 && <OpportunitySection title="Completed positions" count={completedPositions.length}>
+      {completedPositions.map(item => <OpportunityRow key={item.id} item={item} onOpen={() => setSelectedId(item.id)} />)}
     </OpportunitySection>}
 
     <p className="px-1 py-2 text-[9px] leading-4 text-gray-400">{XLAYER_MAINNET ? 'Public test: Arc protection uses test USDC; X Layer advances use real USDC.' : 'Demo mode uses test funds.'}</p>

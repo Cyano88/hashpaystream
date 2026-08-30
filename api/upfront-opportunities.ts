@@ -92,7 +92,7 @@ function termsConfiguration(env: NodeJS.ProcessEnv): TermsConfig {
   return { privateKey: privateKey as Hex, signer: account.address, treasury: getAddress(treasury) }
 }
 
-function opportunity(record: UpfrontAssessmentRecord, now: Date, config: ChainConfig, minimumRemainingSeconds: number) {
+function opportunity(record: UpfrontAssessmentRecord, now: Date, config: ChainConfig, minimumRemainingSeconds: number, includeExpired = false) {
   if (record.status !== 'completed' || !record.agreementId || record.request?.agreement.state !== 'funded') return undefined
   const response = record.response && typeof record.response === 'object' ? record.response : {}
   const intelligence = response.intelligence && typeof response.intelligence === 'object' ? response.intelligence as Record<string, unknown> : {}
@@ -112,9 +112,11 @@ function opportunity(record: UpfrontAssessmentRecord, now: Date, config: ChainCo
   if (fundableUnits <= 0n) return undefined
   const expiresAtSeconds = Math.floor(Date.parse(expiresAt) / 1000)
   const offerMessage = { provider: getAddress(String(message.provider)), termsHash: message.termsHash as Hex, intelligenceCommitment: message.intelligenceCommitment as Hex, protectedAmount: BigInt(String(message.protectedAmount)), maxAdvanceBps: Number(message.maxAdvanceBps), protectionDeadline: Number(message.protectionDeadline), underwritingDeadline: Number(message.underwritingDeadline), nonce: message.nonce as Hex }
-  if (!Number.isInteger(offerMessage.maxAdvanceBps) || !Number.isSafeInteger(offerMessage.protectionDeadline) || offerMessage.protectionDeadline !== record.request.agreement.protectionDeadline || !Number.isSafeInteger(offerMessage.underwritingDeadline) || offerMessage.protectionDeadline <= offerMessage.underwritingDeadline || offerMessage.underwritingDeadline !== expiresAtSeconds || offerMessage.underwritingDeadline <= Math.floor(now.getTime() / 1000) || !hasMinimumUpfrontProtectionWindow(offerMessage.protectionDeadline, now, minimumRemainingSeconds)) return undefined
+  if (!Number.isInteger(offerMessage.maxAdvanceBps) || !Number.isSafeInteger(offerMessage.protectionDeadline) || offerMessage.protectionDeadline !== record.request.agreement.protectionDeadline || !Number.isSafeInteger(offerMessage.underwritingDeadline) || offerMessage.protectionDeadline <= offerMessage.underwritingDeadline || offerMessage.underwritingDeadline !== expiresAtSeconds) return undefined
+  const live = offerMessage.underwritingDeadline > Math.floor(now.getTime() / 1000) && hasMinimumUpfrontProtectionWindow(offerMessage.protectionDeadline, now, minimumRemainingSeconds)
+  if (!includeExpired && !live) return undefined
   const positionId = hashTypedData({ domain: { name: 'HashPayStream Upfront', version: '1', chainId: config.chainId, verifyingContract: config.escrow }, types: OFFER_TYPES, primaryType: 'UnderwritingOffer', message: offerMessage })
-  return { id: record.request.requestId, agreementId: record.agreementId, title: record.request.agreement.title, protectedUsdcUnits: protectedUnits, requestedAdvanceUsdcUnits: fundableUnits.toString(), maximumAdvanceBps, durationSeconds: record.request.agreement.durationSeconds, providerPayoutAddress: record.request.advance.providerPayoutAddress, evidenceGrade: clean(intelligence.evidenceGrade, 24), confidence: Number(intelligence.confidence), expiresAt, live: Date.parse(expiresAt) > now.getTime(), positionId, onchainOffer: offer }
+  return { id: record.request.requestId, agreementId: record.agreementId, title: record.request.agreement.title, protectedUsdcUnits: protectedUnits, requestedAdvanceUsdcUnits: fundableUnits.toString(), maximumAdvanceBps, durationSeconds: record.request.agreement.durationSeconds, providerPayoutAddress: record.request.advance.providerPayoutAddress, evidenceGrade: clean(intelligence.evidenceGrade, 24), confidence: Number(intelligence.confidence), expiresAt, live, positionId, onchainOffer: offer }
 }
 
 async function position(id: Hex, config: ChainConfig): Promise<PositionState> {
@@ -215,7 +217,7 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
         if (!REQUEST_ID.test(requestId)) failure('Early-pay request is invalid.', 400)
         const found = findRecord(store, requestId)
         if (!found || found[1].ownerReference !== providerReference(secret, identity.userId)) failure('Early-pay request was not found.', 404)
-        const candidate = opportunity(found[1], now, chain, minimumRemainingSeconds)
+        const candidate = opportunity(found[1], now, chain, minimumRemainingSeconds, Boolean(found[1].fundingRequest))
         if (!candidate) failure('This early-pay request is no longer available.', 409)
         const positionState = await dependencies.position(candidate.positionId, chain)
         const selectedProfile = found[1].fundingRequest ? partners?.applications?.[found[1].fundingRequest.partnerApplicationId] : undefined
@@ -309,7 +311,10 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
         return res.json({ ok: true, status: 'declined' })
       }
 
-      const candidates = Object.values(store.records).flatMap(record => opportunity(record, now, chain, minimumRemainingSeconds) ? [{ record, candidate: opportunity(record, now, chain, minimumRemainingSeconds)! }] : [])
+      const candidates = Object.values(store.records).flatMap(record => {
+        const candidate = opportunity(record, now, chain, minimumRemainingSeconds, Boolean(record.fundingRequest))
+        return candidate ? [{ record, candidate }] : []
+      })
       const inspected = await Promise.all(candidates.map(async item => ({ ...item, position: await dependencies.position(item.candidate.positionId, chain) })))
       const opportunities: Array<(typeof candidates)[number]['candidate'] & {
         positionStatus: PositionState['status']
