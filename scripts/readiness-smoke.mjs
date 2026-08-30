@@ -123,6 +123,7 @@ assert.equal((await call(completeUpfront)).statusCode, 200)
 const completeV3Environment = {
   ...completeUpfrontEnvironment,
   HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED: 'true',
+  HASHPAYSTREAM_UPFRONT_AUTO_SETTLEMENT_ENABLED: 'true',
   VITE_HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED: 'true',
   HASHPAYSTREAM_PLATFORM_TREASURY_ADDRESS: '0xF3bE84452e17e9F0656F54884113cD2D7288C2E3',
 }
@@ -141,6 +142,18 @@ assert.equal((await call(createHashPayStreamReadinessHandler({
   read: async () => undefined,
   env: () => ({ ...completeV3Environment, VITE_HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED: 'false' }),
 }))).statusCode, 503)
+for (const autoSettlementValue of ['', 'false']) {
+  const events = []
+  const response = await call(createHashPayStreamReadinessHandler({
+    hasStore: () => true,
+    read: async () => undefined,
+    env: () => ({ ...completeV3Environment, HASHPAYSTREAM_UPFRONT_AUTO_SETTLEMENT_ENABLED: autoSettlementValue }),
+    logError: event => events.push(event),
+  }))
+  assert.equal(response.statusCode, 503)
+  assert.equal(events[0].configurationIssues.includes('AUTO_SETTLEMENT_DISABLED'), true)
+  if (!autoSettlementValue) assert.equal(events[0].missingEnvironment.includes('HASHPAYSTREAM_UPFRONT_AUTO_SETTLEMENT_ENABLED'), true)
+}
 
 for (const requiredName of ['CIRCLE_TEST_API_KEY', 'VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET']) {
   const environment = { ...completeUpfrontEnvironment, [requiredName]: '' }

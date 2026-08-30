@@ -103,6 +103,7 @@ function missingUpfrontEnvironmentNames(env: NodeJS.ProcessEnv) {
   if (upfrontSettlementV3Enabled(env)) {
     for (const name of [
       'HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED',
+      'HASHPAYSTREAM_UPFRONT_AUTO_SETTLEMENT_ENABLED',
       'VITE_HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED',
       'HASHPAYSTREAM_PLATFORM_TREASURY_ADDRESS',
     ]) if (!clean(env[name], 300)) required.push(name)
@@ -125,6 +126,7 @@ function upfrontConfigurationReady(env: NodeJS.ProcessEnv) {
   const protectionSigner = clean(env.HASHPAYSTREAM_UPFRONT_PROTECTION_SIGNER, 42)
   const repaymentSigner = clean(env.HASHPAYSTREAM_UPFRONT_REPAYMENT_SIGNER, 42)
   const v3Enabled = upfrontSettlementV3Enabled(env)
+  const autoSettlementEnabled = clean(env.HASHPAYSTREAM_UPFRONT_AUTO_SETTLEMENT_ENABLED, 20).toLowerCase() === 'true'
   const browserV3Enabled = clean(env.VITE_HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED, 20).toLowerCase() === 'true'
   const platformTreasury = clean(env.HASHPAYSTREAM_PLATFORM_TREASURY_ADDRESS, 42)
   let signerKeysMatch = false
@@ -170,6 +172,7 @@ function upfrontConfigurationReady(env: NodeJS.ProcessEnv) {
     && clean(env.VITE_HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() === 'true'
     && clean(env.VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED, 20).toLowerCase() === 'true'
     && v3Enabled === browserV3Enabled
+    && (!v3Enabled || autoSettlementEnabled)
     && (!v3Enabled || address(platformTreasury))
     && clean(env.HASHPAYSTREAM_DIRECT_ARC_ENABLED, 20).toLowerCase() === 'true'
   )
@@ -186,6 +189,7 @@ function upfrontConfigurationIssueCodes(env: NodeJS.ProcessEnv) {
   const serverChainId = Number(env.HASHPAYSTREAM_UPFRONT_CHAIN_ID)
   const browserChainId = Number(env.VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID)
   const v3Enabled = upfrontSettlementV3Enabled(env)
+  const autoSettlementEnabled = clean(env.HASHPAYSTREAM_UPFRONT_AUTO_SETTLEMENT_ENABLED, 20).toLowerCase() === 'true'
   const browserV3Enabled = clean(env.VITE_HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED, 20).toLowerCase() === 'true'
   if (!clean(env.PRIVY_APP_ID ?? env.VITE_PRIVY_APP_ID, 180) || clean(env.PRIVY_APP_SECRET, 300).length < 16) issues.push('PRIVY_CONFIGURATION_INVALID')
   if (clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300).length < 32) issues.push('OWNERSHIP_SECRET_INVALID')
@@ -209,6 +213,7 @@ function upfrontConfigurationIssueCodes(env: NodeJS.ProcessEnv) {
   }
   if (clean(env.VITE_HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() !== 'true' || clean(env.VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED, 20).toLowerCase() !== 'true') issues.push('UPFRONT_BROWSER_FLAGS_INVALID')
   if (v3Enabled !== browserV3Enabled) issues.push('FEE_SETTLEMENT_V3_FLAGS_MISMATCH')
+  if (v3Enabled && !autoSettlementEnabled) issues.push('AUTO_SETTLEMENT_DISABLED')
   if (v3Enabled && !address(env.HASHPAYSTREAM_PLATFORM_TREASURY_ADDRESS)) issues.push('PLATFORM_TREASURY_INVALID')
   if (clean(env.HASHPAYSTREAM_DIRECT_ARC_ENABLED, 20).toLowerCase() !== 'true') issues.push('DIRECT_ARC_CONFIGURATION_INVALID')
   return [...new Set(issues)].sort()
