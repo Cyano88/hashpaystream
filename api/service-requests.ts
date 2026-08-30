@@ -12,7 +12,7 @@ const DEFAULT_UPFRONT_STORE_KEY = 'hashpaystream:upfront-agreement-owners:v1'
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 type Role = 'customer' | 'provider'
-type RequestStatus = 'sent' | 'countered' | 'provider_accepted' | 'awaiting_funding' | 'funded' | 'expired' | 'refunded' | 'declined' | 'cancelled'
+type RequestStatus = 'sent' | 'countered' | 'provider_accepted' | 'awaiting_funding' | 'funded' | 'expired' | 'completed' | 'refunded' | 'declined' | 'cancelled'
 type Terms = {
   version: number; title: string; description: string; amount: string; amountUsdcUnits: string
   durationSeconds: number; cancellationWindowSeconds: number; upfrontRequested: boolean; upfrontReason?: string
@@ -150,9 +150,9 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
       const viewer = accountKey(cfg.secret, identity.email)
       if (req.method === 'GET') {
         const [stored, humanEvents, upfrontEvents] = await Promise.all([dependencies.readRequests(cfg.requestStore), dependencies.readEvents(cfg.humanEvents), dependencies.readEvents(cfg.upfrontEvents)])
-        const lifecycle = new Map<string, { status: 'funded' | 'expired' | 'refunded'; createdAt: string }>()
+        const lifecycle = new Map<string, { status: 'funded' | 'expired' | 'completed' | 'refunded'; createdAt: string }>()
         for (const event of Object.values({ ...(humanEvents?.events ?? {}), ...(upfrontEvents?.events ?? {}) }).sort((left, right) => left.createdAt.localeCompare(right.createdAt))) {
-          const status = event.event === 'agreement.expired' ? 'expired' : event.event === 'agreement.refunded' ? 'refunded' : ['agreement.activated', 'agreement.step_released'].includes(event.event) ? 'funded' : null
+          const status = event.event === 'agreement.expired' ? 'expired' : event.event === 'agreement.completed' ? 'completed' : event.event === 'agreement.refunded' ? 'refunded' : ['agreement.activated', 'agreement.step_released'].includes(event.event) ? 'funded' : null
           if (status) lifecycle.set(event.agreementId, { status, createdAt: event.createdAt })
         }
         const requests = Object.values(stored?.requests ?? {}).filter(item => item.customerAccountKey === viewer || item.providerAccountKey === viewer).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 100).map(item => {

@@ -8,6 +8,8 @@ import { AgreementSignInLanding } from './AgreementSignInLanding'
 import type { PaylinkReceipt } from '../../lib/paymentReceiptPdf'
 import { LoadingRing } from '../ui/LoadingRing'
 import { StreamPayLoadingState } from '../ui/StreamPayLoadingState'
+import StreamPayFundRequest from '../StreamPayFundRequest'
+import { useServiceRequests, type ServiceRequest } from '../../lib/serviceRequests'
 
 const AGREEMENTS_API = '/api/hashpaystream/v1/human/agreements'
 const UPFRONT_AGREEMENTS_API = '/api/hashpaystream/v1/human/upfront/agreements'
@@ -153,6 +155,19 @@ function supportsReleaseRequests(value?: Agreement['template']) {
   return ['fixed_unlock', 'progressive_release', 'milestone'].includes(value ?? 'fixed_unlock')
 }
 
+function customerAgreementStatus(request: ServiceRequest): AgreementStatus {
+  if (request.status === 'awaiting_funding') return 'awaiting_start'
+  if (request.status === 'funded') return 'active'
+  if (request.status === 'expired') return 'expired'
+  if (request.status === 'completed') return 'completed'
+  if (request.status === 'refunded') return 'refunded'
+  return 'cancelled'
+}
+
+function customerAgreementTerms(request: ServiceRequest) {
+  return request.terms.find(term => term.version === request.activeVersion) ?? request.terms[request.terms.length - 1]
+}
+
 function agreementApi(agreement: Agreement) {
   return agreement.gateway === 'upfront' ? UPFRONT_AGREEMENTS_API : AGREEMENTS_API
 }
@@ -175,6 +190,7 @@ function StatusBadge({ status }: { status: AgreementStatus }) {
 
 export default function AgreementDashboard() {
   const { ready, authenticated, getAccessToken } = usePrivy()
+  const requests = useServiceRequests()
   const { search } = useLocation()
   const requestedAgreementId = new URLSearchParams(search).get('agreementId') || ''
   const [agreements, setAgreements] = useState<Agreement[]>([])
@@ -255,9 +271,22 @@ export default function AgreementDashboard() {
     if (filter === 'ongoing') return ['awaiting_start', 'active', 'expired'].includes(agreement.status)
     return ['completed', 'cancelled', 'refunded'].includes(agreement.status)
   }), [agreements, filter])
+  const customerAgreements = useMemo(() => requests.requests.filter(request =>
+    request.role === 'customer' && Boolean(request.agreementId) && ['awaiting_funding', 'funded', 'expired', 'completed', 'refunded'].includes(request.status)
+  ), [requests.requests])
+  const filteredCustomerAgreements = useMemo(() => customerAgreements.filter(request => {
+    const status = customerAgreementStatus(request)
+    return filter === 'ongoing'
+      ? ['awaiting_start', 'active', 'expired'].includes(status)
+      : ['completed', 'cancelled', 'refunded'].includes(status)
+  }), [customerAgreements, filter])
+  const activeCustomer = useMemo(
+    () => filteredCustomerAgreements.find(request => request.agreementId === activeId),
+    [activeId, filteredCustomerAgreements],
+  )
   const active = useMemo(
-    () => filteredAgreements.find(item => item.id === activeId) ?? filteredAgreements[0],
-    [activeId, filteredAgreements],
+    () => activeCustomer ? undefined : filteredAgreements.find(item => item.id === activeId) ?? (!activeId ? filteredAgreements[0] : undefined),
+    [activeCustomer, activeId, filteredAgreements],
   )
 
   function chooseFilter(next: AgreementFilter) {
@@ -373,7 +402,7 @@ export default function AgreementDashboard() {
     return <AgreementSignInLanding splashState={splashState} />
   }
 
-  if (!ready || loading) {
+  if (!ready || loading || requests.loading) {
     return <StreamPayLoadingState active="agreements" />
   }
 
@@ -383,28 +412,36 @@ export default function AgreementDashboard() {
         {([['ongoing', 'Ongoing'], ['completed', 'Completed']] as const).map(([value, label]) => <button key={value} type="button" onClick={() => chooseFilter(value)} className={`min-h-11 rounded-full px-2 text-xs font-extrabold transition ${filter === value ? 'bg-gray-950 text-white shadow-sm dark:bg-white dark:text-gray-950' : 'text-gray-500 dark:text-gray-400'}`}>{label}</button>)}
       </div>
 
-      {loadError && (
+      {(loadError || requests.error) && (
         <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300">
-          {loadError}
+          {loadError || requests.error}
         </div>
       )}
-      {!loadError && actionError && (
+      {!loadError && !requests.error && actionError && (
         <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300">
           {actionError}
         </div>
       )}
 
-      {!loadError && agreements.length === 0 ? (
+      {!loadError && !requests.error && agreements.length === 0 && customerAgreements.length === 0 ? (
         <div className="mt-8 rounded-3xl border border-gray-200 bg-white px-6 py-12 text-center dark:border-white/10 dark:bg-[#18181b]">
           <h2 className="text-lg font-semibold text-gray-950 dark:text-white">No agreements yet</h2>
           <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-gray-500 dark:text-gray-400">
             Agreements created through this project will appear here after they are saved.
           </p>
         </div>
-      ) : !loadError && (
+      ) : !loadError && !requests.error && (
         <>
           <div className="mt-5 grid gap-4">
             <div className={`space-y-2 ${mobileDetailOpen ? 'hidden' : ''}`}>
+              {filteredCustomerAgreements.map(request => (
+                <CustomerAgreementCard
+                  key={request.id}
+                  request={request}
+                  selected={activeCustomer?.id === request.id}
+                  onSelect={() => selectAgreement(request.agreementId)}
+                />
+              ))}
               {filteredAgreements.map(agreement => (
                 <button
                   type="button"
@@ -427,9 +464,19 @@ export default function AgreementDashboard() {
                   </div>
                 </button>
               ))}
-              {filteredAgreements.length === 0 && <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-5 py-9 text-center text-xs font-medium text-gray-400 dark:border-white/10 dark:bg-white/[0.025]">No agreements in this section.</div>}
+              {filteredAgreements.length === 0 && filteredCustomerAgreements.length === 0 && <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-5 py-9 text-center text-xs font-medium text-gray-400 dark:border-white/10 dark:bg-white/[0.025]">No agreements in this section.</div>}
             </div>
 
+            {activeCustomer && (
+              <div className={mobileDetailOpen ? '' : 'hidden'}>
+                <StreamPayFundRequest
+                  item={activeCustomer}
+                  onBack={closeMobileAgreement}
+                  payer={requests.payer}
+                  onFunded={() => { void requests.refresh(true); void load(true) }}
+                />
+              </div>
+            )}
             {active && (
               <article className={`${mobileDetailOpen ? '' : 'hidden'} rounded-3xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#18181b] sm:p-6`}>
                 <button type="button" onClick={closeMobileAgreement} className="mb-5 inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-950 dark:text-gray-400 dark:hover:text-white">
@@ -639,5 +686,35 @@ function Detail({ label, value }: { label: string; value: string }) {
       <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-gray-400">{label}</p>
       <p className="mt-1 truncate text-sm font-medium text-gray-900 dark:text-gray-100">{value}</p>
     </div>
+  )
+}
+
+function CustomerAgreementCard({ request, selected, onSelect }: {
+  request: ServiceRequest
+  selected: boolean
+  onSelect: () => void
+}) {
+  const terms = customerAgreementTerms(request)
+  const status = customerAgreementStatus(request)
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`w-full rounded-2xl border p-4 text-left transition-colors ${selected
+        ? 'border-gray-950 bg-gray-950 text-white dark:border-white dark:bg-white dark:text-gray-950'
+        : 'border-gray-200 bg-white text-gray-950 hover:border-gray-300 dark:border-white/10 dark:bg-[#18181b] dark:text-white dark:hover:border-white/20'}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">{terms.title}</p>
+          <p className={`mt-1 text-xs ${selected ? 'text-white/60 dark:text-gray-500' : 'text-gray-400'}`}>
+            {formatUsdc(terms.amountUsdcUnits)} Â· One release
+          </p>
+        </div>
+        <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-semibold ${selected
+          ? 'bg-white/10 text-white dark:bg-gray-100 dark:text-gray-700'
+          : 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400'}`}>{STATUS_LABEL[status]}</span>
+      </div>
+    </button>
   )
 }

@@ -10,7 +10,7 @@ export type ServiceRequestTerms = {
 export type ServiceRequestEvent = { id: string; type: string; actor: 'customer' | 'provider'; createdAt: string; version: number }
 export type ServiceRequest = {
   id: string; role: 'customer' | 'provider'; direction: 'sent' | 'received'; counterparty: string
-  status: 'sent' | 'countered' | 'provider_accepted' | 'awaiting_funding' | 'funded' | 'expired' | 'refunded' | 'declined' | 'cancelled'
+  status: 'sent' | 'countered' | 'provider_accepted' | 'awaiting_funding' | 'funded' | 'expired' | 'completed' | 'refunded' | 'declined' | 'cancelled'
   activeVersion: number; terms: ServiceRequestTerms[]; events: ServiceRequestEvent[]
   agreementId: string; payerReviewPath: string; createdAt: string; updatedAt: string
 }

@@ -324,6 +324,7 @@ function statusLabel(
       awaiting_funding: 'Ready to fund',
       funded: 'Funded',
       expired: 'Refund available',
+      completed: 'Completed',
       refunded: 'USDC returned',
       declined: 'Declined',
       cancelled: 'Cancelled',

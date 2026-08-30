@@ -57,5 +57,8 @@ eventStore = { schema: 1, events: { evt_activated: { event: 'agreement.activated
 const afterFunding = await call('GET')
 assert.equal(afterFunding.body.requests[0].status, 'funded')
 assert.equal(afterFunding.body.requests[0].events.at(-1).type, 'request.funded')
+eventStore.events.evt_completed = { event: 'agreement.completed', agreementId: 'agr_1234567890abcdef', createdAt: '2026-08-26T12:02:00.000Z' }
+const afterCompletion = await call('GET')
+assert.equal(afterCompletion.body.requests[0].status, 'completed')
 
 console.log('HashPayStream customer-led request roles, version acceptance, provider ownership, and payer checkout checks passed.')
