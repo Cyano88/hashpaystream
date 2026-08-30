@@ -2,7 +2,7 @@ import { createHash, createHmac } from 'node:crypto'
 import { MIN_UPFRONT_DURATION_SECONDS } from './early-pay-timing-policy.js'
 
 export const AGREEMENT_INTELLIGENCE_REQUEST_SCHEMA = 'zeroscout.agreement-intelligence.request' as const
-export const AGREEMENT_INTELLIGENCE_REQUEST_VERSION = '1.0.0' as const
+export const AGREEMENT_INTELLIGENCE_REQUEST_VERSION = '2.0.0' as const
 
 const ADDRESS = /^0x[a-fA-F0-9]{40}$/
 const MAX_USDC_UNITS = 1_000_000_000_000n
@@ -20,18 +20,18 @@ export type UpfrontDraftInput = {
 
 export type AgreementIntelligenceRequest = {
   schema: typeof AGREEMENT_INTELLIGENCE_REQUEST_SCHEMA
-  schemaVersion: typeof AGREEMENT_INTELLIGENCE_REQUEST_VERSION
+  schemaVersion: '1.0.0' | typeof AGREEMENT_INTELLIGENCE_REQUEST_VERSION
   requestId: string
   issuedAt: string
-  source: { product: 'hashpaystream'; environment: 'testnet'; providerReference: string }
+  source: { product: 'hashpaystream'; environment: 'testnet' | 'hybrid'; providerReference: string }
   agreement: {
     state: 'draft' | 'funded'; template: 'fixed_unlock'; title: string; deliveryDescription: string
     amountUsdcUnits: string; durationSeconds: number; cancellationWindowSeconds: number
     releasePercentages: [100]; termsHash: string; protectionDeadline?: number
   }
   advance: {
-    requestedBps: number; requestedUsdcUnits: string; fundingNetwork: 'x-layer-testnet'
-    fundingAsset: 'test-usdc'; providerPayoutAddress: string
+    requestedBps: number; requestedUsdcUnits: string; fundingNetwork: 'x-layer-testnet' | 'x-layer-mainnet'
+    fundingAsset: 'test-usdc' | 'usdc'; providerPayoutAddress: string
   }
   settlement: {
     protectionNetwork: 'arc-testnet'; protectionAsset: 'test-usdc'
@@ -122,7 +122,7 @@ export function buildAgreementIntelligenceRequest(input: {
     issuedAt: input.issuedAt,
     source: {
       product: 'hashpaystream',
-      environment: 'testnet',
+      environment: 'hybrid',
       providerReference: 'hps_provider_' + createHmac('sha256', input.providerReferenceSecret).update('upfront\0' + input.providerIdentity).digest('hex').slice(0, 32),
     },
     agreement: {
@@ -134,8 +134,8 @@ export function buildAgreementIntelligenceRequest(input: {
     advance: {
       requestedBps: input.draft.requestedAdvanceBps,
       requestedUsdcUnits: (units * BigInt(input.draft.requestedAdvanceBps) / 10_000n).toString(),
-      fundingNetwork: 'x-layer-testnet',
-      fundingAsset: 'test-usdc',
+      fundingNetwork: 'x-layer-mainnet',
+      fundingAsset: 'usdc',
       providerPayoutAddress: input.draft.providerPayoutAddress,
     },
     settlement: {
