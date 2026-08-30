@@ -245,7 +245,6 @@ export default function AgreementDashboard() {
         ...(upfrontData.agreements ?? []).map(agreement => ({ ...agreement, gateway: 'upfront' as const })),
       ].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
       setAgreements(next)
-      setActiveId(current => current && next.some(item => item.id === current) ? current : next[0]?.id ?? '')
       setLoadError('')
     } catch (reason) {
       if (!quiet) setLoadError(reason instanceof Error ? reason.message : 'Agreements could not be loaded.')
@@ -708,7 +707,7 @@ function CustomerAgreementCard({ request, selected, onSelect }: {
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{terms.title}</p>
           <p className={`mt-1 text-xs ${selected ? 'text-white/60 dark:text-gray-500' : 'text-gray-400'}`}>
-            {formatUsdc(terms.amountUsdcUnits)} Â· One release
+            {formatUsdc(terms.amountUsdcUnits)} · One release
           </p>
         </div>
         <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-semibold ${selected
