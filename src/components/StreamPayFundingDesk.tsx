@@ -32,7 +32,7 @@ type Opportunity = {
   }
   providerSignature?: string
   positionId: `0x${string}`
-  positionStatus: 'available' | 'funded' | 'released' | 'settled' | 'refunded'
+  positionStatus: 'available' | 'funded' | 'released' | 'settled' | 'refunded' | 'expired' | 'declined'
   funder?: string
   repaymentRecipient?: string
 }
@@ -60,6 +60,8 @@ function positionLabel(status: Opportunity['positionStatus']) {
   if (status === 'released') return 'Awaiting repayment'
   if (status === 'settled') return 'Completed'
   if (status === 'refunded') return 'Refunded'
+  if (status === 'expired') return 'Expired'
+  if (status === 'declined') return 'Declined'
   return 'Requested'
 }
 
@@ -110,7 +112,7 @@ export default function StreamPayFundingDesk() {
   const openOffers = useMemo(() => opportunities.filter(item => item.positionStatus === 'available'), [opportunities])
   const positions = useMemo(() => opportunities.filter(item => item.positionStatus !== 'available'), [opportunities])
   const activePositions = useMemo(() => positions.filter(item => item.positionStatus === 'funded' || item.positionStatus === 'released'), [positions])
-  const completedPositions = useMemo(() => positions.filter(item => item.positionStatus === 'settled' || item.positionStatus === 'refunded'), [positions])
+  const completedPositions = useMemo(() => positions.filter(item => ['settled', 'refunded', 'expired', 'declined'].includes(item.positionStatus)), [positions])
   const deployedUnits = useMemo(() => activePositions.reduce((total, item) => total + (/^\d+$/.test(item.requestedAdvanceUsdcUnits) ? BigInt(item.requestedAdvanceUsdcUnits) : 0n), 0n).toString(), [activePositions])
   const selected = opportunities.find(item => item.id === selectedId)
 
@@ -152,7 +154,7 @@ export default function StreamPayFundingDesk() {
       {activePositions.map(item => <OpportunityRow key={item.id} item={item} onOpen={() => setSelectedId(item.id)} />)}
     </OpportunitySection>}
 
-    {!error && completedPositions.length > 0 && <OpportunitySection title="Completed positions" count={completedPositions.length}>
+    {!error && completedPositions.length > 0 && <OpportunitySection title="History" count={completedPositions.length}>
       {completedPositions.map(item => <OpportunityRow key={item.id} item={item} onOpen={() => setSelectedId(item.id)} />)}
     </OpportunitySection>}
 
@@ -221,7 +223,9 @@ function FundingDetail({ item, onBack, onUpdated }: { item: Opportunity; onBack:
 
       {item.positionStatus === 'available'
         ? <div><UpfrontFundButton opportunity={item} onFunded={onUpdated} /><button type="button" disabled={declining} onClick={() => void decline()} className="mt-2 min-h-10 w-full text-xs font-bold text-gray-400 disabled:opacity-50">{declining ? 'Declining…' : 'Decline request'}</button>{declineError && <p className="mt-2 text-[11px] text-rose-600">{declineError}</p>}</div>
-        : <UpfrontLifecycleButton opportunity={{ ...item, positionStatus: item.positionStatus }} onUpdated={onUpdated} />}
+        : item.positionStatus === 'expired' || item.positionStatus === 'declined'
+          ? <p className="mt-5 rounded-2xl bg-gray-50 px-4 py-3 text-[11px] leading-5 text-gray-500 dark:bg-white/[0.04] dark:text-gray-400">{item.positionStatus === 'expired' ? 'This funding request expired before funds moved.' : 'You declined this funding request.'}</p>
+          : <UpfrontLifecycleButton opportunity={{ ...item, positionStatus: item.positionStatus }} onUpdated={onUpdated} />}
     </article>
   </section>
 }

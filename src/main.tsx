@@ -36,7 +36,12 @@ function Providers() {
     loginMethods: ['email'],
     supportedChains: [upfrontXLayerChain, arcTestnet],
     allowOAuthInEmbeddedBrowsers: true,
-    embeddedWallets: { ethereum: { createOnLogin: 'off' } },
+    embeddedWallets: {
+      ethereum: { createOnLogin: 'off' },
+      // HashPayStream owns the authenticated wallet experience. Privy remains
+      // the embedded signer, while transaction state is shown in our UI.
+      showWalletUIs: false,
+    },
     externalWallets: { disableAllExternalWallets: true },
     appearance: {
       theme: theme === 'dark' ? 'dark' : 'light',

@@ -300,6 +300,15 @@ assert.equal(
   assignedA.body.opportunities[0].fundingTerms.message.funderRepaymentAmount,
   '20160000',
 )
+const expiredRequest = await call(
+  createUpfrontOpportunitiesHandler({
+    ...base,
+    identity: identity(partnerAIdentity),
+    now: () => new Date('2026-08-21T13:00:00.000Z'),
+  }),
+)
+assert.equal(expiredRequest.body.opportunities.length, 1)
+assert.equal(expiredRequest.body.opportunities[0].positionStatus, 'expired')
 const hiddenFromB = await call(
   createUpfrontOpportunitiesHandler({
     ...base,
@@ -356,6 +365,14 @@ const declined = await call(
   { method: 'POST', body: { action: 'decline', requestId: request.requestId } },
 )
 assert.equal(declined.statusCode, 200)
+const declinedHistory = await call(
+  createUpfrontOpportunitiesHandler({
+    ...base,
+    identity: identity(partnerAIdentity),
+  }),
+)
+assert.equal(declinedHistory.body.opportunities.length, 1)
+assert.equal(declinedHistory.body.opportunities[0].positionStatus, 'declined')
 const reopened = await call(
   createUpfrontOpportunitiesHandler({
     ...base,

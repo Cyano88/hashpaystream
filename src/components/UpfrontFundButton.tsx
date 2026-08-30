@@ -43,6 +43,20 @@ const MIN_REMAINING_PROTECTION_SECONDS = 21_600
 const BYTES32 = /^0x[a-fA-F0-9]{64}$/
 const SIGNATURE = /^0x[a-fA-F0-9]{130}$/
 
+class FundingUiError extends Error {}
+
+function fundingError(reason: unknown) {
+  if (reason instanceof FundingUiError) return reason.message
+  const message = reason instanceof Error ? reason.message : String(reason ?? '')
+  const code = typeof reason === 'object' && reason !== null && 'code' in reason
+    ? String((reason as { code?: unknown }).code ?? '')
+    : ''
+  const rejected = ['user rejected', 'user denied', 'rejected the request', 'request rejected']
+    .some(text => message.toLowerCase().includes(text))
+  if (code === '4001' || rejected) return 'Transaction cancelled. No funds moved.'
+  return 'The early payment could not be sent. No funds moved. Try again.'
+}
+
 const ESCROW_ABI = [
   { type: 'function', name: 'asset', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
   { type: 'function', name: 'paused', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
@@ -194,6 +208,7 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
   async function fund() {
     setError('')
     setFundingHash('')
+    let chainOperationStarted = false
     try {
       if (!signer) throw new Error('Your funding wallet is still connecting. Return to Earn and open this request again.')
       const offer = parseOffer(opportunity)
@@ -212,6 +227,7 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
       if (offer.message.protectionDeadline - Math.floor(Date.now() / 1000) < MIN_REMAINING_PROTECTION_SECONDS) throw new Error('This agreement is too close to its end time for early pay.')
 
       setStage('Checking escrow controls...')
+      chainOperationStarted = true
       const publicClient = createPublicClient({ chain: upfrontXLayerChain, transport: http() })
       const [asset, paused, allowed, gasBalance, gasPrice] = await Promise.all([
         publicClient.readContract({ address: offer.escrow, abi: ESCROW_ABI, functionName: 'asset' }),
@@ -220,16 +236,16 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
         publicClient.getBalance({ address: account }),
         publicClient.getGasPrice(),
       ])
-      if (getAddress(asset) !== NATIVE_XLAYER_USDC) throw new Error('This offer uses a retired USDC escrow. Wait for HashPayStream to publish the native-USDC replacement.')
-      if (paused) throw new Error('The X Layer escrow is paused.')
-      if (!allowed) throw new Error('This funding wallet is not approved yet.')
+      if (getAddress(asset) !== NATIVE_XLAYER_USDC) throw new FundingUiError('This offer uses a retired USDC escrow. Wait for HashPayStream to publish the native-USDC replacement.')
+      if (paused) throw new FundingUiError('The X Layer escrow is paused.')
+      if (!allowed) throw new FundingUiError('This funding wallet is not approved yet.')
       const gasReserve = gasPrice * 600_000n
-      if (gasBalance < gasReserve) throw new Error(`Your funding wallet needs at least ${formatEther(gasReserve)} OKB for X Layer gas before funding.`)
+      if (gasBalance < gasReserve) throw new FundingUiError(`Your funding wallet needs at least ${formatEther(gasReserve)} OKB for X Layer gas before funding.`)
       const [balance, allowance] = await Promise.all([
         publicClient.readContract({ address: asset, abi: ERC20_ABI, functionName: 'balanceOf', args: [account] }),
         publicClient.readContract({ address: asset, abi: ERC20_ABI, functionName: 'allowance', args: [account, offer.escrow] }),
       ])
-      if (balance < amount) throw new Error(`Your funding wallet balance is below ${amountLabel}.`)
+      if (balance < amount) throw new FundingUiError(`Your funding wallet balance is below ${amountLabel}.`)
 
       await signer.switchChain(upfrontXLayerChain.id)
       const provider = await signer.getEthereumProvider()
@@ -246,7 +262,7 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
         })
         const approvalHash = await walletClient.writeContract(approval.request)
         const approvalReceipt = await publicClient.waitForTransactionReceipt({ hash: approvalHash })
-        if (approvalReceipt.status !== 'success') throw new Error('The exact USDC approval reverted.')
+        if (approvalReceipt.status !== 'success') throw new FundingUiError('The exact USDC approval reverted.')
       }
 
       setStage(`Fund ${amountLabel}...`)
@@ -259,19 +275,19 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
       })
       const hash = await walletClient.writeContract(funding.request)
       const receipt = await publicClient.waitForTransactionReceipt({ hash })
-      if (receipt.status !== 'success') throw new Error('The X Layer funding transaction reverted.')
+      if (receipt.status !== 'success') throw new FundingUiError('The X Layer funding transaction reverted.')
       setFundingHash(hash)
       setStage('')
       await Promise.resolve(onFunded?.()).catch(() => undefined)
     } catch (reason) {
       setStage('')
-      setError(reason instanceof Error ? reason.message : 'Your funding wallet could not fund this offer.')
+      setError(chainOperationStarted ? fundingError(reason) : reason instanceof Error ? reason.message : fundingError(reason))
     }
   }
 
   if (fundingHash) return <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-[11px] text-emerald-800"><strong>Advance funded.</strong><p className="mt-1 break-all font-mono">{fundingHash}</p></div>
   return <div className="mt-3">
-    <button type="button" disabled={busy} onClick={() => void fund()} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{stage || `Approve and fund ${amountLabel}`}</button>
+    <button type="button" disabled={busy} onClick={() => void fund()} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{stage || 'Send early payment'}</button>
     {!signer && <p className="mt-2 text-[11px] leading-5 text-amber-700">Your HashPayStream funding wallet is still connecting.</p>}
     {error && <p className="mt-2 text-[11px] leading-5 text-rose-700">{error}</p>}
   </div>

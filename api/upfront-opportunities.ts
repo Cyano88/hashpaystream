@@ -19,6 +19,7 @@ type Identity = { userId: string; emails: string[]; wallets: Address[] }
 type ChainConfig = { rpcUrl: string; escrow: Address; chainId: number; arcRpcUrl: string; arcRouter: Address }
 type TermsConfig = { privateKey: Hex; signer: Address; treasury: Address }
 type PositionState = { funder: Address; repaymentRecipient: Address; status: 'available' | 'funded' | 'released' | 'settled' | 'refunded' }
+type OpportunityStatus = PositionState['status'] | 'expired' | 'declined'
 type Capacity = { balance: bigint; allowed: boolean }
 type Dependencies = {
   identity: (req: Request, env: NodeJS.ProcessEnv) => Promise<Identity>
@@ -329,7 +330,7 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
       })
       const inspected = await Promise.all(candidates.map(async item => ({ ...item, position: await dependencies.position(item.candidate.positionId, chain) })))
       const opportunities: Array<(typeof candidates)[number]['candidate'] & {
-        positionStatus: PositionState['status']
+        positionStatus: OpportunityStatus
         funder?: Address
         repaymentRecipient?: Address
         fundingTerms?: SignedFundingTerms
@@ -337,7 +338,11 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
       }> = []
       for (const { record, candidate, position } of inspected) {
         if (position.status === 'available') {
-          if (candidate.live && record.fundingRequest?.settlementVersion === 3 && record.fundingRequest.status === 'pending' && record.fundingRequest.fundingTerms && record.fundingRequest.providerSignature && record.fundingRequest.partnerApplicationId === profile.id) opportunities.push({ ...candidate, requestedAdvanceUsdcUnits: record.fundingRequest.advanceUsdcUnits, fundingTerms: record.fundingRequest.fundingTerms, providerSignature: record.fundingRequest.providerSignature, positionStatus: 'available' })
+          const fundingRequest = record.fundingRequest
+          const assignedHere = fundingRequest?.settlementVersion === 3 && fundingRequest.fundingTerms && fundingRequest.providerSignature && fundingRequest.partnerApplicationId === profile.id
+          if (assignedHere && candidate.live && fundingRequest.status === 'pending') opportunities.push({ ...candidate, requestedAdvanceUsdcUnits: fundingRequest.advanceUsdcUnits, fundingTerms: fundingRequest.fundingTerms, providerSignature: fundingRequest.providerSignature, positionStatus: 'available' })
+          else if (assignedHere && fundingRequest.status === 'declined') opportunities.push({ ...candidate, requestedAdvanceUsdcUnits: fundingRequest.advanceUsdcUnits, fundingTerms: fundingRequest.fundingTerms, providerSignature: fundingRequest.providerSignature, positionStatus: 'declined' })
+          else if (assignedHere && !candidate.live) opportunities.push({ ...candidate, requestedAdvanceUsdcUnits: fundingRequest.advanceUsdcUnits, fundingTerms: fundingRequest.fundingTerms, providerSignature: fundingRequest.providerSignature, positionStatus: 'expired' })
           continue
         }
         const ownsPosition = identity.wallets.some(item => item.toLowerCase() === position.funder.toLowerCase() || item.toLowerCase() === position.repaymentRecipient.toLowerCase())
