@@ -339,6 +339,15 @@ export default function FundingPartnerPicker({
       </div>
     )
 
+  if (selection?.status === 'expired' || selection?.status === 'refunded')
+    return (
+      <p className="mt-4 rounded-2xl bg-gray-50 px-4 py-4 text-xs leading-5 text-gray-500 dark:bg-white/[0.04] dark:text-gray-400">
+        {selection.status === 'expired'
+          ? 'This early-pay offer expired before funds moved. Run Check early pay again to create fresh terms.'
+          : 'This early-pay position was refunded and is now closed.'}
+      </p>
+    )
+
   return (
     <div className="mt-4">
       <div className="flex items-end justify-between gap-3">
