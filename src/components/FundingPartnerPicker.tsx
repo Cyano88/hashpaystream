@@ -1,17 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { usePrivy, useWallets } from '@privy-io/react-auth'
+import { usePrivy, useSignTypedData, useWallets } from '@privy-io/react-auth'
 import { CheckCircleIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import { formatUsdcBalance } from '../lib/useAgreements'
 import { Link } from '../lib/router'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
-import {
-  createWalletClient,
-  custom,
-  getAddress,
-  isAddress,
-  type Address,
-  type Hex,
-} from 'viem'
+import { getAddress, isAddress, type Address, type Hex } from 'viem'
 import { upfrontXLayerChain } from '../lib/upfrontChains'
 
 type FeeQuote = {
@@ -89,6 +82,16 @@ function QuoteValue({ label, value }: { label: string; value: string }) {
   )
 }
 
+function formatExactUsdc(units: string) {
+  const value = BigInt(units)
+  const whole = value / 1_000_000n
+  const fraction = (value % 1_000_000n)
+    .toString()
+    .padStart(6, '0')
+    .replace(/0+$/, '')
+  return `${whole}${fraction ? `.${fraction}` : ''} USDC`
+}
+
 function PartnerQuote({
   partner,
   busy,
@@ -99,6 +102,10 @@ function PartnerQuote({
   onSelect: () => void
 }) {
   const quote = partner.fundingTerms.quote
+  const totalFees = (
+    BigInt(quote.totalFundingFeeUsdcUnits) +
+    BigInt(quote.standardPlatformFeeUsdcUnits)
+  ).toString()
   return (
     <button
       type={'button'}
@@ -117,26 +124,22 @@ function PartnerQuote({
         </span>
         <ChevronRightIcon className={'h-4 w-4 text-gray-300'} />
       </span>
-      <span className={'mt-3 grid grid-cols-2 gap-2 text-[10px]'}>
+      <span className={'mt-3 grid grid-cols-3 gap-2 text-[10px]'}>
         <QuoteValue
           label={'Receive now'}
-          value={formatUsdcBalance(quote.advanceUsdcUnits)}
+          value={formatExactUsdc(quote.advanceUsdcUnits)}
         />
         <QuoteValue
-          label={'Early-pay fee'}
-          value={formatUsdcBalance(quote.totalFundingFeeUsdcUnits)}
+          label={'Receive later'}
+          value={formatExactUsdc(quote.providerRemainderUsdcUnits)}
         />
         <QuoteValue
-          label={'Completion fee'}
-          value={formatUsdcBalance(quote.standardPlatformFeeUsdcUnits)}
-        />
-        <QuoteValue
-          label={'Receive after completion'}
-          value={formatUsdcBalance(quote.providerRemainderUsdcUnits)}
+          label={'Total fees'}
+          value={formatExactUsdc(totalFees)}
         />
       </span>
       <span className={'mt-2 block text-[9px] text-gray-400'}>
-        Selecting signs these exact amounts before the request is sent.
+        Tap once to send your early-pay request.
       </span>
     </button>
   )
@@ -148,6 +151,7 @@ export default function FundingPartnerPicker({
   requestId: string
 }) {
   const { getAccessToken } = usePrivy()
+  const { signTypedData } = useSignTypedData()
   const { wallets } = useWallets()
   const useFundsTo = useStreamPayPath('/move/xlayer/send')
   const [partners, setPartners] = useState<Partner[]>([])
@@ -238,15 +242,9 @@ export default function FundingPartnerPicker({
       )
         throw new Error('The funding quote is invalid.')
       await signer.switchChain(upfrontXLayerChain.id)
-      const walletClient = createWalletClient({
-        account,
-        chain: upfrontXLayerChain,
-        transport: custom(await signer.getEthereumProvider()),
-      })
-      const providerSignature = await walletClient.signTypedData({
-        account,
+      const { signature: providerSignature } = await signTypedData({
         domain: terms.domain,
-        types: FUNDING_TERMS_TYPES,
+        types: { FundingTerms: [...FUNDING_TERMS_TYPES.FundingTerms] },
         primaryType: 'FundingTerms',
         message: {
           ...terms.message,
@@ -254,6 +252,9 @@ export default function FundingPartnerPicker({
           funderRepaymentAmount,
           platformFeeAmount,
         },
+      }, {
+        address: account,
+        uiOptions: { showWalletUIs: false },
       })
       const response = await fetch(API, {
         method: 'POST',
