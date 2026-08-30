@@ -10,6 +10,7 @@ import { LoadingRing } from '../ui/LoadingRing'
 import { StreamPayLoadingState } from '../ui/StreamPayLoadingState'
 
 const AGREEMENTS_API = '/api/hashpaystream/v1/human/agreements'
+const UPFRONT_AGREEMENTS_API = '/api/hashpaystream/v1/human/upfront/agreements'
 const HASH_PAYLINK_ORIGIN = String(import.meta.env.VITE_HASH_PAYLINK_BASE_URL || 'https://app.hashpaylink.com').replace(/\/$/, '')
 
 type AgreementStatus = 'awaiting_start' | 'active' | 'expired' | 'completed' | 'cancelled' | 'refunded'
@@ -64,6 +65,7 @@ type Agreement = {
   }
   receipt?: PaylinkReceipt | null
   updatedAt: string
+  gateway?: 'standard' | 'upfront'
 }
 
 type DashboardResponse = {
@@ -151,6 +153,10 @@ function supportsReleaseRequests(value?: Agreement['template']) {
   return ['fixed_unlock', 'progressive_release', 'milestone'].includes(value ?? 'fixed_unlock')
 }
 
+function agreementApi(agreement: Agreement) {
+  return agreement.gateway === 'upfront' ? UPFRONT_AGREEMENTS_API : AGREEMENTS_API
+}
+
 function releaseRequestForCurrentStep(agreement?: Agreement) {
   const request = agreement?.releaseRequest
   if (!request) return undefined
@@ -196,13 +202,30 @@ export default function AgreementDashboard() {
     try {
       const token = await getAccessToken()
       if (!token) throw new Error('Sign in again to view agreements.')
-      const response = await fetch(AGREEMENTS_API, {
-        cache: 'no-store',
-        headers: { authorization: `Bearer ${token}` },
-      })
-      const data = await response.json().catch(() => undefined) as DashboardResponse | undefined
-      if (!response.ok || !data?.ok) throw new Error(data?.error || 'Agreements could not be loaded.')
-      const next = data.agreements ?? []
+      const [standardResult, upfrontResult] = await Promise.all([
+        fetch(AGREEMENTS_API, {
+          cache: 'no-store',
+          headers: { authorization: `Bearer ${token}` },
+        }),
+        fetch(UPFRONT_AGREEMENTS_API, {
+          cache: 'no-store',
+          headers: { authorization: `Bearer ${token}` },
+        }),
+      ])
+      const [standardData, upfrontData] = await Promise.all([
+        standardResult.json().catch(() => undefined) as Promise<DashboardResponse | undefined>,
+        upfrontResult.json().catch(() => undefined) as Promise<DashboardResponse | undefined>,
+      ])
+      if (!standardResult.ok || !standardData?.ok) {
+        throw new Error(standardData?.error || 'Agreements could not be loaded.')
+      }
+      if (!upfrontResult.ok || !upfrontData?.ok) {
+        throw new Error(upfrontData?.error || 'Early-pay agreements could not be loaded.')
+      }
+      const next = [
+        ...(standardData.agreements ?? []).map(agreement => ({ ...agreement, gateway: 'standard' as const })),
+        ...(upfrontData.agreements ?? []).map(agreement => ({ ...agreement, gateway: 'upfront' as const })),
+      ].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
       setAgreements(next)
       setActiveId(current => current && next.some(item => item.id === current) ? current : next[0]?.id ?? '')
       setLoadError('')
@@ -278,7 +301,7 @@ export default function AgreementDashboard() {
     try {
       const token = await getAccessToken()
       if (!token) throw new Error('Sign in again to generate a payer link.')
-      const response = await fetch(AGREEMENTS_API, {
+      const response = await fetch(agreementApi(active), {
         method: 'POST',
         cache: 'no-store',
         headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
@@ -321,7 +344,7 @@ export default function AgreementDashboard() {
     try {
       const token = await getAccessToken()
       if (!token) throw new Error('Sign in again to request this release.')
-      const response = await fetch(AGREEMENTS_API, {
+      const response = await fetch(agreementApi(active), {
         method: 'POST',
         cache: 'no-store',
         headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
