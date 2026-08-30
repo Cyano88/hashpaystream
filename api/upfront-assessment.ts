@@ -26,7 +26,7 @@ export type UpfrontFundingRequest = {
   advanceUsdcUnits: string
   fundingTerms: SignedFundingTerms
   providerSignature: `0x${string}`
-  status: 'pending' | 'declined'
+  status: 'pending' | 'settled' | 'declined'
   requestedAt: string
   expiresAt: string
 }

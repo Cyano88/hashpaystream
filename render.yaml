@@ -48,6 +48,8 @@ services:
         value: "true"
       - key: HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED
         value: "true"
+      - key: HASHPAYSTREAM_UPFRONT_AUTO_SETTLEMENT_ENABLED
+        value: 'true'
       - key: VITE_HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED
         value: "true"
       - key: HASHPAYSTREAM_DIRECT_ARC_ENABLED
