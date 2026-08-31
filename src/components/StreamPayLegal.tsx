@@ -12,7 +12,7 @@ const content: Record<LegalPage, {
   terms: {
     eyebrow: 'Service terms',
     title: 'HashPayStream terms of use',
-    introduction: 'These terms apply when you use HashPayStream to create, review, and manage protected USDC agreements or participate in the restricted Upfront public test.',
+    introduction: 'These terms apply when you use HashPayStream to manage protected USDC agreements, participate in Upfront, or use an enabled X Layer savings feature.',
     sections: [
       {
         title: 'The service',
@@ -29,6 +29,10 @@ const content: Record<LegalPage, {
       {
         title: 'Upfront public test',
         body: 'An assessment or approved limit is not a promise that an advance will be funded. Mainnet wallet actions are irreversible and require explicit confirmation from an approved funder. Funders must review the recipient, amount, signed offer, contract, network, available USDC, and required OKB gas before confirming a transaction. Use only the limited test amount you are prepared to risk.',
+      },
+      {
+        title: 'Scheduled savings',
+        body: 'When enabled, Scheduled Savings holds real native USDC in a separate non-upgradeable X Layer contract under the schedule selected by the wallet owner. The vault does not generate yield, charge a platform fee, or give HashPayStream an administrator withdrawal function. Weekly or monthly amounts become withdrawable on schedule; full emergency access has a 48-hour delay. Transactions require wallet approval and OKB gas and remain subject to smart-contract and network risk.',
       },
       {
         title: 'Agreement outcomes',
@@ -59,7 +63,7 @@ const content: Record<LegalPage, {
       },
       {
         title: 'Wallet security',
-        body: 'HashPayStream does not receive or store your wallet private key or recovery phrase. Circle manages user-controlled wallet key material, and each fund-moving action requires Circle approval. Never send a private key, recovery phrase, login code, or server credential through an agreement or support message.',
+        body: 'HashPayStream does not receive or store your wallet private key or recovery phrase. Circle manages the Arc wallet used for protected agreements. Privy manages the embedded X Layer wallet used for Upfront and enabled savings actions. Fund-moving actions require the relevant wallet approval. Never send a private key, recovery phrase, login code, or server credential through an agreement or support message.',
       },
       {
         title: 'Questions and requests',
@@ -78,7 +82,7 @@ export default function StreamPayLegal({ page }: { page: LegalPage }) {
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">{document.eyebrow}</p>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-4xl">{document.title}</h1>
       <p className="mt-4 max-w-2xl text-sm leading-7 text-gray-500 dark:text-gray-400">{document.introduction}</p>
-      <p className="mt-3 text-xs text-gray-400">Last updated 24 August 2026</p>
+      <p className="mt-3 text-xs text-gray-400">Last updated 31 August 2026</p>
 
       <div className="mt-9 divide-y divide-gray-200 border-y border-gray-200 dark:divide-white/10 dark:border-white/10">
         {document.sections.map(section => (

@@ -6,10 +6,18 @@ router is the Hash PayLink project recipient and atomically returns the advance
 principal to the bound funding wallet while sending the remaining protected
 payment to the provider's verified Circle Arc wallet; no asset bridge is assumed.
 
+`PersonalSavingsVault.sol` is a separate, non-upgradeable native-USDC savings
+contract. It has no administrator, fees, or yield logic. Each wallet can create
+weekly or monthly release plans, withdraw only the amount already released, or
+request a full emergency exit after a fixed 48-hour delay. Do not describe vault
+deposits as yield-bearing unless a separately reviewed native-USDC market adapter
+is deployed and verified.
+
 ```text
 npm install
 npm run compile
 npm run test:upfront
+npm run test:savings
 ```
 
 Every X Layer escrow starts paused and has an empty funder allowlist. Funding is

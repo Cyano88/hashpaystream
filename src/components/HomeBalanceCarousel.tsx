@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { BellIcon } from '@heroicons/react/24/outline'
 import { Link } from '../lib/router'
 import { formatUsdcBalance } from '../lib/useAgreements'
-import { useXLayerUsdcBalance } from '../lib/useXLayerUsdcBalance'
+import { useSavingsVault } from '../lib/useSavingsVault'
 
 type Props = {
   totalBalance: bigint
@@ -17,7 +17,7 @@ type Props = {
 }
 
 export default function HomeBalanceCarousel(props: Props) {
-  const xLayer = useXLayerUsdcBalance()
+  const xLayer = useSavingsVault()
   const scroller = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState(0)
 
@@ -47,8 +47,8 @@ export default function HomeBalanceCarousel(props: Props) {
         <div className="relative z-10 min-w-0 pr-16"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/60">X Layer balance</p><p className="mt-1.5 min-w-0 text-[clamp(1.75rem,9vw,2.5rem)] font-bold tabular-nums tracking-tight">{xLayer.balanceReady && xLayer.units !== undefined ? formatUsdcBalance(xLayer.units).replace(/ USDC$/, '') : xLayer.ready && !xLayer.address ? '0' : '—'} <span className="text-xs font-medium tracking-normal opacity-50">USDC</span></p></div>
         <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">
           <Metric label="Available" value={xLayer.balanceReady && xLayer.units !== undefined ? formatUsdcBalance(xLayer.units) : xLayer.ready && !xLayer.address ? '0 USDC' : '—'} />
-          <Metric label="In savings" value="0 USDC" />
-          <Metric label="Yield earned" value="0 USDC" />
+          <Metric label="In savings" value={!xLayer.configured || xLayer.savingsReady ? formatUsdcBalance(xLayer.savedUnits) : '—'} />
+          <Metric label="Yield earned" value={!xLayer.configured || xLayer.savingsReady ? formatUsdcBalance(xLayer.yieldUnits) : '—'} />
         </div>
         {xLayer.error && <button type="button" onClick={() => void xLayer.refresh()} className="mt-3 text-[10px] font-bold text-emerald-200/70 underline underline-offset-2">Balance unavailable. Tap to retry.</button>}
       </section>
