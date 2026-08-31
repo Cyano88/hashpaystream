@@ -48,7 +48,7 @@ export default function HomeBalanceCarousel(props: Props) {
         <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">
           <Metric label="Available" value={xLayer.balanceReady && xLayer.units !== undefined ? formatUsdcBalance(xLayer.units) : xLayer.ready && !xLayer.address ? '0 USDC' : '—'} />
           <Metric label="In savings" value={!xLayer.configured || xLayer.savingsReady ? formatUsdcBalance(xLayer.savedUnits) : '—'} />
-          <Metric label="Yield earned" value={!xLayer.configured || xLayer.savingsReady ? formatUsdcBalance(xLayer.yieldUnits) : '—'} />
+          <Metric label="Plans" value={!xLayer.configured || xLayer.savingsReady ? String(xLayer.plans.filter(plan => plan.remaining > 0n).length) : '—'} />
         </div>
         {xLayer.error && <button type="button" onClick={() => void xLayer.refresh()} className="mt-3 text-[10px] font-bold text-emerald-200/70 underline underline-offset-2">Balance unavailable. Tap to retry.</button>}
       </section>

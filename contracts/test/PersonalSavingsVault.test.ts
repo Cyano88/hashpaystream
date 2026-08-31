@@ -47,6 +47,8 @@ describe('PersonalSavingsVault', () => {
     const planId = await createPlan(context, 12n * USDC, 2n * USDC, await context.vault.MONTHLY())
     expect(await context.vault.planIds(context.owner.address)).to.deep.equal([planId])
     await expect(context.vault.connect(context.outsider).withdraw(planId, 1)).to.be.revertedWithCustomError(context.vault, 'NotPlanOwner')
+    await expect(context.vault.connect(context.outsider).requestEmergencyExit(planId)).to.be.revertedWithCustomError(context.vault, 'NotPlanOwner')
+    await expect(context.vault.connect(context.outsider).completeEmergencyExit(planId)).to.be.revertedWithCustomError(context.vault, 'NotPlanOwner')
     await expect(context.vault.connect(context.owner).withdraw(planId, 1)).to.be.revertedWithCustomError(context.vault, 'NothingToWithdraw')
   })
   it('allows a delayed emergency exit without administrator control', async () => {

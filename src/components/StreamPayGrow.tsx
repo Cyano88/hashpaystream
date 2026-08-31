@@ -27,7 +27,7 @@ export default function StreamPayGrow({ fundingStatus }: { fundingStatus: Fundin
       <div className="mt-3 space-y-3">
         <Link to={savingsTo} className="stream-feature-card group">
           <span className="stream-feature-icon bg-emerald-500/10 text-emerald-500"><CircleStackIcon className="h-6 w-6" /></span>
-          <span className="min-w-0 flex-1"><span className="block text-sm font-black">Savings</span><span className="mt-1 block text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">Set USDC aside with weekly or monthly releases. Verified yield markets remain separate.</span></span>
+          <span className="min-w-0 flex-1"><span className="block text-sm font-black">Savings</span><span className="mt-1 block text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">Save USDC on X Layer. Arc savings is coming soon.</span></span>
           <ChevronRightIcon className="h-4 w-4 text-zinc-400 transition group-hover:translate-x-0.5" />
         </Link>
         <Link to={fundingTo} className="stream-feature-card group">
@@ -36,7 +36,7 @@ export default function StreamPayGrow({ fundingStatus }: { fundingStatus: Fundin
           <ChevronRightIcon className="h-4 w-4 text-zinc-400 transition group-hover:translate-x-0.5" />
         </Link>
       </div>
-      <p className="mt-6 px-3 text-center text-[10px] leading-5 text-zinc-500">Returns are variable and never guaranteed. Funding and savings remain separate products.</p>
+      <p className="mt-6 px-3 text-center text-[10px] leading-5 text-zinc-500">Savings and private funding remain separate products.</p>
     </section>
   )
 }

@@ -96,5 +96,5 @@ export function useSavingsVault() {
 
   const totals = useMemo(() => plans.reduce((sum, plan) => ({ saved: sum.saved + plan.remaining, available: sum.available + plan.withdrawable }), { saved: 0n, available: 0n }), [plans])
   const nextRelease = useMemo(() => plans.map(plan => nextSavingsRelease(plan)).filter(Boolean).sort((a, b) => a - b)[0] ?? 0, [plans])
-  return { ...wallet, configured: Boolean(SAVINGS_VAULT_ADDRESS), vaultAddress: SAVINGS_VAULT_ADDRESS, plans, savingsReady: ready, savingsError: error, savedUnits: totals.saved, withdrawableUnits: totals.available, yieldUnits: 0n, nextRelease, refreshSavings: refresh }
+  return { ...wallet, configured: Boolean(SAVINGS_VAULT_ADDRESS), vaultAddress: SAVINGS_VAULT_ADDRESS, plans, savingsReady: ready, savingsError: error, savedUnits: totals.saved, withdrawableUnits: totals.available, nextRelease, refreshSavings: refresh }
 }
