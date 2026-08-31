@@ -37,6 +37,7 @@ const expectedChainId = Number(env.HASHPAYSTREAM_UPFRONT_CHAIN_ID)
 assert.ok([1952, 196].includes(expectedChainId), 'Upfront E2E supports only X Layer testnet or mainnet.')
 let store
 const providerPayoutAddress = '0x1000000000000000000000000000000000000001'
+const providerArcWalletAddress = '0x2000000000000000000000000000000000000002'
 const request = {
   method: 'POST',
   headers: { authorization: 'Bearer local-e2e-session', 'idempotency-key': `upfront:local-e2e:${Date.now()}` },
@@ -54,6 +55,7 @@ const request = {
 const handler = createHashPayStreamUpfrontAssessmentHandler({
   identity: async () => 'local-e2e-provider',
   providerWallets: async () => [providerPayoutAddress],
+  providerArcWallet: async () => providerArcWalletAddress,
   mutate: async (_key, update) => { store = update(store); return store },
   env: () => env,
 })
@@ -79,7 +81,7 @@ const verifiedRequest = buildAgreementIntelligenceRequest({
   issuedAt: new Date().toISOString(),
   providerIdentity: 'local-e2e-provider',
   providerReferenceSecret: required('HASHPAYSTREAM_APP_OWNERSHIP_SECRET'),
-  providerArcAddress: request.body.providerPayoutAddress,
+  providerArcAddress: providerArcWalletAddress,
   draft: verifiedDraft,
   trustedEvidence: {
     agreementState: 'funded',
