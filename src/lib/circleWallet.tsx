@@ -46,6 +46,7 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
   const connecting = useRef<Promise<void> | null>(null)
   const activeEmail = useRef('')
   const balanceReadyRef = useRef(false)
+  const balanceRefresh = useRef<Promise<void> | null>(null)
 
   const request = useCallback(async (payload: Record<string, unknown>) => {
     const token = await getAccessToken()
@@ -188,25 +189,30 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
   }, [authenticated, email, ready])
 
   const refreshBalance = useCallback(async () => {
+    if (balanceRefresh.current) return balanceRefresh.current
     if (!session?.wallet.address) {
       setBalance('0'); setBalanceError(''); balanceReadyRef.current = false; setBalanceReady(false)
       return
     }
-    const foreground = !balanceReadyRef.current
-    if (foreground) setLoadingBalance(true)
-    try {
-      const result = await request({ action: 'get_balance', userToken: session.userToken, walletId: session.wallet.id, walletAddress: session.wallet.address })
-      const units = find(result, ['balanceUsdcUnits'])
-      if (!/^\d+$/.test(units)) throw new Error('Arc returned an invalid USDC balance.')
-      setBalance(formatUnits(BigInt(units), 6))
-      balanceReadyRef.current = true
-      setBalanceReady(true)
-      setBalanceError('')
-    } catch (reason) {
-      setBalanceError(apiError(reason, 'Arc USDC balance is temporarily unavailable.'))
-    } finally {
-      if (foreground) setLoadingBalance(false)
-    }
+    const operation = (async () => {
+      const foreground = !balanceReadyRef.current
+      if (foreground) setLoadingBalance(true)
+      try {
+        const result = await request({ action: 'get_balance', userToken: session.userToken, walletId: session.wallet.id, walletAddress: session.wallet.address })
+        const units = find(result, ['balanceUsdcUnits'])
+        if (!/^\d+$/.test(units)) throw new Error('Arc returned an invalid USDC balance.')
+        setBalance(formatUnits(BigInt(units), 6))
+        balanceReadyRef.current = true
+        setBalanceReady(true)
+        setBalanceError('')
+      } catch (reason) {
+        if (!balanceReadyRef.current) setBalanceError(apiError(reason, 'Arc USDC balance is temporarily unavailable.'))
+      } finally {
+        if (foreground) setLoadingBalance(false)
+      }
+    })().finally(() => { balanceRefresh.current = null })
+    balanceRefresh.current = operation
+    return operation
   }, [request, session])
   useEffect(() => {
     if (state !== 'ready') return

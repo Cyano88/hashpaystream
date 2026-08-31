@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowLeftIcon, BanknotesIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import { Link, Navigate } from '../lib/router'
@@ -73,10 +73,12 @@ export default function StreamPayFundingDesk() {
   const earnTo = useStreamPayPath('/funding')
   const [error, setError] = useState('')
   const [selectedId, setSelectedId] = useState('')
+  const loadSequence = useRef(0)
 
   const load = useCallback(async (silent = false) => {
     if (!upfrontSettlementV3Enabled) { setAuthorized(false); setLoading(false); return }
     if (!authenticated) { setAuthorized(false); setLoading(false); return }
+    const sequence = ++loadSequence.current
     if (!silent) {
       setLoading(true)
       setAuthorized(false)
@@ -88,12 +90,13 @@ export default function StreamPayFundingDesk() {
       const response = await fetch(API, { cache: 'no-store', headers: { authorization: `Bearer ${token}` } })
       const body = await response.json().catch(() => ({})) as { opportunities?: Opportunity[]; error?: string }
       if (!response.ok) throw new Error(body.error || 'Funding requests could not be loaded.')
+      if (sequence !== loadSequence.current) return
       setAuthorized(true)
       setOpportunities(body.opportunities ?? [])
     } catch (reason) {
-      if (!silent) setError(reason instanceof Error ? reason.message : 'Funding requests could not be loaded.')
+      if (!silent && sequence === loadSequence.current) setError(reason instanceof Error ? reason.message : 'Funding requests could not be loaded.')
     } finally {
-      if (!silent) setLoading(false)
+      if (!silent && sequence === loadSequence.current) setLoading(false)
     }
   }, [authenticated, getAccessToken])
 

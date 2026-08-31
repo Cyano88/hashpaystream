@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
+import { reconcileUpdatedSnapshots } from './stableSnapshots'
 
 const API = '/api/hashpaystream/v1/service-requests'
 export type ServiceRequestTerms = {
@@ -20,6 +21,7 @@ export function useServiceRequests() {
   const [requests, setRequests] = useState<ServiceRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const refreshSequence = useRef(0)
   const request = useCallback(async (payload?: Record<string, unknown>, idempotencyKey?: string) => {
     const token = await getAccessToken()
     if (!token) throw new Error('Sign in again to manage requests.')
@@ -30,10 +32,16 @@ export function useServiceRequests() {
   }, [getAccessToken])
   const refresh = useCallback(async (quiet = false) => {
     if (!authenticated) { setLoading(false); return }
+    const sequence = ++refreshSequence.current
     if (!quiet) setLoading(true)
-    try { const body = await request(); setRequests(body.requests ?? []); setError('') }
-    catch (reason) { if (!quiet) setError(reason instanceof Error ? reason.message : 'Requests could not be loaded.') }
-    finally { if (!quiet) setLoading(false) }
+    try {
+      const body = await request()
+      if (sequence !== refreshSequence.current) return
+      setRequests(current => reconcileUpdatedSnapshots(current, body.requests ?? []))
+      setError('')
+    }
+    catch (reason) { if (!quiet && sequence === refreshSequence.current) setError(reason instanceof Error ? reason.message : 'Requests could not be loaded.') }
+    finally { if (!quiet && sequence === refreshSequence.current) setLoading(false) }
   }, [authenticated, request])
   useEffect(() => { if (!ready) return; void refresh(); if (!authenticated) return; const timer = window.setInterval(() => void refresh(true), 15_000); return () => window.clearInterval(timer) }, [authenticated, ready, refresh])
   const act = useCallback(async (payload: Record<string, unknown>, idempotencyKey?: string) => { const body = await request(payload, idempotencyKey); await refresh(true); return body.request }, [refresh, request])

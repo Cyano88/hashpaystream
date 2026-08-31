@@ -95,6 +95,7 @@ export function createCircleWalletHandler(overrides: { env?: () => NodeJS.Proces
   const environment = overrides.env ?? (() => process.env)
   const identity = overrides.identity ?? verifiedEmail
   const balance = overrides.balance ?? readArcUsdcBalance
+  const balanceCache = new Map<string, { units: bigint; observedAt: number }>()
   return async function circleWallet(req: Request, res: Response) {
     res.setHeader('Cache-Control', 'no-store')
     if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ ok: false, error: 'Method not allowed.' }) }
@@ -140,8 +141,18 @@ export function createCircleWalletHandler(overrides: { env?: () => NodeJS.Proces
         // on every 15-second read made an otherwise healthy Arc balance depend on a
         // second upstream session call. Ownership is still enforced for every write.
         const address = getAddress(walletAddress)
-        const balanceUsdcUnits = await balance(address, env)
-        return res.json({ ok: true, walletAddress: address, balanceUsdcUnits: balanceUsdcUnits.toString() })
+        let balanceUsdcUnits: bigint
+        let stale = false
+        try {
+          balanceUsdcUnits = await balance(address, env)
+          balanceCache.set(address.toLowerCase(), { units: balanceUsdcUnits, observedAt: Date.now() })
+        } catch (reason) {
+          const cached = balanceCache.get(address.toLowerCase())
+          if (!cached || Date.now() - cached.observedAt > 5 * 60 * 1_000) throw reason
+          balanceUsdcUnits = cached.units
+          stale = true
+        }
+        return res.json({ ok: true, walletAddress: address, balanceUsdcUnits: balanceUsdcUnits.toString(), stale })
       }
       if (action === 'send_usdc') {
         const walletId = clean(body.walletId, 256)

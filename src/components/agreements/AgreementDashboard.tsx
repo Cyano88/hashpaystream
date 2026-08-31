@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowTopRightOnSquareIcon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, ClipboardIcon } from '@heroicons/react/24/outline'
 import { Link, useLocation } from '../../lib/router'
@@ -10,6 +10,7 @@ import { LoadingRing } from '../ui/LoadingRing'
 import { StreamPayLoadingState } from '../ui/StreamPayLoadingState'
 import StreamPayFundRequest from '../StreamPayFundRequest'
 import { useServiceRequests, type ServiceRequest } from '../../lib/serviceRequests'
+import { reconcileUpdatedSnapshots } from '../../lib/stableSnapshots'
 
 const AGREEMENTS_API = '/api/hashpaystream/v1/human/agreements'
 const UPFRONT_AGREEMENTS_API = '/api/hashpaystream/v1/human/upfront/agreements'
@@ -209,6 +210,7 @@ export default function AgreementDashboard() {
   const [evidenceReference, setEvidenceReference] = useState('')
   const [requestingRelease, setRequestingRelease] = useState(false)
   const [showAllActivity, setShowAllActivity] = useState(false)
+  const loadSequence = useRef(0)
   const splashState = useHashPayStreamSessionSplash(!authenticated)
 
   const load = useCallback(async (quiet = false) => {
@@ -216,6 +218,7 @@ export default function AgreementDashboard() {
       setLoading(false)
       return
     }
+    const sequence = ++loadSequence.current
     if (!quiet) setLoading(true)
     try {
       const token = await getAccessToken()
@@ -244,12 +247,16 @@ export default function AgreementDashboard() {
         ...(standardData.agreements ?? []).map(agreement => ({ ...agreement, gateway: 'standard' as const })),
         ...(upfrontData.agreements ?? []).map(agreement => ({ ...agreement, gateway: 'upfront' as const })),
       ].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
-      setAgreements(next)
+      if (sequence !== loadSequence.current) return
+      setAgreements(current => reconcileUpdatedSnapshots(current, next, (previous, incoming) => ({
+        ...incoming,
+        releaseRequest: incoming.releaseRequest ?? previous.releaseRequest,
+      })))
       setLoadError('')
     } catch (reason) {
-      if (!quiet) setLoadError(reason instanceof Error ? reason.message : 'Agreements could not be loaded.')
+      if (!quiet && sequence === loadSequence.current) setLoadError(reason instanceof Error ? reason.message : 'Agreements could not be loaded.')
     } finally {
-      if (!quiet) setLoading(false)
+      if (!quiet && sequence === loadSequence.current) setLoading(false)
     }
   }, [authenticated, getAccessToken])
 

@@ -7,6 +7,7 @@ const challengeId = 'challenge_abc123'
 const transactionId = '11111111-1111-4111-8111-111111111111'
 const calls = []
 const rpcHosts = []
+let balanceReads = 0
 const originalFetch = globalThis.fetch
 
 globalThis.fetch = async (url, init = {}) => {
@@ -47,6 +48,8 @@ try {
   assert.ok(rpcHosts.slice(0, -1).every(host => host === 'unavailable.example'))
   const handler = createCircleWalletHandler({ env: () => ({ CIRCLE_TEST_API_KEY: 'TEST_API_KEY' }), identity: async () => 'member@example.com', balance: async address => {
     assert.equal(address, wallet.address)
+    balanceReads += 1
+    if (balanceReads > 1) throw new Error('temporary rpc failure')
     return 65_992_064n
   } })
   const otp = await call(handler, { action: 'request_email_otp', email: 'member@example.com', deviceId: 'device-id' })
@@ -67,7 +70,12 @@ try {
   const balance = await call(handler, { action: 'get_balance', userToken: 'user-token', walletId: wallet.id, walletAddress: wallet.address })
   assert.equal(balance.statusCode, 200)
   assert.equal(balance.body.balanceUsdcUnits, '65992064')
+  assert.equal(balance.body.stale, false)
   assert.equal(calls.length, circleCallsBeforeBalance, 'Public Arc balance reads must not depend on Circle wallet-list availability')
+  const cachedBalance = await call(handler, { action: 'get_balance', userToken: 'user-token', walletId: wallet.id, walletAddress: wallet.address })
+  assert.equal(cachedBalance.statusCode, 200)
+  assert.equal(cachedBalance.body.balanceUsdcUnits, '65992064')
+  assert.equal(cachedBalance.body.stale, true)
   const send = await call(handler, { action: 'send_usdc', userToken: 'user-token', walletId: wallet.id, walletAddress: wallet.address, recipient, amountUnits: '1250000' })
   assert.equal(send.body.challengeId, challengeId)
   const contractCall = calls.find(item => item.path.endsWith('/contractExecution'))

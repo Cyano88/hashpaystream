@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ArrowLeftIcon, ArrowTopRightOnSquareIcon, CheckCircleIcon, LockClosedIcon } from '@heroicons/react/24/outline'
 import { useCircleWallet } from '../lib/circleWallet'
 import type { ServiceRequest } from '../lib/serviceRequests'
+import { compactEvidenceReference } from '../lib/stableSnapshots'
 
 type FundingAttempt = {
   status: 'awaiting_approval' | 'approval_submitted' | 'ready_to_activate' | 'activation_submitted' | 'active' | 'approval_failed' | 'activation_failed' | 'reconciliation_failed'
@@ -32,6 +33,15 @@ type FundingReview = {
 type FundingAction = { ok: true; attempt: FundingAttempt; challengeId?: string; pending?: boolean; recovered?: boolean }
 type LifecycleAction = { ok: true; challengeId?: string; pending?: boolean; lifecycleAction?: { status: string } | null }
 type DeliveryAction = { ok: true; delivery?: DeliveryReview | null }
+
+function reconcileFundingReview(current: FundingReview | null, incoming: FundingReview) {
+  if (!current || current.agreement.id !== incoming.agreement.id) return incoming
+  return {
+    ...incoming,
+    attempt: incoming.attempt ?? current.attempt,
+    delivery: incoming.delivery ?? current.delivery,
+  }
+}
 
 export default function StreamPayFundRequest({ item, onBack, payer, onFunded }: {
   item: ServiceRequest
@@ -64,7 +74,7 @@ export default function StreamPayFundRequest({ item, onBack, payer, onFunded }: 
           })
           next = await payer<FundingReview>({ action: 'payer_review', requestId: item.id })
         }
-        if (!cancelled) setReview(next)
+        if (!cancelled) setReview(current => reconcileFundingReview(current, next))
       } catch (reason) {
         if (!cancelled) setError(reason instanceof Error ? reason.message : 'Agreement funding could not open.')
       } finally {
@@ -125,7 +135,7 @@ export default function StreamPayFundRequest({ item, onBack, payer, onFunded }: 
     if (!review?.delivery || !['queued', 'provider_pending', 'chain_pending'].includes(review.delivery.status)) return
     const poll = () => void payer<FundingReview>({ action: 'payer_review', requestId: item.id })
       .then(next => {
-        setReview(next)
+        setReview(current => reconcileFundingReview(current, next))
         if (next.delivery?.status === 'completed') onFunded()
       })
       .catch(reason => setError(reason instanceof Error ? reason.message : 'Release confirmation could not be checked.'))
@@ -318,10 +328,12 @@ function DeliveryPanel({ delivery, busy, confirming, issueMode, issueText, onIss
     <p className="text-xs font-extrabold">{title}</p>
     {reviewable && <>
       <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{delivery.deliveryNote}</p>
-      <a href={delivery.evidenceReference} target="_blank" rel="noreferrer noopener" className="mt-3 flex min-h-10 items-center justify-between rounded-xl bg-gray-50 px-3 text-xs font-bold text-gray-700 dark:bg-white/[0.055] dark:text-gray-200">
-        <span className="truncate">Open delivery</span>
+    </>}
+    {delivery.evidenceReference && <a href={delivery.evidenceReference} target="_blank" rel="noreferrer noopener" className="mt-3 flex min-h-10 items-center justify-between rounded-xl bg-gray-50 px-3 text-xs font-bold text-gray-700 dark:bg-white/[0.055] dark:text-gray-200">
+        <span className="min-w-0"><span className="block text-[9px] font-semibold uppercase tracking-[0.12em] text-gray-400">Submitted work</span><span className="mt-0.5 block truncate">{compactEvidenceReference(delivery.evidenceReference)}</span></span>
         <ArrowTopRightOnSquareIcon className="ml-3 h-4 w-4 shrink-0" />
-      </a>
+      </a>}
+    {reviewable && <>
       {issueMode ? <div className="mt-3">
         <textarea value={issueText} onChange={event => onIssueText(event.target.value)} maxLength={300} placeholder="What needs to be fixed?" className="h-20 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm outline-none dark:border-white/10 dark:bg-white/[0.04]" />
         <div className="mt-3 grid grid-cols-2 gap-2">

@@ -12,6 +12,7 @@ import {
   type Hex,
 } from 'viem'
 import { arcTestnet, upfrontXLayerChain } from '../lib/upfrontChains'
+import { SETTLEMENT_RETRY_DELAY_MS, settlementRetryReady } from '../lib/stableSnapshots'
 
 type Opportunity = {
   id: string
@@ -92,9 +93,18 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [repaymentState, setRepaymentState] = useState<'checking' | 'waiting' | 'ready' | 'unavailable'>(opportunity.positionStatus === 'released' ? 'checking' : 'ready')
+  const [settlementReadyObservedAt, setSettlementReadyObservedAt] = useState<number | null>(null)
+  const [retryVisible, setRetryVisible] = useState(false)
   const embedded = wallets.filter(wallet => wallet.walletClientType === 'privy' || wallet.walletClientType === 'privy-v2')
   const signer = embedded.length === 1 ? embedded[0] : undefined
   const busy = Boolean(stage)
+
+  useEffect(() => {
+    if (opportunity.positionStatus !== 'released') return
+    setRepaymentState('checking')
+    setSettlementReadyObservedAt(null)
+    setRetryVisible(false)
+  }, [opportunity.positionId, opportunity.positionStatus])
 
   async function attestation(action: 'release' | 'repayment') {
     const token = await getAccessToken()
@@ -118,7 +128,11 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
     const check = async () => {
       try {
         await attestation('repayment')
-        if (!cancelled) setRepaymentState('ready')
+        if (!cancelled) {
+          setRepaymentState('ready')
+          setSettlementReadyObservedAt(current => current ?? Date.now())
+          void Promise.resolve(onUpdated()).catch(() => undefined)
+        }
       } catch (reason) {
         if (cancelled) return
         setRepaymentState(Number((reason as { status?: number }).status) === 409 ? 'waiting' : 'unavailable')
@@ -130,6 +144,19 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
     window.addEventListener('focus', onFocus)
     return () => { cancelled = true; window.clearInterval(timer); window.removeEventListener('focus', onFocus) }
   }, [opportunity.agreementId, opportunity.id, opportunity.positionId, opportunity.positionStatus, repaymentState])
+
+  useEffect(() => {
+    if (opportunity.positionStatus !== 'released' || repaymentState !== 'ready' || settlementReadyObservedAt === null) {
+      setRetryVisible(false)
+      return
+    }
+    const update = () => setRetryVisible(settlementRetryReady(settlementReadyObservedAt))
+    update()
+    const remaining = SETTLEMENT_RETRY_DELAY_MS - (Date.now() - settlementReadyObservedAt)
+    if (remaining <= 0) return
+    const timer = window.setTimeout(update, remaining)
+    return () => window.clearTimeout(timer)
+  }, [opportunity.positionStatus, repaymentState, settlementReadyObservedAt])
 
   async function release() {
     setStage('Checking Arc protection...'); setError(''); setSuccess('')
@@ -210,18 +237,22 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
 
   if (opportunity.positionStatus === 'refunded') return <p className="mt-3 text-[11px] text-gray-500">Advance refunded.</p>
   if (opportunity.positionStatus === 'settled') return <p className='mt-3 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300'>Payment completed.</p>
-  const repaymentBlocked = opportunity.positionStatus === 'released' && repaymentState !== 'ready'
-  const label = opportunity.positionStatus === 'funded'
-    ? 'Send early payment'
-    : repaymentState === 'checking' ? 'Checking customer payment…'
-      : repaymentState === 'waiting' ? 'Waiting for customer payment'
-        : repaymentState === 'unavailable' ? 'Repayment status unavailable' : 'Settle payment'
+  const settlementFinalizing = repaymentState === 'ready' && settlementReadyObservedAt !== null
+  if (opportunity.positionStatus === 'released' && !retryVisible) return <div className="mt-3 rounded-xl bg-gray-50 px-4 py-3 dark:bg-white/[0.04]">
+    <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+      {repaymentState === 'waiting' ? 'Waiting for delivery approval' : settlementFinalizing ? 'Finalizing payment automatically…' : repaymentState === 'unavailable' ? 'Payment status is temporarily unavailable' : 'Checking delivery status…'}
+    </p>
+    <p className="mt-1 text-[11px] leading-5 text-gray-500">
+      {repaymentState === 'waiting' ? 'The service provider must submit the work, then the customer approves the protected payment.' : settlementFinalizing ? 'HashPayStream is retrying in the background. No action is needed.' : 'HashPayStream will keep checking automatically.'}
+    </p>
+    {repaymentState === 'unavailable' && <button type="button" onClick={() => setRepaymentState('checking')} className="mt-2 text-[11px] font-bold text-gray-500 underline underline-offset-2">Check again</button>}
+  </div>
+  const label = opportunity.positionStatus === 'funded' ? 'Send early payment' : 'Retry settlement'
   return <div className="mt-3">
-    <button type="button" disabled={busy || repaymentBlocked} onClick={() => void (opportunity.positionStatus === 'funded' ? release() : claim())} className="w-full rounded-xl bg-gray-950 px-4 py-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-950">
+    <button type="button" disabled={busy} onClick={() => void (opportunity.positionStatus === 'funded' ? release() : claim())} className="w-full rounded-xl bg-gray-950 px-4 py-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-950">
       {stage || label}
     </button>
-    {repaymentState === 'waiting' && <p className="mt-2 text-[11px] leading-5 text-gray-500">The service provider must submit the work and the customer must approve the protected Arc payment.</p>}
-    {repaymentState === 'unavailable' && <button type="button" onClick={() => setRepaymentState('checking')} className="mt-2 text-[11px] font-bold text-gray-500 underline underline-offset-2">Try again</button>}
+    {opportunity.positionStatus === 'released' && <p className="mt-2 text-[11px] leading-5 text-gray-500">Automatic settlement is still running. Retry only after the 30-minute recovery window.</p>}
     {success && <p className="mt-2 text-[11px] leading-5 text-emerald-700">{success}</p>}
     {error && <p role="alert" className="mt-2 text-[11px] leading-5 text-rose-700">{error}</p>}
   </div>
