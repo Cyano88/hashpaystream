@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createPublicClient, createWalletClient, custom, http, type Hex } from 'viem'
+import { createPublicClient, createWalletClient, custom, getAddress, http, parseEventLogs, type Hex } from 'viem'
 import { upfrontXLayerChain } from '../../lib/upfrontChains'
 import { formatUsdcBalance } from '../../lib/useAgreements'
 import { nextSavingsRelease, SAVINGS_VAULT_ABI, WEEKLY_SECONDS, type SavingsPlan, type useSavingsVault } from '../../lib/useSavingsVault'
@@ -25,6 +25,7 @@ export default function SavingsPlanCard({ plan, savings }: { plan: SavingsPlan; 
 
   async function act(action: 'withdraw' | 'requestEmergencyExit' | 'cancelEmergencyExit' | 'completeEmergencyExit') {
     setStage(action); setError('')
+    let transactionConfirmed = false
     try {
       if (!savings.wallet || !savings.address || !savings.vaultAddress) throw new Error('Your X Layer wallet is not ready.')
       await savings.wallet.switchChain(upfrontXLayerChain.id)
@@ -46,16 +47,33 @@ export default function SavingsPlanCard({ plan, savings }: { plan: SavingsPlan; 
       }
       const receipt = await client.waitForTransactionReceipt({ hash })
       if (receipt.status !== 'success') throw new Error('Savings transaction reverted.')
+      transactionConfirmed = true
+      const eventName = action === 'withdraw'
+        ? 'SavingsWithdrawn'
+        : action === 'requestEmergencyExit'
+          ? 'EmergencyExitRequested'
+          : action === 'cancelEmergencyExit'
+            ? 'EmergencyExitCancelled'
+            : 'EmergencyExitCompleted'
+      const confirmed = parseEventLogs({ abi: SAVINGS_VAULT_ABI, logs: receipt.logs, eventName })
+        .some(event => event.args.planId === plan.id && event.args.owner && getAddress(event.args.owner) === savings.address)
+      if (!confirmed) throw new Error('Savings confirmation did not match this plan.')
       await Promise.all([savings.refresh(), savings.refreshSavings()])
     } catch (reason) {
-      setError(safeError(reason))
+      if (transactionConfirmed) {
+        await Promise.allSettled([savings.refresh(), savings.refreshSavings()])
+        setError('Your transaction confirmed, but the plan update could not be verified. Check your savings before trying again.')
+      } else {
+        setError(safeError(reason))
+      }
     } finally { setStage('') }
   }
 
   return <article className='rounded-[22px] border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-[#151515]'>
-    <div className='flex items-start justify-between gap-4'><div><p className='text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600'>{plan.interval === WEEKLY_SECONDS ? 'Weekly savings' : 'Monthly savings'}</p><p className='mt-1 text-xl font-black tabular-nums'>{formatUsdcBalance(plan.remaining)}</p></div><span className='stream-pill'>{plan.withdrawable > 0n ? 'Ready' : 'Saving'}</span></div>
-    <div className='mt-4 grid grid-cols-2 gap-3 rounded-2xl bg-zinc-50 px-4 py-3 dark:bg-white/[0.035]'>
+    <div className='flex items-start justify-between gap-4'><div><p className='text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600'>{plan.interval === WEEKLY_SECONDS ? 'Weekly savings' : 'Monthly savings'}</p><p className='mt-1 text-xl font-black tabular-nums'>{formatUsdcBalance(plan.remaining)}</p><p className='mt-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-400'>Remaining</p></div><span className='stream-pill'>{plan.withdrawable > 0n ? 'Ready' : 'Saving'}</span></div>
+    <div className='mt-4 grid grid-cols-3 gap-3 rounded-2xl bg-zinc-50 px-4 py-3 dark:bg-white/[0.035]'>
       <div><p className='text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-400'>Release</p><p className='mt-1 text-xs font-black'>{formatUsdcBalance(plan.releaseAmount)}</p></div>
+      <div><p className='text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-400'>Available</p><p className='mt-1 text-xs font-black'>{formatUsdcBalance(plan.withdrawable)}</p></div>
       <div><p className='text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-400'>Next</p><p className='mt-1 text-xs font-black'>{nextRelease ? dateTime(nextRelease) : 'Complete'}</p></div>
     </div>
     {plan.withdrawable > 0n && <button type='button' disabled={Boolean(stage)} onClick={() => void act('withdraw')} className='mt-3 w-full rounded-full bg-emerald-500 px-4 py-3 text-xs font-black text-emerald-950 disabled:opacity-40'>{stage === 'withdraw' ? 'Withdrawing...' : `Withdraw ${formatUsdcBalance(plan.withdrawable)}`}</button>}

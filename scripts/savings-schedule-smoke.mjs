@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { nextSavingsRelease } from '../src/lib/savingsSchedule.ts'
+import { nextSavingsRelease, savingsPlanPreview } from '../src/lib/savingsSchedule.ts'
 
 const DAY = 24 * 60 * 60
 const firstReleaseAt = 1_800_000_000
@@ -28,6 +28,16 @@ assert.equal(nextSavingsRelease(plan({ remaining: 0n }), firstReleaseAt - 1), 0)
 assert.equal(nextSavingsRelease(plan({ emergencyExitAt: firstReleaseAt - DAY }), firstReleaseAt - 2 * DAY), firstReleaseAt - DAY)
 assert.equal(nextSavingsRelease(plan({ emergencyExitAt: firstReleaseAt - DAY }), firstReleaseAt - DAY), 0)
 assert.equal(nextSavingsRelease(plan({ emergencyExitAt: firstReleaseAt + DAY }), firstReleaseAt), firstReleaseAt + DAY)
+
+assert.deepEqual(savingsPlanPreview(10_000_000n, 3_000_000n, weekly, firstReleaseAt), {
+  releases: 4,
+  firstReleaseAt: firstReleaseAt + weekly,
+  finalReleaseAt: firstReleaseAt + 4 * weekly,
+  finalReleaseAmount: 1_000_000n,
+})
+assert.equal(savingsPlanPreview(10_000_000n, 0n, weekly, firstReleaseAt), undefined)
+assert.equal(savingsPlanPreview(10_000_000n, 11_000_000n, weekly, firstReleaseAt), undefined)
+assert.equal(savingsPlanPreview(10_000_000n, 1_000_000n, 0, firstReleaseAt), undefined)
 
 const hookSource = readFileSync(new URL('../src/lib/useSavingsVault.ts', import.meta.url), 'utf8')
 const contractSource = readFileSync(new URL('../contracts/src/PersonalSavingsVault.sol', import.meta.url), 'utf8')

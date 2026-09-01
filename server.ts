@@ -23,6 +23,7 @@ import streamAccounts from './api/stream-accounts.js'
 import circleWallet from './api/circle-wallet.js'
 import customerRequests from './api/customer-requests.js'
 import serviceRequests from './api/service-requests.js'
+import savingsConfig from './api/savings-config.js'
 import {
   createCircleMarketplacePaymentHandler,
   createCircleMarketplaceResourceHandler,
@@ -132,6 +133,11 @@ app.get('/api/hashpaystream/v1/accounts', rateLimit({ name: 'account-read', wind
 app.post('/api/hashpaystream/v1/accounts', rateLimit({ name: 'account-write', windowMs: 60_000, max: 30 }), streamAccounts)
 app.all('/api/hashpaystream/v1/accounts', (_req, res) => {
   res.setHeader('Allow', 'GET, POST')
+  return res.status(405).json({ ok: false, error: 'Method not allowed.' })
+})
+app.get('/api/hashpaystream/v1/savings/config', rateLimit({ name: 'savings-config', windowMs: 60_000, max: 120 }), savingsConfig)
+app.all('/api/hashpaystream/v1/savings/config', (_req, res) => {
+  res.setHeader('Allow', 'GET')
   return res.status(405).json({ ok: false, error: 'Method not allowed.' })
 })
 app.post('/api/hashpaystream/v1/circle-wallet', rateLimit({ name: 'circle-wallet', windowMs: 60_000, max: 30 }), circleWallet)

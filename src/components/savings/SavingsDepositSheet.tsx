@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CheckIcon } from '@heroicons/react/24/outline'
-import { createPublicClient, createWalletClient, custom, formatEther, http, parseUnits } from 'viem'
+import { createPublicClient, createWalletClient, custom, formatEther, getAddress, http, parseEventLogs, parseUnits } from 'viem'
 import { upfrontXLayerChain } from '../../lib/upfrontChains'
 import { formatUsdcBalance } from '../../lib/useAgreements'
 import { MONTHLY_SECONDS, SAVINGS_VAULT_ABI, WEEKLY_SECONDS, type useSavingsVault } from '../../lib/useSavingsVault'
 import { XLAYER_USDC_ADDRESS } from '../../lib/useXLayerUsdcBalance'
+import { savingsPlanPreview } from '../../lib/savingsSchedule'
 
 const ERC20_ABI = [
   { type: 'function', name: 'allowance', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }], outputs: [{ type: 'uint256' }] },
@@ -33,11 +34,30 @@ export default function SavingsDepositSheet({ savings, onClose }: { savings: Sav
   const [stage, setStage] = useState('')
   const [error, setError] = useState('')
   const [complete, setComplete] = useState(false)
+  const interval = cadence === 'weekly' ? WEEKLY_SECONDS : MONTHLY_SECONDS
+  const preview = useMemo(() => {
+    try {
+      if (!/^\d+(?:\.\d{1,6})?$/.test(amount) || !/^\d+(?:\.\d{1,6})?$/.test(releaseAmount)) return undefined
+      return savingsPlanPreview(parseUnits(amount, 6), parseUnits(releaseAmount, 6), interval)
+    } catch {
+      return undefined
+    }
+  }, [amount, interval, releaseAmount])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !stage) onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose, stage])
 
   async function createPlan() {
     setStage('Checking savings plan...'); setError('')
+    let transactionConfirmed = false
     try {
       if (!savings.wallet || !savings.address || !savings.vaultAddress) throw new SavingsUiError('Your X Layer wallet is not ready.')
+      if (!savings.depositsEnabled) throw new SavingsUiError('New savings plans are currently paused.')
       if (!/^\d+(?:\.\d{1,6})?$/.test(amount) || !/^\d+(?:\.\d{1,6})?$/.test(releaseAmount)) throw new SavingsUiError('Enter a valid USDC amount.')
       const units = parseUnits(amount, 6)
       const releaseUnits = parseUnits(releaseAmount, 6)
@@ -59,16 +79,26 @@ export default function SavingsDepositSheet({ savings, onClose }: { savings: Sav
         if (receipt.status !== 'success') throw new Error('USDC approval reverted.')
       }
       setStage('Start savings - Step 2 of 2')
-      const interval = cadence === 'weekly' ? WEEKLY_SECONDS : MONTHLY_SECONDS
       const plan = await client.simulateContract({ account: savings.address, address: savings.vaultAddress, abi: SAVINGS_VAULT_ABI, functionName: 'createPlan', args: [units, interval, releaseUnits] })
       const hash = await walletClient.writeContract(plan.request)
       const receipt = await client.waitForTransactionReceipt({ hash })
       if (receipt.status !== 'success') throw new Error('Savings transaction reverted.')
+      transactionConfirmed = true
+      const created = parseEventLogs({ abi: SAVINGS_VAULT_ABI, logs: receipt.logs, eventName: 'PlanCreated' })
+        .find(event => event.args.owner && getAddress(event.args.owner) === savings.address)
+      if (!created || created.args.amount !== units || created.args.releaseAmount !== releaseUnits || created.args.interval !== interval) {
+        throw new Error('Savings confirmation did not match the reviewed plan.')
+      }
       await Promise.all([savings.refresh(), savings.refreshSavings()])
       setComplete(true); setStage('')
     } catch (reason) {
       setStage('')
-      setError(reason instanceof SavingsUiError ? reason.message : actionError(reason))
+      if (transactionConfirmed) {
+        await Promise.allSettled([savings.refresh(), savings.refreshSavings()])
+        setError('Your transaction confirmed, but the plan update could not be verified. Check your savings before trying again.')
+      } else {
+        setError(reason instanceof SavingsUiError ? reason.message : actionError(reason))
+      }
     }
   }
 
@@ -87,11 +117,25 @@ export default function SavingsDepositSheet({ savings, onClose }: { savings: Sav
         <p className='mt-2 text-[10px] text-white/35'>Available {savings.units === undefined ? '0 USDC' : formatUsdcBalance(savings.units)}</p>
         <div className='mt-6'><p className='text-[11px] font-bold text-white/55'>Release schedule</p><div className='mt-2 grid grid-cols-2 rounded-full bg-white/[0.06] p-1'>{(['weekly', 'monthly'] as const).map(value => <button key={value} type='button' onClick={() => setCadence(value)} className={`rounded-full px-4 py-2.5 text-xs font-black capitalize transition ${cadence === value ? 'bg-white text-black' : 'text-white/45'}`}>{value}</button>)}</div></div>
         <label className='mt-5 block'><span className='text-[11px] font-bold text-white/55'>Release each {cadence === 'weekly' ? 'week' : 'month'}</span><span className='mt-2 flex items-center rounded-2xl border border-white/10 bg-white/[0.035] px-4'><input inputMode='decimal' value={releaseAmount} onChange={event => { setReleaseAmount(cleanAmount(event.target.value)); setError('') }} placeholder='0.00' className='min-w-0 flex-1 bg-transparent py-3.5 text-sm font-black outline-none' /><b className='text-xs text-white/35'>USDC</b></span></label>
+        {preview && <div className='mt-4 grid grid-cols-3 gap-2 rounded-2xl border border-white/[0.07] bg-white/[0.035] px-3 py-3'>
+          <PreviewMetric label='First release' value={shortDate(preview.firstReleaseAt)} />
+          <PreviewMetric label='Releases' value={String(preview.releases)} />
+          <PreviewMetric label='Final release' value={shortDate(preview.finalReleaseAt)} />
+        </div>}
+        {preview && preview.finalReleaseAmount !== parseUnits(releaseAmount, 6) && <p className='mt-2 text-center text-[9px] text-white/35'>Final release: {formatUsdcBalance(preview.finalReleaseAmount)}</p>}
         <div className='mt-5 rounded-2xl bg-white/[0.045] px-4 py-3 text-[10px] leading-5 text-white/40'>This vault holds USDC; it does not generate yield. Emergency access has a 48-hour delay.</div>
         {error && <p role='alert' className='mt-4 rounded-xl bg-red-400/10 px-3 py-2.5 text-xs font-semibold text-red-200'>{error}</p>}
-        <button type='button' disabled={Boolean(stage) || !amount || !releaseAmount} onClick={() => void createPlan()} className='mt-5 w-full rounded-full bg-emerald-500 px-5 py-4 text-sm font-black text-emerald-950 disabled:opacity-35'>{stage || 'Review and start saving'}</button>
+        <button type='button' disabled={Boolean(stage) || !preview || !savings.depositsEnabled} onClick={() => void createPlan()} className='mt-5 w-full rounded-full bg-emerald-500 px-5 py-4 text-sm font-black text-emerald-950 disabled:opacity-35'>{stage || 'Review and start saving'}</button>
         <p className='mt-3 text-center text-[9px] leading-4 text-white/30'>The first plan may require one exact USDC approval. HashPayStream cannot withdraw your savings.</p>
       </>}
     </section>
   </div>
+}
+
+function shortDate(value: number) {
+  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(value * 1000))
+}
+
+function PreviewMetric({ label, value }: { label: string; value: string }) {
+  return <div className='min-w-0 text-center'><p className='text-[8px] font-bold uppercase tracking-[0.1em] text-white/35'>{label}</p><p className='mt-1 truncate text-[10px] font-black text-white/80'>{value}</p></div>
 }
