@@ -6,11 +6,12 @@ import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {ReentrancyGuard} from '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 
 /// @notice Immutable fixed-term savings cohorts for one ERC-20 asset.
-/// @dev Early-exit penalties remain inside their cohort and are paid only by contract rules.
+/// @dev Early-exit penalties stay within their duration and are paid only by contract rules.
 contract LockedSavingsCohortVault is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint16 public constant EARLY_EXIT_PENALTY_BPS = 500;
+    uint16 public constant MAXIMUM_REWARD_BPS = 500;
     uint16 private constant BPS = 10_000;
     uint256 public constant MINIMUM_DEPOSIT = 1_000_000;
     uint32 public constant COHORT_INTERVAL = 7 days;
@@ -33,7 +34,6 @@ contract LockedSavingsCohortVault is ReentrancyGuard {
 
     struct Position {
         uint256 principal;
-        uint256 penaltyContributed;
         bool exited;
         bool claimed;
     }
@@ -42,6 +42,7 @@ contract LockedSavingsCohortVault is ReentrancyGuard {
     uint256 public totalManaged;
     mapping(bytes32 cohortId => Cohort) public cohorts;
     mapping(bytes32 cohortId => mapping(address owner => Position)) public positions;
+    mapping(uint32 duration => uint256) public termRewardCarry;
     mapping(address owner => bytes32[]) private ownerCohorts;
 
     error InvalidAddress();
@@ -58,7 +59,8 @@ contract LockedSavingsCohortVault is ReentrancyGuard {
     event LockedSavingsDeposited(bytes32 indexed cohortId, address indexed owner, uint256 amount, uint48 startsAt, uint48 maturesAt);
     event PreStartDepositCancelled(bytes32 indexed cohortId, address indexed owner, uint256 amount);
     event EarlyExit(bytes32 indexed cohortId, address indexed owner, uint256 principal, uint256 penalty, uint256 payout);
-    event PenaltyRefunded(bytes32 indexed cohortId, address indexed owner, uint256 amount);
+    event RewardsCarriedForward(bytes32 indexed cohortId, uint32 indexed duration, uint256 amount);
+    event RewardsApplied(bytes32 indexed cohortId, uint32 indexed duration, uint256 amount);
     event LockedSavingsClaimed(bytes32 indexed cohortId, address indexed owner, uint256 principal, uint256 reward);
 
     constructor(IERC20 asset_) {
@@ -132,27 +134,16 @@ contract LockedSavingsCohortVault is ReentrancyGuard {
 
         uint256 penalty = (principal * EARLY_EXIT_PENALTY_BPS) / BPS;
         uint256 payout = principal - penalty;
-        position.penaltyContributed = penalty;
         cohort.rewardPool += penalty;
         totalManaged -= payout;
         asset.safeTransfer(msg.sender, payout);
         emit EarlyExit(cohortId, msg.sender, principal, penalty, payout);
-    }
-
-    function claimPenaltyRefund(bytes32 cohortId) external nonReentrant {
-        Cohort storage cohort = cohorts[cohortId];
-        if (block.timestamp < cohort.maturesAt) revert CohortNotMatured();
-        if (cohort.totalPrincipal != 0) revert PositionClosed();
-        Position storage position = positions[cohortId][msg.sender];
-        uint256 amount = position.penaltyContributed;
-        if (!position.exited || position.claimed || amount == 0) revert NoPosition();
-        position.claimed = true;
-        position.penaltyContributed = 0;
-        cohort.rewardPool -= amount;
-        cohort.rewardsPaid += amount;
-        totalManaged -= amount;
-        asset.safeTransfer(msg.sender, amount);
-        emit PenaltyRefunded(cohortId, msg.sender, amount);
+        if (cohort.activePositions == 0 && cohort.rewardPool != 0) {
+            uint256 carry = cohort.rewardPool;
+            cohort.rewardPool = 0;
+            termRewardCarry[cohort.duration] += carry;
+            emit RewardsCarriedForward(cohortId, cohort.duration, carry);
+        }
     }
 
     function claim(bytes32 cohortId) external nonReentrant {
@@ -162,20 +153,38 @@ contract LockedSavingsCohortVault is ReentrancyGuard {
         if (cohort.finalPrincipal == 0) {
             cohort.finalPrincipal = cohort.totalPrincipal;
             cohort.remainingClaims = cohort.activePositions;
+            uint256 maximumCohortReward = (cohort.finalPrincipal * MAXIMUM_REWARD_BPS) / BPS;
+            if (cohort.rewardPool > maximumCohortReward) {
+                uint256 excess = cohort.rewardPool - maximumCohortReward;
+                cohort.rewardPool = maximumCohortReward;
+                termRewardCarry[cohort.duration] += excess;
+                emit RewardsCarriedForward(cohortId, cohort.duration, excess);
+            } else if (cohort.rewardPool < maximumCohortReward) {
+                uint256 capacity = maximumCohortReward - cohort.rewardPool;
+                uint256 carry = termRewardCarry[cohort.duration];
+                uint256 applied = carry < capacity ? carry : capacity;
+                if (applied != 0) {
+                    termRewardCarry[cohort.duration] = carry - applied;
+                    cohort.rewardPool += applied;
+                    emit RewardsApplied(cohortId, cohort.duration, applied);
+                }
+            }
         }
 
-        uint256 reward;
-        if (cohort.remainingClaims == 1) {
-            reward = cohort.rewardPool - cohort.rewardsPaid;
-        } else {
-            reward = (cohort.rewardPool * position.principal) / cohort.finalPrincipal;
-        }
+        uint256 proportionalReward = (cohort.rewardPool * position.principal) / cohort.finalPrincipal;
+        uint256 maximumReward = (position.principal * MAXIMUM_REWARD_BPS) / BPS;
+        uint256 reward = proportionalReward < maximumReward ? proportionalReward : maximumReward;
         uint256 principal = position.principal;
         position.principal = 0;
         position.claimed = true;
         cohort.activePositions -= 1;
         cohort.remainingClaims -= 1;
         cohort.rewardsPaid += reward;
+        if (cohort.remainingClaims == 0 && cohort.rewardPool > cohort.rewardsPaid) {
+            uint256 carry = cohort.rewardPool - cohort.rewardsPaid;
+            termRewardCarry[cohort.duration] += carry;
+            emit RewardsCarriedForward(cohortId, cohort.duration, carry);
+        }
         totalManaged -= principal + reward;
         asset.safeTransfer(msg.sender, principal + reward);
         emit LockedSavingsClaimed(cohortId, msg.sender, principal, reward);

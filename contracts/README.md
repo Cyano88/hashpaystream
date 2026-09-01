@@ -16,11 +16,13 @@ is deployed and verified.
 `LockedSavingsCohortVault.sol` is a second, independent and non-upgradeable
 native-USDC design for fixed 30, 90, 180, or 365-day savings terms. Deposits join
 the next weekly cohort. A full early exit after the cohort starts pays an exact
-5% penalty into that same cohort; savers who complete the term share its penalty
-pool pro rata. If every saver exits early, each saver can recover only their own
-penalty at the original maturity date. The contract has no administrator,
-treasury, external yield source, or cross-cohort reward transfer. It must receive
-an independent security review before deployment or UI enablement.
+5% penalty into that duration's reward pool. A completer's reward is capped at
+5% of the principal they kept locked, preventing a tiny second wallet from
+capturing a large early-exit penalty. Unused penalties carry only to future
+completers of the same duration; they are never refunded to early exiters or
+transferred across durations. The contract has no administrator, treasury,
+external yield source, or upgrade path. It must receive an independent security
+review before deployment or UI enablement.
 
 ```text
 npm install

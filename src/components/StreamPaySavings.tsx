@@ -87,7 +87,7 @@ function LaunchBoundary() {
       </div>
       <div className='border-t border-zinc-100 px-4 py-3 dark:border-white/[0.07]'>
         <div className='flex items-center justify-between gap-3'><p className='text-xs font-black'>Locked savings</p><span className='stream-pill'>30–365 days</span></div>
-        <p className='mt-1 text-[11px] leading-4 text-zinc-500 dark:text-zinc-400'>A 5% early-exit penalty stays within the same term and may reward savers who complete it.</p>
+        <p className='mt-1 text-[11px] leading-4 text-zinc-500 dark:text-zinc-400'>A 5% early-exit penalty stays within the same term. Rewards cannot exceed 5% of what you keep locked.</p>
       </div>
     </div>
     <div className='mt-4 rounded-2xl bg-zinc-50 px-4 py-3 text-[11px] leading-5 text-zinc-500 dark:bg-white/[0.04] dark:text-zinc-400'><b className='text-zinc-800 dark:text-zinc-200'>No platform withdrawal access.</b> The reviewed contract must not give HashPayStream an administrator withdrawal or upgrade path.</div>

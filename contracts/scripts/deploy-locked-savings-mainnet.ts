@@ -19,6 +19,7 @@ async function main() {
   if (
     await vault.asset() !== asset ||
     await vault.EARLY_EXIT_PENALTY_BPS() !== 500n ||
+    await vault.MAXIMUM_REWARD_BPS() !== 500n ||
     await vault.MINIMUM_DEPOSIT() !== 1_000_000n ||
     await vault.COHORT_INTERVAL() !== 604800n ||
     await vault.THIRTY_DAYS() !== 2592000n ||
@@ -29,7 +30,7 @@ async function main() {
 
   console.log(JSON.stringify({
     chainId: network.chainId.toString(), contract, asset, deployer: deployer.address,
-    earlyExitPenaltyBps: '500', minimumDeposit: '1000000', cohortIntervalSeconds: '604800',
+    earlyExitPenaltyBps: '500', maximumRewardBps: '500', minimumDeposit: '1000000', cohortIntervalSeconds: '604800',
     termsSeconds: ['2592000', '7776000', '15552000', '31536000'],
     administrator: null, upgradeable: false, transactionHash: vault.deploymentTransaction()?.hash,
   }, null, 2))

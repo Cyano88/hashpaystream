@@ -65,7 +65,7 @@ describe('LockedSavingsCohortVault', () => {
     await expect(context.vault.connect(context.alice).exitEarly(cohortId)).to.be.revertedWithCustomError(context.vault, 'NoPosition')
   })
 
-  it('refunds only each saver own penalty at maturity if nobody completes the cohort', async () => {
+  it('carries all-exit penalties forward within the same duration and never refunds early exiters', async () => {
     const context = await fixture()
     const cohortId = await deposit(context, context.alice, 100n * USDC)
     await deposit(context, context.bob, 100n * USDC)
@@ -73,23 +73,67 @@ describe('LockedSavingsCohortVault', () => {
     await time.increaseTo(cohort.startsAt)
     await context.vault.connect(context.alice).exitEarly(cohortId)
     await expect(context.vault.connect(context.bob).exitEarly(cohortId))
-      .to.emit(context.vault, 'EarlyExit')
-      .withArgs(cohortId, context.bob.address, 100n * USDC, 5n * USDC, 95n * USDC)
-    expect(await context.token.balanceOf(context.bob.address)).to.equal(995n * USDC)
+      .to.emit(context.vault, 'RewardsCarriedForward')
+      .withArgs(cohortId, await context.vault.THIRTY_DAYS(), 10n * USDC)
+    expect((await context.vault.cohorts(cohortId)).rewardPool).to.equal(0)
+    expect(await context.vault.termRewardCarry(await context.vault.THIRTY_DAYS())).to.equal(10n * USDC)
     expect(await context.vault.totalManaged()).to.equal(10n * USDC)
-    await expect(context.vault.connect(context.alice).claimPenaltyRefund(cohortId)).to.be.revertedWithCustomError(context.vault, 'CohortNotMatured')
-    await time.increaseTo(cohort.maturesAt)
-    await expect(context.vault.connect(context.alice).claimPenaltyRefund(cohortId)).to.emit(context.vault, 'PenaltyRefunded').withArgs(cohortId, context.alice.address, 5n * USDC)
-    await expect(context.vault.connect(context.bob).claimPenaltyRefund(cohortId)).to.emit(context.vault, 'PenaltyRefunded').withArgs(cohortId, context.bob.address, 5n * USDC)
-    expect(await context.token.balanceOf(context.alice.address)).to.equal(1_000n * USDC)
-    expect(await context.token.balanceOf(context.bob.address)).to.equal(1_000n * USDC)
-    expect(await context.vault.totalManaged()).to.equal(0)
+    expect(await context.token.balanceOf(context.alice.address)).to.equal(995n * USDC)
+    expect(await context.token.balanceOf(context.bob.address)).to.equal(995n * USDC)
+
+    await time.increase(7n * 24n * 60n * 60n)
+    const nextId = await deposit(context, context.carol, 100n * USDC)
+    const next = await context.vault.cohorts(nextId)
+    await time.increaseTo(next.maturesAt)
+    await context.vault.connect(context.carol).claim(nextId)
+    expect(await context.token.balanceOf(context.carol.address)).to.equal(1_005n * USDC)
+    expect(await context.vault.termRewardCarry(await context.vault.THIRTY_DAYS())).to.equal(5n * USDC)
+    expect(await context.vault.totalManaged()).to.equal(5n * USDC)
   })
 
-  it('pays completers pro rata and assigns rounding dust to the final claimant', async () => {
+  it('limits reward carry captured by a cohort when another completer does not claim', async () => {
+    const context = await fixture()
+    const exitedId = await deposit(context, context.alice, 100n * USDC)
+    await deposit(context, context.bob, 100n * USDC)
+    const exited = await context.vault.cohorts(exitedId)
+    await time.increaseTo(exited.startsAt)
+    await context.vault.connect(context.alice).exitEarly(exitedId)
+    await context.vault.connect(context.bob).exitEarly(exitedId)
+    expect(await context.vault.termRewardCarry(await context.vault.THIRTY_DAYS())).to.equal(10n * USDC)
+
+    await time.increase(7n * 24n * 60n * 60n)
+    const nextId = await deposit(context, context.alice, 1n * USDC)
+    await deposit(context, context.carol, 1n * USDC)
+    const next = await context.vault.cohorts(nextId)
+    await time.increaseTo(next.maturesAt)
+    await expect(context.vault.connect(context.carol).claim(nextId))
+      .to.emit(context.vault, 'RewardsApplied')
+      .withArgs(nextId, await context.vault.THIRTY_DAYS(), 100_000n)
+    expect(await context.vault.termRewardCarry(await context.vault.THIRTY_DAYS())).to.equal(9_900_000n)
+    expect((await context.vault.cohorts(nextId)).rewardPool).to.equal(100_000n)
+    expect((await context.vault.cohorts(nextId)).rewardsPaid).to.equal(50_000n)
+    expect(await context.vault.totalManaged()).to.equal(10_950_000n)
+  })
+  it('caps a completer reward so a tiny second wallet cannot reclaim a large penalty', async () => {
+    const context = await fixture()
+    const cohortId = await deposit(context, context.alice, 99n * USDC)
+    await deposit(context, context.bob, 1n * USDC)
+    const cohort = await context.vault.cohorts(cohortId)
+    await time.increaseTo(cohort.startsAt)
+    await context.vault.connect(context.alice).exitEarly(cohortId)
+    await time.increaseTo(cohort.maturesAt)
+
+    const bobBefore = await context.token.balanceOf(context.bob.address)
+    await context.vault.connect(context.bob).claim(cohortId)
+    expect(await context.token.balanceOf(context.bob.address)).to.equal(bobBefore + 1_050_000n)
+    expect(await context.vault.termRewardCarry(await context.vault.THIRTY_DAYS())).to.equal(4_900_000n)
+    expect(await context.vault.totalManaged()).to.equal(4_900_000n)
+  })
+
+  it('pays completers pro rata and carries rounding dust forward', async () => {
     const context = await fixture()
     const cohortId = await deposit(context, context.alice, 101n * USDC)
-    await deposit(context, context.bob, 299n * USDC)
+    await deposit(context, context.bob, 300n * USDC)
     await deposit(context, context.carol, 100n * USDC)
     const cohort = await context.vault.cohorts(cohortId)
     await time.increaseTo(cohort.startsAt)
@@ -100,14 +144,16 @@ describe('LockedSavingsCohortVault', () => {
 
     const aliceBefore = await context.token.balanceOf(context.alice.address)
     await context.vault.connect(context.alice).claim(cohortId)
-    const aliceReward = (5n * USDC * 101n) / 400n
+    const aliceReward = (5n * USDC * 101n) / 401n
     expect(await context.token.balanceOf(context.alice.address)).to.equal(aliceBefore + 101n * USDC + aliceReward)
 
     const bobBefore = await context.token.balanceOf(context.bob.address)
     await context.vault.connect(context.bob).claim(cohortId)
-    expect(await context.token.balanceOf(context.bob.address)).to.equal(bobBefore + 299n * USDC + (5n * USDC - aliceReward))
-    expect(await context.vault.totalManaged()).to.equal(0)
-    expect((await context.vault.cohorts(cohortId)).rewardsPaid).to.equal(5n * USDC)
+    const bobReward = (5n * USDC * 300n) / 401n
+    expect(await context.token.balanceOf(context.bob.address)).to.equal(bobBefore + 300n * USDC + bobReward)
+    expect(await context.vault.totalManaged()).to.equal(5n * USDC - aliceReward - bobReward)
+    expect(await context.vault.termRewardCarry(await context.vault.THIRTY_DAYS())).to.equal(5n * USDC - aliceReward - bobReward)
+    expect((await context.vault.cohorts(cohortId)).rewardsPaid).to.equal(aliceReward + bobReward)
     await expect(context.vault.connect(context.bob).claim(cohortId)).to.be.revertedWithCustomError(context.vault, 'NoPosition')
   })
 
@@ -134,6 +180,38 @@ describe('LockedSavingsCohortVault', () => {
     await context.vault.connect(context.carol).claim(ninetyId)
     expect(await context.vault.totalManaged()).to.equal(0)
     expect(await context.token.balanceOf(await context.vault.getAddress())).to.equal(7n * USDC)
+  })
+  it('preserves token accounting and the reward cap across varied deposit sizes', async () => {
+    for (let round = 0n; round < 8n; round += 1n) {
+      const context = await fixture()
+      const alicePrincipal = (10n + round) * USDC + round
+      const bobPrincipal = (3n + 2n * round) * USDC + 17n * round + 1n
+      const completerPrincipal = (1n + round) * USDC + 31n * round + 3n
+      const cohortId = await deposit(context, context.alice, alicePrincipal)
+      await deposit(context, context.bob, bobPrincipal)
+      await deposit(context, context.carol, completerPrincipal)
+      const cohort = await context.vault.cohorts(cohortId)
+      await time.increaseTo(cohort.startsAt)
+      await context.vault.connect(context.alice).exitEarly(cohortId)
+      await context.vault.connect(context.bob).exitEarly(cohortId)
+      await time.increaseTo(cohort.maturesAt)
+      await context.vault.connect(context.carol).claim(cohortId)
+
+      const penalties = (alicePrincipal * 500n) / 10_000n + (bobPrincipal * 500n) / 10_000n
+      const rewardCap = (completerPrincipal * 500n) / 10_000n
+      const reward = penalties < rewardCap ? penalties : rewardCap
+      const carry = penalties - reward
+      const vaultBalance = await context.token.balanceOf(await context.vault.getAddress())
+      expect(vaultBalance).to.equal(carry)
+      expect(await context.vault.totalManaged()).to.equal(carry)
+      expect(await context.vault.termRewardCarry(await context.vault.THIRTY_DAYS())).to.equal(carry)
+      expect(
+        await context.token.balanceOf(context.alice.address) +
+        await context.token.balanceOf(context.bob.address) +
+        await context.token.balanceOf(context.carol.address) +
+        vaultBalance,
+      ).to.equal(await context.token.totalSupply())
+    }
   })
   it('enforces lifecycle boundaries, ownership, and the minimum deposit', async () => {
     const context = await fixture()
