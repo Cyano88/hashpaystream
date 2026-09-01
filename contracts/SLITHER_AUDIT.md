@@ -39,3 +39,15 @@ loop introduced no new production finding; the reviewed-exclusion command again
 analyzed 29 contracts with 99 detectors and returned zero results. The page-size
 bound and empty, partial, final, and invalid-page behavior are covered by contract
 tests. This follow-up does not change the external-review or deployment gate.
+
+## Personal Savings v1 candidate follow-up
+
+The pre-freeze candidate removed the legacy unbounded plan-ID getter, rejects a
+zero or code-less asset in the constructor, and prevents a duplicate emergency
+request from restarting the 48-hour deadline. The full detector run analyzed 29
+contracts with 102 detectors and returned the same 17 triaged results: production
+balance-delta checks, intentional timestamp use, the unrelated Upfront complexity
+finding, and test-only callback findings. The reviewed-exclusion command analyzed
+29 contracts with 99 detectors and returned zero results. Focused regressions cover
+the new constructor and duplicate-request behavior. The candidate remains
+undeployed and requires independent review.

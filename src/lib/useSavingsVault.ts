@@ -16,7 +16,6 @@ export const SAVINGS_VAULT_ADDRESS: Address | undefined = isAddress(rawVault) &&
 
 export const SAVINGS_VAULT_ABI = [
   { type: 'function', name: 'asset', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
-  { type: 'function', name: 'planIds', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ type: 'bytes32[]' }] },
   { type: 'function', name: 'planCount', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'planIdsPage', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }, { name: 'offset', type: 'uint256' }, { name: 'limit', type: 'uint256' }], outputs: [{ type: 'bytes32[]' }] },
   { type: 'function', name: 'plans', stateMutability: 'view', inputs: [{ name: 'planId', type: 'bytes32' }], outputs: [

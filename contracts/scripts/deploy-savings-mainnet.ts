@@ -5,7 +5,7 @@ const NATIVE_XLAYER_USDC = '0xB6CEceAB302E2E4948951eE7843FC24E92933061'
 async function main() {
   const network = await ethers.provider.getNetwork()
   if (network.chainId !== 196n) throw new Error(`Refusing to deploy on chain ${network.chainId}; expected X Layer mainnet 196.`)
-  if (process.env.SAVINGS_MAINNET_DEPLOY_CONFIRM !== 'DEPLOY_NONCUSTODIAL_USDC_SAVINGS_V2') {
+  if (process.env.SAVINGS_MAINNET_DEPLOY_CONFIRM !== 'DEPLOY_NONCUSTODIAL_USDC_SAVINGS_V3') {
     throw new Error('Explicit savings mainnet deployment confirmation is missing.')
   }
   const [deployer] = await ethers.getSigners()

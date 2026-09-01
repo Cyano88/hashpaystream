@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "candidate": "personal-savings-v1",
+  "auditTag": "personal-savings-v1-audit",
+  "status": "undeployed",
+  "source": {
+    "path": "src/PersonalSavingsVault.sol",
+    "normalizedLfSha256": "7db6493214742554fa18b252dcf53e4307987f1ec8232bb2879722b9d2b5d186"
+  },
+  "toolchain": {
+    "solidity": "0.8.24",
+    "optimizerEnabled": true,
+    "optimizerRuns": 200,
+    "viaIR": true,
+    "openzeppelinContracts": "5.0.2",
+    "packageLockNormalizedLfSha256": "64ab78c1c104bab2818425f57fffe7117e310f9d9f580f761d07ad668c565124"
+  },
+  "target": {
+    "chain": "X Layer mainnet",
+    "chainId": 196,
+    "asset": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
+    "symbol": "USDC",
+    "decimals": 6,
+    "evidenceBlock": 69484978,
+    "evidenceDate": "2026-09-01"
+  },
+  "policy": {
+    "weeklySeconds": 604800,
+    "monthlySeconds": 2592000,
+    "emergencyExitDelaySeconds": 172800,
+    "maxPageSize": 100,
+    "administrator": null,
+    "upgradeable": false,
+    "yieldEnabled": false,
+    "penaltyEnabled": false,
+    "platformFeeEnabled": false
+  },
+  "deployment": {
+    "enabled": false,
+    "address": null,
+    "transactionHash": null
+  },
+  "excludedContracts": [
+    "src/LockedSavingsCohortVault.sol",
+    "src/UpfrontAdvanceEscrow.sol",
+    "src/ArcRepaymentRouter.sol"
+  ]
+}

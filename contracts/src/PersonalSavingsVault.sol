@@ -37,6 +37,7 @@ contract PersonalSavingsVault is ReentrancyGuard {
     error InvalidPageSize();
     error NotPlanOwner();
     error NothingToWithdraw();
+    error EmergencyExitAlreadyRequested();
     error EmergencyExitNotReady();
     error UnsupportedTransferFee();
 
@@ -47,7 +48,7 @@ contract PersonalSavingsVault is ReentrancyGuard {
     event EmergencyExitCompleted(bytes32 indexed planId, address indexed owner, uint256 amount);
 
     constructor(IERC20 asset_) {
-        if (address(asset_) == address(0)) revert InvalidAddress();
+        if (address(asset_) == address(0) || address(asset_).code.length == 0) revert InvalidAddress();
         asset = asset_;
     }
 
@@ -74,10 +75,6 @@ contract PersonalSavingsVault is ReentrancyGuard {
         asset.safeTransferFrom(msg.sender, address(this), amount);
         if (asset.balanceOf(address(this)) - beforeBalance != amount) revert UnsupportedTransferFee();
         emit PlanCreated(planId, msg.sender, amount, releaseAmount, firstReleaseAt, interval);
-    }
-
-    function planIds(address owner) external view returns (bytes32[] memory) {
-        return ownerPlans[owner];
     }
 
     function planCount(address owner) external view returns (uint256) {
@@ -126,6 +123,7 @@ contract PersonalSavingsVault is ReentrancyGuard {
     function requestEmergencyExit(bytes32 planId) external {
         Plan storage plan = _ownedPlan(planId);
         if (remaining(planId) == 0) revert NothingToWithdraw();
+        if (plan.emergencyExitAt != 0) revert EmergencyExitAlreadyRequested();
         uint48 availableAt = uint48(block.timestamp + EMERGENCY_EXIT_DELAY);
         plan.emergencyExitAt = availableAt;
         emit EmergencyExitRequested(planId, msg.sender, availableAt);
