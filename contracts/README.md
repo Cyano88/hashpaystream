@@ -13,6 +13,15 @@ request a full emergency exit after a fixed 48-hour delay. Do not describe vault
 deposits as yield-bearing unless a separately reviewed native-USDC market adapter
 is deployed and verified.
 
+`LockedSavingsCohortVault.sol` is a second, independent and non-upgradeable
+native-USDC design for fixed 30, 90, 180, or 365-day savings terms. Deposits join
+the next weekly cohort. A full early exit after the cohort starts pays an exact
+5% penalty into that same cohort; savers who complete the term share its penalty
+pool pro rata. If every saver exits early, each saver can recover only their own
+penalty at the original maturity date. The contract has no administrator,
+treasury, external yield source, or cross-cohort reward transfer. It must receive
+an independent security review before deployment or UI enablement.
+
 ```text
 npm install
 npm run compile

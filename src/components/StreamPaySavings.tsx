@@ -78,8 +78,18 @@ export default function StreamPaySavings() {
 function LaunchBoundary() {
   return <div className='mt-5 rounded-[22px] border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-[#151515]'>
     <span className='flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-500'><ClockIcon className='h-5 w-5' /></span>
-    <h2 className='mt-4 text-sm font-black'>X Layer vault in security review</h2>
-    <p className='mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400'>Deposits stay disabled until the native-USDC vault is independently reviewed and its X Layer address is verified.</p>
+    <h2 className='mt-4 text-sm font-black'>X Layer vaults in security review</h2>
+    <p className='mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400'>Deposits stay disabled until each native-USDC vault is independently reviewed and its X Layer address is verified.</p>
+    <div className='mt-4 overflow-hidden rounded-2xl border border-zinc-100 dark:border-white/[0.07]'>
+      <div className='px-4 py-3'>
+        <p className='text-xs font-black'>Scheduled releases</p>
+        <p className='mt-1 text-[11px] leading-4 text-zinc-500 dark:text-zinc-400'>Set weekly or monthly releases for planned spending.</p>
+      </div>
+      <div className='border-t border-zinc-100 px-4 py-3 dark:border-white/[0.07]'>
+        <div className='flex items-center justify-between gap-3'><p className='text-xs font-black'>Locked savings</p><span className='stream-pill'>30–365 days</span></div>
+        <p className='mt-1 text-[11px] leading-4 text-zinc-500 dark:text-zinc-400'>A 5% early-exit penalty stays within the same term and may reward savers who complete it.</p>
+      </div>
+    </div>
     <div className='mt-4 rounded-2xl bg-zinc-50 px-4 py-3 text-[11px] leading-5 text-zinc-500 dark:bg-white/[0.04] dark:text-zinc-400'><b className='text-zinc-800 dark:text-zinc-200'>No platform withdrawal access.</b> The reviewed contract must not give HashPayStream an administrator withdrawal or upgrade path.</div>
   </div>
 }
