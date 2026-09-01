@@ -42,6 +42,7 @@ describe('LockedSavingsCohortVault', () => {
     await context.vault.connect(context.alice).deposit(5n * USDC, await context.vault.THIRTY_DAYS())
     expect((await context.vault.positions(cohortId, context.alice.address)).principal).to.equal(15n * USDC)
     expect((await context.vault.cohorts(cohortId)).activePositions).to.equal(1)
+    expect(await context.vault.ownerCohortIds(context.alice.address)).to.deep.equal([cohortId])
     await expect(context.vault.connect(context.outsider).cancelBeforeStart(cohortId)).to.be.revertedWithCustomError(context.vault, 'NoPosition')
     await expect(context.vault.connect(context.alice).cancelBeforeStart(cohortId)).to.emit(context.vault, 'PreStartDepositCancelled')
     expect(await context.token.balanceOf(context.alice.address)).to.equal(1_000n * USDC)

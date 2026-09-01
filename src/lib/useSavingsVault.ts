@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPublicClient, getAddress, http, isAddress, zeroAddress, type Address, type Hex } from 'viem'
 import { upfrontXLayerChain } from './upfrontChains'
 import { XLAYER_USDC_ADDRESS, useXLayerUsdcBalance } from './useXLayerUsdcBalance'
+import { nextSavingsRelease } from './savingsSchedule'
+
+export { nextSavingsRelease } from './savingsSchedule'
 
 export const WEEKLY_SECONDS = 7 * 24 * 60 * 60
 export const MONTHLY_SECONDS = 30 * 24 * 60 * 60
@@ -38,12 +41,6 @@ export type SavingsPlan = {
   emergencyExitAt: number
 }
 
-export function nextSavingsRelease(plan: SavingsPlan, nowSeconds = Math.floor(Date.now() / 1000)) {
-  if (plan.remaining === 0n) return 0
-  if (nowSeconds < plan.firstReleaseAt) return plan.firstReleaseAt
-  const periods = Math.floor((nowSeconds - plan.firstReleaseAt) / plan.interval) + 1
-  return plan.firstReleaseAt + periods * plan.interval
-}
 
 export function useSavingsVault() {
   const wallet = useXLayerUsdcBalance()
@@ -72,11 +69,12 @@ export function useSavingsVault() {
       if (getAddress(asset) !== XLAYER_USDC_ADDRESS) throw new Error('The savings vault is not configured for native X Layer USDC.')
       const ids = await client.readContract({ address: SAVINGS_VAULT_ADDRESS, abi: SAVINGS_VAULT_ABI, functionName: 'planIds', args: [wallet.address] })
       if (ids.length > 100) throw new Error('Too many savings plans are attached to this wallet.')
+      const snapshotBlock = await client.getBlockNumber()
       const next = await Promise.all(ids.map(async id => {
         const [plan, remaining, withdrawable] = await Promise.all([
-          client.readContract({ address: SAVINGS_VAULT_ADDRESS, abi: SAVINGS_VAULT_ABI, functionName: 'plans', args: [id] }),
-          client.readContract({ address: SAVINGS_VAULT_ADDRESS, abi: SAVINGS_VAULT_ABI, functionName: 'remaining', args: [id] }),
-          client.readContract({ address: SAVINGS_VAULT_ADDRESS, abi: SAVINGS_VAULT_ABI, functionName: 'withdrawable', args: [id] }),
+          client.readContract({ address: SAVINGS_VAULT_ADDRESS, abi: SAVINGS_VAULT_ABI, functionName: 'plans', args: [id], blockNumber: snapshotBlock }),
+          client.readContract({ address: SAVINGS_VAULT_ADDRESS, abi: SAVINGS_VAULT_ABI, functionName: 'remaining', args: [id], blockNumber: snapshotBlock }),
+          client.readContract({ address: SAVINGS_VAULT_ADDRESS, abi: SAVINGS_VAULT_ABI, functionName: 'withdrawable', args: [id], blockNumber: snapshotBlock }),
         ])
         return { id, deposited: plan[1], withdrawn: plan[2], releaseAmount: plan[3], firstReleaseAt: Number(plan[4]), interval: Number(plan[5]), emergencyExitAt: Number(plan[6]), remaining, withdrawable }
       }))

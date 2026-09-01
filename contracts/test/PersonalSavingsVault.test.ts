@@ -62,6 +62,29 @@ describe('PersonalSavingsVault', () => {
     expect(await context.token.balanceOf(context.owner.address)).to.equal(100n * USDC)
   })
 
+  it('cancels emergency access and preserves solvency across partial and final withdrawals', async () => {
+    const context = await fixture()
+    const planId = await createPlan(context)
+    await context.vault.connect(context.owner).requestEmergencyExit(planId)
+    await expect(context.vault.connect(context.outsider).cancelEmergencyExit(planId)).to.be.revertedWithCustomError(context.vault, 'NotPlanOwner')
+    await expect(context.vault.connect(context.owner).cancelEmergencyExit(planId)).to.emit(context.vault, 'EmergencyExitCancelled')
+    expect((await context.vault.plans(planId)).emergencyExitAt).to.equal(0)
+
+    const plan = await context.vault.plans(planId)
+    await time.increaseTo(plan.firstReleaseAt)
+    await context.vault.connect(context.owner).withdraw(planId, 2n * USDC)
+    expect(await context.vault.totalManaged()).to.equal(8n * USDC)
+    expect(await context.token.balanceOf(await context.vault.getAddress())).to.equal(8n * USDC)
+
+    await context.vault.connect(context.owner).requestEmergencyExit(planId)
+    const requested = await context.vault.plans(planId)
+    await time.increaseTo(requested.emergencyExitAt)
+    await context.vault.connect(context.owner).completeEmergencyExit(planId)
+    expect(await context.vault.remaining(planId)).to.equal(0)
+    expect(await context.vault.totalManaged()).to.equal(0)
+    expect(await context.token.balanceOf(await context.vault.getAddress())).to.equal(0)
+    expect(await context.token.balanceOf(context.owner.address)).to.equal(100n * USDC)
+  })
   it('rejects invalid amounts and unsupported schedules', async () => {
     const context = await fixture()
     await expect(context.vault.createPlan(0, await context.vault.WEEKLY(), 1)).to.be.revertedWithCustomError(context.vault, 'InvalidAmount')
