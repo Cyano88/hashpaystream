@@ -121,6 +121,7 @@ export function useSavingsVault() {
   const config = useSavingsRuntimeConfig()
   const [plans, setPlans] = useState<SavingsPlan[]>([])
   const [ready, setReady] = useState(false)
+  const [vaultVerified, setVaultVerified] = useState(false)
   const [error, setError] = useState('')
   const sequence = useRef(0)
   const activeScope = useRef('')
@@ -133,10 +134,11 @@ export function useSavingsVault() {
     if (activeScope.current !== scope) {
       activeScope.current = scope
       setPlans([])
+      setVaultVerified(false)
       setReady(false)
     }
     if (!config.vaultAddress || !wallet.address) {
-      if (request === sequence.current) { setPlans([]); setReady(true); setError('') }
+      if (request === sequence.current) { setPlans([]); setVaultVerified(false); setReady(true); setError('') }
       return
     }
     const vaultAddress = config.vaultAddress
@@ -167,9 +169,9 @@ export function useSavingsVault() {
         }))
         next.push(...batch)
       }
-      if (request === sequence.current) { setPlans(next); setReady(true); setError('') }
+      if (request === sequence.current) { setPlans(next); setVaultVerified(true); setReady(true); setError('') }
     } catch {
-      if (request === sequence.current) { setReady(true); setError('Savings plans are temporarily unavailable.') }
+      if (request === sequence.current) { setVaultVerified(false); setReady(true); setError('Savings plans are temporarily unavailable.') }
     }
   }, [config.configReady, config.vaultAddress, wallet.address, wallet.ready])
 
@@ -186,7 +188,9 @@ export function useSavingsVault() {
   return {
     ...wallet,
     ...config,
+    depositsEnabled: config.depositsEnabled && vaultVerified,
     configured: Boolean(config.vaultAddress),
+    vaultVerified,
     plans,
     savingsReady: ready,
     savingsError: error,

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { createPublicClient, createWalletClient, custom, getAddress, http, parseEventLogs, type Hex } from 'viem'
 import { upfrontXLayerChain } from '../../lib/upfrontChains'
 import { formatUsdcBalance } from '../../lib/useAgreements'
@@ -20,10 +20,13 @@ function safeError(reason: unknown) {
 export default function SavingsPlanCard({ plan, savings }: { plan: SavingsPlan; savings: SavingsState }) {
   const [stage, setStage] = useState('')
   const [error, setError] = useState('')
+  const actionPending = useRef(false)
   const nextRelease = nextSavingsRelease(plan)
   const emergencyReady = plan.emergencyExitAt > 0 && plan.emergencyExitAt <= Math.floor(Date.now() / 1000)
 
   async function act(action: 'withdraw' | 'requestEmergencyExit' | 'cancelEmergencyExit' | 'completeEmergencyExit') {
+    if (actionPending.current) return
+    actionPending.current = true
     setStage(action); setError('')
     let transactionConfirmed = false
     try {
@@ -66,7 +69,10 @@ export default function SavingsPlanCard({ plan, savings }: { plan: SavingsPlan; 
       } else {
         setError(safeError(reason))
       }
-    } finally { setStage('') }
+    } finally {
+      actionPending.current = false
+      setStage('')
+    }
   }
 
   return <article className='rounded-[22px] border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-[#151515]'>

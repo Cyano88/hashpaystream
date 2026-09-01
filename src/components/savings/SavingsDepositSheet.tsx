@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CheckIcon } from '@heroicons/react/24/outline'
 import { createPublicClient, createWalletClient, custom, formatEther, getAddress, http, parseEventLogs, parseUnits } from 'viem'
 import { upfrontXLayerChain } from '../../lib/upfrontChains'
@@ -34,6 +34,7 @@ export default function SavingsDepositSheet({ savings, onClose }: { savings: Sav
   const [stage, setStage] = useState('')
   const [error, setError] = useState('')
   const [complete, setComplete] = useState(false)
+  const actionPending = useRef(false)
   const interval = cadence === 'weekly' ? WEEKLY_SECONDS : MONTHLY_SECONDS
   const preview = useMemo(() => {
     try {
@@ -46,13 +47,20 @@ export default function SavingsDepositSheet({ savings, onClose }: { savings: Sav
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !stage) onClose()
+      if (event.key === 'Escape' && !actionPending.current) onClose()
     }
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose, stage])
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [onClose])
 
   async function createPlan() {
+    if (actionPending.current) return
+    actionPending.current = true
     setStage('Checking savings plan...'); setError('')
     let transactionConfirmed = false
     try {
@@ -99,11 +107,13 @@ export default function SavingsDepositSheet({ savings, onClose }: { savings: Sav
       } else {
         setError(reason instanceof SavingsUiError ? reason.message : actionError(reason))
       }
+    } finally {
+      actionPending.current = false
     }
   }
 
   return <div className='fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm' role='dialog' aria-modal='true' aria-labelledby='savings-sheet-title'>
-    <button type='button' aria-label='Close savings form' className='absolute inset-0' onClick={stage ? undefined : onClose} />
+    <button type='button' aria-label='Close savings form' className='absolute inset-0' onClick={() => { if (!actionPending.current) onClose() }} />
     <section className='relative z-10 w-full max-w-md rounded-t-[28px] border border-white/10 bg-[#111111] px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 text-white shadow-2xl'>
       <span className='mx-auto block h-1 w-10 rounded-full bg-white/20' />
       {complete ? <div className='py-10 text-center'>
