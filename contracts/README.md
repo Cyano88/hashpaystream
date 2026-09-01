@@ -11,7 +11,8 @@ contract. It has no administrator, fees, or yield logic. Each wallet can create
 weekly or monthly release plans, withdraw only the amount already released, or
 request a full emergency exit after a fixed 48-hour delay. Do not describe vault
 deposits as yield-bearing unless a separately reviewed native-USDC market adapter
-is deployed and verified.
+is deployed and verified. Lifetime plan history is exposed through bounded pages
+of at most 100 IDs, and the app reads each refresh from one fixed block snapshot.
 
 `LockedSavingsCohortVault.sol` is a second, independent and non-upgradeable
 native-USDC design for fixed 30, 90, 180, or 365-day savings terms. Deposits join

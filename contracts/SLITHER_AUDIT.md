@@ -30,3 +30,12 @@ Changes made from the full detector run:
 
 The savings contracts remain deployment-gated. External review is still required
 before a production vault address is configured or deposits are enabled.
+
+## Bounded-history follow-up
+
+After adding `planCount` and `planIdsPage` to `PersonalSavingsVault`, both
+commands above were rerun against the updated bytecode. The bounded read-only
+loop introduced no new production finding; the reviewed-exclusion command again
+analyzed 29 contracts with 99 detectors and returned zero results. The page-size
+bound and empty, partial, final, and invalid-page behavior are covered by contract
+tests. This follow-up does not change the external-review or deployment gate.

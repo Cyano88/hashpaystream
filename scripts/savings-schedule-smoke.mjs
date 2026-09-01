@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { nextSavingsRelease } from '../src/lib/savingsSchedule.ts'
 
 const DAY = 24 * 60 * 60
@@ -28,4 +29,16 @@ assert.equal(nextSavingsRelease(plan({ emergencyExitAt: firstReleaseAt - DAY }),
 assert.equal(nextSavingsRelease(plan({ emergencyExitAt: firstReleaseAt - DAY }), firstReleaseAt - DAY), 0)
 assert.equal(nextSavingsRelease(plan({ emergencyExitAt: firstReleaseAt + DAY }), firstReleaseAt), firstReleaseAt + DAY)
 
-console.log('HashPayStream savings schedule smoke checks passed.')
+const hookSource = readFileSync(new URL('../src/lib/useSavingsVault.ts', import.meta.url), 'utf8')
+const contractSource = readFileSync(new URL('../contracts/src/PersonalSavingsVault.sol', import.meta.url), 'utf8')
+const deploySource = readFileSync(new URL('../contracts/scripts/deploy-savings-mainnet.ts', import.meta.url), 'utf8')
+assert.match(hookSource, /functionName: 'planCount'/)
+assert.match(hookSource, /functionName: 'planIdsPage'/)
+assert.match(hookSource, /blockNumber: snapshotBlock/)
+assert.doesNotMatch(hookSource, /ids\.length > 100/)
+assert.match(contractSource, /MAX_PAGE_SIZE = 100/)
+assert.match(contractSource, /function planIdsPage/)
+assert.match(deploySource, /DEPLOY_NONCUSTODIAL_USDC_SAVINGS_V2/)
+assert.match(deploySource, /MAX_PAGE_SIZE\(\) !== 100n/)
+
+console.log('HashPayStream savings schedule and pagination smoke checks passed.')

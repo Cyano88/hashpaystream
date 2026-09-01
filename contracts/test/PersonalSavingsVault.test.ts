@@ -51,6 +51,21 @@ describe('PersonalSavingsVault', () => {
     await expect(context.vault.connect(context.outsider).completeEmergencyExit(planId)).to.be.revertedWithCustomError(context.vault, 'NotPlanOwner')
     await expect(context.vault.connect(context.owner).withdraw(planId, 1)).to.be.revertedWithCustomError(context.vault, 'NothingToWithdraw')
   })
+  it('paginates lifetime plan history without hiding later plans', async () => {
+    const context = await fixture()
+    const first = await createPlan(context, 3n * USDC, USDC)
+    const second = await createPlan(context, 4n * USDC, USDC)
+    const third = await createPlan(context, 5n * USDC, USDC)
+
+    expect(await context.vault.planCount(context.owner.address)).to.equal(3)
+    expect(await context.vault.planIdsPage(context.owner.address, 0, 2)).to.deep.equal([first, second])
+    expect(await context.vault.planIdsPage(context.owner.address, 2, 2)).to.deep.equal([third])
+    expect(await context.vault.planIdsPage(context.owner.address, 3, 1)).to.deep.equal([])
+    expect(await context.vault.planCount(context.outsider.address)).to.equal(0)
+    expect(await context.vault.planIdsPage(context.outsider.address, 0, 1)).to.deep.equal([])
+    await expect(context.vault.planIdsPage(context.owner.address, 0, 0)).to.be.revertedWithCustomError(context.vault, 'InvalidPageSize')
+    await expect(context.vault.planIdsPage(context.owner.address, 0, 101)).to.be.revertedWithCustomError(context.vault, 'InvalidPageSize')
+  })
   it('allows a delayed emergency exit without administrator control', async () => {
     const context = await fixture()
     const planId = await createPlan(context)

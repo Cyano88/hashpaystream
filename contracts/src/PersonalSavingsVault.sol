@@ -13,6 +13,7 @@ contract PersonalSavingsVault is ReentrancyGuard {
     uint32 public constant WEEKLY = 7 days;
     uint32 public constant MONTHLY = 30 days;
     uint48 public constant EMERGENCY_EXIT_DELAY = 48 hours;
+    uint256 public constant MAX_PAGE_SIZE = 100;
 
     struct Plan {
         address owner;
@@ -33,6 +34,7 @@ contract PersonalSavingsVault is ReentrancyGuard {
     error InvalidAddress();
     error InvalidAmount();
     error InvalidCadence();
+    error InvalidPageSize();
     error NotPlanOwner();
     error NothingToWithdraw();
     error EmergencyExitNotReady();
@@ -76,6 +78,22 @@ contract PersonalSavingsVault is ReentrancyGuard {
 
     function planIds(address owner) external view returns (bytes32[] memory) {
         return ownerPlans[owner];
+    }
+
+    function planCount(address owner) external view returns (uint256) {
+        return ownerPlans[owner].length;
+    }
+
+    function planIdsPage(address owner, uint256 offset, uint256 limit) external view returns (bytes32[] memory page) {
+        if (limit == 0 || limit > MAX_PAGE_SIZE) revert InvalidPageSize();
+        bytes32[] storage ids = ownerPlans[owner];
+        if (offset >= ids.length) return new bytes32[](0);
+        uint256 count = ids.length - offset;
+        if (count > limit) count = limit;
+        page = new bytes32[](count);
+        for (uint256 index = 0; index < count; index += 1) {
+            page[index] = ids[offset + index];
+        }
     }
 
     function remaining(bytes32 planId) public view returns (uint256) {
