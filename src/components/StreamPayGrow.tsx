@@ -1,4 +1,4 @@
-import { BanknotesIcon, ChevronRightIcon, CircleStackIcon, SparklesIcon } from '@heroicons/react/24/outline'
+import { BanknotesIcon, ChevronRightIcon, CircleStackIcon } from '@heroicons/react/24/outline'
 import { Link } from '../lib/router'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 
@@ -19,15 +19,14 @@ export default function StreamPayGrow({ fundingStatus }: { fundingStatus: Fundin
   return (
     <section className="stream-screen min-h-[calc(100dvh-6rem)] w-full max-w-md pb-28 pt-7">
       <header className="text-center">
-        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-500"><SparklesIcon className="h-6 w-6" /></span>
-        <h1 className="mt-4 text-3xl font-black tracking-[-0.04em]">Earn</h1>
-        <p className="mx-auto mt-2 max-w-xs text-xs leading-5 text-zinc-500 dark:text-zinc-400">Save USDC or fund verified work from one place.</p>
+        <h1 className="text-3xl font-black tracking-[-0.04em]">Earn</h1>
+        <p className="mx-auto mt-2 max-w-xs text-xs leading-5 text-zinc-500 dark:text-zinc-400">Save with a plan or fund work you choose.</p>
       </header>
-      <div className="mt-9 flex items-end justify-between"><h2 className="text-sm font-black">Choose how to earn</h2><span className="stream-pill text-emerald-600 dark:text-emerald-400">USDC only</span></div>
+      <div className="mt-9 flex items-end justify-between"><h2 className="text-sm font-black">Choose an option</h2><span className="stream-pill text-emerald-600 dark:text-emerald-400">USDC</span></div>
       <div className="mt-3 space-y-3">
         <Link to={savingsTo} className="stream-feature-card group">
           <span className="stream-feature-icon bg-emerald-500/10 text-emerald-500"><CircleStackIcon className="h-6 w-6" /></span>
-          <span className="min-w-0 flex-1"><span className="block text-sm font-black">Savings</span><span className="mt-1 block text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">Save USDC on X Layer. Arc savings is coming soon.</span></span>
+          <span className="min-w-0 flex-1"><span className="block text-sm font-black">Savings</span><span className="mt-1 block text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">Set aside USDC with weekly or monthly releases.</span></span>
           <ChevronRightIcon className="h-4 w-4 text-zinc-400 transition group-hover:translate-x-0.5" />
         </Link>
         <Link to={fundingTo} className="stream-feature-card group">
@@ -36,7 +35,6 @@ export default function StreamPayGrow({ fundingStatus }: { fundingStatus: Fundin
           <ChevronRightIcon className="h-4 w-4 text-zinc-400 transition group-hover:translate-x-0.5" />
         </Link>
       </div>
-      <p className="mt-6 px-3 text-center text-[10px] leading-5 text-zinc-500">Savings and private funding remain separate products.</p>
     </section>
   )
 }

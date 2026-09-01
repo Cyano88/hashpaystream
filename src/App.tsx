@@ -35,6 +35,7 @@ const SESSION_READY_TIMEOUT_MS = 12_000
 
 function loadingSurface(route: string) {
   if (route === '/account') return 'account' as const
+  if (route === '/savings') return 'savings' as const
   if (route === '/requests' || route === '/notifications') return 'requests' as const
   if (route === '/home') return 'home' as const
   return 'agreements' as const
