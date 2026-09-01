@@ -1,7 +1,7 @@
 import { expect } from 'chai'
 import { ethers } from 'hardhat'
 import { time } from '@nomicfoundation/hardhat-network-helpers'
-import type { LockedSavingsCohortVault, MockUSDC } from '../typechain-types'
+import type { LockedSavingsCohortVault, MockUSDC, ReentrantUSDC } from '../typechain-types'
 
 const USDC = 1_000_000n
 
@@ -212,6 +212,23 @@ describe('LockedSavingsCohortVault', () => {
         vaultBalance,
       ).to.equal(await context.token.totalSupply())
     }
+  })
+  it('blocks a token callback during deposit without corrupting accounting', async () => {
+    const [alice] = await ethers.getSigners()
+    const token = await ethers.deployContract('ReentrantUSDC') as unknown as ReentrantUSDC
+    const vault = await ethers.deployContract('LockedSavingsCohortVault', [token.target]) as unknown as LockedSavingsCohortVault
+    await token.mint(alice.address, 10n * USDC)
+    await token.approve(await vault.getAddress(), ethers.MaxUint256)
+    const duration = await vault.THIRTY_DAYS()
+    const callback = vault.interface.encodeFunctionData('deposit', [USDC, duration])
+    await token.armCallback(await vault.getAddress(), callback)
+
+    const [cohortId] = await vault.nextCohort(duration)
+    await vault.deposit(10n * USDC, duration)
+    expect(await token.callbackBlocked()).to.equal(true)
+    expect((await vault.positions(cohortId, alice.address)).principal).to.equal(10n * USDC)
+    expect(await vault.totalManaged()).to.equal(10n * USDC)
+    expect(await token.balanceOf(await vault.getAddress())).to.equal(10n * USDC)
   })
   it('enforces lifecycle boundaries, ownership, and the minimum deposit', async () => {
     const context = await fixture()

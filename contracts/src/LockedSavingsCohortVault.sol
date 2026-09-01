@@ -89,12 +89,10 @@ contract LockedSavingsCohortVault is ReentrancyGuard {
         }
         if (block.timestamp >= cohort.startsAt) revert CohortStarted();
 
-        uint256 beforeBalance = asset.balanceOf(address(this));
-        asset.safeTransferFrom(msg.sender, address(this), amount);
-        if (asset.balanceOf(address(this)) - beforeBalance != amount) revert UnsupportedTransferFee();
-
         Position storage position = positions[cohortId][msg.sender];
         if (position.exited || position.claimed) revert PositionClosed();
+
+        uint256 beforeBalance = asset.balanceOf(address(this));
         if (position.principal == 0) {
             cohort.activePositions += 1;
             ownerCohorts[msg.sender].push(cohortId);
@@ -102,6 +100,9 @@ contract LockedSavingsCohortVault is ReentrancyGuard {
         position.principal += amount;
         cohort.totalPrincipal += amount;
         totalManaged += amount;
+
+        asset.safeTransferFrom(msg.sender, address(this), amount);
+        if (asset.balanceOf(address(this)) - beforeBalance != amount) revert UnsupportedTransferFee();
         emit LockedSavingsDeposited(cohortId, msg.sender, amount, startsAt, maturesAt);
     }
 
@@ -136,14 +137,16 @@ contract LockedSavingsCohortVault is ReentrancyGuard {
         uint256 payout = principal - penalty;
         cohort.rewardPool += penalty;
         totalManaged -= payout;
+        uint256 carried = 0;
+        if (cohort.activePositions == 0 && cohort.rewardPool != 0) {
+            carried = cohort.rewardPool;
+            cohort.rewardPool = 0;
+            termRewardCarry[cohort.duration] += carried;
+        }
+
         asset.safeTransfer(msg.sender, payout);
         emit EarlyExit(cohortId, msg.sender, principal, penalty, payout);
-        if (cohort.activePositions == 0 && cohort.rewardPool != 0) {
-            uint256 carry = cohort.rewardPool;
-            cohort.rewardPool = 0;
-            termRewardCarry[cohort.duration] += carry;
-            emit RewardsCarriedForward(cohortId, cohort.duration, carry);
-        }
+        if (carried != 0) emit RewardsCarriedForward(cohortId, cohort.duration, carried);
     }
 
     function claim(bytes32 cohortId) external nonReentrant {

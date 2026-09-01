@@ -54,9 +54,6 @@ contract PersonalSavingsVault is ReentrancyGuard {
         if (interval != WEEKLY && interval != MONTHLY) revert InvalidCadence();
 
         uint256 beforeBalance = asset.balanceOf(address(this));
-        asset.safeTransferFrom(msg.sender, address(this), amount);
-        if (asset.balanceOf(address(this)) - beforeBalance != amount) revert UnsupportedTransferFee();
-
         uint256 nonce = nonces[msg.sender]++;
         planId = keccak256(abi.encode(block.chainid, address(this), msg.sender, nonce));
         uint48 firstReleaseAt = uint48(block.timestamp + interval);
@@ -71,6 +68,9 @@ contract PersonalSavingsVault is ReentrancyGuard {
         });
         ownerPlans[msg.sender].push(planId);
         totalManaged += amount;
+
+        asset.safeTransferFrom(msg.sender, address(this), amount);
+        if (asset.balanceOf(address(this)) - beforeBalance != amount) revert UnsupportedTransferFee();
         emit PlanCreated(planId, msg.sender, amount, releaseAmount, firstReleaseAt, interval);
     }
 
