@@ -26,7 +26,7 @@ export default function StreamPaySavings() {
   const earnTo = useStreamPayPath('/funding')
 
   if (!authenticated) return <AgreementSignInLanding splashState='idle' />
-  if (!savings.ready || !savings.savingsReady) return <StreamPayLoadingState active='savings' />
+  if (!savings.configReady || !savings.savingsReady) return <StreamPayLoadingState active='savings' />
 
   return <section className='stream-screen min-h-[calc(100dvh-6rem)] w-full max-w-md pb-28 pt-5'>
     <div className='flex items-center gap-3'>

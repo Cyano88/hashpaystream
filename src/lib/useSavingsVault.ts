@@ -35,8 +35,10 @@ function useSavingsRuntimeConfig() {
 
   const refresh = useCallback(async () => {
     const request = ++sequence.current
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), 8_000)
     try {
-      const response = await fetch(SAVINGS_CONFIG_PATH, { headers: { accept: 'application/json' } })
+      const response = await fetch(SAVINGS_CONFIG_PATH, { headers: { accept: 'application/json' }, signal: controller.signal })
       const payload = await response.json().catch(() => undefined) as {
         ok?: unknown
         savings?: { chainId?: unknown; assetAddress?: unknown; vaultAddress?: unknown; depositsEnabled?: unknown; status?: unknown }
@@ -59,6 +61,8 @@ function useSavingsRuntimeConfig() {
         setError('New savings plans are temporarily unavailable.')
         setReady(true)
       }
+    } finally {
+      window.clearTimeout(timeout)
     }
   }, [])
 
@@ -123,12 +127,34 @@ export function useSavingsVault() {
   const [ready, setReady] = useState(false)
   const [vaultVerified, setVaultVerified] = useState(false)
   const [error, setError] = useState('')
+  const [walletCheckTimedOut, setWalletCheckTimedOut] = useState(false)
   const sequence = useRef(0)
   const activeScope = useRef('')
 
+  useEffect(() => {
+    if (wallet.ready) {
+      setWalletCheckTimedOut(false)
+      return
+    }
+    const timer = window.setTimeout(() => setWalletCheckTimedOut(true), 8_000)
+    return () => window.clearTimeout(timer)
+  }, [wallet.ready])
+
   const refresh = useCallback(async () => {
     const request = ++sequence.current
-    if (!wallet.ready || !config.configReady) return
+    if (!config.configReady) return
+    if (!config.vaultAddress) {
+      if (request === sequence.current) { setPlans([]); setVaultVerified(false); setReady(true); setError('') }
+      return
+    }
+    if (!wallet.ready) {
+      if (walletCheckTimedOut && request === sequence.current) {
+        setVaultVerified(false)
+        setReady(true)
+        setError('Your X Layer wallet is still connecting.')
+      }
+      return
+    }
     const owner = wallet.address?.toLowerCase() ?? ''
     const scope = `${owner}:${config.vaultAddress?.toLowerCase() ?? ''}`
     if (activeScope.current !== scope) {
@@ -173,7 +199,7 @@ export function useSavingsVault() {
     } catch {
       if (request === sequence.current) { setVaultVerified(false); setReady(true); setError('Savings plans are temporarily unavailable.') }
     }
-  }, [config.configReady, config.vaultAddress, wallet.address, wallet.ready])
+  }, [config.configReady, config.vaultAddress, wallet.address, wallet.ready, walletCheckTimedOut])
 
   useEffect(() => {
     void refresh()
