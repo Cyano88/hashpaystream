@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import {
   createPublicClient,
@@ -86,6 +86,14 @@ function address(value: unknown, label: string) {
   return getAddress(text)
 }
 
+function lifecycleError(reason: unknown, fallback: string) {
+  const message = reason instanceof Error ? reason.message : String(reason ?? '')
+  const code = typeof reason === 'object' && reason !== null && 'code' in reason ? String((reason as { code?: unknown }).code ?? '') : ''
+  if (code === '4001' || ['user rejected', 'user denied', 'request rejected'].some(value => message.toLowerCase().includes(value))) return 'Transaction cancelled. No funds moved.'
+  if (message.includes('still connecting') || message.includes('needs at least')) return message
+  return fallback
+}
+
 export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opportunity: Opportunity; onUpdated: () => Promise<void> | void }) {
   const { getAccessToken } = usePrivy()
   const { wallets } = useWallets()
@@ -95,6 +103,7 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
   const [repaymentState, setRepaymentState] = useState<'checking' | 'waiting' | 'ready' | 'unavailable'>(opportunity.positionStatus === 'released' ? 'checking' : 'ready')
   const [settlementReadyObservedAt, setSettlementReadyObservedAt] = useState<number | null>(null)
   const [retryVisible, setRetryVisible] = useState(false)
+  const actionPending = useRef(false)
   const embedded = wallets.filter(wallet => wallet.walletClientType === 'privy' || wallet.walletClientType === 'privy-v2')
   const signer = embedded.length === 1 ? embedded[0] : undefined
   const busy = Boolean(stage)
@@ -159,7 +168,9 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
   }, [opportunity.positionStatus, repaymentState, settlementReadyObservedAt])
 
   async function release() {
-    setStage('Checking Arc protection...'); setError(''); setSuccess('')
+    if (actionPending.current) return
+    actionPending.current = true
+    setStage('Checking protected payment...'); setError(''); setSuccess('')
     try {
       if (!signer || !isAddress(ESCROW)) throw new Error('The funding wallet is still connecting. Return to Earn and open this position again.')
       const account = getAddress(signer.address)
@@ -179,7 +190,7 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
         protectedAmount: integer(raw.protectedAmount, 'Protected amount'), advanceAmount: integer(raw.advanceAmount, 'Advance amount'),
         observedAt: timestamp(raw.observedAt, 'Observed time'), deadline: timestamp(raw.deadline, 'Deadline'),
       }
-      setStage('Releasing advance...')
+      setStage('Sending early payment...')
       await signer.switchChain(upfrontXLayerChain.id)
       const publicClient = createPublicClient({ chain: upfrontXLayerChain, transport: http() })
       const walletClient = createWalletClient({ account, chain: upfrontXLayerChain, transport: custom(await signer.getEthereumProvider()) })
@@ -190,12 +201,14 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
       setSuccess('Advance released to the service provider.')
       await Promise.resolve(onUpdated()).catch(() => undefined)
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'The advance could not be released.')
-    } finally { setStage('') }
+      setError(lifecycleError(reason, 'The early payment could not be sent. No funds moved.'))
+    } finally { actionPending.current = false; setStage('') }
   }
 
   async function claim() {
-    setStage('Checking customer repayment...'); setError(''); setSuccess('')
+    if (actionPending.current) return
+    actionPending.current = true
+    setStage('Checking payment...'); setError(''); setSuccess('')
     try {
       if (!signer || !isAddress(ARC_ROUTER)) throw new Error('The repayment wallet is still connecting. Return to Earn and open this position again.')
       const account = getAddress(signer.address)
@@ -223,7 +236,7 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
       const router = getAddress(ARC_ROUTER)
       const settled = await publicClient.readContract({ address: router, abi: ROUTER_ABI, functionName: 'settledAgreements', args: [message.arcAgreementHash] })
       if (settled) { setSuccess('This payment has already been settled.'); return }
-      setStage('Splitting payment...')
+      setStage('Completing payment...')
       const request = await publicClient.simulateContract({ account, address: router, abi: ROUTER_ABI, functionName: 'settleRepayment', args: [message, signed.signature as Hex] })
       const hash = await walletClient.writeContract(request.request)
       const receipt = await publicClient.waitForTransactionReceipt({ hash })
@@ -231,8 +244,8 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
       setSuccess('Funding partner, service provider, and HashPayStream were paid exactly as accepted.')
       await Promise.resolve(onUpdated()).catch(() => undefined)
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'The payment could not be settled.')
-    } finally { setStage('') }
+      setError(lifecycleError(reason, 'The payment could not be completed. No funds moved.'))
+    } finally { actionPending.current = false; setStage('') }
   }
 
   if (opportunity.positionStatus === 'refunded') return <p className="mt-3 text-[11px] text-gray-500">Advance refunded.</p>
@@ -249,11 +262,11 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
   </div>
   const label = opportunity.positionStatus === 'funded' ? 'Send early payment' : 'Retry settlement'
   return <div className="mt-3">
-    <button type="button" disabled={busy} onClick={() => void (opportunity.positionStatus === 'funded' ? release() : claim())} className="w-full rounded-xl bg-gray-950 px-4 py-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-950">
+    <button type="button" disabled={busy} onClick={() => void (opportunity.positionStatus === 'funded' ? release() : claim())} className="stream-primary w-full">
       {stage || label}
     </button>
     {opportunity.positionStatus === 'released' && <p className="mt-2 text-[11px] leading-5 text-gray-500">Automatic settlement is still running. Retry only after the 30-minute recovery window.</p>}
-    {success && <p className="mt-2 text-[11px] leading-5 text-emerald-700">{success}</p>}
-    {error && <p role="alert" className="mt-2 text-[11px] leading-5 text-rose-700">{error}</p>}
+    {success && <p className="mt-2 text-[11px] leading-5 text-emerald-700 dark:text-emerald-300">{success}</p>}
+    {error && <p role="alert" className="mt-2 text-[11px] leading-5 text-rose-700 dark:text-rose-300">{error}</p>}
   </div>
 }

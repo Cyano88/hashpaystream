@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useWallets } from '@privy-io/react-auth'
 import {
   createPublicClient,
@@ -199,6 +199,7 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
   const [stage, setStage] = useState('')
   const [error, setError] = useState('')
   const [fundingHash, setFundingHash] = useState('')
+  const actionPending = useRef(false)
   const embedded = wallets.filter(wallet => wallet.walletClientType === 'privy' || wallet.walletClientType === 'privy-v2')
   const signer = embedded.length === 1 ? embedded[0] : undefined
   const amount = integer(opportunity.requestedAdvanceUsdcUnits, 'Advance amount')
@@ -206,11 +207,12 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
   const busy = Boolean(stage) && !fundingHash
 
   async function fund() {
+    if (actionPending.current) return
+    actionPending.current = true
     setError('')
     setFundingHash('')
-    let chainOperationStarted = false
     try {
-      if (!signer) throw new Error('Your funding wallet is still connecting. Return to Earn and open this request again.')
+      if (!signer) throw new FundingUiError('Your funding wallet is still connecting. Return to Earn and open this request again.')
       const offer = parseOffer(opportunity)
       const fundingTerms = parseFundingTerms(opportunity, offer.escrow)
       if (!isAddress(opportunity.providerPayoutAddress) || getAddress(opportunity.providerPayoutAddress) !== offer.message.provider) {
@@ -226,8 +228,7 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
       if (fundingTerms.message.deadline <= Math.floor(Date.now() / 1000)) throw new Error('The accepted funding terms have expired.')
       if (offer.message.protectionDeadline - Math.floor(Date.now() / 1000) < MIN_REMAINING_PROTECTION_SECONDS) throw new Error('This agreement is too close to its end time for early pay.')
 
-      setStage('Checking escrow controls...')
-      chainOperationStarted = true
+      setStage('Checking request...')
       const publicClient = createPublicClient({ chain: upfrontXLayerChain, transport: http() })
       const [asset, paused, allowed, gasBalance, gasPrice] = await Promise.all([
         publicClient.readContract({ address: offer.escrow, abi: ESCROW_ABI, functionName: 'asset' }),
@@ -252,7 +253,7 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
       const walletClient = createWalletClient({ account, chain: upfrontXLayerChain, transport: custom(provider) })
 
       if (allowance < amount) {
-        setStage(`Approve exactly ${amountLabel}...`)
+        setStage('Confirm USDC · 1 of 2')
         const approval = await publicClient.simulateContract({
           account,
           address: asset,
@@ -265,7 +266,7 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
         if (approvalReceipt.status !== 'success') throw new FundingUiError('The exact USDC approval reverted.')
       }
 
-      setStage(`Fund ${amountLabel}...`)
+      setStage('Send payment · 2 of 2')
       const funding = await publicClient.simulateContract({
         account,
         address: offer.escrow,
@@ -281,14 +282,16 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
       await Promise.resolve(onFunded?.()).catch(() => undefined)
     } catch (reason) {
       setStage('')
-      setError(chainOperationStarted ? fundingError(reason) : reason instanceof Error ? reason.message : fundingError(reason))
+      setError(fundingError(reason))
+    } finally {
+      actionPending.current = false
     }
   }
 
-  if (fundingHash) return <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-[11px] text-emerald-800"><strong>Advance funded.</strong><p className="mt-1 break-all font-mono">{fundingHash}</p></div>
+  if (fundingHash) return <div className="mt-3 rounded-2xl bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-300">Early payment sent.</div>
   return <div className="mt-3">
-    <button type="button" disabled={busy} onClick={() => void fund()} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{stage || 'Send early payment'}</button>
-    {!signer && <p className="mt-2 text-[11px] leading-5 text-amber-700">Your HashPayStream funding wallet is still connecting.</p>}
-    {error && <p className="mt-2 text-[11px] leading-5 text-rose-700">{error}</p>}
+    <button type="button" disabled={busy} onClick={() => void fund()} className="stream-primary w-full">{stage || 'Send early payment'}</button>
+    {!signer && <p className="mt-2 text-[11px] leading-5 text-amber-700 dark:text-amber-300">Your funding wallet is still connecting.</p>}
+    {error && <p role="alert" className="mt-2 text-[11px] leading-5 text-rose-700 dark:text-rose-300">{error}</p>}
   </div>
 }

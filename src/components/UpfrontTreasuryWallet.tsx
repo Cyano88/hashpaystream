@@ -163,19 +163,19 @@ export default function UpfrontTreasuryWallet({ deployedUsdcUnits = '0', activeP
 
     {fundingDetailsOpen && <div className="fixed inset-0 z-[170] flex items-end justify-center" role="dialog" aria-modal="true" aria-labelledby="funding-wallet-title">
       <button type="button" aria-label="Close funding wallet" onClick={() => setFundingDetailsOpen(false)} className="absolute inset-0 bg-black/65 backdrop-blur-sm" />
-      <section className="relative z-10 w-full max-w-md rounded-t-[28px] border border-b-0 border-zinc-800 bg-zinc-950 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 text-white shadow-2xl">
-        <div className="mx-auto h-1 w-10 rounded-full bg-white/20" />
+      <section className="relative z-10 max-h-[calc(100dvh-1rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-[28px] border border-b-0 border-zinc-200 bg-[#f6f6f3] px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 text-zinc-950 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 dark:text-white">
+        <div className="mx-auto h-1 w-10 rounded-full bg-zinc-300 dark:bg-white/20" />
         <div className="mt-5 flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10"><WalletIcon className="h-5 w-5" /></span>
-          <div><h2 id="funding-wallet-title" className="text-base font-black">Add funds</h2><p className="mt-0.5 text-[10px] text-white/45">USDC on X Layer</p></div>
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-200/70 dark:bg-white/10"><WalletIcon className="h-5 w-5" /></span>
+          <div><h2 id="funding-wallet-title" className="text-base font-black">Add funds</h2><p className="mt-0.5 text-[10px] text-zinc-500 dark:text-white/45">USDC on X Layer</p></div>
         </div>
-        <button type="button" onClick={() => void copyTreasury()} className="mt-5 flex w-full items-center gap-3 rounded-2xl bg-white/[0.07] p-4 text-left transition active:scale-[0.99]">
-          <span className="min-w-0 flex-1 break-all font-mono text-[11px] leading-5 text-white/70">{treasury}</span>
-          <ClipboardDocumentIcon className="h-5 w-5 shrink-0 text-white/45" />
+        <button type="button" onClick={() => void copyTreasury()} className="mt-5 flex w-full items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-4 text-left transition active:scale-[0.99] dark:border-white/10 dark:bg-white/[0.07]">
+          <span className="min-w-0 flex-1 break-all font-mono text-[11px] leading-5 text-zinc-600 dark:text-white/70">{treasury}</span>
+          <ClipboardDocumentIcon className="h-5 w-5 shrink-0 text-zinc-400 dark:text-white/45" />
         </button>
         <p aria-live="polite" className="mt-2 min-h-4 text-center text-[10px] font-semibold text-emerald-400">{copied ? 'Address copied' : 'Tap the address to copy'}</p>
-        <p className="mt-3 text-center text-[10px] leading-4 text-white/40">Only send native USDC on X Layer to this address.</p>
-        <button type="button" onClick={() => setFundingDetailsOpen(false)} className="mt-5 min-h-12 w-full rounded-full bg-white px-4 text-sm font-black text-zinc-950">Done</button>
+        <p className="mt-3 text-center text-[10px] leading-4 text-zinc-500 dark:text-white/40">Only send native USDC on X Layer to this address.</p>
+        <button type="button" onClick={() => setFundingDetailsOpen(false)} className="stream-primary mt-5 w-full">Done</button>
       </section>
     </div>}
   </>

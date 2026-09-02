@@ -119,17 +119,17 @@ export default function StreamPayFundingDesk() {
   const deployedUnits = useMemo(() => activePositions.reduce((total, item) => total + (/^\d+$/.test(item.requestedAdvanceUsdcUnits) ? BigInt(item.requestedAdvanceUsdcUnits) : 0n), 0n).toString(), [activePositions])
   const selected = opportunities.find(item => item.id === selectedId)
 
-  if (!ready || loading) return <StreamPayLoadingState active="home" />
+  if (!ready || loading) return <StreamPayLoadingState active="funding" />
   if (!authenticated) return <Navigate to={earnTo} replace />
   if (!upfrontSettlementV3Enabled) return <section className="stream-screen w-full max-w-md py-5 sm:py-8">
     <div className="flex items-center gap-3">
       <Link to={earnTo} aria-label="Back to Earn" className="stream-icon-button"><ArrowLeftIcon className="h-4 w-4" /></Link>
-      <h1 className="text-xl font-black tracking-tight text-gray-950 dark:text-white">Funding requests</h1>
+      <h1 className="text-xl font-black tracking-tight text-gray-950 dark:text-white">Funding</h1>
     </div>
     <div className="stream-empty mt-5 px-6 py-12">
       <BanknotesIcon className="mx-auto h-7 w-7 text-gray-300" />
-      <p className="mt-3 text-sm font-black text-gray-950 dark:text-white">Funding is paused</p>
-      <p className="mt-1 text-[11px] leading-5 text-gray-400">The signed settlement upgrade must pass on-chain verification before funding resumes.</p>
+      <p className="mt-3 text-sm font-black text-gray-950 dark:text-white">Funding is temporarily unavailable</p>
+      <p className="mt-1 text-[11px] leading-5 text-gray-400">No requests can be funded right now. Existing positions remain visible.</p>
     </div>
   </section>
 
@@ -138,7 +138,7 @@ export default function StreamPayFundingDesk() {
   return <section className="stream-screen w-full max-w-md space-y-4 py-5 sm:py-8">
     <div className="flex items-center gap-3">
       <Link to={earnTo} aria-label="Back to Earn" className="stream-icon-button"><ArrowLeftIcon className="h-4 w-4" /></Link>
-      <div><h1 className="text-xl font-black tracking-tight text-gray-950 dark:text-white">Funding requests</h1><p className="mt-0.5 text-[11px] text-gray-400">Only requests sent directly to you appear here.</p></div>
+      <div><h1 className="text-xl font-black tracking-tight text-gray-950 dark:text-white">Funding</h1><p className="mt-0.5 text-[11px] text-gray-400">Private requests sent directly to you.</p></div>
     </div>
 
     {authorized && (upfrontTreasuryEnabled
@@ -205,24 +205,30 @@ function FundingDetail({ item, onBack, onUpdated }: { item: Opportunity; onBack:
       <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">{positionLabel(item.positionStatus)}</p><h1 className="truncate text-xl font-black tracking-tight text-gray-950 dark:text-white">{item.title}</h1></div>
     </div>
 
-    <article className="stream-card mt-5 p-5">
-      <div className="grid grid-cols-2 gap-x-4 gap-y-5">
-        <Metric label="You fund" value={usdc(item.requestedAdvanceUsdcUnits)} />
+    <article className="stream-card mt-5 p-4">
+      <div className="grid grid-cols-3 gap-3 rounded-[22px] bg-zinc-950 px-4 py-4 text-white dark:bg-[#171717]">
+        <SummaryMetric label="You fund" value={usdc(item.requestedAdvanceUsdcUnits)} />
+        <SummaryMetric label="You receive" value={usdc(quote?.funderRepaymentUsdcUnits ?? '0')} />
+        <SummaryMetric label="Your profit" value={usdc(quote?.funderProfitUsdcUnits ?? '0')} accent />
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-3 rounded-2xl bg-zinc-50 px-4 py-3 dark:bg-white/[0.035]">
         <Metric label="Protected" value={usdc(item.protectedUsdcUnits)} />
-        <Metric label="You receive" value={usdc(quote?.funderRepaymentUsdcUnits ?? '0')} />
-        <Metric label="Your profit" value={usdc(quote?.funderProfitUsdcUnits ?? '0')} />
-        <Metric label="Provider receives later" value={usdc(quote?.providerRemainderUsdcUnits ?? '0')} />
-        <Metric label="HashPayStream fee" value={usdc(quote?.platformFeeUsdcUnits ?? '0')} />
         <Metric label="Term" value={duration(item.durationSeconds)} />
         <Metric label="AI confidence" value={`${item.confidence}%`} />
       </div>
 
-      <div className="mt-5 border-t border-gray-100 pt-4 dark:border-white/[0.07]">
-        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">Service provider</p>
-        <p className="mt-1 font-mono text-xs font-bold text-gray-700 dark:text-gray-200">{short(item.providerPayoutAddress)}</p>
-        <p className="mt-3 text-[11px] leading-5 text-gray-500 dark:text-gray-400">{item.evidenceGrade} evidence / AI-approved limit {item.maximumAdvanceBps / 100}%.</p>
-        {item.positionStatus === 'available' && <p className="mt-2 text-[10px] text-gray-400">Offer expires {new Date(item.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.</p>}
-      </div>
+      <p className="mt-4 text-[11px] leading-5 text-gray-500 dark:text-gray-400">{item.evidenceGrade} evidence · approved up to {item.maximumAdvanceBps / 100}%.</p>
+      {item.positionStatus === 'available' && <p className="mt-1 text-[10px] text-gray-400">Expires {new Date(item.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>}
+
+      <details className="mt-4 border-t border-gray-100 pt-3 dark:border-white/[0.07]">
+        <summary className="cursor-pointer text-[11px] font-bold text-gray-500 dark:text-gray-300">Payment details</summary>
+        <div className="mt-3 grid grid-cols-2 gap-4 rounded-2xl bg-zinc-50 px-4 py-3 dark:bg-white/[0.035]">
+          <Metric label="Provider receives later" value={usdc(quote?.providerRemainderUsdcUnits ?? '0')} />
+          <Metric label="HashPayStream fee" value={usdc(quote?.platformFeeUsdcUnits ?? '0')} />
+          <div className="col-span-2"><p className="text-[10px] font-bold text-gray-400">Service provider wallet</p><p className="mt-1 font-mono text-xs font-bold text-gray-700 dark:text-gray-200">{short(item.providerPayoutAddress)}</p></div>
+        </div>
+      </details>
 
       {item.positionStatus === 'available'
         ? <div><UpfrontFundButton opportunity={item} onFunded={onUpdated} /><button type="button" disabled={declining} onClick={() => void decline()} className="mt-2 min-h-10 w-full text-xs font-bold text-gray-400 disabled:opacity-50">{declining ? 'Declining…' : 'Decline request'}</button>{declineError && <p className="mt-2 text-[11px] text-rose-600">{declineError}</p>}</div>
@@ -238,5 +244,9 @@ function EmptyState({ title, detail }: { title: string; detail: string }) {
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
-  return <div><p className="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-400">{label}</p><p className="mt-1 text-sm font-black tabular-nums text-gray-950 dark:text-white">{value}</p></div>
+  return <div className="min-w-0"><p className="text-[10px] font-bold text-gray-400">{label}</p><p className="mt-1 truncate text-xs font-black tabular-nums text-gray-950 dark:text-white">{value}</p></div>
+}
+
+function SummaryMetric({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
+  return <div className="min-w-0"><p className="text-[10px] font-bold text-white/45">{label}</p><p className={`mt-1 truncate text-xs font-black tabular-nums ${accent ? 'text-emerald-400' : 'text-white'}`}>{value}</p></div>
 }

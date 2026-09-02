@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
-import { BanknotesIcon, CheckBadgeIcon, ClockIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, BanknotesIcon, CheckBadgeIcon, ClockIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSplash'
-import { useLocation } from '../lib/router'
+import { Link, useLocation } from '../lib/router'
+import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
 import StreamPayGrow from './StreamPayGrow'
 import StreamPayFundingDesk from './StreamPayFundingDesk'
@@ -21,6 +22,7 @@ type Profile = {
 export default function StreamPayFunding() {
   const { ready, authenticated, getAccessToken } = usePrivy()
   const { search } = useLocation()
+  const earnTo = useStreamPayPath('/funding')
   const fundingMode = new URLSearchParams(search).get('view') === 'funding'
   const splashState = useHashPayStreamSessionSplash(!authenticated)
   const [profile, setProfile] = useState<Profile>()
@@ -62,43 +64,56 @@ export default function StreamPayFunding() {
   }
 
   if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
-  if (!ready || loading) return <StreamPayLoadingState active="home" />
+  if (!ready || loading) return <StreamPayLoadingState active="funding" />
   if (!fundingMode) return <StreamPayGrow fundingStatus={profile?.status} />
   if (profile?.status === 'approved') return <StreamPayFundingDesk />
 
   if (profile?.status === 'pending') return (
-    <section className="flex min-h-[65vh] w-full max-w-lg flex-col items-center justify-center px-2 text-center">
-      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 dark:bg-amber-400/10 dark:text-amber-300"><ClockIcon className="h-7 w-7" /></span>
-      <p className="mt-6 text-[10px] font-black uppercase tracking-[0.18em] text-amber-600">Application received</p>
-      <h1 className="mt-2 text-3xl font-bold tracking-tight text-gray-950 dark:text-white">Your application is under review</h1>
-      <p className="mt-3 max-w-sm text-sm leading-6 text-gray-500 dark:text-gray-400">We will email {profile.email} when your HashPayStream account is approved for funding access.</p>
-      <div className="mt-7 w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-left text-xs leading-5 text-gray-500 dark:border-white/10 dark:bg-white/[0.035] dark:text-gray-400">You keep using the same HashPayStream account. No separate funder sign-in is required.</div>
+    <section className="stream-screen w-full max-w-md py-5 sm:py-8">
+      <FundingHeader backTo={earnTo} />
+      <div className="stream-card mt-6 p-5">
+        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-50 text-amber-600 dark:bg-amber-400/10 dark:text-amber-300"><ClockIcon className="h-5 w-5" /></span>
+        <p className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-amber-600">Application received</p>
+        <h1 className="mt-2 text-xl font-black tracking-tight text-gray-950 dark:text-white">Your application is under review</h1>
+        <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">We will email {profile.email} when funding access is ready.</p>
+        <p className="mt-5 rounded-2xl bg-zinc-50 px-4 py-3 text-[11px] leading-5 text-gray-500 dark:bg-white/[0.035] dark:text-gray-400">Keep using this HashPayStream account. No second sign-in is needed.</p>
+      </div>
     </section>
   )
 
   if (profile?.status === 'restricted') return (
-    <section className="flex min-h-[65vh] w-full max-w-lg flex-col items-center justify-center text-center">
-      <ExclamationTriangleIcon className="h-12 w-12 text-gray-400" />
-      <h1 className="mt-5 text-3xl font-bold tracking-tight text-gray-950 dark:text-white">Funding access is unavailable</h1>
-      <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Contact HashPayStream support if you believe this decision is incorrect.</p>
+    <section className="stream-screen w-full max-w-md py-5 sm:py-8">
+      <FundingHeader backTo={earnTo} />
+      <div className="stream-card mt-6 p-5">
+        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 dark:bg-white/[0.07] dark:text-zinc-300"><ExclamationTriangleIcon className="h-5 w-5" /></span>
+        <h1 className="mt-5 text-xl font-black tracking-tight text-gray-950 dark:text-white">Funding access is unavailable</h1>
+        <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">Contact HashPayStream support if you believe this is incorrect.</p>
+      </div>
     </section>
   )
 
   if (!formOpen) return (
-    <section className="flex min-h-[72vh] w-full max-w-md flex-col items-center justify-center px-3 text-center">
-      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-400/10 dark:text-blue-300"><BanknotesIcon className="h-7 w-7" /></span>
-      <p className="mt-6 text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">Funding partners</p>
-      <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-gray-950 dark:text-white">Fund good work early.</h1>
-      <p className="mt-3 max-w-sm text-sm leading-6 text-gray-500 dark:text-gray-400">Apply to receive private early-pay requests and review the exact settlement before you fund.</p>
-      <button type="button" onClick={() => setFormOpen(true)} className="mt-7 w-full rounded-full bg-gray-950 px-6 py-4 text-sm font-bold text-white shadow-sm dark:bg-white dark:text-gray-950">Apply to be a funding partner</button>
-      <p className="mt-3 text-[10px] leading-4 text-gray-400">Your existing HashPayStream account is used. No second sign-in.</p>
+    <section className="stream-screen w-full max-w-md py-5 sm:py-8">
+      <FundingHeader backTo={earnTo} />
+      <div className="stream-card mt-6 p-5">
+        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-400/10 dark:text-blue-300"><BanknotesIcon className="h-5 w-5" /></span>
+        <p className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">Private funding</p>
+        <h1 className="mt-2 text-xl font-black tracking-tight text-gray-950 dark:text-white">Fund good work early</h1>
+        <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">Apply to receive eligible early-pay requests sent directly to you.</p>
+        {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-xs text-red-700 dark:bg-red-400/10 dark:text-red-300">{error}</p>}
+        <button type="button" onClick={() => setFormOpen(true)} className="stream-primary mt-6 w-full">Apply to be a funding partner</button>
+        <p className="mt-3 text-center text-[10px] leading-4 text-gray-400">Use your existing HashPayStream account. No second sign-in.</p>
+      </div>
     </section>
   )
 
   return (
     <section className="stream-screen w-full max-w-md py-5 sm:py-8">
-      <button type="button" onClick={() => setFormOpen(false)} className="mb-4 text-xs font-bold text-gray-500">&larr; Funding partners</button>
-      <div className="stream-card p-5">
+      <div className="flex items-center gap-3">
+        <button type="button" onClick={() => setFormOpen(false)} aria-label="Back to Funding partners" className="stream-icon-button"><ArrowLeftIcon className="h-4 w-4" /></button>
+        <h1 className="text-xl font-black tracking-tight text-gray-950 dark:text-white">Apply</h1>
+      </div>
+      <div className="stream-card mt-6 p-5">
         <div className="flex items-start gap-3">
           <CheckBadgeIcon className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
           <div><h2 className="text-base font-bold text-gray-950 dark:text-white">Apply with your HashPayStream account</h2><p className="mt-1 text-xs leading-5 text-gray-500">Your verified email is {profile?.email || 'connected to this account'}. KYC will be required before live-money access.</p></div>
@@ -111,9 +126,16 @@ export default function StreamPayFunding() {
           <label className="space-y-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 sm:col-span-2">Expected funding range<StreamSelect label="Expected funding range" value={form.expectedFundingRange} options={[{ value: '', label: 'Select a range' }, { value: 'under_1k', label: 'Under 1,000 USDC' }, { value: '1k_10k', label: '1,000-10,000 USDC' }, { value: '10k_plus', label: 'More than 10,000 USDC' }]} onChange={expectedFundingRange => setForm(current => ({ ...current, expectedFundingRange }))} /></label>
         </div>
         {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-xs text-red-700 dark:bg-red-400/10 dark:text-red-300">{error}</p>}
-        <button type="button" disabled={submitting || form.name.trim().length < 2 || form.country.trim().length < 2 || !form.expectedFundingRange} onClick={() => void apply()} className="mt-6 flex w-full items-center justify-center rounded-xl bg-gray-950 px-4 py-3.5 text-sm font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950">{submitting ? 'Submitting...' : 'Submit for team review'}</button>
+        <button type="button" disabled={submitting || form.name.trim().length < 2 || form.country.trim().length < 2 || !form.expectedFundingRange} onClick={() => void apply()} className="stream-primary mt-6 w-full">{submitting ? 'Submitting...' : 'Submit for team review'}</button>
         <p className="mt-3 text-center text-[10px] leading-4 text-gray-400">Submitting does not guarantee approval or move any funds.</p>
       </div>
     </section>
   )
+}
+
+function FundingHeader({ backTo }: { backTo: string }) {
+  return <div className="flex items-center gap-3">
+    <Link to={backTo} aria-label="Back to Earn" className="stream-icon-button"><ArrowLeftIcon className="h-4 w-4" /></Link>
+    <div><h1 className="text-xl font-black tracking-tight text-gray-950 dark:text-white">Funding partners</h1><p className="mt-0.5 text-[11px] text-gray-400">Private early-pay funding.</p></div>
+  </div>
 }
