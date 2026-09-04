@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowTopRightOnSquareIcon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, ClipboardIcon } from '@heroicons/react/24/outline'
-import { Link, useLocation } from '../../lib/router'
+import { Link, useLocation, useNavigate } from '../../lib/router'
+import { useStreamPayPath } from '../../lib/useStreamPayPath'
 import { useHashPayStreamSessionSplash } from '../../lib/useHashPayStreamSessionSplash'
 import UnifiedReceipt from '../UnifiedReceipt'
 import { AgreementSignInLanding } from './AgreementSignInLanding'
@@ -77,6 +78,7 @@ type DashboardResponse = {
   error?: string
 }
 
+const dashboardCache = new Map<string, Agreement[]>()
 const STATUS_LABEL: Record<AgreementStatus, string> = {
   awaiting_start: 'Waiting for payer funding',
   active: 'Active',
@@ -190,15 +192,19 @@ function StatusBadge({ status }: { status: AgreementStatus }) {
 }
 
 export default function AgreementDashboard() {
-  const { ready, authenticated, getAccessToken } = usePrivy()
+  const { ready, authenticated, getAccessToken, user } = usePrivy()
   const requests = useServiceRequests()
   const { search } = useLocation()
+  const navigate = useNavigate()
+  const agreementsTo = useStreamPayPath('/agreements')
   const requestedAgreementId = new URLSearchParams(search).get('agreementId') || ''
-  const [agreements, setAgreements] = useState<Agreement[]>([])
+  const scope = authenticated ? user?.id ?? 'pending' : ''
+  const cached = scope ? dashboardCache.get(scope) : undefined
+  const [agreements, setAgreements] = useState<Agreement[]>(() => cached ?? [])
   const [filter, setFilter] = useState<AgreementFilter>('ongoing')
   const [activeId, setActiveId] = useState(requestedAgreementId)
   const [mobileDetailOpen, setMobileDetailOpen] = useState(Boolean(requestedAgreementId))
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => !cached)
   const [loadError, setLoadError] = useState('')
   const [actionError, setActionError] = useState('')
   const [releaseError, setReleaseError] = useState('')
@@ -212,6 +218,13 @@ export default function AgreementDashboard() {
   const [showAllActivity, setShowAllActivity] = useState(false)
   const loadSequence = useRef(0)
   const splashState = useHashPayStreamSessionSplash(!authenticated)
+  useEffect(() => {
+    setAgreements(scope ? dashboardCache.get(scope) ?? [] : [])
+  }, [scope])
+  useEffect(() => {
+    setActiveId(requestedAgreementId)
+    setMobileDetailOpen(Boolean(requestedAgreementId))
+  }, [requestedAgreementId])
 
   const load = useCallback(async (quiet = false) => {
     if (!authenticated) {
@@ -219,7 +232,7 @@ export default function AgreementDashboard() {
       return
     }
     const sequence = ++loadSequence.current
-    if (!quiet) setLoading(true)
+    if (!quiet && !dashboardCache.has(scope)) setLoading(true)
     try {
       const token = await getAccessToken()
       if (!token) throw new Error('Sign in again to view agreements.')
@@ -248,17 +261,21 @@ export default function AgreementDashboard() {
         ...(upfrontData.agreements ?? []).map(agreement => ({ ...agreement, gateway: 'upfront' as const })),
       ].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
       if (sequence !== loadSequence.current) return
-      setAgreements(current => reconcileUpdatedSnapshots(current, next, (previous, incoming) => ({
-        ...incoming,
-        releaseRequest: incoming.releaseRequest ?? previous.releaseRequest,
-      })))
+      setAgreements(current => {
+        const reconciled = reconcileUpdatedSnapshots(current, next, (previous, incoming) => ({
+          ...incoming,
+          releaseRequest: incoming.releaseRequest ?? previous.releaseRequest,
+        }))
+        dashboardCache.set(scope, reconciled)
+        return reconciled
+      })
       setLoadError('')
     } catch (reason) {
       if (!quiet && sequence === loadSequence.current) setLoadError(reason instanceof Error ? reason.message : 'Agreements could not be loaded.')
     } finally {
       if (!quiet && sequence === loadSequence.current) setLoading(false)
     }
-  }, [authenticated, getAccessToken])
+  }, [authenticated, getAccessToken, scope])
 
   useEffect(() => {
     if (!ready) return
@@ -286,19 +303,24 @@ export default function AgreementDashboard() {
       ? ['awaiting_start', 'active', 'expired'].includes(status)
       : ['completed', 'cancelled', 'refunded'].includes(status)
   }), [customerAgreements, filter])
+  const visibleRows = useMemo(() => [
+    ...filteredCustomerAgreements.map(request => ({ kind: 'customer' as const, id: request.id, updatedAt: request.updatedAt, request })),
+    ...filteredAgreements.map(agreement => ({ kind: 'agreement' as const, id: agreement.id, updatedAt: agreement.updatedAt, agreement })),
+  ].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)), [filteredAgreements, filteredCustomerAgreements])
   const activeCustomer = useMemo(
-    () => filteredCustomerAgreements.find(request => request.agreementId === activeId),
-    [activeId, filteredCustomerAgreements],
+    () => customerAgreements.find(request => request.agreementId === activeId),
+    [activeId, customerAgreements],
   )
   const active = useMemo(
-    () => activeCustomer ? undefined : filteredAgreements.find(item => item.id === activeId) ?? (!activeId ? filteredAgreements[0] : undefined),
-    [activeCustomer, activeId, filteredAgreements],
+    () => activeCustomer ? undefined : agreements.find(item => item.id === activeId) ?? (!activeId ? filteredAgreements[0] : undefined),
+    [activeCustomer, activeId, agreements, filteredAgreements],
   )
 
   function chooseFilter(next: AgreementFilter) {
     setFilter(next)
     setActiveId('')
     setMobileDetailOpen(false)
+    navigate(agreementsTo, { replace: true })
   }
 
   const activity = useMemo(() => {
@@ -359,11 +381,14 @@ export default function AgreementDashboard() {
   function selectAgreement(agreementId: string) {
     setActiveId(agreementId)
     setMobileDetailOpen(true)
+    const separator = agreementsTo.includes('?') ? '&' : '?'
+    navigate(`${agreementsTo}${separator}agreementId=${encodeURIComponent(agreementId)}`)
     if (window.matchMedia('(max-width: 1023px)').matches) window.scrollTo({ top: 0, behavior: 'auto' })
   }
 
   function closeMobileAgreement() {
     setMobileDetailOpen(false)
+    navigate(agreementsTo, { replace: true })
     window.scrollTo({ top: 0, behavior: 'auto' })
   }
 
@@ -440,33 +465,32 @@ export default function AgreementDashboard() {
         <>
           <div className="mt-5 grid gap-4">
             <div className={`space-y-2 ${mobileDetailOpen ? 'hidden' : ''}`}>
-              {filteredCustomerAgreements.map(request => (
+              {visibleRows.map(row => row.kind === 'customer' ? (
                 <CustomerAgreementCard
-                  key={request.id}
-                  request={request}
-                  selected={activeCustomer?.id === request.id}
-                  onSelect={() => selectAgreement(request.agreementId)}
+                  key={`customer:${row.id}`}
+                  request={row.request}
+                  selected={activeCustomer?.id === row.request.id}
+                  onSelect={() => selectAgreement(row.request.agreementId)}
                 />
-              ))}
-              {filteredAgreements.map(agreement => (
+              ) : (
                 <button
                   type="button"
-                  key={agreement.id}
-                  onClick={() => selectAgreement(agreement.id)}
-                  className={`w-full rounded-2xl border p-4 text-left transition-colors ${active?.id === agreement.id
+                  key={`agreement:${row.id}`}
+                  onClick={() => selectAgreement(row.agreement.id)}
+                  className={`w-full rounded-2xl border p-4 text-left transition-colors ${active?.id === row.agreement.id
                     ? 'border-gray-950 bg-gray-950 text-white dark:border-white dark:bg-white dark:text-gray-950'
                     : 'border-gray-200 bg-white text-gray-950 hover:border-gray-300 dark:border-white/10 dark:bg-[#18181b] dark:text-white dark:hover:border-white/20'}`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{agreement.title || 'Arc agreement'}</p>
-                      <p className={`mt-1 text-xs ${active?.id === agreement.id ? 'text-white/60 dark:text-gray-500' : 'text-gray-400'}`}>
-                        {agreement.chain ? formatUsdc(agreement.chain.amountUsdcUnits) : `${agreement.amount || '0'} USDC`} · {templateLabel(agreement.template)}
+                      <p className="truncate text-sm font-semibold">{row.agreement.title || 'Arc agreement'}</p>
+                      <p className={`mt-1 text-xs ${active?.id === row.agreement.id ? 'text-white/60 dark:text-gray-500' : 'text-gray-400'}`}>
+                        {row.agreement.chain ? formatUsdc(row.agreement.chain.amountUsdcUnits) : `${row.agreement.amount || '0'} USDC`} {'\u00b7'} {templateLabel(row.agreement.template)}
                       </p>
                     </div>
-                    <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-semibold ${active?.id === agreement.id
+                    <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-semibold ${active?.id === row.agreement.id
                       ? 'bg-white/10 text-white dark:bg-gray-100 dark:text-gray-700'
-                      : 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400'}`}>{STATUS_LABEL[agreement.status]}</span>
+                      : 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400'}`}>{STATUS_LABEL[row.agreement.status]}</span>
                   </div>
                 </button>
               ))}

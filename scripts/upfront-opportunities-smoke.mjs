@@ -285,6 +285,32 @@ assert.equal(selected.body.selection.partnerName, 'Northstar Capital')
 assert.equal(selected.body.selection.quote.fundingFeeBps, 100)
 assert.equal(store.records.approved.fundingRequest.settlementVersion, 3)
 
+const providerStatus = await call(
+  createUpfrontOpportunitiesHandler({
+    ...base,
+    identity: identity(providerIdentity),
+  }),
+  { query: { view: 'provider_status', agreementId: approved.agreementId } },
+)
+assert.equal(providerStatus.body.selection.status, 'pending')
+assert.equal(providerStatus.body.selection.partnerName, 'Northstar Capital')
+
+store.records.approved.fundingRequest.status = 'settled'
+const persistedSettledStatus = await call(
+  createUpfrontOpportunitiesHandler({
+    ...base,
+    identity: identity(providerIdentity),
+    position: async () => ({
+      funder: funderA,
+      repaymentRecipient: funderA,
+      status: 'released',
+    }),
+  }),
+  { query: { view: 'provider_status', agreementId: approved.agreementId } },
+)
+assert.equal(persistedSettledStatus.body.selection.status, 'settled')
+store.records.approved.fundingRequest.status = 'pending'
+
 const assignedA = await call(
   createUpfrontOpportunitiesHandler({
     ...base,
@@ -296,6 +322,20 @@ assert.equal(
   assignedA.body.opportunities[0].requestedAdvanceUsdcUnits,
   '20000000',
 )
+store.records.approved.fundingRequest.status = 'settled'
+const persistedSettledPartnerPosition = await call(
+  createUpfrontOpportunitiesHandler({
+    ...base,
+    identity: identity(partnerAIdentity),
+    position: async () => ({
+      funder: funderA,
+      repaymentRecipient: funderA,
+      status: 'released',
+    }),
+  }),
+)
+assert.equal(persistedSettledPartnerPosition.body.opportunities[0].positionStatus, 'settled')
+store.records.approved.fundingRequest.status = 'pending'
 assert.equal(
   assignedA.body.opportunities[0].fundingTerms.message.funderRepaymentAmount,
   '20160000',

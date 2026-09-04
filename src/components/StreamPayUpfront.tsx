@@ -35,6 +35,7 @@ type UpfrontAgreement = {
 
 const API = '/api/hashpaystream/v1/upfront/assessments'
 const REVIEW_API = '/api/hashpaystream/v1/upfront/reviews'
+const OPPORTUNITIES_API = '/api/hashpaystream/v1/upfront/opportunities'
 const AGREEMENTS_API = '/api/hashpaystream/v1/human/upfront/agreements'
 const UPFRONT_ARC_ROUTER = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS ?? '').trim()
 function idempotencyKey() {
@@ -78,15 +79,28 @@ export default function StreamPayUpfront() {
       try {
         const token = await getAccessToken()
         if (!token) throw new Error('Sign in again to continue.')
-        const response = await fetch(AGREEMENTS_API, { cache: 'no-store', headers: { authorization: `Bearer ${token}` } })
+        const [response, statusResponse] = await Promise.all([
+          fetch(AGREEMENTS_API, { cache: 'no-store', headers: { authorization: `Bearer ${token}` } }),
+          requestedAgreementId
+            ? fetch(`${OPPORTUNITIES_API}?view=provider_status&agreementId=${encodeURIComponent(requestedAgreementId)}`, { cache: 'no-store', headers: { authorization: `Bearer ${token}` } })
+            : Promise.resolve(undefined),
+        ])
         const body = await response.json().catch(() => ({})) as { agreements?: UpfrontAgreement[]; error?: string }
         if (!response.ok) throw new Error(body.error || 'Funded agreements could not be loaded.')
+        const prior = statusResponse
+          ? await statusResponse.json().catch(() => ({})) as { assessment?: Assessment | null; requestId?: string; requestedAdvanceBps?: number; selection?: { status?: string } | null; error?: string }
+          : undefined
+        if (statusResponse && !statusResponse.ok) throw new Error(prior?.error || 'Early-pay status could not be loaded.')
         const eligible = (body.agreements || []).filter(item => item.status === 'active' && item.template === 'fixed_unlock' && item.recipient?.toLowerCase() === UPFRONT_ARC_ROUTER.toLowerCase())
         if (!cancelled) {
           const requestedAgreement = requestedAgreementId ? eligible.find(item => item.id === requestedAgreementId) : undefined
           setAgreements(eligible)
           setAgreementId(requestedAgreement?.id || (requestedAgreementId ? '' : eligible[0]?.id || ''))
           if (requestedAgreementId && !requestedAgreement) setError('This funded agreement is not available for early pay.')
+          if (prior?.assessment && !['declined', 'expired', 'refunded'].includes(prior.selection?.status ?? '')) {
+            setAssessment({ ...prior.assessment, decision: { ...prior.assessment.decision, requestId: prior.requestId || prior.assessment.decision.requestId } })
+            if (Number.isInteger(prior.requestedAdvanceBps)) setRequestedAdvanceBps(Number(prior.requestedAdvanceBps))
+          }
         }
       } catch (reason) {
         if (!cancelled) setError(reason instanceof Error ? reason.message : 'Funded agreements could not be loaded.')
@@ -187,14 +201,14 @@ export default function StreamPayUpfront() {
   return <section className="stream-screen w-full max-w-md py-5 sm:py-8">
     <Link to={homeTo} className="stream-icon-button" aria-label="Back home"><ArrowLeftIcon className="h-4 w-4" /></Link>
     <h1 className="mt-5 text-2xl font-extrabold tracking-tight text-gray-950 dark:text-white">Early pay</h1>
-    <form onSubmit={submit} className="stream-card mt-5 space-y-5 p-5">
+    {!assessment && <form onSubmit={submit} className="stream-card mt-5 space-y-5 p-5">
       <label className="block"><span className="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-300">Funded agreement</span><StreamSelect label="Funded agreement" value={agreementId} onChange={value => changeDraft(() => setAgreementId(value))} options={agreements.map(item => ({ value: item.id, label: `${item.title || item.id} / ${decimalUsdc(item.chain?.amountUsdcUnits)} USDC` }))} /></label>
       {selected && <div className="rounded-xl bg-gray-50 px-3.5 py-3 dark:bg-white/[0.04]"><p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{selected.title}</p><p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-400">{selected.description}</p></div>}
       <label className="block"><span className="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-300">Advance amount</span><StreamSelect label="Advance percentage" value={String(requestedAdvanceBps)} onChange={value => changeDraft(() => setRequestedAdvanceBps(Number(value)))} options={[20, 30, 40, 50].map(percent => ({ value: String(percent * 100), label: `${percent}% of protected amount` }))} /></label>
       <ProviderPayoutWallet value={providerPayoutAddress} onChange={value => changeDraft(() => setProviderPayoutAddress(value))} />
       {error && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2.5 text-sm text-rose-600 dark:bg-rose-400/10 dark:text-rose-300">{error}</p>}
       <button disabled={!valid || submitting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 py-3.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-gray-950">{submitting ? <LoadingRing className="h-4 w-4" label="Checking agreement" /> : <BanknotesIcon className="h-4 w-4" />}{submitting ? 'Checking' : 'Check early pay'}</button>
-    </form>
+    </form>}
     {assessment && <AssessmentResult assessment={assessment} review={review} reviewing={reviewing} onSubmitReview={submitReview} />}
   </section>
 }

@@ -15,6 +15,17 @@ export function reconcileUpdatedSnapshots<T extends UpdatedSnapshot>(current: T[
   })
 }
 
+const TERMINAL_FUNDING_STATUSES = new Set(['settled', 'refunded', 'expired', 'declined'])
+
+export function reconcileFundingPositions<T extends { id: string; positionStatus: string }>(current: T[], incoming: T[]) {
+  const existing = new Map(current.map(item => [item.id, item]))
+  return incoming.map(item => {
+    const previous = existing.get(item.id)
+    if (previous && TERMINAL_FUNDING_STATUSES.has(previous.positionStatus) && !TERMINAL_FUNDING_STATUSES.has(item.positionStatus)) return previous
+    return item
+  })
+}
+
 export const SETTLEMENT_RETRY_DELAY_MS = 30 * 60 * 1_000
 
 export function settlementRetryReady(observedAt: number | null, now = Date.now(), delayMs = SETTLEMENT_RETRY_DELAY_MS) {

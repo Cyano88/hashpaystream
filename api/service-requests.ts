@@ -1,14 +1,18 @@
 import { createHash, createHmac, randomUUID } from 'node:crypto'
 import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
-import { getAddress, isAddress } from 'viem'
+import { createPublicClient, getAddress, http, isAddress, type Address, type Hex } from 'viem'
 import { hasRenderDurableStore, mutateDurableJson, readDurableJson } from './durable-store.js'
 import { requireUpfrontSettlementV3 } from './upfront-v3.js'
+import type { UpfrontAssessmentStore } from './upfront-assessment.js'
+import type { FundingPartnerStore } from './funding-partners.js'
 
 const DEFAULT_REQUEST_STORE_KEY = 'hashpaystream:service-requests:v1'
 const DEFAULT_ACCOUNT_STORE_KEY = 'hashpaystream:accounts:v1'
 const DEFAULT_HUMAN_STORE_KEY = 'hashpaystream:human-agreement-owners:v1'
 const DEFAULT_UPFRONT_STORE_KEY = 'hashpaystream:upfront-agreement-owners:v1'
+const DEFAULT_ASSESSMENT_STORE_KEY = 'hashpaystream:upfront-assessments:v1'
+const DEFAULT_PARTNER_STORE_KEY = 'hashpaystream:funding-partners:v1'
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 type Role = 'customer' | 'provider'
@@ -31,6 +35,17 @@ type AccountStore = { schema: 1; accounts: Record<string, Account> }
 type AgreementEventStore = { schema: 1; events: Record<string, { event: string; agreementId: string; createdAt: string }> }
 type OwnershipStore = { schema: 1; agreements: Record<string, Record<string, unknown>>; idempotency: Record<string, string> }
 type Identity = { userId: string; email: string }
+type EarlyPayPositionStatus = 'requested' | 'ready_to_release' | 'received' | 'completed' | 'refunded'
+type EarlyPaySettlement = {
+  status: EarlyPayPositionStatus
+  partnerName: string
+  advanceUsdcUnits: string
+  providerRemainderUsdcUnits: string
+  providerTotalUsdcUnits: string
+  funderRepaymentUsdcUnits: string
+  funderProfitUsdcUnits: string
+  platformFeeUsdcUnits: string
+}
 
 type Dependencies = {
   hasStore: () => boolean
@@ -38,6 +53,9 @@ type Dependencies = {
   mutateRequests: (key: string, update: (value: RequestStore | undefined) => RequestStore | Promise<RequestStore>) => Promise<RequestStore>
   readAccounts: (key: string) => Promise<AccountStore | undefined>
   readEvents: (key: string) => Promise<AgreementEventStore | undefined>
+  readAssessments: (key: string) => Promise<UpfrontAssessmentStore | undefined>
+  readPartners: (key: string) => Promise<FundingPartnerStore | undefined>
+  earlyPayPositionStatus: (positionId: Hex, env: NodeJS.ProcessEnv) => Promise<EarlyPayPositionStatus>
   mutateOwnership: (key: string, update: (value: OwnershipStore | undefined) => OwnershipStore | Promise<OwnershipStore>) => Promise<OwnershipStore>
   identity: (req: Request, env: NodeJS.ProcessEnv) => Promise<Identity>
   upstream: (baseUrl: string, apiKey: string, body: Record<string, unknown>, idempotencyKey: string) => Promise<{ status: number; body: Record<string, unknown> }>
@@ -104,10 +122,60 @@ async function payerUpstream(baseUrl: string, apiKey: string, capability: string
   return { status: response.status, body: await response.json().catch(() => ({})) as Record<string, unknown> }
 }
 
+const POSITION_ABI = [{ type: 'function', name: 'positions', stateMutability: 'view', inputs: [{ name: 'positionId', type: 'bytes32' }], outputs: [
+  { type: 'address' }, { type: 'address' }, { type: 'address' }, { type: 'address' }, { type: 'address' }, { type: 'address' },
+  { type: 'bytes32' }, { type: 'bytes32' }, { type: 'bytes32' }, { type: 'bytes32' },
+  { type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'uint48' }, { type: 'uint8' },
+] }] as const
+const REPAYMENT_ROUTER_ABI = [{ type: 'function', name: 'settledAgreements', stateMutability: 'view', inputs: [{ type: 'bytes32' }], outputs: [{ type: 'bool' }] }] as const
+const ZERO_HASH = `0x${'0'.repeat(64)}`
+
+async function earlyPayPositionStatus(positionId: Hex, env: NodeJS.ProcessEnv): Promise<EarlyPayPositionStatus> {
+  const xLayerRpcUrl = clean(env.HASHPAYSTREAM_XLAYER_RPC_URL, 240)
+  const arcRpcUrl = clean(env.HASHPAYSTREAM_ARC_RPC_URL ?? 'https://rpc.testnet.arc.network', 240)
+  const escrow = clean(env.HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS, 42)
+  const router = clean(env.HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS, 42)
+  if (!xLayerRpcUrl.startsWith('https://') || !arcRpcUrl.startsWith('https://') || !isAddress(escrow) || !isAddress(router)) throw new Error('Early-pay status is unavailable.')
+  const position = await createPublicClient({ transport: http(xLayerRpcUrl) }).readContract({ address: getAddress(escrow), abi: POSITION_ABI, functionName: 'positions', args: [positionId] })
+  const rawStatus = Number(position[15])
+  if (rawStatus === 0) return 'requested'
+  if (rawStatus === 1) return 'ready_to_release'
+  if (rawStatus === 3) return 'refunded'
+  if (rawStatus !== 2) throw new Error('Early-pay status is invalid.')
+  const agreementHash = position[9]
+  if (agreementHash !== ZERO_HASH) {
+    const settled = await createPublicClient({ transport: http(arcRpcUrl) }).readContract({ address: getAddress(router), abi: REPAYMENT_ROUTER_ABI, functionName: 'settledAgreements', args: [agreementHash] })
+    if (settled) return 'completed'
+  }
+  return 'received'
+}
+
+function signedSettlement(record: NonNullable<UpfrontAssessmentStore['records'][string]>, partners: FundingPartnerStore | undefined, status: EarlyPayPositionStatus): EarlyPaySettlement | undefined {
+  const funding = record.fundingRequest
+  const quote = funding?.fundingTerms?.quote
+  if (!funding || funding.settlementVersion !== 3 || !quote) return undefined
+  const values = [quote.advanceUsdcUnits, quote.providerRemainderUsdcUnits, quote.providerTotalUsdcUnits, quote.funderRepaymentUsdcUnits, quote.funderProfitUsdcUnits, quote.platformFeeUsdcUnits]
+  if (!values.every(value => /^\d+$/.test(value))) return undefined
+  const protectedAmount = record.request?.agreement.amountUsdcUnits
+  if (!protectedAmount || !/^\d+$/.test(protectedAmount)) return undefined
+  if (BigInt(quote.funderRepaymentUsdcUnits) + BigInt(quote.platformFeeUsdcUnits) + BigInt(quote.providerRemainderUsdcUnits) !== BigInt(protectedAmount)) return undefined
+  if (BigInt(quote.providerTotalUsdcUnits) !== BigInt(quote.advanceUsdcUnits) + BigInt(quote.providerRemainderUsdcUnits)) return undefined
+  return {
+    status,
+    partnerName: clean(partners?.applications?.[funding.partnerApplicationId]?.name || 'Funding partner', 120),
+    advanceUsdcUnits: quote.advanceUsdcUnits,
+    providerRemainderUsdcUnits: quote.providerRemainderUsdcUnits,
+    providerTotalUsdcUnits: quote.providerTotalUsdcUnits,
+    funderRepaymentUsdcUnits: quote.funderRepaymentUsdcUnits,
+    funderProfitUsdcUnits: quote.funderProfitUsdcUnits,
+    platformFeeUsdcUnits: quote.platformFeeUsdcUnits,
+  }
+}
+
 const defaults: Dependencies = {
   hasStore: hasRenderDurableStore, readRequests: readDurableJson,
   mutateRequests: (key, update) => mutateDurableJson<RequestStore>(key, update), readAccounts: readDurableJson,
-  readEvents: readDurableJson,
+  readEvents: readDurableJson, readAssessments: readDurableJson, readPartners: readDurableJson, earlyPayPositionStatus,
   mutateOwnership: (key, update) => mutateDurableJson<OwnershipStore>(key, update), identity: verifiedIdentity,
   upstream, registerRecipient, payerUpstream, env: () => process.env, now: () => new Date(), id: () => `req_${randomUUID().replace(/-/g, '')}`,
 }
@@ -118,11 +186,11 @@ function config(env: NodeJS.ProcessEnv) {
   const secret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300)
   const base = clean(env.HASHPAYSTREAM_HASH_PAYLINK_BASE_URL ?? 'https://app.hashpaylink.com', 240).replace(/\/$/, '')
   if (secret.length < 32 || !base.startsWith('https://')) fail('HashPayStream requests are temporarily unavailable.', 503)
-  return { secret, base, requestStore: clean(env.HASHPAYSTREAM_SERVICE_REQUEST_STORE_KEY ?? DEFAULT_REQUEST_STORE_KEY, 160), accountStore: clean(env.HASHPAYSTREAM_ACCOUNT_STORE_KEY ?? DEFAULT_ACCOUNT_STORE_KEY, 160), humanStore: clean(env.HASHPAYSTREAM_HUMAN_AGREEMENT_STORE_KEY ?? DEFAULT_HUMAN_STORE_KEY, 160), upfrontStore: clean(env.HASHPAYSTREAM_UPFRONT_AGREEMENT_STORE_KEY ?? DEFAULT_UPFRONT_STORE_KEY, 160), humanEvents: clean(env.HASHPAYSTREAM_ARC_WEBHOOK_STORE_KEY ?? 'hashpaystream:arc-webhooks:v1', 160), upfrontEvents: clean(env.HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_STORE_KEY ?? 'hashpaystream:upfront-arc-webhooks:v1', 160) }
+  return { secret, base, requestStore: clean(env.HASHPAYSTREAM_SERVICE_REQUEST_STORE_KEY ?? DEFAULT_REQUEST_STORE_KEY, 160), accountStore: clean(env.HASHPAYSTREAM_ACCOUNT_STORE_KEY ?? DEFAULT_ACCOUNT_STORE_KEY, 160), humanStore: clean(env.HASHPAYSTREAM_HUMAN_AGREEMENT_STORE_KEY ?? DEFAULT_HUMAN_STORE_KEY, 160), upfrontStore: clean(env.HASHPAYSTREAM_UPFRONT_AGREEMENT_STORE_KEY ?? DEFAULT_UPFRONT_STORE_KEY, 160), assessmentStore: clean(env.HASHPAYSTREAM_UPFRONT_STORE_KEY ?? DEFAULT_ASSESSMENT_STORE_KEY, 160), partnerStore: clean(env.HASHPAYSTREAM_FUNDING_PARTNER_STORE_KEY ?? DEFAULT_PARTNER_STORE_KEY, 160), humanEvents: clean(env.HASHPAYSTREAM_ARC_WEBHOOK_STORE_KEY ?? 'hashpaystream:arc-webhooks:v1', 160), upfrontEvents: clean(env.HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_STORE_KEY ?? 'hashpaystream:upfront-arc-webhooks:v1', 160) }
 }
-function publicRequest(item: ServiceRequest, viewer: string) {
+function publicRequest(item: ServiceRequest, viewer: string, earlyPaySettlement?: EarlyPaySettlement) {
   const role: Role = item.customerAccountKey === viewer ? 'customer' : 'provider'
-  return { id: item.id, role, direction: role === 'customer' ? 'sent' : 'received', counterparty: role === 'customer' ? item.providerLabel : 'Customer', status: item.status, activeVersion: item.activeVersion, terms: item.terms, events: item.events, agreementId: item.agreementId ?? '', payerReviewPath: role === 'customer' ? item.payerReviewPath ?? '' : '', createdAt: item.createdAt, updatedAt: item.updatedAt }
+  return { id: item.id, role, direction: role === 'customer' ? 'sent' : 'received', counterparty: role === 'customer' ? item.providerLabel : 'Customer', status: item.status, activeVersion: item.activeVersion, terms: item.terms, events: item.events, agreementId: item.agreementId ?? '', payerReviewPath: role === 'customer' ? item.payerReviewPath ?? '' : '', ...(earlyPaySettlement ? { earlyPaySettlement } : {}), createdAt: item.createdAt, updatedAt: item.updatedAt }
 }
 function parseTerms(body: Record<string, unknown>, proposedBy: Role, version: number, now: string, prior?: Terms): Terms {
   const title = clean(body.title ?? prior?.title, 140)
@@ -149,18 +217,28 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
       const env = dependencies.env(); const cfg = config(env); const identity = await dependencies.identity(req, env)
       const viewer = accountKey(cfg.secret, identity.email)
       if (req.method === 'GET') {
-        const [stored, humanEvents, upfrontEvents] = await Promise.all([dependencies.readRequests(cfg.requestStore), dependencies.readEvents(cfg.humanEvents), dependencies.readEvents(cfg.upfrontEvents)])
+        const [stored, humanEvents, upfrontEvents, assessments, partners] = await Promise.all([dependencies.readRequests(cfg.requestStore), dependencies.readEvents(cfg.humanEvents), dependencies.readEvents(cfg.upfrontEvents), dependencies.readAssessments(cfg.assessmentStore), dependencies.readPartners(cfg.partnerStore)])
         const lifecycle = new Map<string, { status: 'funded' | 'expired' | 'completed' | 'refunded'; createdAt: string }>()
         for (const event of Object.values({ ...(humanEvents?.events ?? {}), ...(upfrontEvents?.events ?? {}) }).sort((left, right) => left.createdAt.localeCompare(right.createdAt))) {
           const status = event.event === 'agreement.expired' ? 'expired' : event.event === 'agreement.completed' ? 'completed' : event.event === 'agreement.refunded' ? 'refunded' : ['agreement.activated', 'agreement.step_released'].includes(event.event) ? 'funded' : null
           if (status) lifecycle.set(event.agreementId, { status, createdAt: event.createdAt })
         }
-        const requests = Object.values(stored?.requests ?? {}).filter(item => item.customerAccountKey === viewer || item.providerAccountKey === viewer).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 100).map(item => {
+        const reconciled = Object.values(stored?.requests ?? {}).filter(item => item.customerAccountKey === viewer || item.providerAccountKey === viewer).map(item => {
           const observed = item.agreementId ? lifecycle.get(item.agreementId) : undefined
-          if (!observed || !['awaiting_funding', 'funded', 'expired'].includes(item.status)) return publicRequest(item, viewer)
+          if (!observed || !['awaiting_funding', 'funded', 'expired', 'completed', 'refunded'].includes(item.status)) return item
           const events = observed.status === 'funded' && !item.events.some(event => event.type === 'request.funded') ? [...item.events, { id: `${item.id}:funded`, type: 'request.funded', actor: 'customer' as const, createdAt: observed.createdAt, version: item.activeVersion }] : item.events
-          return publicRequest({ ...item, status: observed.status, updatedAt: observed.createdAt, events }, viewer)
+          return { ...item, status: observed.status, updatedAt: observed.createdAt, events }
         })
+        reconciled.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+        const requests = await Promise.all(reconciled.slice(0, 100).map(async item => {
+          const record = Object.values(assessments?.records ?? {})
+            .filter(candidate => candidate.agreementId === item.agreementId && candidate.request?.requestId === item.id && candidate.fundingRequest?.fundingTerms?.quote)
+            .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
+          const positionId = record?.fundingRequest?.fundingTerms?.message.offerHash
+          if (!record || !positionId || !/^0x[a-fA-F0-9]{64}$/.test(positionId)) return publicRequest(item, viewer)
+          const positionStatus = await dependencies.earlyPayPositionStatus(positionId as Hex, env).catch(() => undefined)
+          return publicRequest(item, viewer, positionStatus ? signedSettlement(record, partners, positionStatus) : undefined)
+        }))
         return res.json({ ok: true, requests })
       }
       if (req.method !== 'POST') { res.setHeader('Allow', 'GET, POST'); return res.status(405).json({ ok: false, error: 'Method not allowed.' }) }
@@ -216,6 +294,7 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
             'agreement.step_released',
             'agreement.expired',
             'agreement.refunded',
+            'agreement.completed',
           ].includes(event.event))
           .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
           .at(-1)
@@ -223,11 +302,13 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
           ? 'expired'
           : observed?.event === 'agreement.refunded'
             ? 'refunded'
+            : observed?.event === 'agreement.completed'
+              ? 'completed'
             : observed && ['agreement.activated', 'agreement.step_released'].includes(observed.event)
               ? 'funded'
               : item.status
         const allowedStatuses = payerAction === 'review'
-          ? ['awaiting_funding', 'funded', 'expired', 'refunded']
+          ? ['awaiting_funding', 'funded', 'expired', 'refunded', 'completed']
           : payerAction === 'delivery-decision'
             ? ['funded']
             : payerAction.startsWith('lifecycle-')

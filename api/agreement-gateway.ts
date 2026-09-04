@@ -288,6 +288,28 @@ function mergedTimeline(upstreamTimeline: ReturnType<typeof publicUpstreamTimeli
   return [...byId.values()].sort((left, right) => right.createdAt.localeCompare(left.createdAt))
 }
 
+function validTimestamp(value: unknown) {
+  const text = clean(value, 64)
+  return Number.isFinite(new Date(text).getTime()) ? text : ''
+}
+
+function latestAgreementActivity(agreement: Record<string, unknown>, timeline: ReturnType<typeof mergedTimeline>) {
+  const candidates = [validTimestamp(agreement.updatedAt), ...timeline.map(event => validTimestamp(event.createdAt))]
+  const deliveryTimeline = Array.isArray(agreement.deliveryTimeline) ? agreement.deliveryTimeline : []
+  for (const candidate of deliveryTimeline) {
+    if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
+      candidates.push(validTimestamp((candidate as Record<string, unknown>).createdAt))
+    }
+  }
+  const releaseRequest = agreement.releaseRequest && typeof agreement.releaseRequest === 'object' && !Array.isArray(agreement.releaseRequest)
+    ? agreement.releaseRequest as Record<string, unknown>
+    : undefined
+  if (releaseRequest) {
+    for (const field of ['updatedAt', 'completedAt', 'reviewedAt', 'requestedAt']) candidates.push(validTimestamp(releaseRequest[field]))
+  }
+  return candidates.filter(Boolean).sort((left, right) => right.localeCompare(left))[0] || ''
+}
+
 function reconciledLifecycleStatus(upstreamStatus: string, webhookStatus?: string) {
   if (TERMINAL_AGREEMENT_STATUSES.has(upstreamStatus)) return upstreamStatus
   if (upstreamStatus === 'expired' && webhookStatus === 'active') return upstreamStatus
@@ -305,9 +327,11 @@ function standaloneAgreementView(value: unknown, eventStore: AgreementEventStore
     .map(event => LIFECYCLE_STATUS[event.event])
     .find(Boolean)
   const status = reconciledLifecycleStatus(clean(agreement.status, 40), lifecycleStatus)
+  const updatedAt = latestAgreementActivity(agreement, timeline)
   return {
     ...agreement,
     ...(status ? { status } : {}),
+    ...(updatedAt ? { updatedAt } : {}),
     timeline,
     deliveryTimeline: Array.isArray(agreement.deliveryTimeline) ? agreement.deliveryTimeline : [],
   }
@@ -424,7 +448,7 @@ export function createHashPayStreamAgreementGateway(
         const agreements = owned.flatMap(record => {
           const agreement = returnedById.get(record.agreementId)
           return agreement ? [agreementWithCustomerDecision(agreement, record, eventStore)] : []
-        })
+        }).sort((left, right) => clean((right as Record<string, unknown>).updatedAt, 64).localeCompare(clean((left as Record<string, unknown>).updatedAt, 64)))
         return res.json(gatewayResponse({ ok: true, agreements }, options))
       }
 

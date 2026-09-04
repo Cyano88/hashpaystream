@@ -19,6 +19,8 @@ const handler = createServiceRequestsHandler({
   identity: async () => identity,
   readRequests: async () => requestStore,
   readEvents: async () => eventStore,
+  readAssessments: async () => undefined,
+  readPartners: async () => undefined,
   mutateRequests: async (_key, update) => (requestStore = await update(requestStore)),
   readAccounts: async () => ({ schema: 1, accounts: { [key(provider.email)]: { accountKey: key(provider.email), email: provider.email, displayName: 'Provider', pocketId: '1234567890', walletAddress: '0x1111111111111111111111111111111111111111' } } }),
   mutateOwnership: async (_key, update) => (ownershipStore = await update(ownershipStore)),

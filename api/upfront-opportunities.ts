@@ -4,7 +4,7 @@ import { PrivyClient } from '@privy-io/node'
 import { createPublicClient, getAddress, hashTypedData, http, isAddress, keccak256, recoverTypedDataAddress, toBytes, type Address, type Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { mutateDurableJson, readDurableJson } from './durable-store.js'
-import type { UpfrontAssessmentRecord, UpfrontAssessmentStore } from './upfront-assessment.js'
+import { providerAssessment, type UpfrontAssessmentRecord, type UpfrontAssessmentStore } from './upfront-assessment.js'
 import { fundingPartnerAccountKey, type FundingPartnerRecord, type FundingPartnerStore } from './funding-partners.js'
 import { hasMinimumUpfrontProtectionWindow, minimumUpfrontRemainingSeconds } from './early-pay-timing-policy.js'
 import { FUNDING_TERMS_TYPES, signFundingTerms, type SignedFundingTerms } from './upfront-funding-terms.js'
@@ -53,6 +53,24 @@ function failure(message: string, status: number): never { throw Object.assign(n
 function bearer(req: Pick<Request, 'headers'>) { return String(req.headers.authorization ?? '').match(/^Bearer\s+(.+)$/i)?.[1]?.trim() ?? '' }
 function safeStore(value?: UpfrontAssessmentStore): UpfrontAssessmentStore { return { schema: 1, records: value?.schema === 1 && value.records ? { ...value.records } : {} } }
 function providerReference(secret: string, userId: string) { return 'hps_provider_' + createHmac('sha256', secret).update('upfront\0' + userId).digest('hex').slice(0, 32) }
+
+function providerSelection(record: UpfrontAssessmentRecord, candidate: NonNullable<ReturnType<typeof opportunity>>, positionState: PositionState, partners?: FundingPartnerStore) {
+  if (!record.fundingRequest) return undefined
+  const selectedProfile = partners?.applications?.[record.fundingRequest.partnerApplicationId]
+  return {
+    partnerId: record.fundingRequest.partnerApplicationId,
+    partnerName: selectedProfile?.name || 'Funding partner',
+    advanceUsdcUnits: record.fundingRequest.advanceUsdcUnits,
+    quote: record.fundingRequest.fundingTerms?.quote,
+    status: record.fundingRequest.status === 'settled'
+      ? 'settled' as const
+      : positionState.status !== 'available'
+      ? positionState.status
+      : !candidate.live || record.fundingRequest.settlementVersion !== 3 || !record.fundingRequest.fundingTerms || !record.fundingRequest.providerSignature
+        ? 'expired' as const
+        : record.fundingRequest.status,
+  }
+}
 
 async function verifiedIdentity(req: Request, env: NodeJS.ProcessEnv): Promise<Identity> {
   const appId = clean(env.PRIVY_APP_ID ?? env.VITE_PRIVY_APP_ID, 180)
@@ -225,6 +243,38 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
       const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body as Record<string, unknown> : {}
       const view = clean(req.query?.view, 24)
 
+      if (req.method === 'GET' && view === 'provider_status') {
+        const agreementId = clean(req.query?.agreementId, 80)
+        if (!/^agr_[a-z0-9]{12,64}$/i.test(agreementId)) failure('Early-pay agreement is invalid.', 400)
+        const ownerReference = providerReference(secret, identity.userId)
+        const records = Object.values(store.records)
+          .filter(record => record.ownerReference === ownerReference && record.agreementId === agreementId && record.status === 'completed' && record.response)
+          .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+        let selectedRecord: UpfrontAssessmentRecord | undefined
+        let selectedCandidate: NonNullable<ReturnType<typeof opportunity>> | undefined
+        let selectedPosition: PositionState | undefined
+        for (const record of records.filter(item => item.fundingRequest)) {
+          const candidate = opportunity(record, now, chain, minimumRemainingSeconds, true)
+          if (!candidate) continue
+          const positionState = await dependencies.position(candidate.positionId, chain)
+          selectedRecord = record
+          selectedCandidate = candidate
+          selectedPosition = positionState
+          if (['pending', 'funded', 'released', 'settled'].includes(providerSelection(record, candidate, positionState, partners)?.status ?? '')) break
+        }
+        const record = selectedRecord ?? records[0]
+        if (!record?.response) return res.json({ ok: true, assessment: null, selection: null })
+        const candidate = selectedCandidate ?? opportunity(record, now, chain, minimumRemainingSeconds, true)
+        const positionState = selectedPosition ?? (candidate && record.fundingRequest ? await dependencies.position(candidate.positionId, chain) : undefined)
+        return res.json({
+          ok: true,
+          assessment: providerAssessment(record.response),
+          requestId: record.request?.requestId ?? '',
+          requestedAdvanceBps: record.request?.advance.requestedBps,
+          selection: candidate && positionState ? providerSelection(record, candidate, positionState, partners) ?? null : null,
+        })
+      }
+
       if (view === 'partners' || (req.method === 'POST' && clean(body.action, 24) === 'select_partner')) {
         const requestId = clean(req.method === 'GET' ? req.query?.requestId : body.requestId, 100)
         if (!REQUEST_ID.test(requestId)) failure('Early-pay request is invalid.', 400)
@@ -233,14 +283,7 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
         const candidate = opportunity(found[1], now, chain, minimumRemainingSeconds, Boolean(found[1].fundingRequest))
         if (!candidate) failure('This early-pay request is no longer available.', 409)
         const positionState = await dependencies.position(candidate.positionId, chain)
-        const selectedProfile = found[1].fundingRequest ? partners?.applications?.[found[1].fundingRequest.partnerApplicationId] : undefined
-        const selected = found[1].fundingRequest ? {
-          partnerId: found[1].fundingRequest.partnerApplicationId,
-          partnerName: selectedProfile?.name || 'Funding partner',
-          advanceUsdcUnits: found[1].fundingRequest.advanceUsdcUnits,
-          quote: found[1].fundingRequest.fundingTerms?.quote,
-          status: positionState.status !== 'available' ? positionState.status : !candidate.live || found[1].fundingRequest.settlementVersion !== 3 || !found[1].fundingRequest.fundingTerms || !found[1].fundingRequest.providerSignature ? 'expired' : found[1].fundingRequest.status,
-        } : undefined
+        const selected = providerSelection(found[1], candidate, positionState, partners)
         if (req.method === 'GET') {
           if (selected?.status === 'pending' || selected?.status === 'funded' || selected?.status === 'released') return res.json({ ok: true, partners: [], selection: selected })
           if (!candidate.live || positionState.status !== 'available') return res.json({ ok: true, partners: [], selection: selected })
@@ -337,6 +380,18 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
         providerSignature?: Hex
       }> = []
       for (const { record, candidate, position } of inspected) {
+        if (record.fundingRequest?.status === 'settled') {
+          if (record.fundingRequest.partnerApplicationId === profile.id) opportunities.push({
+            ...candidate,
+            requestedAdvanceUsdcUnits: record.fundingRequest.advanceUsdcUnits,
+            fundingTerms: record.fundingRequest.fundingTerms,
+            providerSignature: record.fundingRequest.providerSignature,
+            positionStatus: 'settled',
+            funder: position.funder,
+            repaymentRecipient: position.repaymentRecipient,
+          })
+          continue
+        }
         if (position.status === 'available') {
           const fundingRequest = record.fundingRequest
           const assignedHere = fundingRequest?.settlementVersion === 3 && fundingRequest.fundingTerms && fundingRequest.providerSignature && fundingRequest.partnerApplicationId === profile.id

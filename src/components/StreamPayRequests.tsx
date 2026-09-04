@@ -1,12 +1,13 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import {
   ArrowLeftIcon,
   BriefcaseIcon,
   ClockIcon,
   PlusIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline'
 import { formatUsdc } from '../lib/useAgreements'
-import { Link, useLocation } from '../lib/router'
+import { Link, useLocation, useNavigate } from '../lib/router'
 import { useServiceRequests, type ServiceRequest } from '../lib/serviceRequests'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
@@ -23,6 +24,7 @@ function newKey() {
 
 export default function StreamPayRequests() {
   const { search } = useLocation()
+  const navigate = useNavigate()
   const query = new URLSearchParams(search)
   const inbox = useServiceRequests()
   const [tab, setTab] = useState<Tab>(
@@ -30,9 +32,37 @@ export default function StreamPayRequests() {
   )
   const [creating, setCreating] = useState(query.get('compose') === '1')
   const [countering, setCountering] = useState<ServiceRequest | null>(null)
+  const [viewing, setViewing] = useState<ServiceRequest | null>(null)
   const [funding, setFunding] = useState<ServiceRequest | null>(null)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  const requestsTo = useStreamPayPath('/requests')
+  const composeTo = useStreamPayPath('/requests?compose=1')
+  const tabTo = useStreamPayPath(`/requests?tab=${tab}`)
+  useEffect(() => {
+    setCreating(new URLSearchParams(search).get('compose') === '1')
+  }, [search])
+  useEffect(() => {
+    const params = new URLSearchParams(search)
+    const selected = inbox.requests.find((item) => item.id === params.get('request')) ?? null
+    setCountering(params.get('view') === 'counter' ? selected : null)
+    setFunding(params.get('view') === 'fund' ? selected : null)
+    setViewing(params.get('view') === 'details' ? selected : null)
+  }, [inbox.requests, search])
+  function closeCreate() {
+    setCreating(false)
+    navigate(requestsTo, { replace: true })
+  }
+  function openRequest(item: ServiceRequest, view: 'details' | 'counter' | 'fund') {
+    const separator = tabTo.includes('?') ? '&' : '?'
+    navigate(`${tabTo}${separator}view=${view}&request=${encodeURIComponent(item.id)}`)
+  }
+  function closeRequest() {
+    setCountering(null)
+    setFunding(null)
+    setViewing(null)
+    navigate(tabTo, { replace: true })
+  }
   const visible = useMemo(
     () => inbox.requests.filter((item) => item.direction === tab),
     [inbox.requests, tab],
@@ -43,6 +73,12 @@ export default function StreamPayRequests() {
         ? (inbox.requests.find((item) => item.id === funding.id) ?? funding)
         : null,
     [funding, inbox.requests],
+  )
+  const viewingItem = useMemo(
+    () => viewing
+      ? (inbox.requests.find((item) => item.id === viewing.id) ?? viewing)
+      : null,
+    [inbox.requests, viewing],
   )
   async function act(
     item: ServiceRequest,
@@ -59,6 +95,7 @@ export default function StreamPayRequests() {
         ...extra,
       })
       setCountering(null)
+      if (action === 'provider_counter') closeRequest()
     } catch (reason) {
       setError(
         reason instanceof Error
@@ -73,10 +110,10 @@ export default function StreamPayRequests() {
   if (creating)
     return (
       <CreateRequest
-        onBack={() => setCreating(false)}
+        onBack={closeCreate}
         onCreate={async (payload) => {
           await inbox.act({ action: 'create', ...payload }, newKey())
-          setCreating(false)
+          closeCreate()
           setTab('sent')
         }}
       />
@@ -87,7 +124,7 @@ export default function StreamPayRequests() {
         item={countering}
         busy={Boolean(busy)}
         error={error}
-        onBack={() => setCountering(null)}
+        onBack={closeRequest}
         onSubmit={(payload) => act(countering, 'provider_counter', payload)}
       />
     )
@@ -95,10 +132,34 @@ export default function StreamPayRequests() {
     return (
       <StreamPayFundRequest
         item={fundingItem}
-        onBack={() => setFunding(null)}
+        onBack={closeRequest}
         payer={inbox.payer}
         onFunded={() => void inbox.refresh(true)}
       />
+    )
+  if (viewingItem)
+    return (
+      <section className="stream-screen w-full max-w-md py-5 sm:py-8">
+        <div className="flex items-center gap-3">
+          <button onClick={closeRequest} aria-label="Back to requests" className="stream-icon-button">
+            <ArrowLeftIcon className="h-4 w-4" />
+          </button>
+          <h1 className="text-xl font-extrabold">Request details</h1>
+        </div>
+        {(inbox.error || error) && <ErrorMessage>{inbox.error || error}</ErrorMessage>}
+        <div className="mt-5">
+          <RequestCard
+            item={viewingItem}
+            busy={busy === viewingItem.id}
+            onAction={(action, extra) => act(viewingItem, action, extra)}
+            onCounter={() => {
+              setError('')
+              openRequest(viewingItem, 'counter')
+            }}
+            onFund={() => openRequest(viewingItem, 'fund')}
+          />
+        </div>
+      </section>
     )
   const pending = inbox.requests.filter(
     (item) =>
@@ -125,7 +186,7 @@ export default function StreamPayRequests() {
       </div>
       {tab === 'sent' && (
         <button
-          onClick={() => setCreating(true)}
+          onClick={() => navigate(composeTo)}
           className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-gray-950 text-sm font-bold text-white dark:bg-white dark:text-gray-950"
         >
           <PlusIcon className="h-4 w-4" />
@@ -137,16 +198,10 @@ export default function StreamPayRequests() {
       )}
       <div className="mt-4 space-y-3">
         {visible.map((item) => (
-          <RequestCard
+          <RequestListRow
             key={item.id}
             item={item}
-            busy={busy === item.id}
-            onAction={(action, extra) => act(item, action, extra)}
-            onCounter={() => {
-              setError('')
-              setCountering(item)
-            }}
-            onFund={() => setFunding(item)}
+            onOpen={() => openRequest(item, 'details')}
           />
         ))}
       </div>
@@ -166,6 +221,44 @@ export default function StreamPayRequests() {
         </div>
       )}
     </section>
+  )
+}
+
+function RequestListRow({
+  item,
+  onOpen,
+}: {
+  item: ServiceRequest
+  onOpen: () => void
+}) {
+  const terms =
+    item.terms.find((value) => value.version === item.activeVersion) ??
+    item.terms[item.terms.length - 1]
+  const counterpart = item.role === 'customer' ? 'Service provider' : 'Customer'
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="stream-list-card flex min-h-[72px] w-full items-center gap-3 px-4 py-3 text-left transition-transform active:scale-[0.99]"
+    >
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600 dark:bg-white/[0.07] dark:text-gray-300">
+        <BriefcaseIcon className="h-5 w-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-extrabold text-gray-950 dark:text-white">
+          {terms.title}
+        </span>
+        <span className="mt-1 block truncate text-[10px] font-semibold text-gray-400">
+          {statusLabel(item.status, item.role)} {'\u00b7'} {counterpart}
+        </span>
+      </span>
+      <span className="shrink-0 text-right">
+        <span className="block text-xs font-black tabular-nums">
+          {formatUsdc(terms.amountUsdcUnits)}
+        </span>
+        <ChevronRightIcon className="ml-auto mt-1 h-3.5 w-3.5 text-gray-400" />
+      </span>
+    </button>
   )
 }
 
@@ -189,10 +282,9 @@ function RequestCard({
   const customerCanAccept =
     item.role === 'customer' &&
     ['countered', 'provider_accepted'].includes(item.status)
-  const providerCanCheckEarlyPay =
+  const providerHasEarlyPay =
     upfrontSettlementV3Enabled &&
     item.role === 'provider' &&
-    item.status === 'funded' &&
     terms.upfrontRequested &&
     Boolean(item.agreementId)
   const earlyPayTo = useStreamPayPath(
@@ -200,6 +292,30 @@ function RequestCard({
   )
   const agreementTo = useStreamPayPath(
     '/agreements?agreementId=' + encodeURIComponent(item.agreementId),
+  )
+  const useFundsTo = useStreamPayPath('/move/xlayer/send')
+  const compact = ['expired', 'completed', 'refunded', 'declined', 'cancelled'].includes(item.status)
+  if (compact) return (
+    <article className="stream-list-card overflow-hidden">
+      <div className="flex min-h-[68px] items-center gap-3 px-4 py-3">
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-extrabold text-gray-950 dark:text-white">{terms.title}</span>
+          <span className="mt-1 block truncate text-[10px] font-semibold text-gray-400">{statusLabel(item.status, item.role)} {'\u00b7'} {item.role === 'customer' ? 'Service provider' : 'Customer'}</span>
+        </span>
+        <span className="shrink-0 text-xs font-black tabular-nums">{formatUsdc(terms.amountUsdcUnits)}</span>
+      </div>
+      {item.earlyPaySettlement && <div className="border-t border-gray-100 px-3 pb-3 dark:border-white/[0.07]"><EarlyPaySettlementSummary settlement={item.earlyPaySettlement} /></div>}
+      {providerHasEarlyPay && <ProviderEarlyPayAction item={item} earlyPayTo={earlyPayTo} useFundsTo={useFundsTo} />}
+      {item.status === 'expired' && item.role === 'customer' && item.payerReviewPath && (
+        <button
+          type="button"
+          onClick={onFund}
+          className="flex min-h-11 w-full items-center justify-center border-t border-gray-100 text-xs font-bold text-gray-950 dark:border-white/[0.07] dark:text-white"
+        >
+          Return USDC
+        </button>
+      )}
+    </article>
   )
   return (
     <article className="stream-card p-4">
@@ -238,6 +354,7 @@ function RequestCard({
         <span>Version {terms.version}</span>
         <span>{statusLabel(item.status, item.role)}</span>
       </div>
+      {item.earlyPaySettlement && <EarlyPaySettlementSummary settlement={item.earlyPaySettlement} />}
       {providerCanRespond && (
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button
@@ -299,16 +416,53 @@ function RequestCard({
             {item.status === 'expired' ? 'Return USDC' : 'Review and fund'}
           </button>
         )}
-      {providerCanCheckEarlyPay && (
-        <Link
-          to={earlyPayTo}
-          className="mt-4 flex min-h-11 w-full items-center justify-center rounded-full bg-gray-950 text-xs font-bold text-white dark:bg-white dark:text-gray-950"
-        >
-          Check early pay
-        </Link>
-      )}
+      {providerHasEarlyPay && <ProviderEarlyPayAction item={item} earlyPayTo={earlyPayTo} useFundsTo={useFundsTo} />}
     </article>
   )
+}
+
+function ProviderEarlyPayAction({ item, earlyPayTo, useFundsTo }: { item: ServiceRequest; earlyPayTo: string; useFundsTo: string }) {
+  const status = item.earlyPaySettlement?.status
+  if (status === 'completed') return <p className="mt-4 text-center text-xs font-bold text-emerald-600 dark:text-emerald-300">Payment complete</p>
+  if (status === 'refunded') return <p className="mt-4 text-center text-xs font-bold text-gray-400">Funding refunded</p>
+  if (status === 'received') return <Link to={useFundsTo} className="mt-4 flex min-h-11 w-full items-center justify-center rounded-full bg-gray-950 text-xs font-bold text-white dark:bg-white dark:text-gray-950">Use funds</Link>
+  if (status === 'requested' || status === 'ready_to_release') return <Link to={earlyPayTo} className="mt-4 flex min-h-11 w-full items-center justify-center rounded-full bg-gray-950 text-xs font-bold text-white dark:bg-white dark:text-gray-950">View early pay</Link>
+  if (item.status !== 'funded') return null
+  return <Link to={earlyPayTo} className="mt-4 flex min-h-11 w-full items-center justify-center rounded-full bg-gray-950 text-xs font-bold text-white dark:bg-white dark:text-gray-950">Check early pay</Link>
+}
+
+function EarlyPaySettlementSummary({ settlement }: { settlement: NonNullable<ServiceRequest['earlyPaySettlement']> }) {
+  const status = {
+    requested: 'Funding requested',
+    ready_to_release: 'Funding confirmed',
+    received: 'Early payment received',
+    completed: 'Payment completed',
+    refunded: 'Funding refunded',
+  }[settlement.status]
+  return (
+    <details className="group mt-4 rounded-2xl bg-gray-50 px-3.5 py-3 dark:bg-white/[0.04]">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+        <span className="min-w-0">
+          <span className="block text-[11px] font-black text-gray-950 dark:text-white">Payment split</span>
+          <span className="mt-0.5 block truncate text-[10px] text-gray-400">{settlement.partnerName} {'\u00b7'} {status}</span>
+        </span>
+        <span className="shrink-0 text-[10px] font-bold text-gray-400 group-open:hidden">View</span>
+        <span className="hidden shrink-0 text-[10px] font-bold text-gray-400 group-open:inline">Hide</span>
+      </summary>
+      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-gray-200 pt-3 dark:border-white/[0.08]">
+        <SettlementMetric label="Early payment" value={settlement.advanceUsdcUnits} />
+        <SettlementMetric label="Provider receives later" value={settlement.providerRemainderUsdcUnits} />
+        <SettlementMetric label="Provider total" value={settlement.providerTotalUsdcUnits} />
+        <SettlementMetric label="Partner receives" value={settlement.funderRepaymentUsdcUnits} />
+        <SettlementMetric label="Partner earns" value={settlement.funderProfitUsdcUnits} />
+        <SettlementMetric label="HashPayStream fee" value={settlement.platformFeeUsdcUnits} />
+      </div>
+    </details>
+  )
+}
+
+function SettlementMetric({ label, value }: { label: string; value: string }) {
+  return <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-[0.08em] text-gray-400">{label}</p><p className="mt-1 truncate text-[11px] font-black tabular-nums text-gray-950 dark:text-white">{formatUsdc(value)}</p></div>
 }
 
 function statusLabel(

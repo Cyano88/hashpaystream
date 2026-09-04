@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowLeftIcon, BanknotesIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
-import { Link, Navigate } from '../lib/router'
+import { Link, Navigate, useLocation, useNavigate } from '../lib/router'
 import { upfrontSettlementV3Enabled, upfrontTreasuryEnabled } from '../lib/upfrontChains'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
+import { fetchWithTimeout } from '../lib/fetchWithTimeout'
 import UpfrontTreasuryWallet from './UpfrontTreasuryWallet'
 import UpfrontFundButton from './UpfrontFundButton'
 import UpfrontLifecycleButton from './UpfrontLifecycleButton'
 import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
+import { reconcileFundingPositions } from '../lib/stableSnapshots'
 
 type Opportunity = {
   id: string
@@ -40,6 +42,7 @@ type Opportunity = {
 const API = '/api/hashpaystream/v1/upfront/opportunities'
 const XLAYER_MAINNET = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID ?? '1952') === '196'
 
+const opportunityCache = new Map<string, Opportunity[]>()
 function usdc(units: string) {
   if (!/^\d+$/.test(units)) return '0 USDC'
   const padded = units.padStart(7, '0')
@@ -66,13 +69,19 @@ function positionLabel(status: Opportunity['positionStatus']) {
 }
 
 export default function StreamPayFundingDesk() {
-  const { ready, authenticated, getAccessToken } = usePrivy()
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([])
-  const [loading, setLoading] = useState(true)
-  const [authorized, setAuthorized] = useState(false)
+  const { ready, authenticated, getAccessToken, user } = usePrivy()
+  const { search } = useLocation()
+  const navigate = useNavigate()
+  const scope = authenticated ? user?.id ?? 'pending' : ''
+  const cached = scope ? opportunityCache.get(scope) : undefined
+  const [opportunities, setOpportunities] = useState<Opportunity[]>(() => cached ?? [])
+  const [loading, setLoading] = useState(() => !cached)
+  const [authorized, setAuthorized] = useState(() => Boolean(cached))
+  const [historyExpanded, setHistoryExpanded] = useState(false)
   const earnTo = useStreamPayPath('/funding')
+  const fundingTo = useStreamPayPath('/funding?view=funding')
   const [error, setError] = useState('')
-  const [selectedId, setSelectedId] = useState('')
+  const selectedId = new URLSearchParams(search).get('position') || ''
   const loadSequence = useRef(0)
 
   const load = useCallback(async (silent = false) => {
@@ -80,25 +89,34 @@ export default function StreamPayFundingDesk() {
     if (!authenticated) { setAuthorized(false); setLoading(false); return }
     const sequence = ++loadSequence.current
     if (!silent) {
-      setLoading(true)
-      setAuthorized(false)
+      setLoading(!opportunityCache.has(scope))
+      if (!opportunityCache.has(scope)) setAuthorized(false)
       setError('')
     }
     try {
       const token = await getAccessToken()
       if (!token) throw new Error('Sign in again to open funding.')
-      const response = await fetch(API, { cache: 'no-store', headers: { authorization: `Bearer ${token}` } })
+      const response = await fetchWithTimeout(API, { cache: 'no-store', headers: { authorization: `Bearer ${token}` } })
       const body = await response.json().catch(() => ({})) as { opportunities?: Opportunity[]; error?: string }
       if (!response.ok) throw new Error(body.error || 'Funding requests could not be loaded.')
       if (sequence !== loadSequence.current) return
       setAuthorized(true)
-      setOpportunities(body.opportunities ?? [])
+      const next = body.opportunities ?? []
+      setOpportunities(current => {
+        const stable = reconcileFundingPositions(current, next)
+        opportunityCache.set(scope, stable)
+        return stable
+      })
     } catch (reason) {
       if (!silent && sequence === loadSequence.current) setError(reason instanceof Error ? reason.message : 'Funding requests could not be loaded.')
     } finally {
       if (!silent && sequence === loadSequence.current) setLoading(false)
     }
-  }, [authenticated, getAccessToken])
+  }, [authenticated, getAccessToken, scope])
+
+  useEffect(() => {
+    setOpportunities(scope ? opportunityCache.get(scope) ?? [] : [])
+  }, [scope])
 
   useEffect(() => {
     if (!ready) return
@@ -116,6 +134,7 @@ export default function StreamPayFundingDesk() {
   const positions = useMemo(() => opportunities.filter(item => item.positionStatus !== 'available'), [opportunities])
   const activePositions = useMemo(() => positions.filter(item => item.positionStatus === 'funded' || item.positionStatus === 'released'), [positions])
   const completedPositions = useMemo(() => positions.filter(item => ['settled', 'refunded', 'expired', 'declined'].includes(item.positionStatus)), [positions])
+  const visibleCompletedPositions = historyExpanded ? completedPositions : completedPositions.slice(0, 3)
   const deployedUnits = useMemo(() => activePositions.reduce((total, item) => total + (/^\d+$/.test(item.requestedAdvanceUsdcUnits) ? BigInt(item.requestedAdvanceUsdcUnits) : 0n), 0n).toString(), [activePositions])
   const selected = opportunities.find(item => item.id === selectedId)
 
@@ -133,7 +152,7 @@ export default function StreamPayFundingDesk() {
     </div>
   </section>
 
-  if (selected) return <FundingDetail item={selected} onBack={() => setSelectedId('')} onUpdated={load} />
+  if (selected) return <FundingDetail item={selected} onBack={() => navigate(fundingTo, { replace: true })} onUpdated={load} />
 
   return <section className="stream-screen w-full max-w-md space-y-4 py-5 sm:py-8">
     <div className="flex items-center gap-3">
@@ -149,16 +168,19 @@ export default function StreamPayFundingDesk() {
 
     {!error && <OpportunitySection title="Incoming requests" count={openOffers.length}>
       {openOffers.length > 0
-        ? openOffers.map(item => <OpportunityRow key={item.id} item={item} onOpen={() => setSelectedId(item.id)} />)
+        ? openOffers.map(item => <OpportunityRow key={item.id} item={item} onOpen={() => navigate(`${fundingTo}&position=${encodeURIComponent(item.id)}`)} />)
         : <EmptyState title="No funding requests" detail="Private requests sent to you will appear here." />}
     </OpportunitySection>}
 
     {!error && activePositions.length > 0 && <OpportunitySection title="Active positions" count={activePositions.length}>
-      {activePositions.map(item => <OpportunityRow key={item.id} item={item} onOpen={() => setSelectedId(item.id)} />)}
+      {activePositions.map(item => <OpportunityRow key={item.id} item={item} onOpen={() => navigate(`${fundingTo}&position=${encodeURIComponent(item.id)}`)} />)}
     </OpportunitySection>}
 
     {!error && completedPositions.length > 0 && <OpportunitySection title="History" count={completedPositions.length}>
-      {completedPositions.map(item => <OpportunityRow key={item.id} item={item} onOpen={() => setSelectedId(item.id)} />)}
+      <div className="stream-list-card overflow-hidden">
+        {visibleCompletedPositions.map((item, index) => <OpportunityRow key={item.id} item={item} compact separated={index > 0} onOpen={() => navigate(`${fundingTo}&position=${encodeURIComponent(item.id)}`)} />)}
+        {completedPositions.length > 3 && <button type="button" onClick={() => setHistoryExpanded(value => !value)} className="min-h-11 w-full border-t border-gray-100 px-4 text-center text-[11px] font-black text-blue-600 dark:border-white/[0.07] dark:text-blue-300">{historyExpanded ? 'Show less' : `View all ${completedPositions.length}`}</button>}
+      </div>
     </OpportunitySection>}
 
     <p className="px-1 py-2 text-[9px] leading-4 text-gray-400">{XLAYER_MAINNET ? 'Public test: Arc protection uses test USDC; X Layer advances use real USDC.' : 'Demo mode uses test funds.'}</p>
@@ -172,12 +194,12 @@ function OpportunitySection({ title, count, children }: { title: string; count: 
   </section>
 }
 
-function OpportunityRow({ item, onOpen }: { item: Opportunity; onOpen: () => void }) {
-  return <button type="button" onClick={onOpen} className="stream-card flex min-h-[88px] w-full items-center gap-3 p-4 text-left transition active:scale-[0.99]">
-    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-400/10 dark:text-blue-300"><BanknotesIcon className="h-5 w-5" /></span>
-    <span className="min-w-0 flex-1"><span className="block truncate text-sm font-black text-gray-950 dark:text-white">{item.title}</span><span className="mt-1 block text-[10px] font-semibold text-gray-400">{positionLabel(item.positionStatus)} / {duration(item.durationSeconds)}</span></span>
-    <span className="shrink-0 text-right"><span className="block text-sm font-black tabular-nums text-gray-950 dark:text-white">{usdc(item.requestedAdvanceUsdcUnits)}</span><span className="mt-1 block text-[9px] text-gray-400">{item.maximumAdvanceBps / 100}% limit</span></span>
-    <ChevronRightIcon className="h-4 w-4 shrink-0 text-gray-300" />
+function OpportunityRow({ item, onOpen, compact = false, separated = false }: { item: Opportunity; onOpen: () => void; compact?: boolean; separated?: boolean }) {
+  return <button type="button" onClick={onOpen} className={`${compact ? `flex min-h-[68px] ${separated ? 'border-t border-gray-100 dark:border-white/[0.07]' : ''} px-3 py-2.5` : 'stream-card flex min-h-[82px] p-3.5'} w-full items-center gap-3 text-left transition active:scale-[0.99]`}>
+    <span className={`flex ${compact ? 'h-9 w-9' : 'h-11 w-11'} shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-400/10 dark:text-blue-300`}><BanknotesIcon className="h-4 w-4" /></span>
+    <span className="min-w-0 flex-1"><span className="block truncate text-xs font-black text-gray-950 dark:text-white">{item.title}</span><span className="mt-1 block truncate text-[10px] font-semibold text-gray-400">{positionLabel(item.positionStatus)} ? {duration(item.durationSeconds)}</span></span>
+    <span className="shrink-0 text-right"><span className="block text-xs font-black tabular-nums text-gray-950 dark:text-white">{usdc(item.requestedAdvanceUsdcUnits)}</span><span className="mt-1 block text-[9px] text-gray-400">{item.maximumAdvanceBps / 100}% limit</span></span>
+    {!compact && <ChevronRightIcon className="h-4 w-4 shrink-0 text-gray-300" />}
   </button>
 }
 

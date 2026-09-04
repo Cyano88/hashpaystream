@@ -295,7 +295,7 @@ function validAssessmentResponse(response: ReturnType<typeof safeAssessmentRespo
   )
 }
 
-function providerAssessment(value: Record<string, unknown>) {
+export function providerAssessment(value: Record<string, unknown>) {
   const decision = value.decision && typeof value.decision === 'object' && !Array.isArray(value.decision) ? value.decision as Record<string, unknown> : {}
   const offer = decision.onchainOffer && typeof decision.onchainOffer === 'object' && !Array.isArray(decision.onchainOffer) ? decision.onchainOffer as Record<string, unknown> : undefined
   const message = offer?.message && typeof offer.message === 'object' && !Array.isArray(offer.message) ? offer.message as Record<string, unknown> : undefined

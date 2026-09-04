@@ -53,7 +53,7 @@ type Selection = {
   advanceUsdcUnits: string
   quote?: FeeQuote
   status:
-    'pending' | 'declined' | 'funded' | 'released' | 'refunded' | 'expired'
+    'pending' | 'declined' | 'funded' | 'released' | 'settled' | 'refunded' | 'expired'
 }
 const API = '/api/hashpaystream/v1/upfront/opportunities'
 const EXPECTED_ESCROW = String(
@@ -198,7 +198,7 @@ export default function FundingPartnerPicker({
     void load()
   }, [load])
   useEffect(() => {
-    if (!selection || !['pending', 'funded'].includes(selection.status)) return
+    if (!selection || !['pending', 'funded', 'released', 'settled'].includes(selection.status)) return
     const timer = window.setInterval(() => void load(true), 15_000)
     return () => window.clearInterval(timer)
   }, [load, selection?.status])
@@ -292,7 +292,7 @@ export default function FundingPartnerPicker({
         <div className="h-16 animate-pulse rounded-2xl bg-gray-100 dark:bg-white/[0.05]" />
       </div>
     )
-  if (selection && ['pending', 'funded', 'released'].includes(selection.status))
+  if (selection && ['pending', 'funded', 'released', 'settled'].includes(selection.status))
     return (
       <div className="mt-4 rounded-2xl bg-emerald-50 p-4 text-emerald-900 dark:bg-emerald-400/10 dark:text-emerald-100">
         <div className="flex items-start gap-3">
@@ -303,7 +303,9 @@ export default function FundingPartnerPicker({
                 ? 'Funding request sent'
                 : selection.status === 'funded'
                   ? 'Early pay funded'
-                  : 'Early pay received'}
+                  : selection.status === 'released'
+                    ? 'Early pay received'
+                    : 'Payment complete'}
             </p>
             <p className="mt-1 text-[11px] leading-5 opacity-75">
               {selection.partnerName} /{' '}
@@ -333,6 +335,11 @@ export default function FundingPartnerPicker({
                   Use funds
                 </Link>
               </>
+            )}
+            {selection.status === 'settled' && (
+              <p className="mt-1 text-[10px] opacity-70">
+                The completed agreement payment has been split under the accepted terms.
+              </p>
             )}
           </div>
         </div>

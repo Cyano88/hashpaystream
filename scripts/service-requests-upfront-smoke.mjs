@@ -16,6 +16,9 @@ let ownership
 let upstreamInput
 let payerUpstreamInput
 let agreementEvents
+let assessments
+let partners
+let positionStatus = 'received'
 let v3Enabled = true
 let idSequence = 0
 let upstreamResponse = {
@@ -34,6 +37,9 @@ const handler = createServiceRequestsHandler({
   identity: async () => identity,
   readRequests: async () => requests,
   readEvents: async () => agreementEvents,
+  readAssessments: async () => assessments,
+  readPartners: async () => partners,
+  earlyPayPositionStatus: async () => positionStatus,
   mutateRequests: async (_key, update) => (requests = await update(requests)),
   readAccounts: async () => ({
     schema: 1,
@@ -209,10 +215,75 @@ agreementEvents = {
     activated: {
       event: 'agreement.activated',
       agreementId: 'agr_upfront123456789',
-      createdAt: '2026-08-20T12:05:00.000Z',
+      createdAt: '2026-08-26T13:05:00.000Z',
     },
   },
 }
+const positionId = `0x${'12'.repeat(32)}`
+assessments = {
+  schema: 1,
+  records: {
+    assessment: {
+      ownerReference: 'private-owner-reference',
+      requestHash: 'private-request-hash',
+      agreementId: 'agr_upfront123456789',
+      status: 'completed',
+      createdAt: '2026-08-26T13:01:00.000Z',
+      request: { requestId: offer.body.request.id, agreement: { amountUsdcUnits: '55000000' } },
+      fundingRequest: {
+        settlementVersion: 3,
+        partnerApplicationId: 'partner-1',
+        partnerWalletAddress: '0x3333333333333333333333333333333333333333',
+        advanceUsdcUnits: '11000000',
+        providerSignature: `0x${'44'.repeat(65)}`,
+        status: 'pending',
+        requestedAt: '2026-08-26T13:02:00.000Z',
+        expiresAt: '2026-08-26T14:00:00.000Z',
+        fundingTerms: {
+          message: { offerHash: positionId, nonce: `0x${'55'.repeat(32)}` },
+          signature: `0x${'66'.repeat(65)}`,
+          quote: {
+            advanceUsdcUnits: '11000000',
+            providerRemainderUsdcUnits: '43340000',
+            providerTotalUsdcUnits: '54340000',
+            funderRepaymentUsdcUnits: '11088000',
+            funderProfitUsdcUnits: '88000',
+            platformFeeUsdcUnits: '572000',
+          },
+        },
+      },
+    },
+  },
+}
+partners = { schema: 1, applications: { 'partner-1': { name: 'Verified Partner' } } }
+const originalRequest = requests.requests[offer.body.request.id]
+requests.requests.req_older123456789 = {
+  ...originalRequest,
+  id: 'req_older123456789',
+  agreementId: '',
+  status: 'sent',
+  createdAt: '2026-08-26T13:04:00.000Z',
+  updatedAt: '2026-08-26T13:04:00.000Z',
+}
+const customerRead = await call('GET')
+assert.equal(customerRead.body.requests[0].id, offer.body.request.id)
+assert.deepEqual(customerRead.body.requests[0].earlyPaySettlement, {
+  status: 'received',
+  partnerName: 'Verified Partner',
+  advanceUsdcUnits: '11000000',
+  providerRemainderUsdcUnits: '43340000',
+  providerTotalUsdcUnits: '54340000',
+  funderRepaymentUsdcUnits: '11088000',
+  funderProfitUsdcUnits: '88000',
+  platformFeeUsdcUnits: '572000',
+})
+const serializedSettlement = JSON.stringify(customerRead.body.requests[0].earlyPaySettlement)
+assert.doesNotMatch(serializedSettlement, /signature|nonce|offerHash|wallet|0x/i)
+identity = provider
+assert.deepEqual((await call('GET')).body.requests[0].earlyPaySettlement, customerRead.body.requests[0].earlyPaySettlement)
+identity = { userId: 'attacker', email: 'attacker@example.com' }
+assert.equal((await call('GET')).body.requests.length, 0)
+identity = customer
 const deliveryDecision = await call('POST', {
   action: 'payer_delivery_decision',
   requestId: offer.body.request.id,
@@ -227,6 +298,10 @@ assert.deepEqual(payerUpstreamInput.body, {
   deliveryId: 'opa_1234567890abcdef12345678',
   decision: 'accept',
 })
+agreementEvents.events.completed = { event: 'agreement.completed', agreementId: 'agr_upfront123456789', createdAt: '2026-08-26T13:06:00.000Z' }
+const completedReview = await call('POST', { action: 'payer_review', requestId: offer.body.request.id })
+assert.equal(completedReview.statusCode, 200)
+assert.equal((await call('GET')).body.requests[0].status, 'completed')
 
 v3Enabled = false
 assert.equal((await call('POST', {
