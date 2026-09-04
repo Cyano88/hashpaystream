@@ -48,6 +48,8 @@ export function BrowserRouter({ children }: { children: ReactNode }) {
         return
       }
       const next = `${target.pathname}${target.search}${target.hash}`
+      const current = `${window.location.pathname}${window.location.search}${window.location.hash}`
+      if (next === current) return
       window.history[options?.replace ? 'replaceState' : 'pushState'](null, '', next)
       setLocation(browserLocation())
       window.scrollTo({ top: 0, behavior: 'auto' })
@@ -65,6 +67,10 @@ function useRouter() {
 
 export function useLocation() {
   return useRouter().location
+}
+
+export function useNavigate() {
+  return useRouter().navigate
 }
 
 export function Navigate({ to, replace = false }: { to: string; replace?: boolean }) {
