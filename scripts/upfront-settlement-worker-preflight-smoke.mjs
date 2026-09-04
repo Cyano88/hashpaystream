@@ -26,11 +26,23 @@ for (const requirement of [
   "arcContract: 'ARC_CONTRACT_CHECK_FAILED'",
   'reason instanceof PreflightCheckError',
   'stageFailureCodes[stage]',
+  "ENOTFOUND: 'DATABASE_DNS_FAILED'",
+  "EAI_AGAIN: 'DATABASE_DNS_FAILED'",
+  "ETIMEDOUT: 'DATABASE_CONNECTION_TIMEOUT'",
+  "ENETUNREACH: 'DATABASE_NETWORK_UNREACHABLE'",
+  "ECONNREFUSED: 'DATABASE_CONNECTION_REFUSED'",
+  "ECONNRESET: 'DATABASE_CONNECTION_RESET'",
+  "SELF_SIGNED_CERT_IN_CHAIN: 'DATABASE_TLS_CERTIFICATE_INVALID'",
+  "'28P01': 'DATABASE_AUTHENTICATION_FAILED'",
+  "'3D000': 'DATABASE_NOT_FOUND'",
+  "'53300': 'DATABASE_CAPACITY_EXCEEDED'",
+  'databaseConnectionFailureCodes[errorCode] ?? stageFailureCodes.databaseConnection',
   "signer: 'matched'",
 ]) assert.ok(source.includes(requirement), 'Missing preflight guarantee: ' + requirement)
 
 assert.doesNotMatch(source, /writeContract|sendTransaction|sendRawTransaction/)
 assert.doesNotMatch(source, /console\.(?:log|error)\([^\n]*(?:databaseUrl|repaymentKey|apiKey)/)
 assert.doesNotMatch(source, /reason\.(?:message|stack|cause)/)
+assert.doesNotMatch(source, /console\.(?:log|error)\([^\n]*(?:reason|errorCode|host|hostname)/)
 
 console.log('HashPayStream settlement worker read-only preflight checks passed.')

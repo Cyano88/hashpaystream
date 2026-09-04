@@ -18,6 +18,31 @@ const stageFailureCodes = {
   arcContract: 'ARC_CONTRACT_CHECK_FAILED',
 } as const
 
+const databaseConnectionFailureCodes: Readonly<Record<string, string>> = {
+  ENOTFOUND: 'DATABASE_DNS_FAILED',
+  EAI_AGAIN: 'DATABASE_DNS_FAILED',
+  ETIMEDOUT: 'DATABASE_CONNECTION_TIMEOUT',
+  ESOCKETTIMEDOUT: 'DATABASE_CONNECTION_TIMEOUT',
+  ENETUNREACH: 'DATABASE_NETWORK_UNREACHABLE',
+  EHOSTUNREACH: 'DATABASE_NETWORK_UNREACHABLE',
+  ECONNREFUSED: 'DATABASE_CONNECTION_REFUSED',
+  ECONNRESET: 'DATABASE_CONNECTION_RESET',
+  EPIPE: 'DATABASE_CONNECTION_RESET',
+  DEPTH_ZERO_SELF_SIGNED_CERT: 'DATABASE_TLS_CERTIFICATE_INVALID',
+  SELF_SIGNED_CERT_IN_CHAIN: 'DATABASE_TLS_CERTIFICATE_INVALID',
+  UNABLE_TO_GET_ISSUER_CERT: 'DATABASE_TLS_CERTIFICATE_INVALID',
+  UNABLE_TO_GET_ISSUER_CERT_LOCALLY: 'DATABASE_TLS_CERTIFICATE_INVALID',
+  UNABLE_TO_VERIFY_LEAF_SIGNATURE: 'DATABASE_TLS_CERTIFICATE_INVALID',
+  CERT_HAS_EXPIRED: 'DATABASE_TLS_CERTIFICATE_INVALID',
+  ERR_TLS_CERT_ALTNAME_INVALID: 'DATABASE_TLS_CERTIFICATE_INVALID',
+  '28000': 'DATABASE_AUTHENTICATION_FAILED',
+  '28P01': 'DATABASE_AUTHENTICATION_FAILED',
+  '3D000': 'DATABASE_NOT_FOUND',
+  '53300': 'DATABASE_CAPACITY_EXCEEDED',
+  '53400': 'DATABASE_CAPACITY_EXCEEDED',
+  '57P03': 'DATABASE_CAPACITY_EXCEEDED',
+}
+
 type PreflightStage = keyof typeof stageFailureCodes
 
 class PreflightCheckError extends Error {
@@ -27,7 +52,13 @@ class PreflightCheckError extends Error {
 }
 
 function code(reason: unknown, stage: PreflightStage) {
-  return reason instanceof PreflightCheckError ? reason.errorCode : stageFailureCodes[stage]
+  if (reason instanceof PreflightCheckError) return reason.errorCode
+  if (stage !== 'databaseConnection' || !reason || typeof reason !== 'object') return stageFailureCodes[stage]
+
+  const errorCode = 'code' in reason ? reason.code : undefined
+  return typeof errorCode === 'string'
+    ? databaseConnectionFailureCodes[errorCode] ?? stageFailureCodes.databaseConnection
+    : stageFailureCodes.databaseConnection
 }
 
 function requireCheck(condition: unknown, errorCode: string): asserts condition {
