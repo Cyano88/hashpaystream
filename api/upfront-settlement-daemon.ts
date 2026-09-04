@@ -11,6 +11,7 @@ export type SettlementDaemonDependencies = {
   schedule: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>
   cancel: (timer: ReturnType<typeof setTimeout>) => void
   log: (event: Record<string, unknown>) => void
+  keepScheduledTimerReferenced?: boolean
 }
 
 export type SettlementDaemon = {
@@ -43,7 +44,7 @@ export function createUpfrontSettlementDaemon(
       timer = undefined
       void tick()
     }, delayMs)
-    timer.unref?.()
+    if (!dependencies.keepScheduledTimerReferenced) timer.unref?.()
   }
 
   const execute = async () => {

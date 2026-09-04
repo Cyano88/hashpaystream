@@ -68,6 +68,7 @@ const daemon = createUpfrontSettlementDaemon({
   schedule: (callback, delayMs) => setTimeout(callback, delayMs),
   cancel: timer => clearTimeout(timer),
   log: event => console.log(JSON.stringify(event)),
+  keepScheduledTimerReferenced: true,
 }, intervalMs)
 
 let shuttingDown = false
