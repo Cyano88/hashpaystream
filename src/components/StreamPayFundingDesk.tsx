@@ -10,6 +10,7 @@ import UpfrontFundButton from './UpfrontFundButton'
 import UpfrontLifecycleButton from './UpfrontLifecycleButton'
 import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
 import { reconcileFundingPositions } from '../lib/stableSnapshots'
+import FundingPositionReceipt from './FundingPositionReceipt'
 
 type Opportunity = {
   id: string
@@ -41,7 +42,7 @@ type Opportunity = {
 }
 
 const API = '/api/hashpaystream/v1/upfront/opportunities'
-const XLAYER_MAINNET = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID ?? '1952') === '196'
+const XLAYER_MAINNET = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID ?? '196') === '196'
 
 const opportunityCache = new Map<string, Opportunity[]>()
 function usdc(units: string) {
@@ -210,6 +211,11 @@ function FundingDetail({ item, onBack, onUpdated }: { item: Opportunity; onBack:
   const [declineError, setDeclineError] = useState('')
   const quote = item.fundingTerms?.quote
   const completed = item.positionStatus === 'settled'
+  const escrowAddress = (() => {
+    const domain = item.onchainOffer?.domain
+    if (!domain || typeof domain !== 'object' || Array.isArray(domain)) return undefined
+    return String((domain as Record<string, unknown>).verifyingContract ?? '')
+  })()
   const [detailsOpen, setDetailsOpen] = useState(completed)
   useEffect(() => {
     if (completed) setDetailsOpen(true)
@@ -259,6 +265,16 @@ function FundingDetail({ item, onBack, onUpdated }: { item: Opportunity; onBack:
           <div className="col-span-2"><p className="text-[10px] font-bold text-gray-400">Service provider wallet</p><p className="mt-1 font-mono text-xs font-bold text-gray-700 dark:text-gray-200">{short(item.providerPayoutAddress)}</p></div>
         </div>
       </details>
+
+      {quote && ['funded', 'released', 'settled', 'refunded'].includes(item.positionStatus) && <FundingPositionReceipt receipt={{
+        positionId: item.positionId,
+        status: item.positionStatus as 'funded' | 'released' | 'settled' | 'refunded',
+        escrowAddress,
+        advanceUsdcUnits: item.requestedAdvanceUsdcUnits,
+        repaymentUsdcUnits: item.positionStatus === 'refunded' ? item.requestedAdvanceUsdcUnits : quote.funderRepaymentUsdcUnits,
+        profitUsdcUnits: item.positionStatus === 'refunded' ? '0' : quote.funderProfitUsdcUnits,
+        platformFeeUsdcUnits: quote.platformFeeUsdcUnits,
+      }} />}
 
       {item.positionStatus === 'available'
         ? <div><UpfrontFundButton opportunity={item} onFunded={onUpdated} /><button type="button" disabled={declining} onClick={() => void decline()} className="mt-2 min-h-10 w-full text-xs font-bold text-gray-400 disabled:opacity-50">{declining ? 'Declining…' : 'Decline request'}</button>{declineError && <p className="mt-2 text-[11px] text-rose-600">{declineError}</p>}</div>

@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeftIcon, ArrowTopRightOnSquareIcon, CheckCircleIcon, LockClosedIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, CheckCircleIcon, LockClosedIcon } from '@heroicons/react/24/outline'
 import { useCircleWallet } from '../lib/circleWallet'
 import type { ServiceRequest } from '../lib/serviceRequests'
-import { compactEvidenceReference } from '../lib/stableSnapshots'
+import type { PaylinkReceipt } from '../lib/paymentReceiptPdf'
+import EarlyPaySettlementSummary from './EarlyPaySettlementSummary'
+import SubmittedWorkLink from './SubmittedWorkLink'
+import UnifiedReceipt from './UnifiedReceipt'
 
 type FundingAttempt = {
   status: 'awaiting_approval' | 'approval_submitted' | 'ready_to_activate' | 'activation_submitted' | 'active' | 'approval_failed' | 'activation_failed' | 'reconciliation_failed'
@@ -28,6 +31,7 @@ type FundingReview = {
     action?: { action: 'cancel' | 'refund'; status: string; transactionHash?: string | null } | null
   } | null
   delivery?: DeliveryReview | null
+  receipt?: PaylinkReceipt | null
 }
 
 type FundingAction = { ok: true; attempt: FundingAttempt; challengeId?: string; pending?: boolean; recovered?: boolean }
@@ -40,6 +44,7 @@ function reconcileFundingReview(current: FundingReview | null, incoming: Funding
     ...incoming,
     attempt: incoming.attempt ?? current.attempt,
     delivery: incoming.delivery ?? current.delivery,
+    receipt: incoming.receipt ?? current.receipt,
   }
 }
 
@@ -298,6 +303,7 @@ export default function StreamPayFundRequest({ item, onBack, payer, onFunded }: 
         </div>
         <p className="shrink-0 text-base font-black">{review?.agreement.amount ?? terms.amount} USDC</p>
       </div>
+      <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.12em] text-gray-400">Your role: Customer</p>
       <div className="mt-5 flex items-center gap-3 rounded-2xl bg-gray-50 px-4 py-3 dark:bg-white/[0.04]">
         <LockClosedIcon className="h-5 w-5 text-blue-600" />
         <div>
@@ -313,7 +319,9 @@ export default function StreamPayFundRequest({ item, onBack, payer, onFunded }: 
       {!review && !visibleError && <div className="mt-5 h-12 animate-pulse rounded-full bg-gray-100 dark:bg-white/[0.06]" />}
       {visibleError && (!review || wallet.state === 'error') && <button onClick={() => { setError(''); setReviewRetry(value => value + 1); if (wallet.state === 'error') void wallet.reconnect() }} className="mt-4 min-h-11 w-full rounded-full border border-gray-200 text-xs font-bold dark:border-white/10">Try again</button>}
       {review && expired && <button disabled={busy || refundPending || refundSubmitted} onClick={() => void refund()} className="mt-5 min-h-12 w-full rounded-full bg-gray-950 text-sm font-bold text-white disabled:opacity-45 dark:bg-white dark:text-gray-950">{busy ? 'Opening Circle...' : refundPending || refundSubmitted ? 'Confirming return...' : 'Return remaining USDC'}</button>}
-      {review && active && delivery && <DeliveryPanel delivery={delivery} busy={busy} confirming={deliveryConfirming} issueMode={issueMode} issueText={issueText} onIssueMode={setIssueMode} onIssueText={setIssueText} onDecision={decideDelivery} />}
+      {review && delivery && (active || completed) && <DeliveryPanel delivery={delivery} busy={busy} confirming={deliveryConfirming} issueMode={issueMode} issueText={issueText} onIssueMode={setIssueMode} onIssueText={setIssueText} onDecision={decideDelivery} />}
+      {item.earlyPaySettlement && <EarlyPaySettlementSummary settlement={item.earlyPaySettlement} />}
+      {review?.receipt && (completed || refunded) && <UnifiedReceipt receipt={review.receipt} className="mt-5" />}
       {review && !completed && !refunded && !expired && !(active && delivery) && <button disabled={busy || active || pending} onClick={() => void confirm()} className="mt-5 min-h-12 w-full rounded-full bg-gray-950 text-sm font-bold text-white disabled:opacity-45 dark:bg-white dark:text-gray-950">{busy ? 'Please wait...' : actionLabel}</button>}
     </div>
   </section>
@@ -344,10 +352,7 @@ function DeliveryPanel({ delivery, busy, confirming, issueMode, issueText, onIss
     {reviewable && <>
       <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{delivery.deliveryNote}</p>
     </>}
-    {delivery.evidenceReference && <a href={delivery.evidenceReference} target="_blank" rel="noreferrer noopener" className="mt-3 flex min-h-10 items-center justify-between rounded-xl bg-gray-50 px-3 text-xs font-bold text-gray-700 dark:bg-white/[0.055] dark:text-gray-200">
-        <span className="min-w-0"><span className="block text-[9px] font-semibold uppercase tracking-[0.12em] text-gray-400">Submitted work</span><span className="mt-0.5 block truncate">{compactEvidenceReference(delivery.evidenceReference)}</span></span>
-        <ArrowTopRightOnSquareIcon className="ml-3 h-4 w-4 shrink-0" />
-      </a>}
+    {delivery.evidenceReference && <SubmittedWorkLink href={delivery.evidenceReference} />}
     {reviewable && <>
       {issueMode ? <div className="mt-3">
         <textarea value={issueText} onChange={event => onIssueText(event.target.value)} maxLength={300} placeholder="What needs to be fixed?" className="h-20 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm outline-none dark:border-white/10 dark:bg-white/[0.04]" />

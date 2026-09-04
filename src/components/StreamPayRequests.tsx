@@ -14,6 +14,7 @@ import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
 import { StreamSelect } from './ui/StreamSelect'
 import StreamPayFundRequest from './StreamPayFundRequest'
 import { upfrontSettlementV3Enabled } from '../lib/upfrontChains'
+import EarlyPaySettlementSummary from './EarlyPaySettlementSummary'
 
 type Tab = 'received' | 'sent'
 const inputClass =
@@ -234,7 +235,7 @@ function RequestListRow({
   const terms =
     item.terms.find((value) => value.version === item.activeVersion) ??
     item.terms[item.terms.length - 1]
-  const counterpart = item.role === 'customer' ? 'Service provider' : 'Customer'
+  const roleLabel = item.role === 'customer' ? 'Requested by you' : 'Work for you'
   return (
     <button
       type="button"
@@ -249,7 +250,7 @@ function RequestListRow({
           {terms.title}
         </span>
         <span className="mt-1 block truncate text-[10px] font-semibold text-gray-400">
-          {statusLabel(item.status, item.role)} {'\u00b7'} {counterpart}
+          {statusLabel(item.status, item.role)} {'\u00b7'} {roleLabel}
         </span>
       </span>
       <span className="shrink-0 text-right">
@@ -300,12 +301,20 @@ function RequestCard({
       <div className="flex min-h-[68px] items-center gap-3 px-4 py-3">
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-extrabold text-gray-950 dark:text-white">{terms.title}</span>
-          <span className="mt-1 block truncate text-[10px] font-semibold text-gray-400">{statusLabel(item.status, item.role)} {'\u00b7'} {item.role === 'customer' ? 'Service provider' : 'Customer'}</span>
+          <span className="mt-1 block truncate text-[10px] font-semibold text-gray-400">{statusLabel(item.status, item.role)} {'\u00b7'} {item.role === 'customer' ? 'Requested by you' : 'Work for you'}</span>
         </span>
         <span className="shrink-0 text-xs font-black tabular-nums">{formatUsdc(terms.amountUsdcUnits)}</span>
       </div>
       {item.earlyPaySettlement && <div className="border-t border-gray-100 px-3 pb-3 dark:border-white/[0.07]"><EarlyPaySettlementSummary settlement={item.earlyPaySettlement} /></div>}
       {providerHasEarlyPay && <ProviderEarlyPayAction item={item} earlyPayTo={earlyPayTo} useFundsTo={useFundsTo} />}
+      {item.agreementId && ['completed', 'refunded'].includes(item.status) && (
+        <Link
+          to={agreementTo}
+          className="flex min-h-11 w-full items-center justify-center border-t border-gray-100 text-xs font-bold text-gray-950 dark:border-white/[0.07] dark:text-white"
+        >
+          Open agreement
+        </Link>
+      )}
       {item.status === 'expired' && item.role === 'customer' && item.payerReviewPath && (
         <button
           type="button"
@@ -326,7 +335,7 @@ function RequestCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap gap-1.5">
             <span className="rounded-full bg-blue-50 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-blue-600 dark:bg-blue-400/10">
-              {item.role === 'customer' ? 'Service provider' : 'Customer'}
+              {item.role === 'customer' ? 'Requested by you' : 'Work for you'}
             </span>
             {terms.upfrontRequested && (
               <span className="rounded-full bg-amber-50 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">
@@ -429,40 +438,6 @@ function ProviderEarlyPayAction({ item, earlyPayTo, useFundsTo }: { item: Servic
   if (status === 'requested' || status === 'ready_to_release') return <Link to={earlyPayTo} className="mt-4 flex min-h-11 w-full items-center justify-center rounded-full bg-gray-950 text-xs font-bold text-white dark:bg-white dark:text-gray-950">View early pay</Link>
   if (item.status !== 'funded') return null
   return <Link to={earlyPayTo} className="mt-4 flex min-h-11 w-full items-center justify-center rounded-full bg-gray-950 text-xs font-bold text-white dark:bg-white dark:text-gray-950">Check early pay</Link>
-}
-
-function EarlyPaySettlementSummary({ settlement }: { settlement: NonNullable<ServiceRequest['earlyPaySettlement']> }) {
-  const status = {
-    requested: 'Funding requested',
-    ready_to_release: 'Funding confirmed',
-    received: 'Early payment received',
-    completed: 'Payment completed',
-    refunded: 'Funding refunded',
-  }[settlement.status]
-  return (
-    <details className="group mt-4 rounded-2xl bg-gray-50 px-3.5 py-3 dark:bg-white/[0.04]">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
-        <span className="min-w-0">
-          <span className="block text-[11px] font-black text-gray-950 dark:text-white">Payment split</span>
-          <span className="mt-0.5 block truncate text-[10px] text-gray-400">{settlement.partnerName} {'\u00b7'} {status}</span>
-        </span>
-        <span className="shrink-0 text-[10px] font-bold text-gray-400 group-open:hidden">View</span>
-        <span className="hidden shrink-0 text-[10px] font-bold text-gray-400 group-open:inline">Hide</span>
-      </summary>
-      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-gray-200 pt-3 dark:border-white/[0.08]">
-        <SettlementMetric label="Early payment" value={settlement.advanceUsdcUnits} />
-        <SettlementMetric label="Provider receives later" value={settlement.providerRemainderUsdcUnits} />
-        <SettlementMetric label="Provider total" value={settlement.providerTotalUsdcUnits} />
-        <SettlementMetric label="Partner receives" value={settlement.funderRepaymentUsdcUnits} />
-        <SettlementMetric label="Partner earns" value={settlement.funderProfitUsdcUnits} />
-        <SettlementMetric label="HashPayStream fee" value={settlement.platformFeeUsdcUnits} />
-      </div>
-    </details>
-  )
-}
-
-function SettlementMetric({ label, value }: { label: string; value: string }) {
-  return <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-[0.08em] text-gray-400">{label}</p><p className="mt-1 truncate text-[11px] font-black tabular-nums text-gray-950 dark:text-white">{formatUsdc(value)}</p></div>
 }
 
 function statusLabel(

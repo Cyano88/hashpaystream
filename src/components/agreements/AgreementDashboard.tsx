@@ -12,6 +12,8 @@ import { StreamPayLoadingState } from '../ui/StreamPayLoadingState'
 import StreamPayFundRequest from '../StreamPayFundRequest'
 import { useServiceRequests, type ServiceRequest } from '../../lib/serviceRequests'
 import { reconcileUpdatedSnapshots } from '../../lib/stableSnapshots'
+import EarlyPaySettlementSummary from '../EarlyPaySettlementSummary'
+import SubmittedWorkLink from '../SubmittedWorkLink'
 
 const AGREEMENTS_API = '/api/hashpaystream/v1/human/agreements'
 const UPFRONT_AGREEMENTS_API = '/api/hashpaystream/v1/human/upfront/agreements'
@@ -85,7 +87,7 @@ const STATUS_LABEL: Record<AgreementStatus, string> = {
   expired: 'Refund available',
   completed: 'Completed',
   cancelled: 'Cancelled',
-  refunded: 'Refunded',
+  refunded: 'USDC returned',
 }
 
 const EVENT_LABEL: Record<string, string> = {
@@ -128,6 +130,57 @@ function formatDate(value?: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return 'Not started'
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+}
+
+function formatListDate(value?: string) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(date)
+}
+
+function agreementListDate(agreement: Agreement) {
+  const eventName = agreement.status === 'active'
+    ? 'agreement.activated'
+    : agreement.status === 'completed'
+      ? 'agreement.completed'
+      : agreement.status === 'refunded'
+        ? 'agreement.refunded'
+        : agreement.status === 'expired'
+          ? 'agreement.expired'
+          : agreement.status === 'cancelled'
+            ? 'agreement.cancelled'
+        : ''
+  const event = eventName ? agreement.timeline?.find(item => item.event === eventName) : undefined
+  const prefix = agreement.status === 'active'
+    ? 'Started'
+    : agreement.status === 'completed'
+      ? 'Completed'
+      : agreement.status === 'refunded'
+        ? 'Returned'
+        : agreement.status === 'expired'
+          ? 'Ended'
+          : agreement.status === 'cancelled'
+            ? 'Ended'
+        : 'Created'
+  const date = formatListDate(event?.createdAt || event?.receivedAt || agreement.updatedAt)
+  return date ? `${prefix} ${date}` : ''
+}
+
+function requestListDate(request: ServiceRequest) {
+  const status = customerAgreementStatus(request)
+  const fundedEvent = status === 'active' ? request.events.find(event => event.type === 'request.funded') : undefined
+  const prefix = status === 'active'
+    ? 'Started'
+    : status === 'completed'
+      ? 'Completed'
+      : status === 'refunded'
+        ? 'Returned'
+        : status === 'expired' || status === 'cancelled'
+          ? 'Ended'
+        : 'Created'
+  const date = formatListDate(fundedEvent?.createdAt || request.updatedAt || request.createdAt)
+  return date ? `${prefix} ${date}` : ''
 }
 
 function shortAddress(value?: string) {
@@ -185,6 +238,8 @@ function releaseRequestForCurrentStep(agreement?: Agreement) {
 function StatusBadge({ status }: { status: AgreementStatus }) {
   const tone = status === 'active'
     ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300'
+    : status === 'completed'
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300'
     : status === 'expired'
       ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300'
       : 'border-gray-200 bg-gray-50 text-gray-600 dark:border-white/10 dark:bg-white/[0.05] dark:text-gray-300'
@@ -216,6 +271,7 @@ export default function AgreementDashboard() {
   const [evidenceReference, setEvidenceReference] = useState('')
   const [requestingRelease, setRequestingRelease] = useState(false)
   const [showAllActivity, setShowAllActivity] = useState(false)
+  const [visibleAgreementCount, setVisibleAgreementCount] = useState(10)
   const loadSequence = useRef(0)
   const splashState = useHashPayStreamSessionSplash(!authenticated)
   useEffect(() => {
@@ -303,10 +359,11 @@ export default function AgreementDashboard() {
       ? ['awaiting_start', 'active', 'expired'].includes(status)
       : ['completed', 'cancelled', 'refunded'].includes(status)
   }), [customerAgreements, filter])
-  const visibleRows = useMemo(() => [
+  const sortedRows = useMemo(() => [
     ...filteredCustomerAgreements.map(request => ({ kind: 'customer' as const, id: request.id, updatedAt: request.updatedAt, request })),
     ...filteredAgreements.map(agreement => ({ kind: 'agreement' as const, id: agreement.id, updatedAt: agreement.updatedAt, agreement })),
   ].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)), [filteredAgreements, filteredCustomerAgreements])
+  const visibleRows = useMemo(() => sortedRows.slice(0, visibleAgreementCount), [sortedRows, visibleAgreementCount])
   const activeCustomer = useMemo(
     () => customerAgreements.find(request => request.agreementId === activeId),
     [activeId, customerAgreements],
@@ -315,9 +372,11 @@ export default function AgreementDashboard() {
     () => activeCustomer ? undefined : agreements.find(item => item.id === activeId) ?? (!activeId ? filteredAgreements[0] : undefined),
     [activeCustomer, activeId, agreements, filteredAgreements],
   )
+  const activeServiceRequest = active ? requests.requests.find(request => request.agreementId === active.id) : undefined
 
   function chooseFilter(next: AgreementFilter) {
     setFilter(next)
+    setVisibleAgreementCount(10)
     setActiveId('')
     setMobileDetailOpen(false)
     navigate(agreementsTo, { replace: true })
@@ -387,6 +446,7 @@ export default function AgreementDashboard() {
   }
 
   function closeMobileAgreement() {
+    setActiveId('')
     setMobileDetailOpen(false)
     navigate(agreementsTo, { replace: true })
     window.scrollTo({ top: 0, behavior: 'auto' })
@@ -469,7 +529,8 @@ export default function AgreementDashboard() {
                 <CustomerAgreementCard
                   key={`customer:${row.id}`}
                   request={row.request}
-                  selected={activeCustomer?.id === row.request.id}
+                  selected={activeId === row.request.agreementId}
+                  dateLabel={requestListDate(row.request)}
                   onSelect={() => selectAgreement(row.request.agreementId)}
                 />
               ) : (
@@ -477,23 +538,27 @@ export default function AgreementDashboard() {
                   type="button"
                   key={`agreement:${row.id}`}
                   onClick={() => selectAgreement(row.agreement.id)}
-                  className={`w-full rounded-2xl border p-4 text-left transition-colors ${active?.id === row.agreement.id
-                    ? 'border-gray-950 bg-gray-950 text-white dark:border-white dark:bg-white dark:text-gray-950'
+                  className={`w-full rounded-2xl border p-4 text-left transition-colors ${activeId === row.agreement.id
+                    ? 'border-blue-300 bg-blue-50/70 text-gray-950 ring-1 ring-blue-100 dark:border-blue-400/30 dark:bg-blue-400/[0.08] dark:text-white dark:ring-blue-400/10'
                     : 'border-gray-200 bg-white text-gray-950 hover:border-gray-300 dark:border-white/10 dark:bg-[#18181b] dark:text-white dark:hover:border-white/20'}`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold">{row.agreement.title || 'Arc agreement'}</p>
-                      <p className={`mt-1 text-xs ${active?.id === row.agreement.id ? 'text-white/60 dark:text-gray-500' : 'text-gray-400'}`}>
-                        {row.agreement.chain ? formatUsdc(row.agreement.chain.amountUsdcUnits) : `${row.agreement.amount || '0'} USDC`} {'\u00b7'} {templateLabel(row.agreement.template)}
+                      <p className="mt-1 text-xs text-gray-400">
+                        {row.agreement.chain ? formatUsdc(row.agreement.chain.amountUsdcUnits) : `${row.agreement.amount || '0'} USDC`} {'\u00b7'} Work for you
                       </p>
                     </div>
-                    <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-semibold ${active?.id === row.agreement.id
-                      ? 'bg-white/10 text-white dark:bg-gray-100 dark:text-gray-700'
-                      : 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400'}`}>{STATUS_LABEL[row.agreement.status]}</span>
+                    <StatusBadge status={row.agreement.status} />
                   </div>
+                  {agreementListDate(row.agreement) && <p className="mt-2 text-[10px] font-medium text-gray-400">{agreementListDate(row.agreement)}</p>}
                 </button>
               ))}
+              {visibleAgreementCount < sortedRows.length && (
+                <button type="button" onClick={() => setVisibleAgreementCount(count => count + 10)} className="min-h-11 w-full rounded-full text-xs font-bold text-blue-600 transition active:opacity-60 dark:text-blue-300">
+                  Show more
+                </button>
+              )}
               {filteredAgreements.length === 0 && filteredCustomerAgreements.length === 0 && <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-5 py-9 text-center text-xs font-medium text-gray-400 dark:border-white/10 dark:bg-white/[0.025]">No agreements in this section.</div>}
             </div>
 
@@ -515,6 +580,7 @@ export default function AgreementDashboard() {
                 </button>
                 <div>
                   <StatusBadge status={active.status} />
+                  <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.12em] text-gray-400">Your role: Service provider</p>
                   <h2 className="mt-4 text-xl font-semibold tracking-tight text-gray-950 dark:text-white">{active.title || 'Arc agreement'}</h2>
                   {active.description && <p className="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">{active.description}</p>}
                 </div>
@@ -538,6 +604,9 @@ export default function AgreementDashboard() {
                   </div>
                   {active.chain?.escrow && <a href={`https://testnet.arcscan.app/address/${active.chain.escrow}`} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 hover:text-gray-950 dark:text-gray-300 dark:hover:text-white">View on Arc Explorer<ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" /></a>}
                 </details>
+
+                {activeServiceRequest?.earlyPaySettlement && <EarlyPaySettlementSummary settlement={activeServiceRequest.earlyPaySettlement} />}
+                {active.releaseRequest?.evidenceReference && <SubmittedWorkLink href={active.releaseRequest.evidenceReference} />}
 
                 {active.receipt ? (
                   <UnifiedReceipt receipt={active.receipt} className="mt-5" />
@@ -719,9 +788,10 @@ function Detail({ label, value }: { label: string; value: string }) {
   )
 }
 
-function CustomerAgreementCard({ request, selected, onSelect }: {
+function CustomerAgreementCard({ request, selected, dateLabel, onSelect }: {
   request: ServiceRequest
   selected: boolean
+  dateLabel: string
   onSelect: () => void
 }) {
   const terms = customerAgreementTerms(request)
@@ -731,20 +801,19 @@ function CustomerAgreementCard({ request, selected, onSelect }: {
       type="button"
       onClick={onSelect}
       className={`w-full rounded-2xl border p-4 text-left transition-colors ${selected
-        ? 'border-gray-950 bg-gray-950 text-white dark:border-white dark:bg-white dark:text-gray-950'
+        ? 'border-blue-300 bg-blue-50/70 text-gray-950 ring-1 ring-blue-100 dark:border-blue-400/30 dark:bg-blue-400/[0.08] dark:text-white dark:ring-blue-400/10'
         : 'border-gray-200 bg-white text-gray-950 hover:border-gray-300 dark:border-white/10 dark:bg-[#18181b] dark:text-white dark:hover:border-white/20'}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{terms.title}</p>
-          <p className={`mt-1 text-xs ${selected ? 'text-white/60 dark:text-gray-500' : 'text-gray-400'}`}>
-            {formatUsdc(terms.amountUsdcUnits)} · One release
+          <p className="mt-1 text-xs text-gray-400">
+            {formatUsdc(terms.amountUsdcUnits)} {'\u00b7'} Requested by you
           </p>
         </div>
-        <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-semibold ${selected
-          ? 'bg-white/10 text-white dark:bg-gray-100 dark:text-gray-700'
-          : 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400'}`}>{STATUS_LABEL[status]}</span>
+        <StatusBadge status={status} />
       </div>
+      {dateLabel && <p className="mt-2 text-[10px] font-medium text-gray-400">{dateLabel}</p>}
     </button>
   )
 }
