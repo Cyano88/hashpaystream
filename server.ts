@@ -17,7 +17,6 @@ import upfrontAgreementGateway from './api/upfront-agreement-gateway.js'
 import { createHashPayStreamUpfrontArcWebhookHandler } from './api/upfront-arc-webhook.js'
 import upfrontProtection from './api/upfront-protection.js'
 import upfrontOpportunities from './api/upfront-opportunities.js'
-import { startUpfrontSettlementWorker } from './api/upfront-settlement-worker.js'
 import fundingPartners from './api/funding-partners.js'
 import streamAccounts from './api/stream-accounts.js'
 import circleWallet from './api/circle-wallet.js'
@@ -38,10 +37,7 @@ const readiness = createHashPayStreamReadinessHandler({ isDraining: () => draini
 const circleMarketplaceValidation = createCircleMarketplaceValidationHandler()
 const circleMarketplacePayment = createCircleMarketplacePaymentHandler()
 const circleMarketplaceResource = createCircleMarketplaceResourceHandler()
-const upfrontSettlementWorker = startUpfrontSettlementWorker()
-const upfrontArcAgreementWebhook = createHashPayStreamUpfrontArcWebhookHandler({
-  triggerSettlement: upfrontSettlementWorker.trigger,
-})
+const upfrontArcAgreementWebhook = createHashPayStreamUpfrontArcWebhookHandler()
 
 app.set('trust proxy', 1)
 app.disable('x-powered-by')
@@ -209,7 +205,7 @@ app.get('*', (_req, res) => {
 const server = app.listen(port, () => console.log(`HashPayStream running on port ${port}`))
 const shutdown = createHashPayStreamShutdown({
   server,
-  onDraining: () => { draining = true; upfrontSettlementWorker.stop() },
+  onDraining: () => { draining = true },
   schedule: setTimeout,
   cancel: clearTimeout,
   exit: code => process.exit(code),
