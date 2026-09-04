@@ -33,7 +33,7 @@ const arcTestnet = defineChain({
   testnet: true,
 })
 
-type Config = {
+export type UpfrontSettlementWorkerConfig = {
   enabled: boolean
   storeKey: string
   baseUrl: string
@@ -54,11 +54,11 @@ export type UpfrontSettlementWorkerDependencies = {
   now: () => Date
   readStore: (key: string) => Promise<UpfrontAssessmentStore | undefined>
   markSettled: (key: string, recordKey: string) => Promise<void>
-  agreement: (id: string, config: Config) => Promise<AuthoritativeArcAgreement>
-  position: (id: Hex, config: Config) => Promise<WorkerPosition>
-  isSettled: (agreementHash: Hex, config: Config) => Promise<boolean>
+  agreement: (id: string, config: UpfrontSettlementWorkerConfig) => Promise<AuthoritativeArcAgreement>
+  position: (id: Hex, config: UpfrontSettlementWorkerConfig) => Promise<WorkerPosition>
+  isSettled: (agreementHash: Hex, config: UpfrontSettlementWorkerConfig) => Promise<boolean>
   sign: typeof signSplitSettlement
-  submit: (signed: SignedSettlement, config: Config) => Promise<void>
+  submit: (signed: SignedSettlement, config: UpfrontSettlementWorkerConfig) => Promise<void>
   log: (event: Record<string, unknown>) => void
 }
 
@@ -67,7 +67,7 @@ function address(value: unknown, label: string) { const text = clean(value, 42);
 function privateKey(value: unknown, label: string) { const text = clean(value, 66); if (!/^0x[a-fA-F0-9]{64}$/.test(text)) throw new Error(label); return text as Hex }
 function url(value: unknown, label: string) { let parsed: URL; try { parsed = new URL(clean(value, 300)) } catch { throw new Error(label) }; if (parsed.protocol !== 'https:' || parsed.username || parsed.password) throw new Error(label); return parsed.toString() }
 
-function configuration(env: NodeJS.ProcessEnv): Config {
+export function upfrontSettlementWorkerConfiguration(env: NodeJS.ProcessEnv): UpfrontSettlementWorkerConfig {
   const enabled = clean(env.HASHPAYSTREAM_UPFRONT_AUTO_SETTLEMENT_ENABLED, 10).toLowerCase() === 'true'
   if (!enabled) return { enabled, storeKey: '', baseUrl: '', apiKey: '', xLayerRpcUrl: '', escrow: '0x0000000000000000000000000000000000000000', arcRpcUrl: '', router: '0x0000000000000000000000000000000000000000', repaymentKey: ZERO_HASH as Hex, repaymentSigner: '0x0000000000000000000000000000000000000000' }
   const repaymentKey = privateKey(env.HASHPAYSTREAM_UPFRONT_REPAYMENT_PRIVATE_KEY, 'REPAYMENT_KEY_INVALID')
@@ -89,25 +89,25 @@ function configuration(env: NodeJS.ProcessEnv): Config {
   }
 }
 
-async function agreement(id: string, config: Config) {
+async function agreement(id: string, config: UpfrontSettlementWorkerConfig) {
   const response = await fetch(`${config.baseUrl}/api/v2/agreements?id=${encodeURIComponent(id)}`, { cache: 'no-store', headers: { 'x-api-key': config.apiKey, accept: 'application/json' } })
   const body = await response.json().catch(() => ({})) as { agreement?: AuthoritativeArcAgreement }
   if (!response.ok || !body.agreement) throw new Error('AGREEMENT_UNAVAILABLE')
   return body.agreement
 }
 
-async function position(id: Hex, config: Config): Promise<WorkerPosition> {
+async function position(id: Hex, config: UpfrontSettlementWorkerConfig): Promise<WorkerPosition> {
   const value = await createPublicClient({ transport: http(config.xLayerRpcUrl) }).readContract({ address: config.escrow, abi: POSITION_ABI, functionName: 'positions', args: [id] })
   const status = value[15] === 1 ? 'Funded' : value[15] === 2 ? 'Released' : value[15] === 3 ? 'Refunded' : undefined
   if (!status) throw new Error('POSITION_UNAVAILABLE')
   return { positionId: id, funder: value[0], repaymentRecipient: value[1], provider: value[2], providerArcRecipient: value[3], platformTreasury: value[4], termsHash: value[6], fundingTermsHash: value[7], intelligenceCommitment: value[8], arcAgreementHash: value[9], protectedAmount: value[10].toString(), advanceAmount: value[11].toString(), funderRepaymentAmount: value[12].toString(), platformFeeAmount: value[13].toString(), protectionDeadline: Number(value[14]), status }
 }
 
-async function isSettled(agreementHash: Hex, config: Config) {
+async function isSettled(agreementHash: Hex, config: UpfrontSettlementWorkerConfig) {
   return createPublicClient({ chain: arcTestnet, transport: http(config.arcRpcUrl) }).readContract({ address: config.router, abi: ROUTER_ABI, functionName: 'settledAgreements', args: [agreementHash] })
 }
 
-async function submit(signed: SignedSettlement, config: Config) {
+async function submit(signed: SignedSettlement, config: UpfrontSettlementWorkerConfig) {
   const account = privateKeyToAccount(config.repaymentKey)
   const client = createPublicClient({ chain: arcTestnet, transport: http(config.arcRpcUrl) })
   const raw = signed.message
@@ -158,8 +158,8 @@ function errorCode(reason: unknown) {
 
 export async function runUpfrontSettlementPass(overrides: Partial<UpfrontSettlementWorkerDependencies> = {}): Promise<SettlementPassResult> {
   const dependencies = { ...defaults, ...overrides }
-  let config: Config
-  try { config = configuration(dependencies.env()) } catch (reason) { return { eligible: 0, settled: 0, alreadySettled: 0, deferred: 1, codes: [errorCode(reason)] } }
+  let config: UpfrontSettlementWorkerConfig
+  try { config = upfrontSettlementWorkerConfiguration(dependencies.env()) } catch (reason) { return { eligible: 0, settled: 0, alreadySettled: 0, deferred: 1, codes: [errorCode(reason)] } }
   if (!config.enabled) return { eligible: 0, settled: 0, alreadySettled: 0, deferred: 0, codes: [] }
   const result: SettlementPassResult = { eligible: 0, settled: 0, alreadySettled: 0, deferred: 0, codes: [] }
   try {
