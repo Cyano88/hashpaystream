@@ -1,0 +1,35 @@
+[Unit]
+Description=HashPayStream isolated settlement worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hashpaystream
+Group=hashpaystream
+WorkingDirectory=/opt/hashpaystream-worker/app
+Environment=HOME=/home/hashpaystream
+Environment=PATH=/opt/hashpaystream-worker/node/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=/etc/hashpaystream-worker/worker.env
+ExecStart=/opt/hashpaystream-worker/node/bin/node --import tsx scripts/upfront-settlement-daemon.ts
+Restart=always
+RestartSec=5
+TimeoutStopSec=45
+UMask=0077
+NoNewPrivileges=true
+PrivateDevices=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+AmbientCapabilities=
+ReadWritePaths=/var/lib/hashpaystream-worker
+
+[Install]
+WantedBy=multi-user.target
