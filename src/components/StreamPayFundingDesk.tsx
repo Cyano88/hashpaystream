@@ -30,6 +30,7 @@ type Opportunity = {
       funderRepaymentUsdcUnits: string
       platformFeeUsdcUnits: string
       providerRemainderUsdcUnits: string
+      providerTotalUsdcUnits: string
     }
   }
   providerSignature?: string
@@ -197,7 +198,7 @@ function OpportunitySection({ title, count, children }: { title: string; count: 
 function OpportunityRow({ item, onOpen, compact = false, separated = false }: { item: Opportunity; onOpen: () => void; compact?: boolean; separated?: boolean }) {
   return <button type="button" onClick={onOpen} className={`${compact ? `flex min-h-[68px] ${separated ? 'border-t border-gray-100 dark:border-white/[0.07]' : ''} px-3 py-2.5` : 'stream-card flex min-h-[82px] p-3.5'} w-full items-center gap-3 text-left transition active:scale-[0.99]`}>
     <span className={`flex ${compact ? 'h-9 w-9' : 'h-11 w-11'} shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-400/10 dark:text-blue-300`}><BanknotesIcon className="h-4 w-4" /></span>
-    <span className="min-w-0 flex-1"><span className="block truncate text-xs font-black text-gray-950 dark:text-white">{item.title}</span><span className="mt-1 block truncate text-[10px] font-semibold text-gray-400">{positionLabel(item.positionStatus)} ? {duration(item.durationSeconds)}</span></span>
+    <span className="min-w-0 flex-1"><span className="block truncate text-xs font-black text-gray-950 dark:text-white">{item.title}</span><span className="mt-1 block truncate text-[10px] font-semibold text-gray-400">{positionLabel(item.positionStatus)} {'\u00b7'} {duration(item.durationSeconds)}</span></span>
     <span className="shrink-0 text-right"><span className="block text-xs font-black tabular-nums text-gray-950 dark:text-white">{usdc(item.requestedAdvanceUsdcUnits)}</span><span className="mt-1 block text-[9px] text-gray-400">{item.maximumAdvanceBps / 100}% limit</span></span>
     {!compact && <ChevronRightIcon className="h-4 w-4 shrink-0 text-gray-300" />}
   </button>
@@ -208,6 +209,11 @@ function FundingDetail({ item, onBack, onUpdated }: { item: Opportunity; onBack:
   const [declining, setDeclining] = useState(false)
   const [declineError, setDeclineError] = useState('')
   const quote = item.fundingTerms?.quote
+  const completed = item.positionStatus === 'settled'
+  const [detailsOpen, setDetailsOpen] = useState(completed)
+  useEffect(() => {
+    if (completed) setDetailsOpen(true)
+  }, [completed])
   async function decline() {
     setDeclining(true); setDeclineError('')
     try {
@@ -229,9 +235,9 @@ function FundingDetail({ item, onBack, onUpdated }: { item: Opportunity; onBack:
 
     <article className="stream-card mt-5 p-4">
       <div className="grid grid-cols-3 gap-3 rounded-[22px] bg-zinc-950 px-4 py-4 text-white dark:bg-[#171717]">
-        <SummaryMetric label="You fund" value={usdc(item.requestedAdvanceUsdcUnits)} />
-        <SummaryMetric label="You receive" value={usdc(quote?.funderRepaymentUsdcUnits ?? '0')} />
-        <SummaryMetric label="Your profit" value={usdc(quote?.funderProfitUsdcUnits ?? '0')} accent />
+        <SummaryMetric label={completed ? 'You funded' : 'You fund'} value={usdc(item.requestedAdvanceUsdcUnits)} />
+        <SummaryMetric label={completed ? 'You received' : 'You receive'} value={usdc(quote?.funderRepaymentUsdcUnits ?? '0')} />
+        <SummaryMetric label={completed ? 'Profit earned' : 'Your profit'} value={usdc(quote?.funderProfitUsdcUnits ?? '0')} accent />
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-3 rounded-2xl bg-zinc-50 px-4 py-3 dark:bg-white/[0.035]">
@@ -243,10 +249,12 @@ function FundingDetail({ item, onBack, onUpdated }: { item: Opportunity; onBack:
       <p className="mt-4 text-[11px] leading-5 text-gray-500 dark:text-gray-400">{item.evidenceGrade} evidence · approved up to {item.maximumAdvanceBps / 100}%.</p>
       {item.positionStatus === 'available' && <p className="mt-1 text-[10px] text-gray-400">Expires {new Date(item.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>}
 
-      <details className="mt-4 border-t border-gray-100 pt-3 dark:border-white/[0.07]">
+      <details open={detailsOpen} onToggle={event => setDetailsOpen(event.currentTarget.open)} className="mt-4 border-t border-gray-100 pt-3 dark:border-white/[0.07]">
         <summary className="cursor-pointer text-[11px] font-bold text-gray-500 dark:text-gray-300">Payment details</summary>
         <div className="mt-3 grid grid-cols-2 gap-4 rounded-2xl bg-zinc-50 px-4 py-3 dark:bg-white/[0.035]">
-          <Metric label="Provider receives later" value={usdc(quote?.providerRemainderUsdcUnits ?? '0')} />
+          <Metric label="Provider received early" value={usdc(item.requestedAdvanceUsdcUnits)} />
+          <Metric label={completed ? 'Provider received later' : 'Provider receives later'} value={usdc(quote?.providerRemainderUsdcUnits ?? '0')} />
+          <Metric label="Provider total" value={usdc(quote?.providerTotalUsdcUnits ?? '0')} />
           <Metric label="HashPayStream fee" value={usdc(quote?.platformFeeUsdcUnits ?? '0')} />
           <div className="col-span-2"><p className="text-[10px] font-bold text-gray-400">Service provider wallet</p><p className="mt-1 font-mono text-xs font-bold text-gray-700 dark:text-gray-200">{short(item.providerPayoutAddress)}</p></div>
         </div>
