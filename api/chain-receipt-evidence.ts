@@ -100,6 +100,7 @@ export type ExpectedReceiptEvidence = {
   identityField: 'agreementId' | 'positionId' | 'arcAgreementHash'
   identity: Hex
   expectedBlockNumber?: bigint
+  expectedBlockHash?: Hex
   headBlockNumber: bigint
   minimumConfirmations: number
   eventAmounts: Record<string, string>
@@ -148,6 +149,7 @@ export function verifyConfirmedReceipt(receipt: ConfirmedReceipt, expected: Expe
   if (receipt.status !== 'success') codes.push('TRANSACTION_REVERTED')
   if (!/^0x[a-f0-9]{64}$/i.test(receipt.transactionHash) || !/^0x[a-f0-9]{64}$/i.test(receipt.blockHash)) codes.push('RECEIPT_IDENTITY_INVALID')
   if (expected.expectedBlockNumber !== undefined && receipt.blockNumber !== expected.expectedBlockNumber) codes.push('BLOCK_NUMBER_MISMATCH')
+  if (expected.expectedBlockHash !== undefined && !sameHex(receipt.blockHash, expected.expectedBlockHash)) codes.push('BLOCK_HASH_MISMATCH')
   const confirmations = expected.headBlockNumber >= receipt.blockNumber
     ? expected.headBlockNumber - receipt.blockNumber + 1n
     : 0n

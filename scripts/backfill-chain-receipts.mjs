@@ -1,5 +1,6 @@
+import { firstMatchingBlock, loadTransactionReceipt } from './chain-receipt-rpc.mjs'
 import pg from 'pg'
-import { createPublicClient, fallback, getAddress, http, isAddress, parseAbi } from 'viem'
+import { createPublicClient, decodeEventLog, fallback, getAddress, http, isAddress, parseAbi } from 'viem'
 import { renderDurableStoreConnectionConfig } from '../api/durable-store.ts'
 import { ARC_AGREEMENT_EVENTS, UPFRONT_EVENTS, REPAYMENT_EVENTS, verifyConfirmedReceipt } from '../api/chain-receipt-evidence.ts'
 import { indexVerifiedChainReceipt } from '../api/chain-receipt-index.ts'
@@ -63,7 +64,7 @@ function configuration() {
   const confirmations = Number(process.env.HASHPAYSTREAM_RECEIPT_MIN_CONFIRMATIONS || 12)
   if (!Number.isInteger(confirmations) || confirmations < 2 || confirmations > 10_000) throw new Error('CONFIRMATION_POLICY_INVALID')
   if (Number(process.env.HASHPAYSTREAM_UPFRONT_CHAIN_ID) !== XLAYER_CHAIN_ID) throw new Error('XLAYER_CHAIN_ID_INVALID')
-  return { write, source: source.value, authoritative: authoritative.value, target: target?.value, stores, confirmations, xBlockCache: new Map(),
+  return { write, source: source.value, authoritative: authoritative.value, target: target?.value, stores, confirmations,
     assessmentStore: clean(process.env.HASHPAYSTREAM_UPFRONT_STORE_KEY || 'hashpaystream:upfront-assessments:v1', 160),
     arcRpcs: rpcUrls(process.env.HASHPAYSTREAM_ARC_RECEIPT_RPC_URLS, ['https://rpc.testnet.arc.network', 'https://rpc.blockdaemon.testnet.arc.network', 'https://rpc.drpc.testnet.arc.network', 'https://rpc.quicknode.testnet.arc.network'], 'ARC_RPC_URL_INVALID'),
     xLayerRpcs: rpcUrls(process.env.HASHPAYSTREAM_XLAYER_RECEIPT_RPC_URLS || process.env.HASHPAYSTREAM_XLAYER_RPC_URL, ['https://rpc.xlayer.tech', 'https://xlayerrpc.okx.com'], 'XLAYER_RPC_URL_INVALID'),
@@ -88,9 +89,10 @@ async function loadStores(databaseUrl, keys) {
 }
 
 async function loadAuthoritativeAgreements(databaseUrl) {
-  const keys = ['hashpaylink:arc-agreements:v1', 'hashpaylink:arc-agreement-activation-attempts:v1']
+  const keys = ['hashpaylink:arc-agreements:v1', 'hashpaylink:arc-agreement-activation-attempts:v1', 'hashpaylink:arc-agreement-payer-lifecycle:v1']
   const values = await loadStores(databaseUrl, keys)
   const drafts = object(values.get(keys[0])?.agreements)
+  const payerActions = Object.values(object(values.get(keys[2])?.actions))
   const attempts = Object.values(object(values.get(keys[1])?.attempts))
   const byAgreement = new Map(attempts.map(attempt => [clean(attempt?.agreementId, 100), attempt]))
   return {
@@ -102,7 +104,7 @@ async function loadAuthoritativeAgreements(databaseUrl) {
       const lifecycle = object(attempt.lifecycle)
       const activation = Array.isArray(attempt.transactions) ? attempt.transactions.find(item => item?.stage === 'activation' && item?.status === 'confirmed' && item?.blockNumber) : undefined
       if (!draft.id || draft.partnerId !== attempt.partnerId || !attempt.escrow || !prepared.agreementId || !activation?.blockNumber) throw new Error('AUTHORITATIVE_AGREEMENT_UNAVAILABLE')
-      return { id: draft.id, recipient: draft.recipient, chain: { network: 'arc', chainId: ARC_CHAIN_ID, escrow: attempt.escrow,
+      return { id: draft.id, recipient: draft.recipient, payerActions: payerActions.filter(action => action.agreementId === draft.id && action.partnerId === draft.partnerId && action.status === 'confirmed'), chain: { network: 'arc', chainId: ARC_CHAIN_ID, escrow: attempt.escrow,
         onchainAgreementId: prepared.agreementId, termsHash: prepared.termsHash, amountUsdcUnits: prepared.totalAmount,
         releasedUsdcUnits: lifecycle.releasedAmountUsdcUnits || '0', releaseSteps: Array.isArray(prepared.cumulativeReleaseBps) ? prepared.cumulativeReleaseBps.length : 0,
         activationBlockNumber: activation.blockNumber, observedBlockNumber: lifecycle.observedBlockNumber || attempt.observedBlockNumber || '' } }
@@ -113,11 +115,24 @@ async function loadAuthoritativeAgreements(databaseUrl) {
 function eventAbi(collection, name) { const event = collection.find(item => item.name === name); if (!event) throw new Error('EVENT_ABI_MISSING'); return event }
 function receiptShape(receipt) { return { status: receipt.status, transactionHash: receipt.transactionHash, blockNumber: receipt.blockNumber, blockHash: receipt.blockHash, logs: receipt.logs.map(log => ({ address: log.address, topics: log.topics, data: log.data, logIndex: Number(log.logIndex) })) } }
 
+const receiptProviders = new WeakMap()
+async function transactionReceipt(client, hash) {
+  return loadTransactionReceipt(client, hash, receiptProviders.get(client) || [])
+}
+
+async function verifyCanonicalReceipt(client, transaction, expected) {
+  const block = await client.getBlock({ blockNumber: transaction.blockNumber })
+  if (!block.hash) throw new Error('CANONICAL_BLOCK_UNAVAILABLE')
+  return verifyConfirmedReceipt(receiptShape(transaction), { ...expected, expectedBlockHash: block.hash })
+}
+
 async function exactLog(client, input) {
+  const started = Date.now()
   let logs
   try { logs = await client.getLogs(input) } catch {
     logs = []
     for (let start = input.fromBlock; start <= input.toBlock; start += 9_999n) {
+      if (Date.now() - started > 60000) throw new Error('HISTORICAL_LOG_SCAN_TIMEOUT')
       const toBlock = start + 9_998n < input.toBlock ? start + 9_998n : input.toBlock
       logs.push(...await client.getLogs({ ...input, fromBlock: start, toBlock }))
     }
@@ -159,9 +174,27 @@ async function recoverArc(event, snapshot, client, head, minimumConfirmations) {
   if (!eventName) throw new Error('NON_MONETARY_EVENT')
   const expectedStep = eventName === 'StepReleased' ? Number(source.nextStep) - 1 : undefined
   if (eventName === 'StepReleased' && (!Number.isInteger(expectedStep) || expectedStep < 0)) throw new Error('RELEASE_STEP_INVALID')
-  const log = await exactLog(client, { address: escrow, event: eventAbi(ARC_AGREEMENT_EVENTS, eventName),
-    args: eventName === 'StepReleased' ? { agreementId: state.agreementId, step: expectedStep } : { agreementId: state.agreementId },
-    fromBlock: activationBlock, toBlock: block })
+  const actionName = eventName === 'AgreementRefunded' ? 'refund' : eventName === 'AgreementCancelled' ? 'cancel' : undefined
+  const actionHashes = actionName ? [...new Set((snapshot.payerActions || []).filter(action => action.action === actionName && address(action.escrow) === escrow && action.transactionHash).map(action => hex32(action.transactionHash)))] : []
+  if (actionHashes.length > 1) throw new Error('PAYER_ACTION_TRANSACTION_AMBIGUOUS')
+  let transaction, log
+  if (actionHashes.length === 1) {
+    transaction = await transactionReceipt(client, actionHashes[0])
+    if (transaction.blockNumber < activationBlock || transaction.blockNumber > block) throw new Error('PAYER_ACTION_BLOCK_MISMATCH')
+    const matches = transaction.logs.filter(item => address(item.address) === escrow).flatMap(item => {
+      try {
+        const decoded = decodeEventLog({ abi: [eventAbi(ARC_AGREEMENT_EVENTS, eventName)], topics: item.topics, data: item.data, strict: true })
+        return hex32(decoded.args.agreementId) === hex32(state.agreementId) ? [{ ...item, args: decoded.args }] : []
+      } catch { return [] }
+    })
+    if (matches.length !== 1) throw new Error('PAYER_ACTION_EVENT_MISMATCH')
+    log = matches[0]
+    progress('payer_transaction_recovered')
+  } else {
+    log = await exactLog(client, { address: escrow, event: eventAbi(ARC_AGREEMENT_EVENTS, eventName),
+      args: eventName === 'StepReleased' ? { agreementId: state.agreementId, step: expectedStep } : { agreementId: state.agreementId },
+      fromBlock: activationBlock, toBlock: block })
+  }
   const args = object(log.args)
   let eventAmounts = {}, eventAddresses = {}, eventHashes = {}, transfer
   if (eventName === 'AgreementActivated') {
@@ -184,8 +217,8 @@ async function recoverArc(event, snapshot, client, head, minimumConfirmations) {
     if (eventName === 'AgreementCancelled') { eventAddresses = { actor: address(args.actor) }; eventHashes = { reasonHash: hex32(args.reasonHash, 'REASON_HASH_INVALID') } }
     transfer = { from: escrow, to: state.payer, amountUnits: refund.toString() }
   }
-  const transaction = await client.getTransactionReceipt({ hash: log.transactionHash })
-  return verifyConfirmedReceipt(receiptShape(transaction), { network: 'arc-testnet', chainId: ARC_CHAIN_ID, contractAddress: escrow, tokenAddress: state.token, eventName, identityField: 'agreementId', identity: state.agreementId, expectedBlockNumber: log.blockNumber, headBlockNumber: head, minimumConfirmations, eventAmounts, eventAddresses, eventHashes, transfers: [transfer] })
+  transaction ??= await transactionReceipt(client, log.transactionHash)
+  return verifyCanonicalReceipt(client, transaction, { network: 'arc-testnet', chainId: ARC_CHAIN_ID, contractAddress: escrow, tokenAddress: state.token, eventName, identityField: 'agreementId', identity: state.agreementId, expectedBlockNumber: log.blockNumber, headBlockNumber: head, minimumConfirmations, eventAmounts, eventAddresses, eventHashes, transfers: [transfer] })
 }
 
 function parseFundingRecord(record, xLayerEscrow) {
@@ -208,23 +241,8 @@ function parseFundingRecord(record, xLayerEscrow) {
     fundingDeadline: Number(terms.deadline), transactionHashes: { funded: optionalHash(hashes.funded), released: optionalHash(hashes.released), settled: optionalHash(hashes.settled) } }
 }
 
-async function blockAtOrAfter(client, target, low, high, cache) {
-  if (!Number.isSafeInteger(target) || target <= 0) throw new Error('FUNDING_TIME_INVALID')
-  const key = String(target)
-  if (cache.has(key)) return cache.get(key)
-  let left = low, right = high
-  while (left < right) {
-    const middle = (left + right) / 2n
-    const block = await client.getBlock({ blockNumber: middle })
-    if (block.timestamp < BigInt(target)) left = middle + 1n
-    else right = middle
-  }
-  cache.set(key, left)
-  return left
-}
-
-async function positionState(client, escrow, id) {
-  const value = await client.readContract({ address: escrow, abi: POSITION_ABI, functionName: 'positions', args: [id] })
+async function positionState(client, escrow, id, blockNumber) {
+  const value = await client.readContract({ address: escrow, abi: POSITION_ABI, functionName: 'positions', args: [id], blockNumber })
   return { funder: value[0], repaymentRecipient: value[1], provider: value[2], providerArcRecipient: value[3], platformTreasury: value[4], termsHash: value[6], intelligenceCommitment: value[8], arcAgreementHash: value[9], protectedAmount: value[10], advanceAmount: value[11], funderRepaymentAmount: value[12], platformFeeAmount: value[13], protectionDeadline: Number(value[14]), status: Number(value[15]) }
 }
 
@@ -237,21 +255,24 @@ function assertPosition(source, position) {
 
 async function verifiedLog(client, head, contractAddress, tokenAddress, event, args, expected, minimumConfirmations, fromBlock, toBlock = head, transactionHash) {
   if (transactionHash) {
-    const transaction = await client.getTransactionReceipt({ hash: transactionHash })
-    return verifyConfirmedReceipt(receiptShape(transaction), { ...expected, contractAddress, tokenAddress, expectedBlockNumber: transaction.blockNumber, headBlockNumber: head, minimumConfirmations })
+    const transaction = await transactionReceipt(client, transactionHash)
+    return verifyCanonicalReceipt(client, transaction, { ...expected, contractAddress, tokenAddress, expectedBlockNumber: transaction.blockNumber, headBlockNumber: head, minimumConfirmations })
   }
   const log = await exactLog(client, { address: contractAddress, event, args, fromBlock, toBlock })
-  const transaction = await client.getTransactionReceipt({ hash: log.transactionHash })
-  return verifyConfirmedReceipt(receiptShape(transaction), { ...expected, contractAddress, tokenAddress, expectedBlockNumber: log.blockNumber, headBlockNumber: head, minimumConfirmations })
+  const transaction = await transactionReceipt(client, log.transactionHash)
+  return verifyCanonicalReceipt(client, transaction, { ...expected, contractAddress, tokenAddress, expectedBlockNumber: log.blockNumber, headBlockNumber: head, minimumConfirmations })
 }
 
 async function recoverPosition(source, snapshot, xClient, arcClient, heads, config) {
-  const position = await positionState(xClient, config.xLayerEscrow, source.positionId)
+  progress('upfront_position_read_started')
+  const position = await positionState(xClient, config.xLayerEscrow, source.positionId, heads.x)
   if (position.status === 0) return []
   assertPosition(source, position)
   const results = []
-  const fundingFrom = source.transactionHashes.funded ? XLAYER_DEPLOYMENT_BLOCK : await blockAtOrAfter(xClient, source.requestTimestamp, XLAYER_DEPLOYMENT_BLOCK, heads.x, config.xBlockCache)
-  const fundingTo = source.transactionHashes.funded ? heads.x : await blockAtOrAfter(xClient, source.fundingDeadline, fundingFrom, heads.x, config.xBlockCache)
+  progress('upfront_funding_search_started')
+  const positionBlock = (minimumStatus, low = XLAYER_DEPLOYMENT_BLOCK) => firstMatchingBlock(async block => (await positionState(xClient, config.xLayerEscrow, source.positionId, block)).status >= minimumStatus, low, heads.x)
+  const fundingFrom = source.transactionHashes.funded ? XLAYER_DEPLOYMENT_BLOCK : await positionBlock(1)
+  const fundingTo = source.transactionHashes.funded ? heads.x : fundingFrom
   const funded = await verifiedLog(xClient, heads.x, config.xLayerEscrow, XLAYER_USDC, eventAbi(UPFRONT_EVENTS, 'AdvanceFunded'), { positionId: source.positionId }, {
     network: 'xlayer-mainnet', chainId: XLAYER_CHAIN_ID, eventName: 'AdvanceFunded', identityField: 'positionId', identity: source.positionId,
     eventAmounts: { protectedAmount: source.protectedAmount.toString(), advanceAmount: source.advanceAmount.toString(), funderRepaymentAmount: source.funderRepaymentAmount.toString(), platformFeeAmount: source.platformFeeAmount.toString(), protectionDeadline: String(source.protectionDeadline) },
@@ -260,33 +281,42 @@ async function recoverPosition(source, snapshot, xClient, arcClient, heads, conf
     transfers: [{ from: source.funder, to: config.xLayerEscrow, amountUnits: source.advanceAmount.toString() }],
   }, config.confirmations, fundingFrom, fundingTo, source.transactionHashes.funded)
   results.push(funded)
+  progress('upfront_funding_recovered')
   if (position.status === 2) {
     const chain = object(snapshot.chain)
     const arcAgreementHash = hex32(chain.onchainAgreementId, 'ARC_AGREEMENT_HASH_INVALID')
-    if (position.arcAgreementHash.toLowerCase() !== arcAgreementHash || hex32(chain.termsHash) !== source.termsHash) throw new Error('POSITION_ARC_PROTECTION_MISMATCH')
-    const protectionTo = source.transactionHashes.released ? heads.x : await blockAtOrAfter(xClient, source.protectionDeadline, BigInt(funded.blockNumber), heads.x, config.xBlockCache)
+    const arcTermsHash = hex32(chain.termsHash)
+    if (position.arcAgreementHash.toLowerCase() !== arcAgreementHash) throw new Error('POSITION_ARC_PROTECTION_MISMATCH')
+    const arcState = await arcEscrowState(arcClient, address(chain.escrow))
+    if (hex32(arcState.agreementId) !== arcAgreementHash || hex32(arcState.termsHash) !== arcTermsHash
+      || arcState.totalAmount !== source.protectedAmount || arcState.recipient !== config.arcRouter || arcState.token !== ARC_USDC) throw new Error('ARC_PROTECTION_IMMUTABLE_MISMATCH')
+    const protectionFrom = source.transactionHashes.released ? BigInt(funded.blockNumber) : await positionBlock(2, BigInt(funded.blockNumber)); const protectionTo = source.transactionHashes.released ? heads.x : protectionFrom
     results.push(await verifiedLog(xClient, heads.x, config.xLayerEscrow, XLAYER_USDC, eventAbi(UPFRONT_EVENTS, 'AdvanceReleased'), { positionId: source.positionId }, {
       network: 'xlayer-mainnet', chainId: XLAYER_CHAIN_ID, eventName: 'AdvanceReleased', identityField: 'positionId', identity: source.positionId,
       eventAmounts: { advanceAmount: source.advanceAmount.toString() }, eventAddresses: { provider: source.provider }, eventHashes: { arcAgreementHash },
       transfers: [{ from: config.xLayerEscrow, to: source.provider, amountUnits: source.advanceAmount.toString() }],
-    }, config.confirmations, BigInt(funded.blockNumber), protectionTo, source.transactionHashes.released))
+    }, config.confirmations, protectionFrom, protectionTo, source.transactionHashes.released))
+    progress('upfront_release_recovered')
     const settled = await arcClient.readContract({ address: config.arcRouter, abi: ROUTER_ABI, functionName: 'settledAgreements', args: [arcAgreementHash] })
     if (source.status === 'settled' && !settled) throw new Error('SOURCE_SETTLEMENT_STATE_MISMATCH')
     if (settled) {
+      const settlementFrom = source.transactionHashes.settled ? ROUTER_DEPLOYMENT_BLOCK : await firstMatchingBlock(blockNumber => arcClient.readContract({ address: config.arcRouter, abi: ROUTER_ABI, functionName: 'settledAgreements', args: [arcAgreementHash], blockNumber }), ROUTER_DEPLOYMENT_BLOCK, heads.arc)
+      const settlementTo = source.transactionHashes.settled ? heads.arc : settlementFrom
       const providerAmount = source.protectedAmount - source.funderRepaymentAmount - source.platformFeeAmount
       if (providerAmount <= 0n) throw new Error('SPLIT_AMOUNT_INVALID')
       results.push(await verifiedLog(arcClient, heads.arc, config.arcRouter, ARC_USDC, eventAbi(REPAYMENT_EVENTS, 'RepaymentSettled'), { arcAgreementHash }, {
         network: 'arc-testnet', chainId: ARC_CHAIN_ID, eventName: 'RepaymentSettled', identityField: 'arcAgreementHash', identity: arcAgreementHash,
         eventAmounts: { funderAmount: source.funderRepaymentAmount.toString(), providerAmount: providerAmount.toString(), treasuryAmount: source.platformFeeAmount.toString() },
-        eventAddresses: { funder: source.repaymentRecipient, provider: source.providerArcRecipient, treasury: source.platformTreasury }, eventHashes: { arcTermsHash: source.termsHash },
+        eventAddresses: { funder: source.repaymentRecipient, provider: source.providerArcRecipient, treasury: source.platformTreasury }, eventHashes: { arcTermsHash },
         transfers: [{ from: config.arcRouter, to: source.repaymentRecipient, amountUnits: source.funderRepaymentAmount.toString() }, { from: config.arcRouter, to: source.providerArcRecipient, amountUnits: providerAmount.toString() }, { from: config.arcRouter, to: source.platformTreasury, amountUnits: source.platformFeeAmount.toString() }],
-      }, config.confirmations, ROUTER_DEPLOYMENT_BLOCK, heads.arc, source.transactionHashes.settled))
+      }, config.confirmations, settlementFrom, settlementTo, source.transactionHashes.settled))
     }
   } else if (position.status === 3) {
+    const refundBlock = await positionBlock(2, BigInt(funded.blockNumber))
     results.push(await verifiedLog(xClient, heads.x, config.xLayerEscrow, XLAYER_USDC, eventAbi(UPFRONT_EVENTS, 'AdvanceRefunded'), { positionId: source.positionId }, {
       network: 'xlayer-mainnet', chainId: XLAYER_CHAIN_ID, eventName: 'AdvanceRefunded', identityField: 'positionId', identity: source.positionId,
       eventAmounts: { advanceAmount: source.advanceAmount.toString() }, eventAddresses: { funder: source.funder }, eventHashes: {}, transfers: [{ from: config.xLayerEscrow, to: source.funder, amountUnits: source.advanceAmount.toString() }],
-    }, config.confirmations, BigInt(funded.blockNumber)))
+    }, config.confirmations, refundBlock, refundBlock))
   }
   return results
 }
@@ -318,13 +348,13 @@ function netTransfers(receipts, accounts) {
   return net
 }
 
-async function balanceComparison(receipts, arcClient, xClient, config) {
+async function balanceComparison(receipts, arcClient, xClient, config, heads) {
   const agreementEvents = new Set(['AgreementActivated', 'StepReleased', 'AgreementRefunded', 'AgreementCancelled'])
   const escrows = [...new Set(receipts.filter(item => item.payload.network === 'arc-testnet' && agreementEvents.has(item.payload.eventName)).map(item => item.payload.contractAddress))]
-  const escrowBalances = await Promise.all(escrows.map(account => arcClient.readContract({ address: ARC_USDC, abi: BALANCE_ABI, functionName: 'balanceOf', args: [account] })))
+  const escrowBalances = await Promise.all(escrows.map(account => arcClient.readContract({ address: ARC_USDC, abi: BALANCE_ABI, functionName: 'balanceOf', args: [account], blockNumber: heads.arc })))
   const [xEscrowBalance, routerBalance] = await Promise.all([
-    xClient.readContract({ address: XLAYER_USDC, abi: BALANCE_ABI, functionName: 'balanceOf', args: [config.xLayerEscrow] }),
-    arcClient.readContract({ address: ARC_USDC, abi: BALANCE_ABI, functionName: 'balanceOf', args: [config.arcRouter] }),
+    xClient.readContract({ address: XLAYER_USDC, abi: BALANCE_ABI, functionName: 'balanceOf', args: [config.xLayerEscrow], blockNumber: heads.x }),
+    arcClient.readContract({ address: ARC_USDC, abi: BALANCE_ABI, functionName: 'balanceOf', args: [config.arcRouter], blockNumber: heads.arc }),
   ])
   const agreementExpected = netTransfers(receipts, escrows)
   const xExpected = netTransfers(receipts, [config.xLayerEscrow])
@@ -337,19 +367,28 @@ async function balanceComparison(receipts, arcClient, xClient, config) {
   }
 }
 
+function progress(stage, counts = {}) {
+  if (process.env.HASHPAYSTREAM_RECEIPT_AUDIT_PROGRESS === '1') console.error(JSON.stringify({ component: 'chain-receipt-audit', stage, ...counts }))
+}
+
 async function main() {
   const config = configuration()
+  progress('source_read_started')
   const values = await loadStores(config.source, [...config.stores.map(item => item.key), config.assessmentStore])
   const authoritative = await loadAuthoritativeAgreements(config.authoritative)
-  const transport = urls => fallback(urls.map(url => http(url, { timeout: 20_000, retryCount: 1 })), { retryCount: 1 })
+  progress('source_read_complete', { stores: values.size, agreements: authoritative.count })
+  const transport = urls => fallback(urls.map(url => http(url, { timeout: 8_000, retryCount: 0 })), { retryCount: 0 })
   const arcClient = createPublicClient({ transport: transport(config.arcRpcs) })
   const xClient = createPublicClient({ transport: transport(config.xLayerRpcs) })
+  receiptProviders.set(arcClient, config.arcRpcs.map(url => createPublicClient({ transport: http(url, { timeout: 8_000, retryCount: 0 }) })))
+  receiptProviders.set(xClient, config.xLayerRpcs.map(url => createPublicClient({ transport: http(url, { timeout: 8_000, retryCount: 0 }) })))
   const [arcChain, xChain, arcHead, xHead, xAsset, routerAsset] = await Promise.all([
     arcClient.getChainId(), xClient.getChainId(), arcClient.getBlockNumber(), xClient.getBlockNumber(),
     xClient.readContract({ address: config.xLayerEscrow, abi: ASSET_ABI, functionName: 'asset' }),
     arcClient.readContract({ address: config.arcRouter, abi: ASSET_ABI, functionName: 'asset' }),
   ])
   if (arcChain !== ARC_CHAIN_ID || xChain !== XLAYER_CHAIN_ID || xAsset !== XLAYER_USDC || routerAsset !== ARC_USDC) throw new Error('CHAIN_CONFIGURATION_MISMATCH')
+  progress('chain_configuration_verified')
   const snapshots = new Map()
   const snapshot = id => {
     if (!snapshots.has(id)) snapshots.set(id, authoritative.snapshot(id))
@@ -364,10 +403,12 @@ async function main() {
   for (const store of config.stores) {
     for (const event of Object.values(object(values.get(store.key)?.events))) {
       if (!['agreement.activated', 'agreement.step_released', 'agreement.completed', 'agreement.refunded', 'agreement.cancelled'].includes(event?.event)) continue
+      progress('arc_event_started', { receipts: receipts.length, event: event.event })
       try { register(await recoverArc(event, snapshot(clean(event.agreementId, 100)), arcClient, arcHead, config.confirmations)) }
-      catch (reason) { const key = `ARC_${event.event.replace(/^agreement\./, '').toUpperCase()}_${errorCode(reason)}`; blocked[key] = (blocked[key] || 0) + 1 }
+      catch (reason) { const key = `ARC_${event.event.replace(/^agreement\./, '').toUpperCase()}_${errorCode(reason)}`; blocked[key] = (blocked[key] || 0) + 1; progress('evidence_blocked', { code: key }) }
     }
   }
+  progress('arc_recovery_complete', { receipts: receipts.length, blocked: Object.values(blocked).reduce((sum, count) => sum + count, 0) })
   const seenPositions = new Set()
   for (const record of Object.values(object(values.get(config.assessmentStore)?.records))) {
     if (!record?.fundingRequest) continue
@@ -377,14 +418,14 @@ async function main() {
       if (seenPositions.has(source.positionId)) continue
       seenPositions.add(source.positionId)
       for (const result of await recoverPosition(source, snapshot(source.agreementId), xClient, arcClient, { arc: arcHead, x: xHead }, config)) register(result)
-    } catch (reason) { const key = `UPFRONT_${errorCode(reason)}`; blocked[key] = (blocked[key] || 0) + 1 }
+    } catch (reason) { const key = `UPFRONT_${errorCode(reason)}`; blocked[key] = (blocked[key] || 0) + 1; progress('evidence_blocked', { code: key }) }
   }
   const unique = new Map(receipts.map(item => [`${item.payload.network}:${item.transactionHash}:${item.logIndex}`, item]))
   if (unique.size !== receipts.length) throw new Error('DUPLICATE_RECEIPT_EVIDENCE')
   const verified = [...unique.values()]
   let balances = { status: 'not_run', reason: 'receipt_evidence_incomplete' }
   if (Object.keys(blocked).length === 0) {
-    balances = { status: 'complete', results: await balanceComparison(verified, arcClient, xClient, config) }
+    balances = { status: 'complete', results: await balanceComparison(verified, arcClient, xClient, config, { arc: arcHead, x: xHead }) }
     if (!Object.values(balances.results).every(item => item.matched)) blocked.BALANCE_RECONCILIATION_MISMATCH = 1
   }
   let firstPass = { indexed: 0, duplicate: 0 }, secondPass = { indexed: 0, duplicate: 0 }

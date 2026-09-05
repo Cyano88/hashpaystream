@@ -3,6 +3,7 @@ import { encodeEventTopics, encodeAbiParameters } from 'viem'
 import {
   ARC_AGREEMENT_EVENTS,
   ERC20_TRANSFER_EVENT,
+  REPAYMENT_EVENTS,
   verifyConfirmedReceipt,
 } from '../api/chain-receipt-evidence.ts'
 
@@ -31,6 +32,8 @@ const expected = {
   eventAmounts: { amount }, transfers: [{ from: payer, to: escrow, amountUnits: amount }],
 }
 const verified = verifyConfirmedReceipt(receipt, expected)
+assert.equal(verifyConfirmedReceipt(receipt, { ...expected, expectedBlockHash: receipt.blockHash }).verified, true)
+assert.deepEqual(verifyConfirmedReceipt(receipt, { ...expected, expectedBlockHash: '0x' + '99'.repeat(32) }).codes, ['BLOCK_HASH_MISMATCH'])
 assert.equal(verified.verified, true)
 assert.deepEqual(verified.codes, [])
 assert.equal(verified.confirmations, '4')
@@ -75,3 +78,30 @@ assert.deepEqual(
 )
 
 console.log('HashPayStream confirmed chain receipt evidence checks passed.')
+
+const arcTermsHash = '0x' + 'aa'.repeat(32)
+const fundingTermsHash = '0x' + 'bb'.repeat(32)
+const provider = '0x' + '77'.repeat(20)
+const treasury = '0x' + '88'.repeat(20)
+const splitTransfers = [
+  { from: escrow, to: payer, amountUnits: '5000' },
+  { from: escrow, to: provider, amountUnits: '4000' },
+  { from: escrow, to: treasury, amountUnits: '1000' },
+]
+const splitReceipt = { ...receipt, logs: [
+  { address: escrow, logIndex: 0,
+    topics: encodeEventTopics({ abi: REPAYMENT_EVENTS, eventName: 'RepaymentSettled', args: { arcAgreementHash: agreementId, arcTermsHash, funder: payer } }),
+    data: encodeAbiParameters([{type:'address'}, {type:'address'}, {type:'uint256'}, {type:'uint256'}, {type:'uint256'}], [provider, treasury, 5000n, 4000n, 1000n]),
+  },
+  ...splitTransfers.map((transfer, index) => ({ address: token, logIndex: index + 1,
+    topics: encodeEventTopics({ abi: [ERC20_TRANSFER_EVENT], eventName: 'Transfer', args: {from: transfer.from, to: transfer.to} }),
+    data: encodeAbiParameters([{type:'uint256'}], [BigInt(transfer.amountUnits)]),
+  })),
+] }
+const splitExpected = { ...expected, eventName: 'RepaymentSettled', identityField: 'arcAgreementHash',
+  eventAmounts: {funderAmount:'5000', providerAmount:'4000', treasuryAmount:'1000'},
+  eventAddresses: {funder:payer, provider, treasury}, eventHashes: {arcTermsHash}, transfers:splitTransfers,
+}
+assert.equal(verifyConfirmedReceipt(splitReceipt, splitExpected).verified, true)
+assert.deepEqual(verifyConfirmedReceipt(splitReceipt, {...splitExpected, eventHashes:{arcTermsHash:fundingTermsHash}}).codes, ['EVENT_HASH_MISMATCH'])
+console.log('Arc repayment verifies its own terms hash independently of the funding commitment.')

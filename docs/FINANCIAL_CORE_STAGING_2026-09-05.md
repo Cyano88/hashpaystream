@@ -59,3 +59,11 @@ The legacy key-value store remains the system of record. Before any route
 cutover, implement a replayable backfill that requires authoritative evidence,
 run it in staging, reconcile every posting to zero difference, and prove repeat
 runs are idempotent.
+
+## Receipt-index continuation
+
+The receipt backfill has now been implemented, audited and run in staging.
+All 32 verified observations were inserted once; a second pass inserted zero
+and reported 32 duplicates. All three escrow/router balance comparisons matched.
+See [the receipt audit record](./RECEIPT_BACKFILL_AUDIT_2026-09-05.md) for the
+corrected recovery issues, evidence coverage and remaining ledger/cutover gates.
