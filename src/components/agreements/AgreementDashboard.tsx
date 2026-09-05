@@ -609,7 +609,7 @@ export default function AgreementDashboard() {
                 {active.releaseRequest?.evidenceReference && <SubmittedWorkLink href={active.releaseRequest.evidenceReference} />}
 
                 {active.receipt ? (
-                  <UnifiedReceipt receipt={active.receipt} className="mt-5" />
+                  <UnifiedReceipt receipt={active.receipt} settlement={activeServiceRequest?.earlyPaySettlement} submittedWorkUrl={active.releaseRequest?.evidenceReference} className="mt-5" />
                 ) : null}
 
                 {active.status === 'expired' && (

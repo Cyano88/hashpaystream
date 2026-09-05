@@ -75,6 +75,8 @@ async function exercise(client, schema) {
   checks += 1
 
   await client.query(`insert into ${schema}.ledger_transactions (posting_id, posting_key, request_hash, reference_type, reference_id, network, asset_address, occurred_at) values ('posting_unbalanced', 'agreement:example:bad', $1, 'agreement', 'agreement_example', 'arc-mainnet', $2, now())`, [hashB, asset])
+  await expectRejected(client, 'posted_entry_move', () => client.query(`update ${schema}.ledger_entries set posting_id = 'posting_unbalanced' where posting_id = 'posting_balanced' and line_number = 2`), 'POSTED_LEDGER_ENTRY_IMMUTABLE')
+  checks += 1
   await client.query(`insert into ${schema}.ledger_entries (posting_id, line_number, account_id, side, amount_units, memo_code) values ('posting_unbalanced', 1, 'account_external', 'debit', 10000, 'agreement.funded'), ('posting_unbalanced', 2, 'account_protected', 'credit', 9999, 'agreement.funded')`)
   await expectRejected(client, 'unbalanced_posting', () => client.query(`update ${schema}.ledger_transactions set status = 'posted', posted_at = now() where posting_id = 'posting_unbalanced'`), 'LEDGER_TRANSACTION_UNBALANCED')
   checks += 1
@@ -138,7 +140,7 @@ if (!databaseUrl) {
     const result = await exercise(client, schema)
     await client.query('rollback')
     transactionOpen = false
-    console.log(JSON.stringify({ ok: true, rollbackOnly: true, migrations: 2, ...result }))
+    console.log(JSON.stringify({ ok: true, rollbackOnly: true, migrations: migratedSql(schema).length, ...result }))
   } catch (reason) {
     if (client && transactionOpen) await client.query('rollback').catch(() => undefined)
     const code = reason instanceof Error && /^[A-Z0-9_]{3,80}$/.test(reason.message)

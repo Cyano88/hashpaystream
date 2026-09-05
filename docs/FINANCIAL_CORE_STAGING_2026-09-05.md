@@ -67,3 +67,16 @@ All 32 verified observations were inserted once; a second pass inserted zero
 and reported 32 duplicates. All three escrow/router balance comparisons matched.
 See [the receipt audit record](./RECEIPT_BACKFILL_AUDIT_2026-09-05.md) for the
 corrected recovery issues, evidence coverage and remaining ledger/cutover gates.
+## Receipt-ledger continuation
+
+The next bounded staging gate has passed: the 32 independently reverified
+observations now map to 32 balanced postings and 80 entries. Both idempotency
+passes and all 13 controlled-account on-chain comparisons matched. A separate
+read-only check confirmed persistence. Migration 003 also protects posted
+entries from being moved into draft transactions.
+
+See [the receipt-ledger audit](./RECEIPT_LEDGER_AUDIT_2026-09-05.md) for the
+mapping, exact checks, receipt UI fixes and remaining production gates. These
+system-domain token-movement accounts do not establish user available balances;
+legacy reads remain authoritative until ownership/projections and ongoing
+shadow reconciliation are validated.

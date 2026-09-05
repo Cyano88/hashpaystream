@@ -211,6 +211,7 @@ function FundingDetail({ item, onBack, onUpdated }: { item: Opportunity; onBack:
   const [declineError, setDeclineError] = useState('')
   const quote = item.fundingTerms?.quote
   const completed = item.positionStatus === 'settled'
+  const refunded = item.positionStatus === 'refunded'
   const escrowAddress = (() => {
     const domain = item.onchainOffer?.domain
     if (!domain || typeof domain !== 'object' || Array.isArray(domain)) return undefined
@@ -241,9 +242,9 @@ function FundingDetail({ item, onBack, onUpdated }: { item: Opportunity; onBack:
 
     <article className="stream-card mt-5 p-4">
       <div className="grid grid-cols-3 gap-3 rounded-[22px] bg-zinc-950 px-4 py-4 text-white dark:bg-[#171717]">
-        <SummaryMetric label={completed ? 'You funded' : 'You fund'} value={usdc(item.requestedAdvanceUsdcUnits)} />
-        <SummaryMetric label={completed ? 'You received' : 'You receive'} value={usdc(quote?.funderRepaymentUsdcUnits ?? '0')} />
-        <SummaryMetric label={completed ? 'Profit earned' : 'Your profit'} value={usdc(quote?.funderProfitUsdcUnits ?? '0')} accent />
+        <SummaryMetric label={completed || refunded ? 'You funded' : 'You fund'} value={usdc(item.requestedAdvanceUsdcUnits)} />
+        <SummaryMetric label={refunded ? 'Returned to you' : completed ? 'You received' : 'You receive'} value={usdc(refunded ? item.requestedAdvanceUsdcUnits : quote?.funderRepaymentUsdcUnits ?? '0')} />
+        <SummaryMetric label={completed ? 'Profit earned' : refunded ? 'Profit' : 'Your profit'} value={usdc(refunded ? '0' : quote?.funderProfitUsdcUnits ?? '0')} accent />
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-3 rounded-2xl bg-zinc-50 px-4 py-3 dark:bg-white/[0.035]">
@@ -258,15 +259,22 @@ function FundingDetail({ item, onBack, onUpdated }: { item: Opportunity; onBack:
       <details open={detailsOpen} onToggle={event => setDetailsOpen(event.currentTarget.open)} className="mt-4 border-t border-gray-100 pt-3 dark:border-white/[0.07]">
         <summary className="cursor-pointer text-[11px] font-bold text-gray-500 dark:text-gray-300">Payment details</summary>
         <div className="mt-3 grid grid-cols-2 gap-4 rounded-2xl bg-zinc-50 px-4 py-3 dark:bg-white/[0.035]">
-          <Metric label="Provider received early" value={usdc(item.requestedAdvanceUsdcUnits)} />
+          {refunded ? <Metric label="Funding returned" value={usdc(item.requestedAdvanceUsdcUnits)} /> : <>
+          <Metric label={completed || item.positionStatus === 'released' ? 'Provider received early' : 'Provider receives early'} value={usdc(item.requestedAdvanceUsdcUnits)} />
           <Metric label={completed ? 'Provider received later' : 'Provider receives later'} value={usdc(quote?.providerRemainderUsdcUnits ?? '0')} />
           <Metric label="Provider total" value={usdc(quote?.providerTotalUsdcUnits ?? '0')} />
-          <Metric label="HashPayStream fee" value={usdc(quote?.platformFeeUsdcUnits ?? '0')} />
+          </>}
+          <Metric label="HashPayStream fee" value={usdc(refunded ? '0' : quote?.platformFeeUsdcUnits ?? '0')} />
           <div className="col-span-2"><p className="text-[10px] font-bold text-gray-400">Service provider wallet</p><p className="mt-1 font-mono text-xs font-bold text-gray-700 dark:text-gray-200">{short(item.providerPayoutAddress)}</p></div>
         </div>
       </details>
 
       {quote && ['funded', 'released', 'settled', 'refunded'].includes(item.positionStatus) && <FundingPositionReceipt receipt={{
+        title: item.title,
+        funder: item.funder,
+        repaymentRecipient: item.repaymentRecipient,
+        providerRemainderUsdcUnits: quote.providerRemainderUsdcUnits,
+        providerTotalUsdcUnits: quote.providerTotalUsdcUnits,
         positionId: item.positionId,
         status: item.positionStatus as 'funded' | 'released' | 'settled' | 'refunded',
         escrowAddress,

@@ -1,3 +1,5 @@
+import type { EarlyPaySettlement } from '../lib/serviceRequests'
+import SubmittedWorkLink from './SubmittedWorkLink'
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -20,6 +22,8 @@ import { HashPayStreamMark } from './HashPayStreamMark'
 
 type UnifiedReceiptProps = {
   receipt?: PaylinkReceipt
+  settlement?: EarlyPaySettlement
+  submittedWorkUrl?: string
   className?: string
   label?: string
   showAction?: boolean
@@ -30,6 +34,8 @@ type ReceiptSurface = 'details' | 'receipt' | null
 const PENDING = new Set(['pending', 'processing', 'settling', 'submitted', 'verification pending'])
 
 function state(receipt: PaylinkReceipt) {
+  if (receipt.fundingStatus === 'refunded') return 'reversed'
+  if (receipt.fundingStatus === 'funded' || receipt.fundingStatus === 'released') return 'pending'
   const value = String(receipt.status || '').trim().toLowerCase()
   if (receipt.agreementStatus === 'refunded' || receipt.agreementStatus === 'cancelled' || ['refunded', 'reversed'].includes(value)) return 'reversed'
   if (PENDING.has(value)) return 'pending'
@@ -45,13 +51,14 @@ function StateIcon({ receipt }: { receipt: PaylinkReceipt }) {
 }
 
 function stateLabel(receipt: PaylinkReceipt) {
+  if (receipt.fundingStatus) return {funded:'Funds protected',released:'Early payment sent',settled:'Payment completed',refunded:'Funding returned'}[receipt.fundingStatus]
   const current = state(receipt)
   return current === 'pending' ? 'Payment pending' : current === 'reversed' ? 'Payment returned' : 'Payment completed'
 }
 
 function ReceiptDocument({ receipt }: { receipt: PaylinkReceipt }) {
   const view = useMemo(() => paymentReceiptView(receipt), [receipt])
-  return <article className="mx-auto flex h-full min-h-0 w-full max-w-md flex-col bg-white px-7 pb-4 pt-5 text-gray-950 dark:bg-[#111216] dark:text-white">
+  return <article className="mx-auto flex min-h-full w-full max-w-md flex-col bg-white px-7 pb-4 pt-5 text-gray-950 dark:bg-[#111216] dark:text-white">
     <header className="flex items-center justify-between gap-4">
       <span className="flex min-w-0 items-center gap-3"><HashPayStreamMark className="h-9 w-9 shrink-0 object-contain" /><span className="truncate text-sm font-bold tracking-[-0.02em]">HashPayStream</span></span>
       <span className="rounded-full bg-gray-100 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.08em] text-gray-500 dark:bg-white/10 dark:text-gray-300">{view.badge}</span>
@@ -70,6 +77,7 @@ function TransactionDetails({ receipt, copied, copy }: { receipt: PaylinkReceipt
     <p className="mt-8 text-[32px] font-bold tracking-[-0.045em]">{view.amount}</p>
     <dl className="mt-7 divide-y divide-gray-100 border-t border-gray-100 dark:divide-white/10 dark:border-white/10">{[...view.rows, { label: 'Status', value: view.badge }].map(row => <div key={row.label} className="flex items-start justify-between gap-5 py-3.5"><dt className="text-[11px] font-medium text-gray-400">{row.label}</dt><dd className="max-w-[66%] break-words text-right text-[11px] font-semibold leading-5 text-gray-700 dark:text-gray-200">{row.value || '-'}</dd></div>)}</dl>
     <div className="border-t border-gray-100 pt-4 dark:border-white/10"><div className="flex items-center justify-between gap-3"><p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400">Reference ID</p><button type="button" onClick={copy} className="inline-flex h-10 w-10 items-center justify-center rounded-full" aria-label="Copy reference">{copied ? <CheckIcon className="h-4 w-4" /> : <ClipboardDocumentIcon className="h-4 w-4" />}</button></div><p className="mt-2 break-all font-mono text-[10px] font-semibold leading-5 text-gray-600 dark:text-gray-300">{view.reference}</p></div>
+    {receipt.submittedWorkUrl && <SubmittedWorkLink href={receipt.submittedWorkUrl} />}
   </div></div>
 }
 
@@ -107,13 +115,14 @@ function FullScreen({ receipt, surface, close }: { receipt: PaylinkReceipt; surf
   }
   return createPortal(<div className="fixed inset-0 z-[180] flex flex-col overflow-hidden bg-[#F5F5F7] pt-[env(safe-area-inset-top)] text-gray-950 dark:bg-[#0A0A0A] dark:text-white" role="dialog" aria-modal="true" aria-label={surface === 'details' ? 'Transaction details' : 'Receipt preview'}>
     <div className="z-10 shrink-0 border-b border-gray-200/80 bg-[#F5F5F7]/95 px-4 backdrop-blur dark:border-white/10 dark:bg-[#0A0A0A]/95"><div className="mx-auto grid h-14 max-w-lg grid-cols-[48px_1fr_48px] items-center"><span /><h1 className="text-center text-sm font-bold">{surface === 'details' ? 'Transaction details' : 'Receipt'}</h1><button type="button" onClick={close} className="inline-flex h-11 items-center justify-end text-xs font-bold">Done</button></div></div>
-    {surface === 'details' ? <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain"><TransactionDetails receipt={receipt} copied={copied} copy={() => void navigator.clipboard.writeText(reference).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1200) })} /></div> : <div className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col px-3 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2"><div className="min-h-0 flex-1 overflow-hidden rounded-[28px] border border-gray-100 bg-white shadow-sm dark:border-white/10 dark:bg-[#111216]"><ReceiptDocument receipt={receipt} /></div><div className="mt-2 grid shrink-0 grid-cols-2 gap-2"><button type="button" disabled={Boolean(sharing)} onClick={() => void shareReceipt('image')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 text-xs font-bold disabled:opacity-60 dark:border-white/10 dark:bg-white/[.08]"><ShareIcon className="h-4 w-4" />{sharing === 'image' ? 'Preparing' : 'Share image'}</button><button type="button" disabled={Boolean(sharing)} onClick={() => void shareReceipt('pdf')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-gray-950 px-4 text-xs font-bold text-white disabled:opacity-60 dark:bg-white dark:text-gray-950"><ShareIcon className="h-4 w-4" />{sharing === 'pdf' ? 'Preparing' : 'Share PDF'}</button></div>{error && <p role="alert" className="mt-2 text-center text-xs font-semibold text-red-500">{error}</p>}</div>}
+    {surface === 'details' ? <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain"><TransactionDetails receipt={receipt} copied={copied} copy={() => void navigator.clipboard.writeText(reference).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1200) })} /></div> : <div className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col px-3 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2"><div className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-[28px] border border-gray-100 bg-white shadow-sm dark:border-white/10 dark:bg-[#111216]"><ReceiptDocument receipt={receipt} /></div><div className="mt-2 grid shrink-0 grid-cols-2 gap-2"><button type="button" disabled={Boolean(sharing)} onClick={() => void shareReceipt('image')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 text-xs font-bold disabled:opacity-60 dark:border-white/10 dark:bg-white/[.08]"><ShareIcon className="h-4 w-4" />{sharing === 'image' ? 'Preparing' : 'Share image'}</button><button type="button" disabled={Boolean(sharing)} onClick={() => void shareReceipt('pdf')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-gray-950 px-4 text-xs font-bold text-white disabled:opacity-60 dark:bg-white dark:text-gray-950"><ShareIcon className="h-4 w-4" />{sharing === 'pdf' ? 'Preparing' : 'Share PDF'}</button></div>{error && <p role="alert" className="mt-2 text-center text-xs font-semibold text-red-500">{error}</p>}</div>}
   </div>, document.body)
 }
 
-export default function UnifiedReceipt({ receipt, className = '', label = 'View details', showAction = true, compact = false }: UnifiedReceiptProps) {
+export default function UnifiedReceipt({ receipt: sourceReceipt, settlement, submittedWorkUrl, className = '', label = 'View details', showAction = true, compact = false }: UnifiedReceiptProps) {
   const [surface, setSurface] = useState<ReceiptSurface>(null)
   const [error, setError] = useState('')
+  const receipt = sourceReceipt ? { ...sourceReceipt, split: settlement ?? sourceReceipt.split, submittedWorkUrl: submittedWorkUrl ?? sourceReceipt.submittedWorkUrl } : undefined
   if (!showAction) return null
   function open(next: Exclude<ReceiptSurface, null>) { setError(''); if (!receipt) return setError('Receipt is not ready.'); setSurface(next) }
   const size = compact ? 'min-h-9 px-2.5 text-[11px]' : 'min-h-10 px-3 text-xs'

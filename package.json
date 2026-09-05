@@ -41,7 +41,7 @@
     "test:stable-lifecycle": "node --import tsx scripts/stable-lifecycle-smoke.mjs",
     "test:savings-schedule": "node --import tsx scripts/savings-schedule-smoke.mjs",
     "test:surface": "node scripts/standalone-surface-smoke.mjs",
-    "test:smoke": "npm run test:agreement-gateway && npm run test:upfront-agreement-gateway && npm run test:upfront-assessment && npm run test:upfront-reviews && npm run test:upfront-settlement && npm run test:funding-partners && npm run test:stream-accounts && npm run test:circle-wallet && npm run test:usdc-format && npm run test:stable-lifecycle && npm run test:financial-core && npm run test:financial-core-inventory && npm run test:financial-core-reconciliation && npm run test:chain-receipt-evidence && npm run test:chain-receipt-index && npm run test:chain-receipt-backfill && npm run test:chain-receipt-rpc && npm run test:financial-core-postgres-harness && npm run test:customer-requests && npm run test:service-requests && npm run test:notifications && npm run test:agent-credentials && npm run test:agent-agreement-gateway && npm run test:arc-webhook && npm run test:agent-arc-webhook && npm run test:upfront-arc-webhook && npm run test:circle-marketplace && npm run test:admin-analytics && npm run test:public-stats && npm run test:readiness && npm run test:shutdown && npm run test:navigation-context && npm run test:savings-schedule && npm run test:surface",
+    "test:smoke": "npm run test:agreement-gateway && npm run test:upfront-agreement-gateway && npm run test:upfront-assessment && npm run test:upfront-reviews && npm run test:upfront-settlement && npm run test:funding-partners && npm run test:stream-accounts && npm run test:circle-wallet && npm run test:usdc-format && npm run test:stable-lifecycle && npm run test:financial-core && npm run test:financial-core-inventory && npm run test:financial-core-reconciliation && npm run test:chain-receipt-evidence && npm run test:chain-receipt-index && npm run test:chain-receipt-backfill && npm run test:chain-receipt-rpc && npm run test:chain-receipt-ledger && npm run test:payment-receipts && npm run test:financial-core-postgres-harness && npm run test:customer-requests && npm run test:service-requests && npm run test:notifications && npm run test:agent-credentials && npm run test:agent-agreement-gateway && npm run test:arc-webhook && npm run test:agent-arc-webhook && npm run test:upfront-arc-webhook && npm run test:circle-marketplace && npm run test:admin-analytics && npm run test:public-stats && npm run test:readiness && npm run test:shutdown && npm run test:navigation-context && npm run test:savings-schedule && npm run test:surface",
     "agent:credentials": "node --import tsx scripts/agent-credential-admin.mjs",
     "audit:database-recovery": "node --import tsx scripts/database-recovery-audit.mjs",
     "test:circle-marketplace": "node --import tsx scripts/circle-marketplace-smoke.mjs",
@@ -62,7 +62,11 @@
     "audit:chain-receipts": "node --import tsx scripts/backfill-chain-receipts.mjs --confirm-read-only-chain-audit",
     "backfill:chain-receipts:staging": "node --import tsx scripts/backfill-chain-receipts.mjs --confirm-staging-chain-index",
     "verify:financial-core-postgres": "node --import tsx scripts/verify-financial-core-postgres.mjs",
-    "db:migrate:financial-core": "node --import tsx scripts/migrate-financial-core.mjs"
+    "db:migrate:financial-core": "node --import tsx scripts/migrate-financial-core.mjs",
+    "test:chain-receipt-ledger": "node --import tsx scripts/chain-receipt-ledger-smoke.mjs && node scripts/receipt-ledger-boundary-smoke.mjs",
+    "test:payment-receipts": "node --import tsx scripts/payment-receipts-smoke.mjs",
+    "backfill:receipt-ledger:staging": "node --import tsx scripts/backfill-receipt-ledger.mjs --confirm-staging-ledger-backfill",
+    "verify:receipt-ledger:rollback": "node --import tsx scripts/backfill-receipt-ledger.mjs --confirm-rollback-only-ledger-check"
   },
   "dependencies": {
     "@circle-fin/w3s-pw-web-sdk": "^1.1.11",

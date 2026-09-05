@@ -211,9 +211,10 @@ export async function registerLedgerAccount(client: SqlClient, input: LedgerAcco
   return account
 }
 
-export async function postLedgerTransaction(client: SqlClient, input: LedgerPostingInput) {
+// callerTransaction is for atomic batches; the caller must begin and commit/roll back.
+export async function postLedgerTransaction(client: SqlClient, input: LedgerPostingInput, options: { callerTransaction?: boolean } = {}) {
   const posting = validateLedgerPosting(input)
-  await client.query('begin')
+  if (!options.callerTransaction) await client.query('begin')
   try {
     const inserted = await client.query<{ posting_id: string }>(
       [
@@ -245,7 +246,7 @@ export async function postLedgerTransaction(client: SqlClient, input: LedgerPost
       const stored = existing.rows[0]
       if (!stored || stored.request_hash !== posting.requestHash) throw new Error('LEDGER_IDEMPOTENCY_CONFLICT')
       if (stored.status !== 'posted') throw new Error('LEDGER_POSTING_INCOMPLETE')
-      await client.query('commit')
+      if (!options.callerTransaction) await client.query('commit')
       return { postingId: stored.posting_id, status: 'duplicate' as const, requestHash: posting.requestHash }
     }
 
@@ -269,10 +270,10 @@ export async function postLedgerTransaction(client: SqlClient, input: LedgerPost
       [posting.postingId],
     )
     if (finalized.rowCount !== 1) throw new Error('LEDGER_POSTING_STATE_CONFLICT')
-    await client.query('commit')
+    if (!options.callerTransaction) await client.query('commit')
     return { postingId: posting.postingId, status: 'posted' as const, requestHash: posting.requestHash }
   } catch (reason) {
-    await client.query('rollback').catch(() => undefined)
+    if (!options.callerTransaction) await client.query('rollback').catch(() => undefined)
     throw reason
   }
 }

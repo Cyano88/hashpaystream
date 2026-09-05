@@ -1,5 +1,10 @@
+import type { EarlyPaySettlement } from './serviceRequests'
 export type PaylinkReceipt = {
   type?: string
+  split?: EarlyPaySettlement
+  submittedWorkUrl?: string
+  fundingStatus?: 'funded' | 'released' | 'settled' | 'refunded'
+  fundingRows?: UnifiedReceiptRow[]
   receiptId: string
   receiptHash: string
   title: string
@@ -68,7 +73,29 @@ function outcome(receipt: PaylinkReceipt) {
   return `${amount(receipt.returnedAmount)} USDC returned`
 }
 
+export function receiptUnits(units: string) {
+  if (!/^\d+$/.test(units)) return '-'
+  const value = BigInt(units), fraction = (value % 1000000n).toString().padStart(6, '0').replace(/0+$/, '')
+  return `${value / 1000000n}${fraction ? '.' + fraction : ''} USDC`
+}
+function splitRows(receipt: PaylinkReceipt): UnifiedReceiptRow[] {
+  const s = receipt.split
+  if (!s) return []
+  const complete = s.status === 'completed'
+  const returned = s.status === 'refunded'
+  if (returned) return [{label:'Payment split',value:'Funding returned'}, {label:'Funding returned',value:receiptUnits(s.advanceUsdcUnits)}, {label:'Partner profit',value:'0 USDC'}, {label:'HashPayStream fee',value:'0 USDC'}]
+  return [
+    {label:'Payment split',value: complete ? 'Payment completed' : 'Agreed split - repayment pending'},
+    {label:'Early payment',value:receiptUnits(s.advanceUsdcUnits)},
+    {label:complete ? 'Provider received later' : 'Provider receives later',value:receiptUnits(s.providerRemainderUsdcUnits)},
+    {label:'Provider total',value:receiptUnits(s.providerTotalUsdcUnits)},
+    {label:complete ? 'Partner received' : 'Partner receives',value:receiptUnits(s.funderRepaymentUsdcUnits)},
+    {label:complete ? 'Partner earned' : 'Partner earns',value:receiptUnits(s.funderProfitUsdcUnits)},
+    {label:'HashPayStream fee',value:receiptUnits(s.platformFeeUsdcUnits)},
+  ]
+}
 function rows(receipt: PaylinkReceipt): UnifiedReceiptRow[] {
+  if (receipt.type === 'funding') return receipt.fundingRows || []
   return [
     { label: 'Agreement', value: receipt.narration || receipt.title || '-' },
     { label: 'Type', value: template(receipt.agreementTemplate) },
@@ -77,13 +104,14 @@ function rows(receipt: PaylinkReceipt): UnifiedReceiptRow[] {
     { label: 'Protected by', value: receipt.escrowAddress || receipt.destination || '-', mono: true },
     { label: 'Outcome', value: outcome(receipt) },
     { label: 'Agreement ID', value: receipt.agreementId || receipt.eventId, mono: true },
+    ...splitRows(receipt),
   ]
 }
 
 export function paymentReceiptView(receipt: PaylinkReceipt): UnifiedReceiptView {
   const reversed = receipt.agreementStatus === 'refunded' || receipt.agreementStatus === 'cancelled'
   return {
-    badge: reversed ? 'USDC returned' : receipt.agreementStatus === 'completed' ? 'Completed' : 'Confirmed',
+    badge: receipt.fundingStatus ? ({funded:'Funds protected',released:'Early payment sent',settled:'Payment completed',refunded:'Funding returned'}[receipt.fundingStatus]) : reversed ? 'USDC returned' : receipt.agreementStatus === 'completed' ? 'Completed' : 'Confirmed',
     amount: `${amount(receipt.amount)} ${receipt.asset || 'USDC'}`,
     timestamp: timestamp(receipt.createdAt),
     rows: rows(receipt),
@@ -105,7 +133,7 @@ export function paymentReceiptImageFileName(receipt?: PaylinkReceipt) {
 
 function receiptCanvas(receipt: PaylinkReceipt) {
   const width = 612
-  const height = 792
+  const height = Math.max(792, 360 + rows(receipt).length * 57)
   const canvas = document.createElement('canvas')
   canvas.width = width * 2
   canvas.height = height * 2
@@ -129,7 +157,7 @@ export async function createPaymentReceiptPdf(receipt: PaylinkReceipt) {
     reader.onerror = () => reject(new Error('Receipt PDF could not be prepared.'))
     reader.readAsDataURL(blob)
   }, 'image/jpeg', 0.94))
-  return pdfFromJpeg(jpeg, width, height, arcTransactionUrl(receipt))
+  return pdfFromJpeg(jpeg, width, height, arcTransactionUrl(receipt), 254 + rows(receipt).length * 57)
 }
 
 function drawReceipt(ctx: CanvasRenderingContext2D, receipt: PaylinkReceipt, width: number, height: number) {
@@ -151,7 +179,7 @@ function drawReceipt(ctx: CanvasRenderingContext2D, receipt: PaylinkReceipt, wid
   ctx.fillStyle = '#ffffff'
   ctx.font = '800 17px Arial'
   ctx.fillText('HashPayStream', 108, 81)
-  badge(ctx, 'ARC AGREEMENT', 418, 62)
+  badge(ctx, receipt.type === 'funding' ? 'FUNDING RECEIPT' : 'ARC AGREEMENT', 418, 62)
 
   ctx.font = '800 36px Arial'
   ctx.fillText(`${amount(receipt.amount)} ${receipt.asset || 'USDC'}`, 62, 158)
@@ -177,7 +205,7 @@ function drawReceipt(ctx: CanvasRenderingContext2D, receipt: PaylinkReceipt, wid
   ctx.fillText('REFERENCE ID', 62, y + 2)
   ctx.fillStyle = '#ffffff'
   ctx.font = '700 12px Courier New'
-  rightText(ctx, shorten(receipt.txHash || receipt.receiptHash || receipt.receiptId), 550, y + 2, 320)
+  rightText(ctx, shorten(paymentReceiptView(receipt).reference), 550, y + 2, 320)
   if (arcTransactionUrl(receipt)) {
     ctx.fillStyle = '#a3a3a3'
     ctx.font = '700 9px Arial'
@@ -187,8 +215,8 @@ function drawReceipt(ctx: CanvasRenderingContext2D, receipt: PaylinkReceipt, wid
   ctx.setLineDash([])
   ctx.fillStyle = '#707070'
   ctx.font = '700 10px Arial'
-  const footer = 'VERIFIED ARC AGREEMENT RECORD | HASHPAYSTREAM | POWERED BY HASH PAYLINK'
-  ctx.fillText(footer, (width - ctx.measureText(footer).width) / 2, 746)
+  const footer = receipt.type === 'funding' ? 'HASHPAYSTREAM | POWERED BY HASH PAYLINK' : 'VERIFIED ARC AGREEMENT RECORD | HASHPAYSTREAM | POWERED BY HASH PAYLINK'
+  ctx.fillText(footer, (width - ctx.measureText(footer).width) / 2, height - 46)
 }
 
 function divider(ctx: CanvasRenderingContext2D, y: number) {
@@ -231,7 +259,7 @@ function escapePdfLiteral(value: string) {
   return value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
 }
 
-function pdfFromJpeg(dataUrl: string, width: number, height: number, transactionUrl: string) {
+function pdfFromJpeg(dataUrl: string, width: number, height: number, transactionUrl: string, referenceY = 639) {
   const binary = atob(dataUrl.split(',')[1] || '')
   const image = new Uint8Array(binary.length)
   for (let index = 0; index < binary.length; index += 1) image[index] = binary.charCodeAt(index)
@@ -250,7 +278,7 @@ function pdfFromJpeg(dataUrl: string, width: number, height: number, transaction
   start(4); add(`<< /Type /XObject /Subtype /Image /Width ${width * 2} /Height ${height * 2} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.byteLength} >>\nstream\n`); add(image.buffer.slice(0) as ArrayBuffer); add('\nendstream\nendobj\n')
   start(5); add(`<< /Length ${encoder.encode(stream).length} >>\nstream\n${stream}\nendstream\nendobj\n`)
   if (transactionUrl) {
-    start(6); add(`<< /Type /Annot /Subtype /Link /Rect [300 110 550 153] /Border [0 0 0] /A << /S /URI /URI (${escapePdfLiteral(transactionUrl)}) >> >>\nendobj\n`)
+    start(6); add(`<< /Type /Annot /Subtype /Link /Rect [300 ${height - referenceY - 26} 550 ${height - referenceY + 17}] /Border [0 0 0] /A << /S /URI /URI (${escapePdfLiteral(transactionUrl)}) >> >>\nendobj\n`)
   }
   const xref = offset
   const objectCount = transactionUrl ? 7 : 6
