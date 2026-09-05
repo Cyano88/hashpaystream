@@ -29,6 +29,7 @@ export type UpfrontFundingRequest = {
   status: 'pending' | 'settled' | 'declined'
   requestedAt: string
   expiresAt: string
+  transactionHashes?: Partial<Record<'funded' | 'released' | 'settled', `0x${string}`>>
 }
 export type UpfrontAssessmentRecord = { ownerReference: string; requestHash: string; agreementId?: string; status: 'pending' | 'completed'; createdAt: string; request?: AgreementIntelligenceRequest; response?: Record<string, unknown>; review?: UpfrontReviewState; fundingRequest?: UpfrontFundingRequest }
 export type UpfrontAssessmentStore = { schema: 1; records: Record<string, UpfrontAssessmentRecord> }

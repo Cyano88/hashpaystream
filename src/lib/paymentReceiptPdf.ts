@@ -1,14 +1,20 @@
 export type PaylinkReceipt = {
+  type?: string
   receiptId: string
   receiptHash: string
   title: string
   status: string
   eventId: string
   txHash: string
+  chain?: string
   payer: string
+  memo?: string
   amount: string
   asset: string
   createdAt: number
+  source?: string
+  settlementType?: string
+  referenceId?: string
   recipient?: string
   destination?: string
   narration?: string
@@ -20,7 +26,14 @@ export type PaylinkReceipt = {
   returnedAmount?: string
 }
 
-type ReceiptRow = { label: string; value: string; mono?: boolean }
+export type UnifiedReceiptRow = { label: string; value: string; mono?: boolean }
+export type UnifiedReceiptView = {
+  badge: string
+  amount: string
+  timestamp: string
+  rows: UnifiedReceiptRow[]
+  reference: string
+}
 
 const ARC_TESTNET_EXPLORER_ORIGIN = 'https://testnet.arcscan.app'
 
@@ -55,7 +68,7 @@ function outcome(receipt: PaylinkReceipt) {
   return `${amount(receipt.returnedAmount)} USDC returned`
 }
 
-function rows(receipt: PaylinkReceipt): ReceiptRow[] {
+function rows(receipt: PaylinkReceipt): UnifiedReceiptRow[] {
   return [
     { label: 'Agreement', value: receipt.narration || receipt.title || '-' },
     { label: 'Type', value: template(receipt.agreementTemplate) },
@@ -67,11 +80,30 @@ function rows(receipt: PaylinkReceipt): ReceiptRow[] {
   ]
 }
 
+export function paymentReceiptView(receipt: PaylinkReceipt): UnifiedReceiptView {
+  const reversed = receipt.agreementStatus === 'refunded' || receipt.agreementStatus === 'cancelled'
+  return {
+    badge: reversed ? 'USDC returned' : receipt.agreementStatus === 'completed' ? 'Completed' : 'Confirmed',
+    amount: `${amount(receipt.amount)} ${receipt.asset || 'USDC'}`,
+    timestamp: timestamp(receipt.createdAt),
+    rows: rows(receipt),
+    reference: receipt.referenceId || receipt.txHash || receipt.receiptHash || receipt.receiptId,
+  }
+}
+
+export function paymentReceiptBrand() {
+  return { name: 'HashPayStream', imageUrl: '/brand/hashpaystream-mark.png' }
+}
+
 export function paymentReceiptFileName(receipt?: PaylinkReceipt) {
   return `hashpaystream-agreement-receipt-${receipt?.receiptId.slice(0, 10) || 'receipt'}.pdf`
 }
 
-export async function createPaymentReceiptPdf(receipt: PaylinkReceipt) {
+export function paymentReceiptImageFileName(receipt?: PaylinkReceipt) {
+  return `hashpaystream-agreement-receipt-${receipt?.receiptId.slice(0, 10) || 'receipt'}.jpg`
+}
+
+function receiptCanvas(receipt: PaylinkReceipt) {
   const width = 612
   const height = 792
   const canvas = document.createElement('canvas')
@@ -81,6 +113,15 @@ export async function createPaymentReceiptPdf(receipt: PaylinkReceipt) {
   if (!ctx) throw new Error('Receipt renderer is unavailable.')
   ctx.scale(2, 2)
   drawReceipt(ctx, receipt, width, height)
+  return { canvas, width, height }
+}
+
+export async function createPaymentReceiptImage(receipt: PaylinkReceipt) {
+  return receiptCanvas(receipt).canvas.toDataURL('image/jpeg', 0.94)
+}
+
+export async function createPaymentReceiptPdf(receipt: PaylinkReceipt) {
+  const { canvas, width, height } = receiptCanvas(receipt)
   const jpeg = await new Promise<string>((resolve, reject) => canvas.toBlob(blob => {
     if (!blob) return reject(new Error('Receipt PDF could not be prepared.'))
     const reader = new FileReader()

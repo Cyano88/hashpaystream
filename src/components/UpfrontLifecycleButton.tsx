@@ -31,6 +31,7 @@ type SignedAttestation = {
 }
 
 const API = '/api/hashpaystream/v1/upfront/protection'
+const RECEIPT_API = '/api/hashpaystream/v1/upfront/opportunities'
 const ESCROW = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS ?? '').trim()
 const ARC_ROUTER = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS ?? '').trim()
 const HEX32 = /^0x[a-fA-F0-9]{64}$/
@@ -131,6 +132,12 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
     return body.attestation
   }
 
+  async function recordTransaction(stage: 'released' | 'settled', transactionHash: Hex) {
+    const token = await getAccessToken()
+    if (!token) return
+    await fetch(RECEIPT_API, { method: 'POST', cache: 'no-store', keepalive: true, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ action: 'record_transaction', requestId: opportunity.id, positionId: opportunity.positionId, transactionHash, stage }) }).catch(() => undefined)
+  }
+
   useEffect(() => {
     if (opportunity.positionStatus !== 'released' || repaymentState === 'ready') return
     let cancelled = false
@@ -198,6 +205,7 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
       const hash = await walletClient.writeContract(simulation.request)
       const receipt = await publicClient.waitForTransactionReceipt({ hash })
       if (receipt.status !== 'success') throw new Error('The advance release reverted.')
+      await recordTransaction('released', hash)
       setSuccess('Advance released to the service provider.')
       await Promise.resolve(onUpdated()).catch(() => undefined)
     } catch (reason) {
@@ -241,6 +249,7 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
       const hash = await walletClient.writeContract(request.request)
       const receipt = await publicClient.waitForTransactionReceipt({ hash })
       if (receipt.status !== 'success') throw new Error('The Arc split settlement reverted.')
+      await recordTransaction('settled', hash)
       setSuccess('Funding partner, service provider, and HashPayStream were paid exactly as accepted.')
       await Promise.resolve(onUpdated()).catch(() => undefined)
     } catch (reason) {

@@ -322,6 +322,24 @@ assert.equal(
   assignedA.body.opportunities[0].requestedAdvanceUsdcUnits,
   '20000000',
 )
+const fundingTransactionHash = '0x' + '9'.repeat(64)
+const recordFundingReceipt = () => call(
+  createUpfrontOpportunitiesHandler({ ...base, identity: identity(partnerAIdentity) }),
+  { method: 'POST', body: { action: 'record_transaction', requestId: request.requestId, positionId: selectedTerms.message.offerHash, transactionHash: fundingTransactionHash, stage: 'funded' } },
+)
+assert.equal((await recordFundingReceipt()).statusCode, 202)
+assert.equal(store.records.approved.fundingRequest.transactionHashes.funded, fundingTransactionHash)
+assert.equal((await recordFundingReceipt()).statusCode, 202, 'the same confirmed transaction must replay idempotently')
+const conflictingReceipt = await call(
+  createUpfrontOpportunitiesHandler({ ...base, identity: identity(partnerAIdentity) }),
+  { method: 'POST', body: { action: 'record_transaction', requestId: request.requestId, positionId: selectedTerms.message.offerHash, transactionHash: '0x' + '8'.repeat(64), stage: 'funded' } },
+)
+assert.equal(conflictingReceipt.statusCode, 409)
+const otherPartnerReceipt = await call(
+  createUpfrontOpportunitiesHandler({ ...base, identity: identity(partnerBIdentity) }),
+  { method: 'POST', body: { action: 'record_transaction', requestId: request.requestId, positionId: selectedTerms.message.offerHash, transactionHash: fundingTransactionHash, stage: 'released' } },
+)
+assert.equal(otherPartnerReceipt.statusCode, 404)
 store.records.approved.fundingRequest.status = 'settled'
 const persistedSettledPartnerPosition = await call(
   createUpfrontOpportunitiesHandler({

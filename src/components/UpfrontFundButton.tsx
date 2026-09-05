@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { useWallets } from '@privy-io/react-auth'
+import { usePrivy, useWallets } from '@privy-io/react-auth'
 import {
   createPublicClient,
   createWalletClient,
@@ -38,6 +38,7 @@ type SignedOffer = {
 }
 
 const EXPECTED_ESCROW = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS ?? '').trim()
+const RECEIPT_API = '/api/hashpaystream/v1/upfront/opportunities'
 const NATIVE_XLAYER_USDC = getAddress('0xB6CEceAB302E2E4948951eE7843FC24E92933061')
 const MIN_REMAINING_PROTECTION_SECONDS = 21_600
 const BYTES32 = /^0x[a-fA-F0-9]{64}$/
@@ -195,6 +196,7 @@ function parseFundingTerms(opportunity: Opportunity, escrow: Address) {
 }
 
 export default function UpfrontFundButton({ opportunity, onFunded }: { opportunity: Opportunity; onFunded?: () => Promise<void> | void }) {
+  const { getAccessToken } = usePrivy()
   const { wallets } = useWallets()
   const [stage, setStage] = useState('')
   const [error, setError] = useState('')
@@ -277,6 +279,8 @@ export default function UpfrontFundButton({ opportunity, onFunded }: { opportuni
       const hash = await walletClient.writeContract(funding.request)
       const receipt = await publicClient.waitForTransactionReceipt({ hash })
       if (receipt.status !== 'success') throw new FundingUiError('The X Layer funding transaction reverted.')
+      const token = await getAccessToken()
+      if (token) await fetch(RECEIPT_API, { method: 'POST', cache: 'no-store', keepalive: true, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ action: 'record_transaction', requestId: opportunity.id, positionId: fundingTerms.message.offerHash, transactionHash: hash, stage: 'funded' }) }).catch(() => undefined)
       setFundingHash(hash)
       setStage('')
       await Promise.resolve(onFunded?.()).catch(() => undefined)

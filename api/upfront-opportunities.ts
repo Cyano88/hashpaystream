@@ -352,7 +352,26 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
       if (!wallet || identity.wallets.length !== 1 || identity.wallets[0].toLowerCase() !== wallet.toLowerCase()) failure("Open Funding partners once to verify this profile's Privy wallet.", 409)
 
       if (req.method === 'POST') {
-        if (clean(body.action, 24) !== 'decline') failure('Funding request action is invalid.', 400)
+        const action = clean(body.action, 24)
+        if (action === 'record_transaction') {
+          const requestId = clean(body.requestId, 100)
+          const positionId = clean(body.positionId, 66).toLowerCase()
+          const transactionHash = clean(body.transactionHash, 66).toLowerCase() as Hex
+          const stage = clean(body.stage, 20) as 'funded' | 'released' | 'settled'
+          if (!REQUEST_ID.test(requestId) || !/^0x[a-f0-9]{64}$/.test(positionId) || !/^0x[a-f0-9]{64}$/.test(transactionHash) || !['funded', 'released', 'settled'].includes(stage)) failure('Receipt details are invalid.', 400)
+          await dependencies.mutateStore(storeKey, current => {
+            const next = safeStore(current)
+            const found = findRecord(next, requestId)
+            const funding = found?.[1].fundingRequest
+            if (!found || !funding || funding.partnerApplicationId !== profile.id || String(funding.fundingTerms?.message?.offerHash).toLowerCase() !== positionId) failure('Funding request was not found.', 404)
+            const existing = funding.transactionHashes?.[stage]
+            if (existing && existing.toLowerCase() !== transactionHash) failure('A different transaction is already recorded for this stage.', 409)
+            next.records[found[0]] = { ...found[1], fundingRequest: { ...funding, transactionHashes: { ...funding.transactionHashes, [stage]: transactionHash } } }
+            return next
+          })
+          return res.status(202).json({ ok: true, status: 'recorded' })
+        }
+        if (action !== 'decline') failure('Funding request action is invalid.', 400)
         const requestId = clean(body.requestId, 100)
         if (!REQUEST_ID.test(requestId)) failure('Funding request is invalid.', 400)
         await dependencies.mutateStore(storeKey, async current => {

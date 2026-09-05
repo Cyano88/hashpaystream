@@ -33,27 +33,31 @@ const released = {
   protectedAmount: '10000', advanceAmount: '3000', funderRepaymentAmount: '3024', platformFeeAmount: '106', protectionDeadline: 2_000_000_000, status: 'Released',
 }
 const signed = { message: { arcAgreementHash: agreementHash, funderAmount: '3024', providerAmount: '6870', treasuryAmount: '106' }, signature: `0x${'66'.repeat(65)}` }
+const settlementTransactionHash = `0x${'77'.repeat(32)}`
 let settledMarks = 0
+const recordedSettlementHashes = []
 const base = {
   env: () => env,
   readStore: async () => store,
   position: async () => released,
   agreement: async () => ({ chain: { onchainAgreementId: agreementHash } }),
-  markSettled: async () => { settledMarks += 1 },
+  markSettled: async (_key, _recordKey, transactionHash) => { settledMarks += 1; recordedSettlementHashes.push(transactionHash) },
   sign: async () => signed,
   now: () => new Date('2026-08-30T12:00:00.000Z'),
   log: () => {},
 }
 
 let submissions = 0
-const completed = await runUpfrontSettlementPass({ ...base, isSettled: async () => false, submit: async () => { submissions += 1 } })
+const completed = await runUpfrontSettlementPass({ ...base, isSettled: async () => false, submit: async () => { submissions += 1; return settlementTransactionHash } })
 assert.deepEqual(completed, { eligible: 1, settled: 1, alreadySettled: 0, deferred: 0, codes: [] })
 assert.equal(submissions, 1)
 assert.equal(settledMarks, 1)
+assert.equal(recordedSettlementHashes[0], settlementTransactionHash)
 
 const replay = await runUpfrontSettlementPass({ ...base, isSettled: async () => true, submit: async () => { throw new Error('must not submit') } })
 assert.deepEqual(replay, { eligible: 1, settled: 0, alreadySettled: 1, deferred: 0, codes: [] })
 assert.equal(settledMarks, 2)
+assert.equal(recordedSettlementHashes[1], undefined)
 
 const mismatch = await runUpfrontSettlementPass({ ...base, agreement: async () => ({ chain: { onchainAgreementId: `0x${'99'.repeat(32)}` } }), isSettled: async () => false, submit: async () => { throw new Error('must not submit') } })
 assert.deepEqual(mismatch, { eligible: 1, settled: 0, alreadySettled: 0, deferred: 1, codes: ['ARC_AGREEMENT_MISMATCH'] })

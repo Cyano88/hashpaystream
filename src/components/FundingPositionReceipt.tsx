@@ -49,7 +49,7 @@ export default function FundingPositionReceipt({ receipt }: { receipt: FundingRe
   return <details className="group mt-5 rounded-2xl border border-gray-200 px-4 py-3 dark:border-white/10">
     <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
       <span className="min-w-0"><span className="block text-xs font-black text-gray-950 dark:text-white">Funding receipt</span><span className="mt-1 block text-[10px] text-gray-400">{STATUS[receipt.status]} on X Layer</span></span>
-      <span className="flex shrink-0 items-center gap-2"><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[9px] font-black text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">Verified</span><ChevronDownIcon className="h-4 w-4 text-gray-400 transition-transform group-open:rotate-180" /></span>
+      <span className="flex shrink-0 items-center gap-2"><span className="rounded-full bg-gray-100 px-2.5 py-1 text-[9px] font-black text-gray-600 dark:bg-white/10 dark:text-gray-300">On-chain</span><ChevronDownIcon className="h-4 w-4 text-gray-400 transition-transform group-open:rotate-180" /></span>
     </summary>
     <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 pt-4 dark:border-white/[0.07]">
       <Metric label="Funded" value={usdc(receipt.advanceUsdcUnits)} />

@@ -53,12 +53,12 @@ export type UpfrontSettlementWorkerDependencies = {
   env: () => NodeJS.ProcessEnv
   now: () => Date
   readStore: (key: string) => Promise<UpfrontAssessmentStore | undefined>
-  markSettled: (key: string, recordKey: string) => Promise<void>
+  markSettled: (key: string, recordKey: string, transactionHash?: Hex) => Promise<void>
   agreement: (id: string, config: UpfrontSettlementWorkerConfig) => Promise<AuthoritativeArcAgreement>
   position: (id: Hex, config: UpfrontSettlementWorkerConfig) => Promise<WorkerPosition>
   isSettled: (agreementHash: Hex, config: UpfrontSettlementWorkerConfig) => Promise<boolean>
   sign: typeof signSplitSettlement
-  submit: (signed: SignedSettlement, config: UpfrontSettlementWorkerConfig) => Promise<void>
+  submit: (signed: SignedSettlement, config: UpfrontSettlementWorkerConfig) => Promise<Hex | undefined>
   log: (event: Record<string, unknown>) => void
 }
 
@@ -112,7 +112,7 @@ async function submit(signed: SignedSettlement, config: UpfrontSettlementWorkerC
   const client = createPublicClient({ chain: arcTestnet, transport: http(config.arcRpcUrl) })
   const raw = signed.message
   const message = { ...raw, funderAmount: BigInt(raw.funderAmount), providerAmount: BigInt(raw.providerAmount), treasuryAmount: BigInt(raw.treasuryAmount) }
-  if (await isSettled(message.arcAgreementHash, config)) return
+  if (await isSettled(message.arcAgreementHash, config)) return undefined
   try {
     const [gasBalance, gasPrice] = await Promise.all([
       client.getBalance({ address: account.address }),
@@ -126,8 +126,9 @@ async function submit(signed: SignedSettlement, config: UpfrontSettlementWorkerC
     const hash = await wallet.writeContract(simulation.request)
     const receipt = await client.waitForTransactionReceipt({ hash })
     if (receipt.status !== 'success') throw new Error('SETTLEMENT_REVERTED')
+    return hash
   } catch (reason) {
-    if (await isSettled(message.arcAgreementHash, config).catch(() => false)) return
+    if (await isSettled(message.arcAgreementHash, config).catch(() => false)) return undefined
     throw reason
   }
 }
@@ -136,11 +137,17 @@ const defaults: UpfrontSettlementWorkerDependencies = {
   env: () => process.env,
   now: () => new Date(),
   readStore: key => readDurableJson<UpfrontAssessmentStore>(key),
-  markSettled: async (key, recordKey) => {
+  markSettled: async (key, recordKey, transactionHash) => {
     await mutateDurableJson<UpfrontAssessmentStore>(key, current => {
       const record = current?.records?.[recordKey]
       if (!record?.fundingRequest) return current ?? { schema: 1, records: {} }
-      return { ...current!, records: { ...current!.records, [recordKey]: { ...record, fundingRequest: { ...record.fundingRequest, status: 'settled' } } } }
+      return { ...current!, records: { ...current!.records, [recordKey]: { ...record, fundingRequest: {
+        ...record.fundingRequest,
+        status: 'settled',
+        transactionHashes: transactionHash
+          ? { ...record.fundingRequest.transactionHashes, settled: transactionHash }
+          : record.fundingRequest.transactionHashes,
+      } } } }
     })
   },
   agreement,
@@ -177,8 +184,8 @@ export async function runUpfrontSettlementPass(overrides: Partial<UpfrontSettlem
         const authoritative = await dependencies.agreement(record.agreementId, config)
         if (!authoritative.chain || authoritative.chain.onchainAgreementId.toLowerCase() !== current.arcAgreementHash.toLowerCase()) throw new Error('ARC_AGREEMENT_MISMATCH')
         const signed = await dependencies.sign({ request: record.request, position: current, agreement: authoritative, arcRouter: config.router, privateKey: config.repaymentKey, now: dependencies.now() })
-        await dependencies.submit(signed, config)
-        await dependencies.markSettled(config.storeKey, recordKey)
+        const transactionHash = await dependencies.submit(signed, config)
+        await dependencies.markSettled(config.storeKey, recordKey, transactionHash)
         result.settled += 1
       } catch (reason) {
         result.deferred += 1
