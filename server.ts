@@ -23,6 +23,7 @@ import circleWallet from './api/circle-wallet.js'
 import customerRequests from './api/customer-requests.js'
 import serviceRequests from './api/service-requests.js'
 import savingsConfig from './api/savings-config.js'
+import stagingReceipts from './api/staging-receipts.js'
 import {
   createCircleMarketplacePaymentHandler,
   createCircleMarketplaceResourceHandler,
@@ -147,6 +148,7 @@ app.all('/api/hashpaystream/v1/requests', (_req, res) => {
   res.setHeader('Allow', 'GET, POST')
   return res.status(405).json({ ok: false, error: 'Method not allowed.' })
 })
+app.all('/api/hashpaystream/staging/agreements/:agreementId/receipts', rateLimit({ name: 'staging-receipts', windowMs: 60_000, max: 60 }), stagingReceipts)
 app.get('/api/hashpaystream/v1/service-requests', rateLimit({ name: 'service-request-read', windowMs: 60_000, max: 120 }), serviceRequests)
 app.post('/api/hashpaystream/v1/service-requests', rateLimit({ name: 'service-request-write', windowMs: 60_000, max: 30 }), serviceRequests)
 app.all('/api/hashpaystream/v1/service-requests', (_req, res) => {

@@ -74,7 +74,7 @@ function units(amount: string) { const [whole, fraction = ''] = amount.split('.'
 function validAmount(value: string) { return /^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(value) && BigInt(units(value)) > 0n }
 function maskEmail(email: string) { const [name, domain] = email.split('@'); return `${name.slice(0, 2)}${name.length > 2 ? '***' : '*'}@${domain}` }
 
-async function verifiedIdentity(req: Request, env: NodeJS.ProcessEnv): Promise<Identity> {
+export async function verifiedIdentity(req: Request, env: NodeJS.ProcessEnv): Promise<Identity> {
   const appId = clean(env.PRIVY_APP_ID ?? env.VITE_PRIVY_APP_ID, 180)
   const appSecret = clean(env.PRIVY_APP_SECRET, 300)
   const token = bearer(req)

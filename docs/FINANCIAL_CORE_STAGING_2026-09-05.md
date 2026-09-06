@@ -95,3 +95,17 @@ excluded, including one linked but unactivated draft.
 See [the workflow audit](./RECEIPT_WORKFLOW_AUDIT_2026-09-06.md) for exact evidence,
 limitations and remaining incremental-ingestion/authentication/cutover gates.
 No production route was switched, and no available balance was inferred.
+
+
+## Incremental sync and authenticated reads - 2026-09-06
+
+Migration 005 and the one-shot receipt sync are now verified in staging. The
+complete cycle reached ready after a transient provider receipt failure first
+left it blocked. Receipt, ledger and ownership replay checks passed without
+new financial entries. The opt-in reader uses server-verified Privy identity
+and requires fresh successful sync health.
+
+See [the incremental audit](./RECEIPT_INCREMENTAL_AUDIT_2026-09-06.md) for the
+PostgreSQL and HTTP checks, failure/recovery evidence and operation commands.
+A valid real user login, scheduled staging operation and a financial reorg
+reversal policy remain unverified or unimplemented. Production remains unchanged.

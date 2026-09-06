@@ -1,3 +1,4 @@
+import { advanceReceiptWorkflows } from '../api/receipt-workflow-incremental.ts'
 import pg from 'pg'
 import { spawn } from 'node:child_process'
 import { buildReceiptWorkflowPlan,projectionHash } from '../api/receipt-workflow-projection.ts'
@@ -5,9 +6,10 @@ import { persistReceiptWorkflows,readStagingReceiptWorkflow } from '../api/recei
 import { renderDurableStoreConnectionConfig } from '../api/durable-store.ts'
 import { loadWorkflowSources,workflowDatabaseBoundary } from './receipt-workflow-source.mjs'
 const observationSql=`select o.observation_id,o.observation_type,o.network,o.contract_address,o.block_number::text,o.payload,o.payload_hash,(select p.occurred_at::text from hashpaystream.ledger_transactions p where p.reference_type='chain_observation' and p.reference_id=o.observation_id and p.status='posted') as occurred_at from hashpaystream.chain_observations o order by observation_id`
-const write=process.argv.includes('--confirm-staging-workflow-backfill'),rollback=process.argv.includes('--confirm-rollback-only-workflow-check')
+const incremental=process.argv.includes('--confirm-staging-workflow-sync')
+const write=process.argv.includes('--confirm-staging-workflow-backfill')||incremental,rollback=process.argv.includes('--confirm-rollback-only-workflow-check')
 async function main(){
- if(write===rollback)throw Error('EXACTLY_ONE_WORKFLOW_MODE_REQUIRED')
+ if(Number(process.argv.includes('--confirm-staging-workflow-backfill'))+Number(incremental)+Number(rollback)!==1)throw Error('EXACTLY_ONE_WORKFLOW_MODE_REQUIRED')
  const target=workflowDatabaseBoundary()
  const pool=new pg.Pool({...renderDurableStoreConnectionConfig(target.toString()),connectionTimeoutMillis:10000,query_timeout:30000});let c,open=false
  try {
@@ -28,8 +30,9 @@ async function main(){
  await c.query("select pg_advisory_xact_lock(hashtext('hashpaystream.receipt-workflow.v1'))")
  if(projectionHash((await c.query(observationSql)).rows)!==projectionHash(observations))throw Error('WORKFLOW_OBSERVATIONS_CHANGED')
  const before=Number((await c.query('select count(*)::int as count from hashpaystream.agreement_projections')).rows[0].count)
- const first=await persistReceiptWorkflows(c,plan),second=await persistReceiptWorkflows(c,plan)
- if(second.inserted!==0||second.duplicate!==plan.workflows.length)throw Error('WORKFLOW_REPLAY_NOT_IDEMPOTENT')
+ const persist=incremental?advanceReceiptWorkflows:persistReceiptWorkflows
+ const first=await persist(c,plan),second=await persist(c,plan)
+ if(second.inserted!==0||(second.updated||0)!==0||second.duplicate!==plan.workflows.length)throw Error('WORKFLOW_REPLAY_NOT_IDEMPOTENT')
  let authorizedReads=0,deniedReads=0
  for(const w of plan.workflows){
   for(const [accountReference,role]of [[w.customerReference,'customer'],[w.providerReference,'provider']]){
