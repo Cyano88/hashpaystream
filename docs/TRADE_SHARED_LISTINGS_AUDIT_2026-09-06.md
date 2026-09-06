@@ -89,3 +89,40 @@ Final checks: production web build/typecheck, Trade PostgreSQL/HTTP, native phot
 preview browser/draft checks and the Android readiness suite all passed. The build
 retains existing vendor annotation and bundle-size warnings. No production deploy,
 contract change, payment action or new Android installation was performed.
+
+
+## Pilot deployment follow-up
+
+Deployed 6 September 2026 after user approval to proceed:
+- Feature branch pushed: feat/trade-marketplace-preview.
+- Live runtime commit: 1c4ff96a775955bc1b29a14aedbd50af43706dd2.
+- Render service: hashpaystream-trade-pilot, srv-daeoergn74is73epbe1g.
+- URL: https://hashpaystream-trade-pilot.onrender.com.
+- Free web-service plan, Oregon, manual deployments (autoDeploy=no).
+- Dedicated database hashpaystream_trade_pilot on the existing database host,
+  owned by a new restricted login. The login has no access to the existing
+  financial tables, and no membership in the production database role.
+- Trade-only entry point scripts/serve-trade-pilot.ts checks the database name
+  and pilot environment before starting. Only Trade routes and health are mounted.
+- Pilot configuration contains Privy authentication and a fresh Trade ownership
+  secret. No payment/settlement credentials are passed to the pilot service.
+- No production-main merge, production service update or financial data migration.
+
+Live checks passed: health 200, enabled empty collection 200, unauthenticated
+publish 401, invalid-token My listings 401, and financial requests route 404.
+Render reports the intended runtime commit as live. The free service can sleep;
+a cold first request may require waiting or retrying.
+
+Android 1.0.7 / versionCode 8 routes only /api/hashpaystream/v1/trade/ to the
+pilot URL via VITE_HASHPAYSTREAM_TRADE_API_ORIGIN. Other APIs keep their existing
+backend. The origin is allowlisted in code, and the routing regression covers
+both pilot and ordinary builds. Android sync/build, unit tests and lint passed.
+All 280 dist files match the APK byte-for-byte. APK SHA-256:
+3ad4c5333345524fb8eae26a66e41fcde87d5c0c8f598c813933fe36d25e8d79.
+Installed successfully with adb install -r; package manager confirms 1.0.7/code 8.
+Desktop artifact: C:/Users/USER/Desktop/HashPayStream-1.0.7-Trade-Pilot.apk.
+
+The final physical publishing/photo/keyboard interaction checks remain pending.
+The connected Pixel was in the Phone app; the user was asked to leave HashPayStream
+open when available. Installation was completed without taking over the foreground
+app. No real-user listing was published during these checks.
