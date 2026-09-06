@@ -6,7 +6,7 @@ Status: NOT READY for an unrestricted public release. Discovery-only beta is the
 
 Trade runs on the existing paid main service; the old pilot is suspended. No extra paid service is required. Browser/Pixel publication, two-way messages, block/unblock, report evidence review and dismissal, public cleanup, keyboard behavior and restart/login persistence have been verified. Trade uses Pocket-style confirmation sheets on web and Android. See TRADE_TWO_ACCOUNT_RELEASE_PREP_2026-09-06.md for exact coverage and remaining gates.
 
-The original signing configuration is still missing. Current installed Android 1.0.11 is a debug build. Account-switch isolation, live duplicate-retry tests, backup recovery and operational procedures remain release gates.
+The original signing configuration is still missing. Current installed Android 1.0.11 is a debug build. Account-switch isolation, live duplicate-retry tests and operational procedures remain release gates. The isolated logical backup/restore drill passed; see TRADE_RECOVERY_DRILL_2026-09-06.md. Scheduled backup policy and disaster cutover remain unverified.
 
 ## Historical audit snapshot (superseded by the follow-up above)
 
@@ -28,7 +28,7 @@ A synthetic failure test confirmed public failure, public retry, delayed private
 | Always-on API | Complete: consolidated into the existing paid main HashPayStream service. No extra paid service. |
 | Android signing/update continuity | Configure the original upload key locally, verify certificate/update path, build signed release APK/AAB. Current APK is a debug pilot. |
 | Two-account device lifecycle | Core browser/Pixel flow, moderation review/dismissal and restart passed. Account switch/logout and live duplicate-retry coverage remain pending. |
-| Recovery | Verify an isolated Trade backup restore without restoring over or exporting financial databases. Record recovery duration and row/evidence integrity. |
+| Recovery | Isolated logical restore passed: all five tables, full row/evidence content, indexes and constraints matched. Scheduling, retention and disaster cutover remain operational work. |
 | Operations | Assign report reviewer, define evidence retention/deletion and account suspension procedures; verify alert destination and rollback. |
 | Web/Android parity | Verify deliberate pilot routing and feature availability in each distributed client. Do not merge production main merely to publish a pilot. |
 | Payment boundaries | Checkout disabled and no buyer-protection promises until the goods agreement lifecycle is implemented and audited. |

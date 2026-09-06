@@ -31,6 +31,10 @@ Remaining live gates: administrator moderation and report cleanup, controlled ne
 
 Remaining release gates: original signing configuration, full account switch/logout and retry-idempotency live checks, moderator hide action on an active synthetic item, backup/restore drill and operational procedures. No release key was created or replaced.
 
+## Recovery drill follow-up
+
+The isolated PostgreSQL 18 logical backup/restore passed for all five Trade tables, full row/evidence content, indexes and constraints. Source remained read-only; the temporary local server and data copy were removed. See TRADE_RECOVERY_DRILL_2026-09-06.md for measured durations and limitations. Backup scheduling/retention and disaster cutover remain operational work.
+
 ## Earlier preparation evidence (superseded where noted above)
 
 - `adb devices` returned no connected devices on two checks.
