@@ -20,3 +20,12 @@ Public and private listing requests run separately. Fetch effects no longer retr
 ## Limits
 
 The cache lasts for the current app process only; a fresh app launch still requires a server response. Public snapshots can be up to 30 seconds old before revalidation. Item detail and all write permissions remain server-verified. No server plan, payment behavior or contract changes are included.
+
+## Release verification
+
+- Pushed implementation commits `ba8e26b` and `a371def` to `feat/trade-marketplace-preview`. The latter invalidates older private reads when publication succeeds.
+- Final Android 1.0.9 / code 10 build, unit tests and lint passed. All 280 web assets matched the APK. Installed successfully with `adb install -r`; installed version independently verified.
+- Desktop artifact: `C:\Users\USER\Desktop\HashPayStream-1.0.9-Trade-Pilot.apk`.
+- SHA-256: `a189088f20e649eaade79666951135ade682374ec9fe09303a45e09d9ee85d86`.
+- Interaction and slow-network verification was performed in the synthetic browser harness. The phone was in another app during availability inspection; this release does not claim a repeated physical-device interaction test.
+- This is an Android/client fix. No backend redeployment or production-main merge was required.
