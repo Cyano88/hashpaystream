@@ -164,7 +164,7 @@ export function createTradeRouter(
     };
   async function owner(req: Request) {
     const env = deps.env(),
-      secret = env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET ?? "";
+      secret = env.HASHPAYSTREAM_TRADE_OWNERSHIP_SECRET ?? "";
     if (secret.length < 32) fail("Trade authentication is unavailable.", 503);
     const user = await deps.identity(req, env);
     return createHmac("sha256", secret)

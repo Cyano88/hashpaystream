@@ -6,6 +6,8 @@ const database = new URL(process.env.DATABASE_URL || 'postgres://invalid/invalid
 if (process.env.HASHPAYSTREAM_DATABASE_ENVIRONMENT !== 'trade-pilot' || database.pathname !== '/hashpaystream_trade_pilot') throw new Error('TRADE_PILOT_DATABASE_REQUIRED')
 if (process.env.HASHPAYSTREAM_TRADE_ENABLED !== 'true') throw new Error('TRADE_PILOT_MUST_BE_ENABLED')
 if (!process.env.PRIVY_APP_ID || !process.env.PRIVY_APP_SECRET || (process.env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET || '').length < 32) throw new Error('TRADE_PILOT_AUTH_REQUIRED')
+process.env.HASHPAYSTREAM_TRADE_DATABASE_URL = process.env.DATABASE_URL
+process.env.HASHPAYSTREAM_TRADE_OWNERSHIP_SECRET = process.env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET
 const app = express()
 app.disable('x-powered-by')
 app.set('trust proxy', 1)

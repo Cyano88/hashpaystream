@@ -23,7 +23,7 @@ const pool = new pg.Pool({
 const secret = "synthetic-community-secret-".repeat(3),
   env = {
     HASHPAYSTREAM_TRADE_ENABLED: "true",
-    HASHPAYSTREAM_APP_OWNERSHIP_SECRET: secret,
+    HASHPAYSTREAM_TRADE_OWNERSHIP_SECRET: secret,
   };
 const owner = (user) =>
   createHmac("sha256", secret)

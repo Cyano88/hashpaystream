@@ -22,7 +22,7 @@ const pool = new pg.Pool({
 const store = createPostgresTradeStore(pool);
 const env = {
   HASHPAYSTREAM_TRADE_ENABLED: "true",
-  HASHPAYSTREAM_APP_OWNERSHIP_SECRET: "synthetic-test-secret-".repeat(3),
+  HASHPAYSTREAM_TRADE_OWNERSHIP_SECRET: "synthetic-test-secret-".repeat(3),
 };
 const identity = async (req) => {
   const token = req.headers.authorization;

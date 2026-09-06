@@ -16,9 +16,9 @@ try{
   await window.fetch('/api/hashpaystream/v1/trade/listings')
   await window.fetch('/api/hashpaystream/v1/requests')
   await window.fetch('/api/hashpaystream/staging/agreements/example/receipts')
-  assert.equal(calls[0].url,(pilot||'https://hashpaystream.onrender.com')+'/api/hashpaystream/v1/trade/listings')
+  assert.equal(calls[0].url,('https://hashpaystream.onrender.com')+'/api/hashpaystream/v1/trade/listings')
   assert.ok(calls.slice(1).every(call=>call.url.startsWith('https://hashpaystream.onrender.com/')))
   assert.equal(await (await window.fetch('https://example.com/image')).text(),'passthrough')
  }
- console.log('Trade pilot routing passed: only Trade changes origin; payments/receipts and normal builds retain their backend.')
+ console.log('Unified routing passed: Trade, payments and receipts use the main service even with an obsolete pilot build variable.')
 }finally{globalThis.window=oldWindow;if(path.dirname(path.resolve(directory))!==path.resolve(tmpdir())||!path.basename(directory).startsWith('trade-routing-'))throw Error('Invalid cleanup path');await rm(directory,{recursive:true,force:true})}

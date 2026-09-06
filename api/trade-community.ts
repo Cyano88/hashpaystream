@@ -81,7 +81,7 @@ export function createTradeCommunityRouter(
       try {
         if (deps.env().HASHPAYSTREAM_TRADE_ENABLED !== "true")
           fail("Trade is unavailable.", 503);
-        const secret = deps.env().HASHPAYSTREAM_APP_OWNERSHIP_SECRET || "";
+        const secret = deps.env().HASHPAYSTREAM_TRADE_OWNERSHIP_SECRET || "";
         if (secret.length < 32)
           fail("Trade authentication is unavailable.", 503);
         const user = await deps.identity(req, deps.env()),

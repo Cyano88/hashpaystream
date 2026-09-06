@@ -170,8 +170,7 @@ let store: TradeStore | undefined;
 let tradePool: pg.Pool | undefined;
 export function configuredTradePool() {
   const url = (
-    process.env.DATABASE_URL ??
-    process.env.POSTGRES_URL ??
+    process.env.HASHPAYSTREAM_TRADE_DATABASE_URL ??
     ""
   ).trim();
   if (!url) tradeFailure("Trade storage is unavailable.", 503);
