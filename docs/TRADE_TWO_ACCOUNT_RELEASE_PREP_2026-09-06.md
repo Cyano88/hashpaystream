@@ -16,6 +16,21 @@ Status: core live two-account checks completed on browser seller and Pixel buyer
 
 Remaining live gates: administrator moderation and report cleanup, controlled network recovery, account switch/logout isolation, retry idempotency, and full native lifecycle checks. Signed release still needs the existing signing configuration; this run created no keys and built or installed no APK.
 
+## Follow-up: network recovery and confirmation sheets
+
+- A live browser offline check found that an already-live empty Browse showed No matching items and 0 items alongside Failed to fetch. Fixed pending/error rendering while retaining loaded items. Regression checks cover delayed search, failure, retry to a verified empty response, and retained items on failed refresh.
+- Pixel force-stop/relaunch retained authentication. Trade reopened and the existing removed-item enquiry remained in its list.
+- Correction to the earlier reviewer observation: Review reports is on the Pixel enquiry list. The authorized reviewer opened the synthetic report and verified the listing description and both messages after public listing removal. The earlier absence inside a conversation did not establish lack of moderator access.
+- Replaced all four Trade window.confirm call sites (sold/remove, draft deletion, block/unblock, hide/dismiss) with the shared StreamConfirmSheet. Styling follows SavingsDepositSheet: rounded bottom sheet, matching light/dark surfaces and compact pill buttons.
+- Browser checks passed for focus containment/restoration, inert background/restoration, Cancel, Escape, backdrop dismissal, native Back event and one accepted action on duplicate clicks. Light/dark screenshots captured locally.
+- Pixel verified the new Dismiss report sheet, Android hardware Back returning to the same report without submitting, then explicit sheet confirmation removing the synthetic report from the queue. No native confirmation remained. Evidence records are retained; public listing/photo remain removed.
+- Production web build passed; Render deployment dep-daett63bc2fs73cn2rag is live at 4778ee8. Android source commit 34a39d6 additionally handles native Back before route navigation.
+- Android web sync, assembly, unit tests and lint passed. Installed with adb install -r, retaining login. APK remains debug version 1.0.11 / code 12.
+- Desktop APK: C:/Users/USER/Desktop/HashPayStream-1.0.11-Trade-Sheets.apk
+- SHA256: 5f15e19e48bcd8c0ecfa6a61df9f94645e79d8dbc8cf8ad24a60e78aa23e0178
+
+Remaining release gates: original signing configuration, full account switch/logout and retry-idempotency live checks, moderator hide action on an active synthetic item, backup/restore drill and operational procedures. No release key was created or replaced.
+
 ## Earlier preparation evidence (superseded where noted above)
 
 - `adb devices` returned no connected devices on two checks.

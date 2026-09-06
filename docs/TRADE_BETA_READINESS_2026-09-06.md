@@ -2,7 +2,13 @@
 
 Status: NOT READY for an unrestricted public release. Discovery-only beta is the next target; checkout remains unavailable.
 
-## Confirmed this audit
+## Current follow-up status
+
+Trade runs on the existing paid main service; the old pilot is suspended. No extra paid service is required. Browser/Pixel publication, two-way messages, block/unblock, report evidence review and dismissal, public cleanup, keyboard behavior and restart/login persistence have been verified. Trade uses Pocket-style confirmation sheets on web and Android. See TRADE_TWO_ACCOUNT_RELEASE_PREP_2026-09-06.md for exact coverage and remaining gates.
+
+The original signing configuration is still missing. Current installed Android 1.0.11 is a debug build. Account-switch isolation, live duplicate-retry tests, backup recovery and operational procedures remain release gates.
+
+## Historical audit snapshot (superseded by the follow-up above)
 
 - Isolated Trade service is available on the Free compute plan. Live health/listings returned 200; anonymous enquiries/moderation returned 401; financial service-request route returned 404. Warm checks completed in approximately 0.3-1.2 seconds.
 - Database host is available on paid basic_256mb PostgreSQL 18 in Oregon, without high availability. This confirms hosting configuration, not a successful recovery drill.
@@ -19,9 +25,9 @@ A synthetic failure test confirmed public failure, public retry, delayed private
 
 | Gate | Status / required evidence |
 | --- | --- |
-| Always-on API | Pending approval for only the Trade service's Starter / 0.5c-512mb plan, $7/month base compute. No paid change made without approval. |
+| Always-on API | Complete: consolidated into the existing paid main HashPayStream service. No extra paid service. |
 | Android signing/update continuity | Configure the original upload key locally, verify certificate/update path, build signed release APK/AAB. Current APK is a debug pilot. |
-| Two-account device lifecycle | Pending second test login/device. Verify publish, anonymous discovery, enquiry/reply, block, report/review, logout and restart; label and remove test listings. Synthetic server/browser tests do not replace this gate. |
+| Two-account device lifecycle | Core browser/Pixel flow, moderation review/dismissal and restart passed. Account switch/logout and live duplicate-retry coverage remain pending. |
 | Recovery | Verify an isolated Trade backup restore without restoring over or exporting financial databases. Record recovery duration and row/evidence integrity. |
 | Operations | Assign report reviewer, define evidence retention/deletion and account suspension procedures; verify alert destination and rollback. |
 | Web/Android parity | Verify deliberate pilot routing and feature availability in each distributed client. Do not merge production main merely to publish a pilot. |
