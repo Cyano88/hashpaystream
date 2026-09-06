@@ -276,6 +276,7 @@ function TradeScreen({
       if (!alive.current) return;
       if (!result.listing)
         throw new Error("Publication could not be confirmed.");
+      mineSequence.current++; // An older private read must not overwrite this publication.
       setRevision(result.listing.revision);
       setMine((previous) => [
         result.listing!,
