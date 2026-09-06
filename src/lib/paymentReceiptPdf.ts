@@ -33,6 +33,8 @@ export type PaylinkReceipt = {
 
 export type UnifiedReceiptRow = { label: string; value: string; mono?: boolean }
 export type UnifiedReceiptView = {
+  state: 'pending' | 'reversed' | 'successful'
+  statusLabel: string
   badge: string
   amount: string
   timestamp: string
@@ -110,7 +112,10 @@ function rows(receipt: PaylinkReceipt): UnifiedReceiptRow[] {
 
 export function paymentReceiptView(receipt: PaylinkReceipt): UnifiedReceiptView {
   const reversed = receipt.agreementStatus === 'refunded' || receipt.agreementStatus === 'cancelled'
+  const state = receipt.fundingStatus === 'refunded' ? 'reversed' : receipt.fundingStatus === 'funded' || receipt.fundingStatus === 'released' ? 'pending' : reversed || ['refunded', 'reversed'].includes(receipt.status.trim().toLowerCase()) ? 'reversed' : ['pending', 'processing', 'settling', 'submitted', 'verification pending'].includes(receipt.status.trim().toLowerCase()) ? 'pending' : 'successful'
   return {
+    state,
+    statusLabel: receipt.fundingStatus ? ({funded:'Funds protected',released:'Early payment sent',settled:'Payment completed',refunded:'Funding returned'}[receipt.fundingStatus]) : state === 'pending' ? 'Payment pending' : state === 'reversed' ? 'Payment returned' : 'Payment completed',
     badge: receipt.fundingStatus ? ({funded:'Funds protected',released:'Early payment sent',settled:'Payment completed',refunded:'Funding returned'}[receipt.fundingStatus]) : reversed ? 'USDC returned' : receipt.agreementStatus === 'completed' ? 'Completed' : 'Confirmed',
     amount: `${amount(receipt.amount)} ${receipt.asset || 'USDC'}`,
     timestamp: timestamp(receipt.createdAt),
@@ -131,128 +136,87 @@ export function paymentReceiptImageFileName(receipt?: PaylinkReceipt) {
   return `hashpaystream-agreement-receipt-${receipt?.receiptId.slice(0, 10) || 'receipt'}.jpg`
 }
 
-function receiptCanvas(receipt: PaylinkReceipt) {
-  const width = 612
-  const height = Math.max(792, 360 + rows(receipt).length * 57)
+// One light document layout supplies both external formats, independent of app theme.
+async function receiptCanvas(receipt: PaylinkReceipt) {
+  await document.fonts.ready
+  const logo = new Image()
+  logo.src = paymentReceiptBrand().imageUrl
+  await logo.decode()
+  const view = paymentReceiptView(receipt)
+  const width = 420, margin = 28, right = width - margin
   const canvas = document.createElement('canvas')
-  canvas.width = width * 2
-  canvas.height = height * 2
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Receipt renderer is unavailable.')
+  const wrap = (value: string, font: string, maxWidth: number) => {
+    ctx.font = font
+    const lines: string[] = []
+    let line = ''
+    for (const char of value || '-') {
+      if (char === '\n' || (line && ctx.measureText(line + char).width > maxWidth)) {
+        lines.push(line); line = char === '\n' ? '' : char
+      } else line += char
+    }
+    if (line) lines.push(line)
+    return lines
+  }
+  const rowLayout = view.rows.map(row => ({
+    labels: wrap(row.label.toUpperCase(), '600 10px Arial', 134),
+    values: wrap(row.value, row.mono ? '600 11px monospace' : '600 11px Arial', 210),
+    mono: row.mono,
+  }))
+  const amountLines = wrap(view.amount, '700 30px Arial', width - margin * 2)
+  const rowsY = 166 + amountLines.length * 36
+  const referenceY = rowsY + rowLayout.reduce((sum, row) => sum + Math.max(row.labels.length, row.values.length) * 20 + 16, 0) + 24
+  const referenceLines = wrap(view.reference, '600 10px monospace', width - margin * 2)
+  const height = referenceY + 22 + referenceLines.length * 18 + 64
+  canvas.width = width * 2; canvas.height = height * 2
   ctx.scale(2, 2)
-  drawReceipt(ctx, receipt, width, height)
-  return { canvas, width, height }
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, height)
+  ctx.drawImage(logo, margin, 20, 36, 36)
+  ctx.fillStyle = '#030712'; ctx.font = '700 14px Arial'; ctx.fillText('HashPayStream', 76, 43)
+  ctx.font = '700 9px Arial'
+  const badgeText = view.badge.toUpperCase(), badgeWidth = ctx.measureText(badgeText).width + 20
+  ctx.fillStyle = '#f3f4f6'; ctx.beginPath(); ctx.roundRect(right - badgeWidth, 25, badgeWidth, 26, 13); ctx.fill()
+  ctx.fillStyle = '#6b7280'; ctx.fillText(badgeText, right - badgeWidth + 10, 42)
+  // Standard 24 px badge with a 14 px glyph, inline with the status heading.
+  ctx.fillStyle = view.state === 'reversed' ? '#f59e0b' : view.state === 'pending' ? '#2563eb' : '#10b981'
+  ctx.beginPath(); ctx.arc(40, 90, 12, 0, Math.PI * 2); ctx.fill()
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.7; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath()
+  if (view.state === 'successful') { ctx.moveTo(34, 90); ctx.lineTo(38, 94); ctx.lineTo(46, 86) }
+  else if (view.state === 'pending') { ctx.arc(40, 90, 6, 0, Math.PI * 2); ctx.moveTo(40, 86); ctx.lineTo(40, 90); ctx.lineTo(43, 92) }
+  else { ctx.arc(40, 90, 6, .5, 5.2); ctx.moveTo(43, 83); ctx.lineTo(43, 88); ctx.lineTo(48, 87) }
+  ctx.stroke()
+  ctx.fillStyle = '#030712'; ctx.font = '600 15px Arial'; ctx.fillText(view.statusLabel, 60, 95)
+  ctx.fillStyle = '#9ca3af'; ctx.font = '500 11px Arial'; ctx.fillText(view.timestamp, margin, 120)
+  ctx.fillStyle = '#030712'; ctx.font = '700 30px Arial'
+  amountLines.forEach((line, index) => ctx.fillText(line, margin, 160 + index * 36))
+  const divider = (y: number) => { ctx.strokeStyle = '#f3f4f6'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(margin, y); ctx.lineTo(right, y); ctx.stroke() }
+  divider(rowsY - 16)
+  let y = rowsY
+  for (const row of rowLayout) {
+    ctx.fillStyle = '#9ca3af'; ctx.font = '600 10px Arial'
+    row.labels.forEach((line, index) => ctx.fillText(line, margin, y + index * 20))
+    ctx.fillStyle = '#374151'; ctx.font = row.mono ? '600 11px monospace' : '600 11px Arial'
+    row.values.forEach((line, index) => ctx.fillText(line, right - ctx.measureText(line).width, y + index * 20))
+    y += Math.max(row.labels.length, row.values.length) * 20 + 16
+  }
+  divider(referenceY - 20)
+  ctx.fillStyle = '#9ca3af'; ctx.font = '600 10px Arial'; ctx.fillText('REFERENCE ID', margin, referenceY)
+  ctx.fillStyle = '#4b5563'; ctx.font = '600 10px monospace'
+  referenceLines.forEach((line, index) => ctx.fillText(line, margin, referenceY + 22 + index * 18))
+  ctx.fillStyle = '#9ca3af'; ctx.font = '600 10px Arial'
+  const footer = 'Powered by Hash PayLink'
+  ctx.fillText(footer, (width - ctx.measureText(footer).width) / 2, height - 20)
+  return { canvas, width, height, referenceY }
 }
 
 export async function createPaymentReceiptImage(receipt: PaylinkReceipt) {
-  return receiptCanvas(receipt).canvas.toDataURL('image/jpeg', 0.94)
+  return (await receiptCanvas(receipt)).canvas.toDataURL('image/jpeg', 0.94)
 }
 
 export async function createPaymentReceiptPdf(receipt: PaylinkReceipt) {
-  const { canvas, width, height } = receiptCanvas(receipt)
-  const jpeg = await new Promise<string>((resolve, reject) => canvas.toBlob(blob => {
-    if (!blob) return reject(new Error('Receipt PDF could not be prepared.'))
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result || ''))
-    reader.onerror = () => reject(new Error('Receipt PDF could not be prepared.'))
-    reader.readAsDataURL(blob)
-  }, 'image/jpeg', 0.94))
-  return pdfFromJpeg(jpeg, width, height, arcTransactionUrl(receipt), 254 + rows(receipt).length * 57)
-}
-
-function drawReceipt(ctx: CanvasRenderingContext2D, receipt: PaylinkReceipt, width: number, height: number) {
-  ctx.fillStyle = '#111111'
-  ctx.fillRect(0, 0, width, height)
-  roundRect(ctx, 34, 32, width - 68, height - 64, 28, '#000000')
-
-  // Canvas-native HashPayStream mark: crisp at every PDF zoom level and no background tile.
-  ctx.strokeStyle = '#ffffff'
-  ctx.lineWidth = 3
-  ctx.beginPath()
-  ctx.arc(78, 75, 14, 0, Math.PI * 2)
-  ctx.stroke()
-  ctx.fillStyle = '#ffffff'
-  ctx.beginPath()
-  ctx.arc(78, 75, 5, 0, Math.PI * 2)
-  ctx.fill()
-
-  ctx.fillStyle = '#ffffff'
-  ctx.font = '800 17px Arial'
-  ctx.fillText('HashPayStream', 108, 81)
-  badge(ctx, receipt.type === 'funding' ? 'FUNDING RECEIPT' : 'ARC AGREEMENT', 418, 62)
-
-  ctx.font = '800 36px Arial'
-  ctx.fillText(`${amount(receipt.amount)} ${receipt.asset || 'USDC'}`, 62, 158)
-  ctx.fillStyle = '#8c8c8c'
-  ctx.font = '600 12px Arial'
-  ctx.fillText(timestamp(receipt.createdAt), 62, 184)
-  divider(ctx, 218)
-
-  let y = 254
-  for (const row of rows(receipt)) {
-    ctx.fillStyle = '#8c8c8c'
-    ctx.font = '600 11px Arial'
-    ctx.fillText(row.label.toUpperCase(), 62, y)
-    ctx.fillStyle = '#ffffff'
-    ctx.font = row.mono ? '700 12px Courier New' : '700 13px Arial'
-    rightText(ctx, shorten(row.value), 550, y, 320)
-    divider(ctx, y + 24)
-    y += 57
-  }
-
-  ctx.fillStyle = '#8c8c8c'
-  ctx.font = '600 11px Arial'
-  ctx.fillText('REFERENCE ID', 62, y + 2)
-  ctx.fillStyle = '#ffffff'
-  ctx.font = '700 12px Courier New'
-  rightText(ctx, shorten(paymentReceiptView(receipt).reference), 550, y + 2, 320)
-  if (arcTransactionUrl(receipt)) {
-    ctx.fillStyle = '#a3a3a3'
-    ctx.font = '700 9px Arial'
-    rightText(ctx, 'VIEW ON ARC EXPLORER', 550, y + 20, 320)
-  }
-
-  ctx.setLineDash([])
-  ctx.fillStyle = '#707070'
-  ctx.font = '700 10px Arial'
-  const footer = receipt.type === 'funding' ? 'HASHPAYSTREAM | POWERED BY HASH PAYLINK' : 'VERIFIED ARC AGREEMENT RECORD | HASHPAYSTREAM | POWERED BY HASH PAYLINK'
-  ctx.fillText(footer, (width - ctx.measureText(footer).width) / 2, height - 46)
-}
-
-function divider(ctx: CanvasRenderingContext2D, y: number) {
-  ctx.strokeStyle = '#2f2f2f'
-  ctx.setLineDash([2, 6])
-  ctx.beginPath()
-  ctx.moveTo(62, y)
-  ctx.lineTo(550, y)
-  ctx.stroke()
-}
-
-function shorten(value: string) {
-  if (!value) return '-'
-  if (value.length <= 34) return value
-  if (value.startsWith('0x')) return `${value.slice(0, 10)}...${value.slice(-8)}`
-  return `${value.slice(0, 22)}...${value.slice(-8)}`
-}
-
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number, fill: string) {
-  ctx.beginPath()
-  ctx.roundRect(x, y, width, height, radius)
-  ctx.fillStyle = fill
-  ctx.fill()
-}
-
-function badge(ctx: CanvasRenderingContext2D, text: string, x: number, y: number) {
-  roundRect(ctx, x, y, 108, 26, 13, '#171717')
-  ctx.fillStyle = '#f5f5f5'
-  ctx.font = '800 9px Arial'
-  ctx.fillText(text, x + 12, y + 17)
-}
-
-function rightText(ctx: CanvasRenderingContext2D, value: string, right: number, y: number, maxWidth: number) {
-  let clipped = value
-  while (clipped.length > 4 && ctx.measureText(clipped).width > maxWidth) clipped = `${clipped.slice(0, -4)}...`
-  ctx.fillText(clipped, right - ctx.measureText(clipped).width, y)
+  const { canvas, width, height, referenceY } = await receiptCanvas(receipt)
+  return pdfFromJpeg(canvas.toDataURL('image/jpeg', 0.94), width, height, arcTransactionUrl(receipt), referenceY)
 }
 
 function escapePdfLiteral(value: string) {
@@ -278,7 +242,7 @@ function pdfFromJpeg(dataUrl: string, width: number, height: number, transaction
   start(4); add(`<< /Type /XObject /Subtype /Image /Width ${width * 2} /Height ${height * 2} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.byteLength} >>\nstream\n`); add(image.buffer.slice(0) as ArrayBuffer); add('\nendstream\nendobj\n')
   start(5); add(`<< /Length ${encoder.encode(stream).length} >>\nstream\n${stream}\nendstream\nendobj\n`)
   if (transactionUrl) {
-    start(6); add(`<< /Type /Annot /Subtype /Link /Rect [300 ${height - referenceY - 26} 550 ${height - referenceY + 17}] /Border [0 0 0] /A << /S /URI /URI (${escapePdfLiteral(transactionUrl)}) >> >>\nendobj\n`)
+    start(6); add(`<< /Type /Annot /Subtype /Link /Rect [28 48 ${width - 28} ${height - referenceY + 12}] /Border [0 0 0] /A << /S /URI /URI (${escapePdfLiteral(transactionUrl)}) >> >>\nendobj\n`)
   }
   const xref = offset
   const objectCount = transactionUrl ? 7 : 6

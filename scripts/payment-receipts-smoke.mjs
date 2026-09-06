@@ -21,3 +21,8 @@ for (const [status,badge] of Object.entries({funded:'Funds protected',released:'
   assert.equal(view.badge,badge); assert.equal(view.reference,'position-proof'); assert.equal(view.rows.length,1)
 }
 console.log('Receipt split, refund, pending-state and precision checks passed.')
+
+for (const [status, state, label] of [["completed","successful","Payment completed"],["refunded","reversed","Payment returned"],["pending","pending","Payment pending"]]) {
+  const view = paymentReceiptView({...receipt, agreementStatus: undefined, status})
+  assert.equal(view.state, state); assert.equal(view.statusLabel, label)
+}

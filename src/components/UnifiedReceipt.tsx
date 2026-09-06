@@ -32,41 +32,26 @@ type UnifiedReceiptProps = {
 }
 
 type ReceiptSurface = 'details' | 'receipt' | null
-const PENDING = new Set(['pending', 'processing', 'settling', 'submitted', 'verification pending'])
-
-function state(receipt: PaylinkReceipt) {
-  if (receipt.fundingStatus === 'refunded') return 'reversed'
-  if (receipt.fundingStatus === 'funded' || receipt.fundingStatus === 'released') return 'pending'
-  const value = String(receipt.status || '').trim().toLowerCase()
-  if (receipt.agreementStatus === 'refunded' || receipt.agreementStatus === 'cancelled' || ['refunded', 'reversed'].includes(value)) return 'reversed'
-  if (PENDING.has(value)) return 'pending'
-  return 'successful'
-}
-
 function StateIcon({ receipt }: { receipt: PaylinkReceipt }) {
-  const current = state(receipt)
-  const style = current === 'pending' ? 'bg-blue-600' : current === 'reversed' ? 'bg-amber-500' : 'bg-emerald-500'
-  return <span className={`flex h-10 w-10 items-center justify-center rounded-full text-white ${style}`}>
-    {current === 'pending' ? <ClockIcon className="h-5 w-5" /> : current === 'reversed' ? <ArrowPathIcon className="h-5 w-5" /> : <CheckIcon className="h-5 w-5" strokeWidth={2.5} />}
+  const { state } = paymentReceiptView(receipt)
+  const style = state === 'pending' ? 'bg-blue-600' : state === 'reversed' ? 'bg-amber-500' : 'bg-emerald-500'
+  return <span aria-hidden="true" className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white ${style}`}>
+    {state === 'pending' ? <ClockIcon className="h-3.5 w-3.5" /> : state === 'reversed' ? <ArrowPathIcon className="h-3.5 w-3.5" /> : <CheckIcon className="h-3.5 w-3.5" strokeWidth={2.5} />}
   </span>
 }
 
-function stateLabel(receipt: PaylinkReceipt) {
-  if (receipt.fundingStatus) return {funded:'Funds protected',released:'Early payment sent',settled:'Payment completed',refunded:'Funding returned'}[receipt.fundingStatus]
-  const current = state(receipt)
-  return current === 'pending' ? 'Payment pending' : current === 'reversed' ? 'Payment returned' : 'Payment completed'
-}
+function stateLabel(receipt: PaylinkReceipt) { return paymentReceiptView(receipt).statusLabel }
 
 function ReceiptDocument({ receipt }: { receipt: PaylinkReceipt }) {
   const view = useMemo(() => paymentReceiptView(receipt), [receipt])
-  return <article className="mx-auto flex min-h-full w-full max-w-md flex-col bg-white px-7 pb-4 pt-5 text-gray-950 dark:bg-[#111216] dark:text-white">
+  return <article className="mx-auto flex min-h-full w-full max-w-md flex-col bg-white px-7 pb-4 pt-5 text-gray-950">
     <header className="flex items-center justify-between gap-4">
       <span className="flex min-w-0 items-center gap-3"><HashPayStreamMark className="h-9 w-9 shrink-0 object-contain" /><span className="truncate text-sm font-bold tracking-[-0.02em]">HashPayStream</span></span>
-      <span className="rounded-full bg-gray-100 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.08em] text-gray-500 dark:bg-white/10 dark:text-gray-300">{view.badge}</span>
+      <span className="rounded-full bg-gray-100 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.08em] text-gray-500">{view.badge}</span>
     </header>
-    <section className="mt-5"><StateIcon receipt={receipt} /><h2 className="mt-3 text-[15px] font-semibold tracking-[-0.02em]">{stateLabel(receipt)}</h2><p className="mt-1 text-[11px] font-medium text-gray-400">{view.timestamp}</p><p className="mt-4 break-words text-[30px] font-bold tracking-[-0.045em]">{view.amount}</p></section>
-    <dl className="mt-4 border-t border-gray-100 dark:border-white/10">{view.rows.map(row => <div key={row.label} className="grid grid-cols-[minmax(0,.8fr)_minmax(0,1.2fr)] gap-5 py-2"><dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400">{row.label}</dt><dd className={`min-w-0 break-words text-right text-[11px] font-semibold leading-5 text-gray-700 dark:text-gray-200 ${row.mono ? 'font-mono' : ''}`}>{row.value || '-'}</dd></div>)}</dl>
-    <div className="mt-2 border-t border-gray-100 pt-3 dark:border-white/10"><p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400">Reference ID</p><p className="mt-1 break-all font-mono text-[10px] font-semibold leading-5 text-gray-600 dark:text-gray-300">{view.reference}</p></div>
+    <section className="mt-5"><div className="flex items-center gap-2"><StateIcon receipt={receipt} /><h2 className="text-[15px] font-semibold tracking-[-0.02em]">{stateLabel(receipt)}</h2></div><p className="mt-1 text-[11px] font-medium text-gray-400">{view.timestamp}</p><p className="mt-4 break-words text-[30px] font-bold tracking-[-0.045em]">{view.amount}</p></section>
+    <dl className="mt-4 border-t border-gray-100">{view.rows.map(row => <div key={row.label} className="grid grid-cols-[minmax(0,.8fr)_minmax(0,1.2fr)] gap-5 py-2"><dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400">{row.label}</dt><dd className={`min-w-0 break-words text-right text-[11px] font-semibold leading-5 text-gray-700 ${row.mono ? 'font-mono' : ''}`}>{row.value || '-'}</dd></div>)}</dl>
+    <div className="mt-2 border-t border-gray-100 pt-3"><p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400">Reference ID</p><p className="mt-1 break-all font-mono text-[10px] font-semibold leading-5 text-gray-600">{view.reference}</p></div>
     <footer className="mt-auto pt-3 text-center text-[10px] font-semibold text-gray-400">Powered by Hash PayLink</footer>
   </article>
 }
@@ -117,7 +102,7 @@ function FullScreen({ receipt, surface, close }: { receipt: PaylinkReceipt; surf
   }
   return createPortal(<div className="fixed inset-0 z-[180] flex flex-col overflow-hidden bg-[#F5F5F7] pt-[env(safe-area-inset-top)] text-gray-950 dark:bg-[#0A0A0A] dark:text-white" role="dialog" aria-modal="true" aria-label={surface === 'details' ? 'Transaction details' : 'Receipt preview'}>
     <div className="z-10 shrink-0 border-b border-gray-200/80 bg-[#F5F5F7]/95 px-4 backdrop-blur dark:border-white/10 dark:bg-[#0A0A0A]/95"><div className="mx-auto grid h-14 max-w-lg grid-cols-[48px_1fr_48px] items-center"><span /><h1 className="text-center text-sm font-bold">{surface === 'details' ? 'Transaction details' : 'Receipt'}</h1><button type="button" onClick={close} className="inline-flex h-11 items-center justify-end text-xs font-bold">Done</button></div></div>
-    {surface === 'details' ? <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain"><TransactionDetails receipt={receipt} copied={copied} copy={() => void navigator.clipboard.writeText(reference).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1200) })} /></div> : <div className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col px-3 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2"><div className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-[28px] border border-gray-100 bg-white shadow-sm dark:border-white/10 dark:bg-[#111216]"><ReceiptDocument receipt={receipt} /></div><div className="mt-2 grid shrink-0 grid-cols-2 gap-2"><button type="button" disabled={Boolean(sharing)} onClick={() => void shareReceipt('image')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 text-xs font-bold disabled:opacity-60 dark:border-white/10 dark:bg-white/[.08]"><ShareIcon className="h-4 w-4" />{sharing === 'image' ? 'Preparing' : 'Share image'}</button><button type="button" disabled={Boolean(sharing)} onClick={() => void shareReceipt('pdf')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-gray-950 px-4 text-xs font-bold text-white disabled:opacity-60 dark:bg-white dark:text-gray-950"><ShareIcon className="h-4 w-4" />{sharing === 'pdf' ? 'Preparing' : 'Share PDF'}</button></div>{error && <p role="alert" className="mt-2 text-center text-xs font-semibold text-red-500">{error}</p>}</div>}
+    {surface === 'details' ? <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain"><TransactionDetails receipt={receipt} copied={copied} copy={() => void navigator.clipboard.writeText(reference).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1200) })} /></div> : <div className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col px-3 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2"><div className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-[28px] border border-gray-100 bg-white shadow-sm"><ReceiptDocument receipt={receipt} /></div><div className="mt-2 grid shrink-0 grid-cols-2 gap-2"><button type="button" disabled={Boolean(sharing)} onClick={() => void shareReceipt('image')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 text-xs font-bold disabled:opacity-60 dark:border-white/10 dark:bg-white/[.08]"><ShareIcon className="h-4 w-4" />{sharing === 'image' ? 'Preparing' : 'Share image'}</button><button type="button" disabled={Boolean(sharing)} onClick={() => void shareReceipt('pdf')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-gray-950 px-4 text-xs font-bold text-white disabled:opacity-60 dark:bg-white dark:text-gray-950"><ShareIcon className="h-4 w-4" />{sharing === 'pdf' ? 'Preparing' : 'Share PDF'}</button></div>{error && <p role="alert" className="mt-2 text-center text-xs font-semibold text-red-500">{error}</p>}</div>}
   </div>, document.body)
 }
 
