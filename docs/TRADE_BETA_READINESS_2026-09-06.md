@@ -44,3 +44,5 @@ Start with 10-20 invited testers in one area after the gates above pass. Use cle
 - APK: `C:\Users\USER\Desktop\HashPayStream-1.0.10-Trade-Pilot.apk`.
 - SHA-256: `c1d9c3f7c6b7d6ed264a9aecc5d059b269d0c1175c5faa5593768ed0479e1415`.
 - The phone was in WhatsApp during both availability checks. No second-account device interaction or physical UI pass is claimed. No real-user enquiries were sent during this audit.
+
+Hosting gate superseded by the completed consolidation recorded in TRADE_CONSOLIDATION_2026-09-06.md: Trade now runs on the existing paid main service; the free pilot is suspended. No second paid server or Starter upgrade approval is needed. Android 1.0.11 uses the main endpoint.
