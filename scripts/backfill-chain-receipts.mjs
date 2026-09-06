@@ -1,4 +1,4 @@
-import { firstMatchingBlock, loadTransactionReceipt } from './chain-receipt-rpc.mjs'
+import { firstMatchingBlock, loadTransactionReceipt, loadExactLog } from './chain-receipt-rpc.mjs'
 import pg from 'pg'
 import { createPublicClient, decodeEventLog, fallback, getAddress, http, isAddress, parseAbi } from 'viem'
 import { renderDurableStoreConnectionConfig } from '../api/durable-store.ts'
@@ -127,19 +127,7 @@ async function verifyCanonicalReceipt(client, transaction, expected) {
 }
 
 async function exactLog(client, input) {
-  const started = Date.now()
-  let logs
-  try { logs = await client.getLogs(input) } catch {
-    logs = []
-    for (let start = input.fromBlock; start <= input.toBlock; start += 9_999n) {
-      if (Date.now() - started > 60000) throw new Error('HISTORICAL_LOG_SCAN_TIMEOUT')
-      const toBlock = start + 9_998n < input.toBlock ? start + 9_998n : input.toBlock
-      logs.push(...await client.getLogs({ ...input, fromBlock: start, toBlock }))
-    }
-  }
-  if (logs.length === 0) throw new Error('CONTRACT_EVENT_MISSING')
-  if (logs.length !== 1 || !logs[0].transactionHash) throw new Error('CONTRACT_EVENT_AMBIGUOUS')
-  return logs[0]
+  return loadExactLog(client, input, receiptProviders.get(client) || [], () => progress('historical_log_provider_recovered'))
 }
 
 async function arcEscrowState(client, escrow) {
