@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
+import { fetchWithTimeout } from './fetchWithTimeout'
 
 const AGREEMENTS_API = '/api/hashpaystream/v1/human/agreements'
 
@@ -29,6 +30,7 @@ export type AgreementSummary = {
 
 type AgreementResponse = { ok?: boolean; agreements?: AgreementSummary[]; error?: string }
 
+const agreementCache = new Map<string, AgreementSummary[]>()
 function safeUnits(value: unknown) {
   const units = String(value ?? '').trim()
   return /^\d+$/.test(units) ? BigInt(units) : 0n
@@ -59,34 +61,46 @@ export function formatUsdcBalance(units: bigint | string = 0n) {
 }
 
 export function useAgreements(apiPath = AGREEMENTS_API) {
-  const { ready, authenticated, getAccessToken } = usePrivy()
-  const [agreements, setAgreements] = useState<AgreementSummary[]>([])
-  const [loading, setLoading] = useState(true)
+  const { ready, authenticated, getAccessToken, user } = usePrivy()
+  const scope = authenticated && user?.id ? `${user.id}:${apiPath}` : ''
+  const currentScope = useRef(scope)
+  currentScope.current = scope
+  useEffect(() => { currentScope.current = scope; return () => { if (currentScope.current === scope) currentScope.current = '' } }, [scope])
+  const cached = scope ? agreementCache.get(scope) : undefined
+  const [resultScope, setResultScope] = useState(scope)
+  const [storedAgreements, setAgreements] = useState<AgreementSummary[]>(() => cached ?? [])
+  const [loading, setLoading] = useState(() => !cached)
   const [error, setError] = useState('')
+  const agreements = scope && resultScope === scope ? storedAgreements : cached ?? []
 
   const load = useCallback(async (quiet = false) => {
-    if (!authenticated) {
+    if (!scope) {
       setLoading(false)
       return
     }
-    if (!quiet) setLoading(true)
+    if (!quiet && !agreementCache.has(scope)) setLoading(true)
     try {
       const token = await getAccessToken()
+      if (currentScope.current !== scope) return
       if (!token) throw new Error('Sign in again to view agreements.')
-      const response = await fetch(apiPath, {
+      const response = await fetchWithTimeout(apiPath, {
         cache: 'no-store',
         headers: { authorization: `Bearer ${token}` },
       })
       const data = await response.json().catch(() => undefined) as AgreementResponse | undefined
+      if (currentScope.current !== scope) return
       if (!response.ok || !data?.ok) throw new Error(data?.error || 'Agreements could not be loaded.')
-      setAgreements(Array.isArray(data.agreements) ? data.agreements : [])
+      const next = Array.isArray(data.agreements) ? data.agreements : []
+      agreementCache.set(scope, next)
+      setResultScope(scope)
+      setAgreements(next)
       setError('')
     } catch (reason) {
-      if (!quiet) setError(reason instanceof Error ? reason.message : 'Agreements could not be loaded.')
+      if (currentScope.current === scope && !quiet) setError(reason instanceof Error ? reason.message : 'Agreements could not be loaded.')
     } finally {
-      if (!quiet) setLoading(false)
+      if (currentScope.current === scope && !quiet) setLoading(false)
     }
-  }, [apiPath, authenticated, getAccessToken])
+  }, [apiPath, authenticated, getAccessToken, scope])
 
   useEffect(() => {
     if (!ready) return
@@ -109,5 +123,5 @@ export function useAgreements(apiPath = AGREEMENTS_API) {
     return result
   }, { activeProtected: 0n, released: 0n, refundAvailable: 0n }), [agreements])
 
-  return { ready, authenticated, agreements, totals, loading, error, reload: load }
+  return { ready, authenticated, agreements, totals, loading: resultScope === scope ? loading : Boolean(scope && !cached), error: resultScope === scope ? error : '', reload: load }
 }

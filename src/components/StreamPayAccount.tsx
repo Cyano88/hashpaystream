@@ -3,6 +3,7 @@ import { ArrowRightStartOnRectangleIcon, CheckIcon, ChevronRightIcon, ClipboardD
 import { usePrivy } from '@privy-io/react-auth'
 import { useTheme } from '../lib/ThemeContext'
 import { useCircleWallet } from '../lib/circleWallet'
+import { clearPersistedCircleSession } from '../lib/circleSession'
 import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSplash'
 import { useStreamAccount } from '../lib/streamAccount'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
@@ -31,6 +32,10 @@ export default function StreamPayAccount() {
     catch (reason) { setEditError(reason instanceof Error ? reason.message : 'Pocket ID could not be saved.') }
     finally { setSaving(false) }
   }
+  async function signOut() {
+    await clearPersistedCircleSession(window.localStorage, String(import.meta.env.VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET ?? import.meta.env.VITE_CIRCLE_USER_WALLET_APP_ID ?? '').trim(), email)
+    await logout()
+  }
   return <section className="stream-screen w-full max-w-md py-5 sm:py-8">
     <div className="flex flex-col items-center px-4 pb-6 pt-3 text-center">
       <UserIcon className="h-20 w-20 stroke-[1.25] text-gray-400 dark:text-gray-500" aria-hidden="true" />
@@ -44,7 +49,7 @@ export default function StreamPayAccount() {
       <button type="button" onClick={toggle} className="flex min-h-[62px] w-full items-center gap-3 border-t border-gray-100 px-4 text-left dark:border-white/[0.07]"><span className="text-gray-500">{theme === 'dark' ? <MoonIcon className="h-5 w-5" /> : <SunIcon className="h-5 w-5" />}</span><span className="flex-1 text-sm font-bold text-gray-900 dark:text-white">Appearance</span><span className="text-[10px] font-bold capitalize text-gray-400">{theme}</span></button>
     </div>
 
-    <div className="stream-list-card mt-3"><a href="https://x.com/Hash_PayLink" target="_blank" rel="noreferrer" className="flex min-h-[58px] items-center px-4 text-sm font-bold text-gray-700 dark:text-gray-200">Help and support<ChevronRightIcon className="ml-auto h-4 w-4 text-gray-300" /></a><button type="button" onClick={() => void logout()} className="flex min-h-[58px] w-full items-center gap-3 border-t border-gray-100 px-4 text-sm font-bold text-red-600 dark:border-white/[0.07] dark:text-red-400"><ArrowRightStartOnRectangleIcon className="h-4 w-4" />Sign out</button></div>
+    <div className="stream-list-card mt-3"><a href="https://x.com/Hash_PayLink" target="_blank" rel="noreferrer" className="flex min-h-[58px] items-center px-4 text-sm font-bold text-gray-700 dark:text-gray-200">Help and support<ChevronRightIcon className="ml-auto h-4 w-4 text-gray-300" /></a><button type="button" onClick={() => void signOut()} className="flex min-h-[58px] w-full items-center gap-3 border-t border-gray-100 px-4 text-sm font-bold text-red-600 dark:border-white/[0.07] dark:text-red-400"><ArrowRightStartOnRectangleIcon className="h-4 w-4" />Sign out</button></div>
     {account.error && <p className="mt-4 text-center text-xs font-semibold text-red-600">{account.error}</p>}
   </section>
 }

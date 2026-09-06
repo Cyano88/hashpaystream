@@ -11,6 +11,8 @@ import App from './App'
 import { ThemeProvider, useTheme } from './lib/ThemeContext'
 import { CircleWalletProvider } from './lib/circleWallet'
 import { arcTestnet, upfrontXLayerChain } from './lib/upfrontChains'
+import { initializeNativeApp } from './lib/nativeApp'
+import { installNativeApiTransport } from './lib/nativeApiTransport'
 
 const appId = String(import.meta.env.VITE_PRIVY_APP_ID || '').trim()
 const logoUrl = new URL('/brand/hashpaystream-logo.png', window.location.origin).toString()
@@ -26,6 +28,9 @@ window.addEventListener('vite:preloadError', event => {
     window.location.reload()
   }
 })
+
+installNativeApiTransport()
+initializeNativeApp()
 
 function Providers() {
   const { theme } = useTheme()

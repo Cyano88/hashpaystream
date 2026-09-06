@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
+import { fetchWithTimeout } from './fetchWithTimeout'
 
 const API = '/api/hashpaystream/v1/requests'
 export type CustomerRequest = {
@@ -15,7 +16,7 @@ export function useCustomerRequests() {
   const request = useCallback(async (payload?: Record<string, unknown>) => {
     const token = await getAccessToken()
     if (!token) throw new Error('Sign in again to view requests.')
-    const response = await fetch(API, { method: payload ? 'POST' : 'GET', cache: 'no-store', headers: { authorization: `Bearer ${token}`, ...(payload ? { 'content-type': 'application/json' } : {}) }, ...(payload ? { body: JSON.stringify(payload) } : {}) })
+    const response = await fetchWithTimeout(API, { method: payload ? 'POST' : 'GET', cache: 'no-store', headers: { authorization: `Bearer ${token}`, ...(payload ? { 'content-type': 'application/json' } : {}) }, ...(payload ? { body: JSON.stringify(payload) } : {}) })
     const body = await response.json().catch(() => ({})) as { requests?: CustomerRequest[]; error?: string }
     if (!response.ok) throw new Error(body.error || 'Requests could not be loaded.')
     return body

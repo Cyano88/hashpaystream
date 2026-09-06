@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
 
 const SPLASH_SESSION_KEY = 'hashpaystream_signin_splash_shown_v2'
 const MOBILE_SPLASH_QUERY = '(max-width: 767px)'
@@ -13,10 +14,11 @@ function isPageReload() {
 function initialState(enabled: boolean): HashPayStreamSplashState {
   if (!enabled) return 'idle'
   try {
+    const nativeRuntime = Capacitor.isNativePlatform()
     const alreadyShown = window.sessionStorage.getItem(SPLASH_SESSION_KEY) === 'true'
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const mobileViewport = window.matchMedia(MOBILE_SPLASH_QUERY).matches
-    return alreadyShown || isPageReload() || reduceMotion || !mobileViewport ? 'idle' : 'entering'
+    return !nativeRuntime && (alreadyShown || isPageReload() || reduceMotion || !mobileViewport) ? 'idle' : 'entering'
   } catch {
     return 'idle'
   }
@@ -62,7 +64,7 @@ export function useHashPayStreamSessionSplash(enabled: boolean, canLaunch = true
 
   useEffect(() => {
     if (state !== 'launching') return
-    const timer = window.setTimeout(() => setState('idle'), 820)
+    const timer = window.setTimeout(() => setState('idle'), 320)
     return () => window.clearTimeout(timer)
   }, [state])
 

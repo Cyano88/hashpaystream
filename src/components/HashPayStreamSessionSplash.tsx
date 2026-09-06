@@ -1,4 +1,5 @@
 import type { HashPayStreamSplashState } from '../lib/useHashPayStreamSessionSplash'
+import { useEffect } from 'react'
 import { HashPayStreamMark } from './HashPayStreamMark'
 
 export function HashPayStreamSessionSplash({
@@ -10,6 +11,17 @@ export function HashPayStreamSessionSplash({
   sessionDelayed?: boolean
   onRetry: () => void
 }) {
+  useEffect(() => {
+    if (splashState === 'idle') return
+    const root = document.documentElement
+    const previous = root.dataset.streamSystemSurface
+    root.dataset.streamSystemSurface = 'dark'
+    return () => {
+      if (previous) root.dataset.streamSystemSurface = previous
+      else delete root.dataset.streamSystemSurface
+    }
+  }, [splashState])
+
   if (splashState === 'idle') return null
   const assembled = splashState === 'assembling' || splashState === 'holding' || splashState === 'launching'
   const markVisible = splashState !== 'entering'
@@ -19,7 +31,7 @@ export function HashPayStreamSessionSplash({
     <div
       aria-hidden={!sessionDelayed}
       aria-busy={true}
-      className={`${sessionDelayed ? 'pointer-events-auto' : 'pointer-events-none'} fixed inset-0 z-[100] bg-[#06070a] transition-opacity duration-[820ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:hidden md:hidden ${launching ? 'opacity-0' : 'opacity-100'}`}
+      className={`${sessionDelayed ? 'pointer-events-auto' : 'pointer-events-none'} fixed inset-0 z-[200] bg-[#06070a] transition-opacity duration-[320ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none md:hidden ${launching ? 'opacity-0' : 'opacity-100'}`}
     >
       <div className={'absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center'}>
         <HashPayStreamMark className={`h-11 w-11 shrink-0 text-white will-change-transform transition-[opacity,transform] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${markVisible ? 'scale-100 opacity-100' : 'scale-[0.92] opacity-0'}`} />

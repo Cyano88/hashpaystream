@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowLeftIcon, BanknotesIcon, CheckBadgeIcon, ClockIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSplash'
-import { Link, useLocation } from '../lib/router'
+import { Link, useLocation, useNavigate } from '../lib/router'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
+import { fetchWithTimeout } from '../lib/fetchWithTimeout'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
 import StreamPayGrow from './StreamPayGrow'
 import StreamPayFundingDesk from './StreamPayFundingDesk'
@@ -19,23 +20,29 @@ type Profile = {
   application?: { name?: string }
 }
 
+const fundingProfileCache = new Map<string, Profile>()
 export default function StreamPayFunding() {
-  const { ready, authenticated, getAccessToken } = usePrivy()
+  const { ready, authenticated, getAccessToken, user } = usePrivy()
   const { search } = useLocation()
+  const navigate = useNavigate()
   const earnTo = useStreamPayPath('/funding')
-  const fundingMode = new URLSearchParams(search).get('view') === 'funding'
+  const applyTo = useStreamPayPath('/funding?view=apply')
+  const view = new URLSearchParams(search).get('view')
+  const fundingMode = view === 'funding'
+  const applying = view === 'apply'
   const splashState = useHashPayStreamSessionSplash(!authenticated)
-  const [profile, setProfile] = useState<Profile>()
-  const [loading, setLoading] = useState(true)
+  const scope = authenticated ? user?.id ?? 'pending' : ''
+  const cached = scope ? fundingProfileCache.get(scope) : undefined
+  const [profile, setProfile] = useState<Profile | undefined>(() => cached)
+  const [loading, setLoading] = useState(() => !cached)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [formOpen, setFormOpen] = useState(false)
   const [form, setForm] = useState({ name: '', country: '', applicantType: 'individual', experience: 'new', expectedFundingRange: '' })
 
   const request = useCallback(async (body?: Record<string, unknown>) => {
     const token = await getAccessToken()
     if (!token) throw new Error('Sign in again to continue.')
-    const response = await fetch(API, {
+    const response = await fetchWithTimeout(API, {
       method: body ? 'POST' : 'GET', cache: 'no-store',
       headers: { authorization: `Bearer ${token}`, ...(body ? { 'content-type': 'application/json' } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {}),
@@ -48,14 +55,19 @@ export default function StreamPayFunding() {
   useEffect(() => {
     if (!ready) return
     if (!authenticated) { setLoading(false); return }
-    void request().then(setProfile).catch(reason => setError(reason instanceof Error ? reason.message : 'Your funding profile could not be loaded.')).finally(() => setLoading(false))
-  }, [authenticated, ready, request])
+    void request().then(next => {
+      fundingProfileCache.set(scope, next)
+      setProfile(next)
+    }).catch(reason => setError(reason instanceof Error ? reason.message : 'Your funding profile could not be loaded.')).finally(() => setLoading(false))
+  }, [authenticated, ready, request, scope])
 
   async function apply() {
     setSubmitting(true)
     setError('')
     try {
-      setProfile(await request({ action: 'apply', ...form }))
+      const next = await request({ action: 'apply', ...form })
+      fundingProfileCache.set(scope, next)
+      setProfile(next)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Your application could not be submitted.')
     } finally {
@@ -65,7 +77,7 @@ export default function StreamPayFunding() {
 
   if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
   if (!ready || loading) return <StreamPayLoadingState active="funding" />
-  if (!fundingMode) return <StreamPayGrow fundingStatus={profile?.status} />
+  if (!fundingMode && !applying) return <StreamPayGrow fundingStatus={profile?.status} />
   if (profile?.status === 'approved') return <StreamPayFundingDesk />
 
   if (profile?.status === 'pending') return (
@@ -92,7 +104,7 @@ export default function StreamPayFunding() {
     </section>
   )
 
-  if (!formOpen) return (
+  if (!applying) return (
     <section className="stream-screen w-full max-w-md py-5 sm:py-8">
       <FundingHeader backTo={earnTo} />
       <div className="stream-card mt-6 p-5">
@@ -101,7 +113,7 @@ export default function StreamPayFunding() {
         <h1 className="mt-2 text-xl font-black tracking-tight text-gray-950 dark:text-white">Fund good work early</h1>
         <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">Apply to receive eligible early-pay requests sent directly to you.</p>
         {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-xs text-red-700 dark:bg-red-400/10 dark:text-red-300">{error}</p>}
-        <button type="button" onClick={() => setFormOpen(true)} className="stream-primary mt-6 w-full">Apply to be a funding partner</button>
+        <button type="button" onClick={() => navigate(applyTo)} className="stream-primary mt-6 w-full">Apply to be a funding partner</button>
         <p className="mt-3 text-center text-[10px] leading-4 text-gray-400">Use your existing HashPayStream account. No second sign-in.</p>
       </div>
     </section>
@@ -110,7 +122,7 @@ export default function StreamPayFunding() {
   return (
     <section className="stream-screen w-full max-w-md py-5 sm:py-8">
       <div className="flex items-center gap-3">
-        <button type="button" onClick={() => setFormOpen(false)} aria-label="Back to Funding partners" className="stream-icon-button"><ArrowLeftIcon className="h-4 w-4" /></button>
+        <button type="button" onClick={() => navigate(earnTo, { replace: true })} aria-label="Back to Funding partners" className="stream-icon-button"><ArrowLeftIcon className="h-4 w-4" /></button>
         <h1 className="text-xl font-black tracking-tight text-gray-950 dark:text-white">Apply</h1>
       </div>
       <div className="stream-card mt-6 p-5">

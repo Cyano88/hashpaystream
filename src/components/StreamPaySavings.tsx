@@ -1,7 +1,6 @@
-import { useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowLeftIcon, CalendarDaysIcon, ChevronRightIcon, ClockIcon } from '@heroicons/react/24/outline'
-import { Link } from '../lib/router'
+import { Link, useLocation, useNavigate } from '../lib/router'
 import { formatUsdcBalance } from '../lib/useAgreements'
 import { useSavingsVault } from '../lib/useSavingsVault'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
@@ -21,16 +20,20 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 export default function StreamPaySavings() {
   const { authenticated } = usePrivy()
+  const { search } = useLocation()
+  const navigate = useNavigate()
   const savings = useSavingsVault()
-  const [depositOpen, setDepositOpen] = useState(false)
+  const depositOpen = new URLSearchParams(search).get('plan') === 'create'
   const earnTo = useStreamPayPath('/funding')
+  const savingsTo = useStreamPayPath('/savings')
+  const createPlanTo = useStreamPayPath('/savings?plan=create')
 
   if (!authenticated) return <AgreementSignInLanding splashState='idle' />
-  if (!savings.configReady || !savings.savingsReady) return <StreamPayLoadingState active='savings' />
+  if (!savings.configReady || (savings.configured && !savings.savingsReady)) return <StreamPayLoadingState active='savings' />
 
   return <section className='stream-screen min-h-[calc(100dvh-6rem)] w-full max-w-md pb-28 pt-5'>
     <div className='flex items-center gap-3'>
-      <Link to={earnTo} aria-label='Back to Earn' className='stream-icon-button'><ArrowLeftIcon className='h-5 w-5' /></Link>
+      <Link to={earnTo} aria-label='Back to Earn' className='stream-icon-button'><ArrowLeftIcon className='h-4 w-4' /></Link>
       <div><h1 className='text-xl font-black tracking-tight'>Savings</h1><p className='mt-0.5 text-xs text-zinc-500 dark:text-zinc-400'>Build a plan for your USDC.</p></div>
     </div>
 
@@ -45,7 +48,7 @@ export default function StreamPaySavings() {
     </section>
 
     {!savings.configured ? <LaunchBoundary unavailable={Boolean(savings.configError)} /> : <>
-      {savings.depositsEnabled ? <button type='button' onClick={() => setDepositOpen(true)} className='mt-5 flex w-full items-center justify-between rounded-2xl bg-emerald-500 px-5 py-4 text-left text-emerald-950 shadow-[0_12px_30px_rgba(16,185,129,0.2)] transition active:scale-[0.99]'>
+      {savings.depositsEnabled ? <button type='button' onClick={() => navigate(createPlanTo)} className='mt-5 flex w-full items-center justify-between rounded-2xl bg-emerald-500 px-5 py-4 text-left text-emerald-950 shadow-[0_12px_30px_rgba(16,185,129,0.2)] transition active:scale-[0.99]'>
         <span><span className='block text-sm font-black'>Create savings plan</span><span className='mt-0.5 block text-[11px] font-semibold opacity-70'>Choose how much to release and when</span></span><ChevronRightIcon className='h-5 w-5' />
       </button> : <div className='mt-5 rounded-2xl border border-amber-300/40 bg-amber-50 px-4 py-3 dark:border-amber-300/15 dark:bg-amber-300/[0.06]'>
         <p className='text-xs font-black text-amber-900 dark:text-amber-100'>New plans are paused</p>
@@ -58,7 +61,7 @@ export default function StreamPaySavings() {
         {savings.plans.filter(plan => plan.remaining > 0n).map(plan => <SavingsPlanCard key={plan.id} plan={plan} savings={savings} />)}
         {savings.plans.every(plan => plan.remaining === 0n) && <div className='stream-empty py-9'><CalendarDaysIcon className='mx-auto h-7 w-7 text-zinc-400' /><h2 className='mt-3 text-sm font-black'>No active savings plan</h2><p className='mx-auto mt-1.5 max-w-xs text-xs leading-5 text-zinc-500'>Your weekly or monthly plans will appear here.</p></div>}
       </div>
-      {depositOpen && <SavingsDepositSheet savings={savings} onClose={() => setDepositOpen(false)} />}
+      {depositOpen && <SavingsDepositSheet savings={savings} onClose={() => navigate(savingsTo, { replace: true })} />}
     </>}
   </section>
 }

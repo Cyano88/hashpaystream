@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
 import { usePrivy } from '@privy-io/react-auth'
 import { StreamPayLayout } from './components/StreamPayLayout'
 import AgreementDashboard from './components/agreements/AgreementDashboard'
@@ -23,25 +24,29 @@ import StreamPayMove from './components/StreamPayMove'
 import StreamPayXLayerSend from './components/StreamPayXLayerSend'
 import StreamPaySavings from './components/StreamPaySavings'
 import { HashPayStreamSessionSplash } from './components/HashPayStreamSessionSplash'
-import { BrowserRouter, Navigate, useLocation } from './lib/router'
+import { BrowserRouter, Navigate, useLocation, useNavigate } from './lib/router'
 import { useHashPayStreamSessionSplash } from './lib/useHashPayStreamSessionSplash'
 import { useStreamPayPath } from './lib/useStreamPayPath'
-import { StreamPayLoadingState } from './components/ui/StreamPayLoadingState'
 import { CircleWalletGate } from './components/CircleWalletGate'
+import { useCircleWallet } from './lib/circleWallet'
 
 const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/upfront', '/funding', '/savings', '/move', '/move/xlayer/send', '/send', '/receive', '/activity', '/notifications', '/requests', '/account', '/operations', '/admin/analytics'])
-const CIRCLE_ROUTES = new Set(['/home', '/agreements', '/agreements/new', '/upfront', '/move', '/send', '/receive', '/activity', '/notifications', '/requests', '/account'])
+const CIRCLE_ROUTES = new Set([
+  '/home',
+  '/agreements',
+  '/agreements/new',
+  '/upfront',
+  '/move',
+  '/send',
+  '/receive',
+  '/activity',
+  '/notifications',
+  '/requests',
+  '/account',
+])
 const SESSION_READY_TIMEOUT_MS = 12_000
 
-function loadingSurface(route: string) {
-  if (route === '/account') return 'account' as const
-  if (route === '/savings') return 'savings' as const
-  if (route === '/requests' || route === '/notifications') return 'requests' as const
-  if (route === '/home') return 'home' as const
-  return 'agreements' as const
-}
-
-function SessionLoadingSurface({ route, sessionDelayed, onRetry }: { route: string; sessionDelayed: boolean; onRetry: () => void }) {
+function SessionLoadingSurface({ sessionDelayed, onRetry }: { sessionDelayed: boolean; onRetry: () => void }) {
   return (
     <div className={'flex min-h-screen w-full items-center justify-center bg-gray-50 dark:bg-[#111113]'} aria-busy={true} aria-label={'Loading HashPayStream'}>
       {sessionDelayed ? (
@@ -52,46 +57,81 @@ function SessionLoadingSurface({ route, sessionDelayed, onRetry }: { route: stri
             Retry
           </button>
         </div>
-      ) : <StreamPayLoadingState active={loadingSurface(route)} />}
+      ) : <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-blue-600" />}
     </div>
   )
 }
 
 function StreamPayRoute() {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const { ready, authenticated } = usePrivy()
+  const circleWallet = useCircleWallet()
+  const [circleVerificationConfirmed, setCircleVerificationConfirmed] = useState(false)
   const route = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
   const authDecisionRoute = AUTH_DECISION_ROUTES.has(route)
-  const splashState = useHashPayStreamSessionSplash(authDecisionRoute, ready)
+  const circleRequired = authenticated && CIRCLE_ROUTES.has(route)
+  // Keep the launch surface above Circle while an existing secure session is
+  // restoring. Reveal Circle only when a fresh OTP is genuinely required.
+  const circleResolved = !circleRequired
+    || circleWallet.state === 'ready'
+    || circleWallet.state === 'error'
+    || (circleWallet.state === 'connecting' && circleWallet.stage === 'verifying' && circleVerificationConfirmed)
+  const splashState = useHashPayStreamSessionSplash(authDecisionRoute, ready && circleResolved)
   const [sessionDelayed, setSessionDelayed] = useState(false)
   let content
 
   const composeRequestTo = useStreamPayPath('/requests?compose=1')
   const fundingTo = useStreamPayPath('/funding')
   const adminTo = useStreamPayPath('/admin/analytics#funding-partners')
+  const homeTo = useStreamPayPath('/home')
+  const nativeLaunchNormalized = useRef(false)
+  useEffect(() => {
+    if (circleWallet.state !== 'connecting' || circleWallet.stage !== 'verifying') {
+      setCircleVerificationConfirmed(false)
+      return
+    }
+    // A restoring session can briefly report the previous verification stage.
+    // Only reveal Circle OTP after that state remains stable long enough to be
+    // a genuine user action, keeping relaunches on the neutral app splash.
+    const timer = window.setTimeout(() => setCircleVerificationConfirmed(true), 1_200)
+    return () => window.clearTimeout(timer)
+  }, [circleWallet.stage, circleWallet.state])
+
   useEffect(() => {
     setSessionDelayed(false)
-    if (ready || !authDecisionRoute) return
+    if ((ready && circleResolved) || !authDecisionRoute) return
     const timer = window.setTimeout(() => setSessionDelayed(true), SESSION_READY_TIMEOUT_MS)
     return () => window.clearTimeout(timer)
-  }, [authDecisionRoute, ready])
+  }, [authDecisionRoute, circleResolved, ready])
+
+  useEffect(() => {
+    if (nativeLaunchNormalized.current || !ready || !authenticated || !Capacitor.isNativePlatform()) return
+    nativeLaunchNormalized.current = true
+    if (route !== '/home') navigate(homeTo, { replace: true })
+  }, [authenticated, homeTo, navigate, ready, route])
+
+  useEffect(() => {
+    if (ready && authenticated && circleWallet.state === 'idle') void circleWallet.reconnect()
+  }, [authenticated, circleWallet.reconnect, circleWallet.state, ready])
 
   const retrySession = () => window.location.reload()
 
   if (splashState !== 'idle') {
     return (
       <>
-        <SessionLoadingSurface route={route} sessionDelayed={false} onRetry={retrySession} />
+        <div className="min-h-screen w-full bg-black" aria-hidden="true" />
         <HashPayStreamSessionSplash splashState={splashState} sessionDelayed={sessionDelayed} onRetry={retrySession} />
       </>
     )
   }
 
   if (!ready && authDecisionRoute) {
-    return <SessionLoadingSurface route={route} sessionDelayed={sessionDelayed} onRetry={retrySession} />
+    return <SessionLoadingSurface sessionDelayed={sessionDelayed} onRetry={retrySession} />
   }
 
-  if (route === '/') content = <StreamPayLanding />
+  if (!authenticated && CIRCLE_ROUTES.has(route)) content = <Navigate to="/" replace />
+  else if (route === '/') content = <StreamPayLanding />
   else if (route === '/home') content = <StreamPayHome />
   else if (route === '/agreements') content = <AgreementDashboard />
   else if (route === '/agreements/new') content = <Navigate to={composeRequestTo} replace />
@@ -119,11 +159,21 @@ function StreamPayRoute() {
   else if (route === '/privacy') content = <StreamPayLegal page="privacy" />
   else content = <Navigate to="/" replace />
 
-  return <StreamPayLayout>{authenticated && CIRCLE_ROUTES.has(route) ? <CircleWalletGate>{content}</CircleWalletGate> : content}</StreamPayLayout>
+  if (authenticated && CIRCLE_ROUTES.has(route)) {
+    return (
+      <CircleWalletGate>
+        <StreamPayLayout>{content}</StreamPayLayout>
+      </CircleWalletGate>
+    )
+  }
+
+  return <StreamPayLayout>{content}</StreamPayLayout>
 }
 
 export default function App() {
-  useEffect(() => { document.title = 'HashPayStream' }, [])
+  useEffect(() => {
+    document.title = 'HashPayStream'
+  }, [])
 
   return (
     <BrowserRouter>

@@ -11,6 +11,7 @@ import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSpl
 import { formatUsdcBalance, useAgreements } from '../lib/useAgreements'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
+import { useStreamAccount } from '../lib/streamAccount'
 import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
 import HomeBalanceCarousel from './HomeBalanceCarousel'
 import { useCircleWallet } from '../lib/circleWallet'
@@ -40,6 +41,7 @@ export default function StreamPayHome() {
   const wallet = useCircleWallet()
   const requests = useServiceRequests()
   const splashState = useHashPayStreamSessionSplash(!authenticated)
+  useStreamAccount()
   const createTo = useStreamPayPath('/requests?compose=1')
   const upfrontTo = useStreamPayPath('/upfront')
   const activityTo = useStreamPayPath('/activity')
@@ -61,7 +63,7 @@ export default function StreamPayHome() {
   const totalBalance = availableBalance + customerEscrow.protected + customerEscrow.refundable
 
   if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
-  if (!ready || loading || (!wallet.balanceReady && !wallet.balanceError)) return <StreamPayLoadingState active="home" />
+  if (!ready || loading || requests.loading || (!wallet.balanceReady && !wallet.balanceError)) return <StreamPayLoadingState active="home" />
 
   const actions = [
     { label: 'New', Icon: DocumentPlusIcon, to: createTo },

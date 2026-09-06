@@ -15,8 +15,8 @@ export function StreamPayMobileNav() {
   const composingRequest = route === '/requests' && new URLSearchParams(search).get('compose') === '1'
 
   return (
-    <nav aria-label="App navigation" className="fixed inset-x-4 bottom-[max(.75rem,env(safe-area-inset-bottom))] z-50 mx-auto max-w-md rounded-full border border-zinc-200/80 bg-white/90 p-1.5 shadow-[0_18px_50px_rgba(0,0,0,.16)] backdrop-blur-xl dark:border-[#262626] dark:bg-[#111]/92 dark:shadow-2xl">
-      <div className="mx-auto grid max-w-md" style={{ gridTemplateColumns: `repeat(${destinations.length}, minmax(0, 1fr))` }}>
+    <nav aria-label="App navigation" className="fixed inset-x-0 bottom-0 z-50 border-t border-zinc-200/80 bg-white shadow-[0_-10px_32px_rgba(0,0,0,.06)] dark:border-[#262626] dark:bg-[#0b0b0b] dark:shadow-[0_-10px_32px_rgba(0,0,0,.28)]">
+      <div className="stream-mobile-nav-inner mx-auto grid min-w-0 max-w-md grid-cols-4 px-2 pt-2">
         {destinations.map(({ path, label, Icon }) => <MobileDestination key={path} path={path} label={label} active={
           path === '/home' ? composingRequest || ['/home', '/agreements/new', '/upfront', '/funding', '/savings', '/move', '/send', '/receive', '/notifications', '/activity'].includes(route)
             : path === '/account' ? route === '/account'
@@ -30,9 +30,9 @@ export function StreamPayMobileNav() {
 function MobileDestination({ path, label, active, Icon }: { path: string; label: string; active: boolean; Icon: typeof HomeIcon }) {
   const to = useStreamPayPath(path)
   return (
-    <Link to={to} aria-current={active ? 'page' : undefined} className={`flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-full text-[10px] font-bold transition-all active:scale-[.97] ${active ? 'bg-zinc-950 text-white dark:bg-white dark:text-zinc-950' : 'text-zinc-400 dark:text-zinc-500'}`}>
-      <Icon className={`h-5 w-5 ${active ? 'stroke-[2.25]' : ''}`} />
-      <span>{label}</span>
+    <Link to={to} aria-current={active ? 'page' : undefined} className={`flex min-h-[56px] min-w-0 flex-col items-center justify-center gap-1 overflow-hidden px-1 text-[10px] font-bold transition-colors active:opacity-65 ${active ? 'text-zinc-950 dark:text-white' : 'text-zinc-400 dark:text-zinc-600'}`}>
+      <Icon className={`h-[22px] w-[22px] ${active ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
+      <span className="max-w-full truncate">{label}</span>
     </Link>
   )
 }

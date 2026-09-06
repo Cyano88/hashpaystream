@@ -1,3 +1,4 @@
+import { shareNativeReceipt } from '../lib/nativeReceiptShare'
 import type { EarlyPaySettlement } from '../lib/serviceRequests'
 import SubmittedWorkLink from './SubmittedWorkLink'
 import { useEffect, useMemo, useState } from 'react'
@@ -88,6 +89,7 @@ function download(blob: Blob, name: string) {
 }
 
 async function share(file: File) {
+  if (await shareNativeReceipt(file)) return
   if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) return navigator.share({ title: 'HashPayStream receipt', files: [file] })
   download(file, file.name)
 }
