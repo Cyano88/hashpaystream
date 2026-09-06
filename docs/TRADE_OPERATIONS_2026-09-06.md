@@ -5,7 +5,7 @@
 - Trade runs inside the existing main HashPayStream service. Its Render health check is /readyz and notifyOnFail is notify.
 - The existing Production readiness monitor workflow is enabled on the public GitHub repository. The same job now probes Trade listings and the anonymous conversations/moderation boundaries. No new service, schedule, credentials or paid plan was added.
 - Trade checks require a valid enabled feed and 401 JSON errors for private routes. Three attempts run with bounded timeouts; response bodies and credentials are never logged. Transport failure, disabled feed and invalid authentication responses fail closed in fixture tests; transient failure recovers.
-- Local execution against production passed all Trade probes. Hosted workflow execution is recorded below after dispatch.
+- Local execution against production passed all Trade probes. Hosted workflow run 34065269259 passed both readiness and Trade steps: https://github.com/Cyano88/hashpaystream/actions/runs/34065269259 . The monitor is on main at fb12142; no app runtime behavior changed.
 - Render's recovery API reports AVAILABLE, with the earliest recovery point 2026-09-03T22:40:53Z at audit time. This is a moving window, not a retained export.
 - Existing paid database is available on PostgreSQL 18, without high availability. The separate logical Trade database passed the isolated restore drill in TRADE_RECOVERY_DRILL_2026-09-06.md.
 - One configured moderator has successfully reviewed, dismissed and hidden labelled test reports from the Pixel.
