@@ -36,3 +36,11 @@ Start with 10-20 invited testers in one area after the gates above pass. Use cle
 - https://render.com/docs/free : Free web services sleep after 15 idle minutes and take about a minute to wake. This can exceed the current 20-second app request budget; it is a plausible explanation of the reported timeout, not a trace-proven attribution.
 - https://render.com/docs/compute-plans : Starter maps to 0.5c-512mb; changing API compute plans requires a successful deployment.
 - https://render.com/articles/render-vs-railway : Starter base compute price is $7/month. Other account usage charges are separate.
+
+## Final audit evidence
+
+- Local PostgreSQL listing and community smoke tests passed on the current checkout, including cross-account denial, concurrent edits, quotas, pagination, blocking and moderation. The local test database was stopped afterwards.
+- Android 1.0.10 (code 11) web build, native assembly, unit tests and lint passed. Installed on the Pixel with data-preserving `adb install -r`; version independently confirmed. All 280 web files match the APK.
+- APK: `C:\Users\USER\Desktop\HashPayStream-1.0.10-Trade-Pilot.apk`.
+- SHA-256: `c1d9c3f7c6b7d6ed264a9aecc5d059b269d0c1175c5faa5593768ed0479e1415`.
+- The phone was in WhatsApp during both availability checks. No second-account device interaction or physical UI pass is claimed. No real-user enquiries were sent during this audit.
