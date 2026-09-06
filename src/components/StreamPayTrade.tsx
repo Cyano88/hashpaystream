@@ -225,8 +225,8 @@ function TradeScreen({
     }
   }
   useEffect(() => {
-    if (mode === "live") void refreshMine();
-  }, [owner, mode]);
+    if (mode === "live" && tab === "My listings") void refreshMine();
+  }, [owner, mode, tab]);
   // Mode changes are results, not new fetch triggers. Private Pocket loading
   // affects only Saved; switching Sell or enquiries must not reload Browse.
   const savedFilter = tab === "Saved" ? pocket.saved.join(",") : "";
