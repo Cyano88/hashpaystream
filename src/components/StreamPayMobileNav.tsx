@@ -15,7 +15,7 @@ export function StreamPayMobileNav() {
   const composingRequest = route === '/requests' && new URLSearchParams(search).get('compose') === '1'
 
   return (
-    <nav aria-label="App navigation" className="fixed inset-x-0 bottom-0 z-50 border-t border-zinc-200/80 bg-white shadow-[0_-10px_32px_rgba(0,0,0,.06)] dark:border-[#262626] dark:bg-[#0b0b0b] dark:shadow-[0_-10px_32px_rgba(0,0,0,.28)]">
+    <nav aria-label="App navigation" className="stream-bottom-nav fixed inset-x-0 bottom-0 z-50 border-t border-zinc-200/80 bg-white shadow-[0_-10px_32px_rgba(0,0,0,.06)] dark:border-[#262626] dark:bg-[#0b0b0b] dark:shadow-[0_-10px_32px_rgba(0,0,0,.28)]">
       <div className="stream-mobile-nav-inner mx-auto grid min-w-0 max-w-md grid-cols-4 px-2 pt-2">
         {destinations.map(({ path, label, Icon }) => <MobileDestination key={path} path={path} label={label} active={
           path === '/home' ? composingRequest || ['/home', '/trade', '/agreements/new', '/upfront', '/funding', '/savings', '/move', '/send', '/receive', '/notifications', '/activity'].includes(route)

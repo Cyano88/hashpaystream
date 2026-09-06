@@ -14,7 +14,7 @@ contracts do not establish physical-goods delivery or dispute protection.
   as a labelled 44 px minimum-height control below notifications on the balance card.
 - /trade supports public Browse/Search and item-detail links via ?item=sample-… .
   Browsing is outside Circle wallet/auth gates. Native launch preserves /trade.
-- Four top actions: Browse, Search, Sell, Saved. Sample listings and illustrations
+- Compact Pocket selector: Browse, Sell, Saved, My listings. Search stays inside Browse. Sample listings and illustrations
   are explicitly labelled. No fictional sellers, guarantees or live checkout.
 - Keyword, category and city filters; empty states and item detail information.
 - Saved sample items and editable/deletable seller drafts persist in IndexedDB,
@@ -60,3 +60,60 @@ to another app during the remaining Home/Move touch checks, so automation was
 paused. Browser feature checks and source navigation assertions passed.
 
 APK SHA-256: 6d31019fc44d7be1d74978fd52c8548472a53ebe0ccad0fc966ba771bdd45ac0
+
+## Pocket controls and back navigation follow-up
+
+Reused the exact stream-segment container and Received/Sent button classes.
+The shared Pocket CSS makes each selector button 48 px high. Native select
+fields were replaced by the existing StreamSelect component for category,
+condition, currency and handover. My listings owns the editable draft list.
+
+The apparent reload had two verified code paths: changing from the public Trade
+route to an auth-decision route re-enabled the native intro animation; Android
+back without history called location.replace. The splash now initializes only
+on mount and does not restart on route re-entry. Native fallback back updates
+history and emits popstate instead of reloading the document. Auth/Circle gates
+and cold-launch behavior remain covered separately.
+
+New regression checks execute the real hook and native back listener with mocked
+native services: cold launch animates, Trade -> Home remains idle, direct Trade
+entry -> Home remains idle, history back is preserved, no-history back uses SPA
+navigation, and Home with no history minimizes. Browser tests verify the 48 px
+selector, Pocket dropdown selection, draft editing/list isolation and no native
+select elements in Trade. Android readiness includes the regression script.
+
+## Compact discovery layout
+
+Back/Trade remains above the Pocket selector. Removed the repeated subtitle,
+preview paragraph, banner kicker/CTA and per-image sample captions. A single
+Sample listings label remains because publishing and purchases are not live.
+The Good finds card is now a short strip. Location opens from an accessible
+filter button beside search, closes with Done/Escape/outside click, and shows
+an active location as a removable chip. The existing Pocket dropdowns remain.
+At the tested 390 px viewport, the first listing begins above 450 px, compared
+with about 700 px before this compacting pass. No location field is exposed
+until requested. Android target: 1.0.5 / versionCode 6.
+
+## Keyboard navigation and selected banner
+
+Banner copy: Your once-loved. Someone's next find. The two-line card remains
+compact; browser checks keep the first listing above 450 px in a 390 px viewport.
+
+Reproduced the keyboard issue on the Pixel before fixing it: Android adjustResize
+moved the fixed bottom navigation from y=2580 to y=1665 while the keyboard was shown.
+The native app now uses the installed Capacitor Keyboard show/hide events to mark
+keyboard visibility. CSS hides .stream-bottom-nav while typing and removes its
+reserved content padding. The menu returns after keyboardDidHide. Form scrolling
+and Android adjustResize remain enabled. Listener cleanup also clears the marker.
+Native regression tests cover keyboardWillShow, keyboardDidShow and keyboardDidHide.
+Final Android target: 1.0.6 / versionCode 7.
+
+
+Final package verification: Android sync, assembleDebug, testDebugUnitTest and
+lintDebug passed. Android readiness and Trade browser checks passed. All 280 dist
+files match the APK assets byte-for-byte. APK SHA-256:
+91c078728c0449228e3312ccef72fdccf92337a58a90cda30c12606d244393d6.
+Installed with adb install -r; confirmed versionName 1.0.6 and versionCode 7.
+The final physical keyboard hide/restore check remains pending: the Pixel was
+locked, then in another app being used. No on-device success is claimed for this
+fix yet; the native event regression checks passed.

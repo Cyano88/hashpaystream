@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Capacitor } from '@capacitor/core'
 
 const SPLASH_SESSION_KEY = 'hashpaystream_signin_splash_shown_v2'
@@ -26,12 +26,10 @@ function initialState(enabled: boolean): HashPayStreamSplashState {
 
 export function useHashPayStreamSessionSplash(enabled: boolean, canLaunch = true) {
   const [state, setState] = useState<HashPayStreamSplashState>(() => initialState(enabled))
-  const previousEnabled = useRef(enabled)
 
+  // The launch animation belongs to this mount, not to route changes.
   useEffect(() => {
-    if (enabled && !previousEnabled.current) setState(initialState(true))
     if (!enabled) setState('idle')
-    previousEnabled.current = enabled
   }, [enabled])
 
   useEffect(() => {

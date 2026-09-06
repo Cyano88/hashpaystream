@@ -120,3 +120,11 @@ textarea,
 select {
   font: inherit;
 }
+
+/* Keep persistent navigation out of Android's resized keyboard viewport. */
+html[data-stream-keyboard="open"] .stream-bottom-nav {
+  display: none;
+}
+html[data-stream-keyboard="open"] .stream-mobile-main {
+  padding-bottom: 1rem;
+}

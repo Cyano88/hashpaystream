@@ -1,4 +1,5 @@
 import { App } from '@capacitor/app'
+import { Keyboard } from '@capacitor/keyboard'
 import { Browser } from '@capacitor/browser'
 import { Capacitor, SystemBars, SystemBarsStyle, SystemBarType } from '@capacitor/core'
 import { StatusBar, Style } from '@capacitor/status-bar'
@@ -31,6 +32,13 @@ export function initializeNativeApp() {
 
   document.documentElement.dataset.streamNative = 'true'
   scheduleSystemBars()
+  const showKeyboard = () => { document.documentElement.dataset.streamKeyboard = 'open' }
+  const hideKeyboard = () => { delete document.documentElement.dataset.streamKeyboard }
+  const keyboardListeners = [
+    Keyboard.addListener('keyboardWillShow', showKeyboard),
+    Keyboard.addListener('keyboardDidShow', showKeyboard),
+    Keyboard.addListener('keyboardDidHide', hideKeyboard),
+  ]
   const themeObserver = new MutationObserver(scheduleSystemBars)
   themeObserver.observe(document.documentElement, {
     attributes: true,
@@ -42,7 +50,8 @@ export function initializeNativeApp() {
     if (canGoBack) {
       window.history.back()
     } else if (route !== HOME_PATH) {
-      window.location.replace(HOME_PATH)
+      window.history.replaceState({}, '', HOME_PATH)
+      window.dispatchEvent(new PopStateEvent('popstate'))
     } else {
       void App.minimizeApp()
     }
@@ -86,6 +95,8 @@ export function initializeNativeApp() {
 
   return () => {
     themeObserver.disconnect()
+    hideKeyboard()
+    keyboardListeners.forEach(listener => { void listener.then(handle => handle.remove()) })
     delete document.documentElement.dataset.streamNative
     document.removeEventListener('click', openExternalLink)
     void backListener.then(handle => handle.remove())
