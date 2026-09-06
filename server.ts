@@ -22,6 +22,7 @@ import streamAccounts from './api/stream-accounts.js'
 import circleWallet from './api/circle-wallet.js'
 import customerRequests from './api/customer-requests.js'
 import serviceRequests from './api/service-requests.js'
+import { createTradeRouter } from './api/trade-listings.js'
 import savingsConfig from './api/savings-config.js'
 import {
   createCircleMarketplacePaymentHandler,
@@ -90,6 +91,7 @@ app.all(
   express.raw({ type: 'application/json', limit: '64kb' }),
   agentArcAgreementWebhook,
 )
+app.use('/api/hashpaystream/v1/trade', createTradeRouter())
 app.use(express.json({ limit: '64kb' }))
 app.get('/healthz', (_req, res) => res.json({ ok: true, service: 'hashpaystream' }))
 app.get('/readyz', rateLimit({ name: 'readiness', windowMs: 60_000, max: 120 }), readiness)

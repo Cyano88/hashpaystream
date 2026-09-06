@@ -56,7 +56,11 @@
     "audit:financial-core-data": "node --import tsx scripts/audit-financial-core-data.mjs",
     "audit:financial-core-reconciliation": "node --import tsx scripts/reconcile-financial-core-data.mjs",
     "verify:financial-core-postgres": "node --import tsx scripts/verify-financial-core-postgres.mjs",
-    "db:migrate:financial-core": "node --import tsx scripts/migrate-financial-core.mjs"
+    "db:migrate:financial-core": "node --import tsx scripts/migrate-financial-core.mjs",
+    "test:trade-preview": "node --import tsx scripts/trade-preview-smoke.mjs",
+    "test:trade-backend": "node --import tsx scripts/trade-backend-smoke.mjs",
+    "test:trade-community": "node --import tsx scripts/trade-community-smoke.mjs",
+    "test:trade-cache": "node --import tsx scripts/trade-cache-smoke.mjs"
   },
   "dependencies": {
     "@circle-fin/w3s-pw-web-sdk": "^1.1.11",
@@ -72,7 +76,9 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tsx": "^4.19.2",
-    "viem": "^2.51.2"
+    "viem": "^2.51.2",
+    "@capacitor/core": "8.5.1",
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

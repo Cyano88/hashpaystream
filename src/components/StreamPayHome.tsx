@@ -1,6 +1,6 @@
 import {
   ArrowRightIcon,
-  ArrowsRightLeftIcon,
+  ShoppingBagIcon,
   BanknotesIcon,
   DocumentPlusIcon,
   SparklesIcon,
@@ -45,6 +45,7 @@ export default function StreamPayHome() {
   const activityTo = useStreamPayPath('/activity')
   const notificationsTo = useStreamPayPath('/notifications')
   const moveTo = useStreamPayPath('/move')
+  const tradeTo = useStreamPayPath('/trade')
   const earnTo = useStreamPayPath('/funding')
   const notices = useMemo(() => buildStreamNotices(agreements, requests.requests), [agreements, requests.requests])
   const recentActivity = useMemo(() => notices.slice(0, 3), [notices])
@@ -66,7 +67,7 @@ export default function StreamPayHome() {
   const actions = [
     { label: 'New', Icon: DocumentPlusIcon, to: createTo },
     { label: 'Early pay', Icon: SparklesIcon, to: upfrontTo },
-    { label: 'Move', Icon: ArrowsRightLeftIcon, to: moveTo },
+    { label: 'Trade', Icon: ShoppingBagIcon, to: tradeTo },
     { label: 'Earn', Icon: BanknotesIcon, to: earnTo },
   ]
 
@@ -84,6 +85,7 @@ export default function StreamPayHome() {
         arcBalanceError={wallet.balanceError}
         refreshArcBalance={wallet.refreshBalance}
         notificationsTo={notificationsTo}
+        moveTo={moveTo}
         unreadCount={unreadCount}
       />
 

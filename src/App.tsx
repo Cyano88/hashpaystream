@@ -7,6 +7,7 @@ import StreamPayDocsHome from './components/docs/StreamPayDocsHome'
 import StreamPayArcAgreementDocs from './components/docs/StreamPayArcAgreementDocs'
 import StreamPayCircleMarketplaceDocs from './components/docs/StreamPayCircleMarketplaceDocs'
 import StreamPayHome from './components/StreamPayHome'
+import StreamPayTrade from './components/StreamPayTrade'
 import StreamPayActivity from './components/StreamPayActivity'
 import StreamPayNotifications from './components/StreamPayNotifications'
 import StreamPayRequests from './components/StreamPayRequests'
@@ -92,6 +93,7 @@ function StreamPayRoute() {
   }
 
   if (route === '/') content = <StreamPayLanding />
+  else if (route === '/trade') content = <StreamPayTrade />
   else if (route === '/home') content = <StreamPayHome />
   else if (route === '/agreements') content = <AgreementDashboard />
   else if (route === '/agreements/new') content = <Navigate to={composeRequestTo} replace />

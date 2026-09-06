@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { BellIcon } from '@heroicons/react/24/outline'
+import { BellIcon, ArrowsRightLeftIcon } from '@heroicons/react/24/outline'
 import { Link } from '../lib/router'
 import { formatUsdcBalance } from '../lib/useAgreements'
 import { useSavingsVault } from '../lib/useSavingsVault'
@@ -12,6 +12,7 @@ type Props = {
   arcBalanceReady: boolean
   arcBalanceError: string
   refreshArcBalance: () => Promise<void> | void
+  moveTo: string
   notificationsTo: string
   unreadCount: number
 }
@@ -32,7 +33,7 @@ export default function HomeBalanceCarousel(props: Props) {
       <section className="min-w-full snap-center overflow-hidden rounded-[26px] border border-zinc-800 bg-zinc-950 px-5 py-5 text-white shadow-[0_18px_48px_rgba(15,23,42,0.14)] dark:border-[#262626] dark:bg-[#121212]">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50 dark:text-gray-500">Total balance</p><p className="mt-1.5 min-w-0 text-[clamp(1.75rem,9vw,2.5rem)] font-bold tabular-nums tracking-tight">{props.arcBalanceReady ? formatUsdcBalance(props.totalBalance).replace(/ USDC$/, '') : '—'} <span className="text-xs font-medium tracking-normal opacity-50">USDC</span></p></div>
-          <Link to={props.notificationsTo} aria-label={props.unreadCount ? `Open notifications, ${props.unreadCount} unread` : 'Open notifications'} className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/75 transition active:scale-95"><BellIcon className="h-5 w-5" />{props.unreadCount > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-blue-500 ring-2 ring-zinc-950" />}</Link>
+          <div className="flex shrink-0 flex-col items-center gap-1"><Link to={props.notificationsTo} aria-label={props.unreadCount ? `Open notifications, ${props.unreadCount} unread` : 'Open notifications'} className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/75 transition active:scale-95"><BellIcon className="h-5 w-5" />{props.unreadCount > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-blue-500 ring-2 ring-zinc-950" />}</Link><Link to={props.moveTo} className="inline-flex min-h-11 items-center gap-1 text-[10px] font-bold text-white/80"><ArrowsRightLeftIcon className="h-3.5 w-3.5" />Move</Link></div>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">
           <Metric label="Available" value={props.arcBalanceReady ? formatUsdcBalance(props.availableBalance) : '—'} />

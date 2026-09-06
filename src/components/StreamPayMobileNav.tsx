@@ -18,7 +18,7 @@ export function StreamPayMobileNav() {
     <nav aria-label="App navigation" className="fixed inset-x-4 bottom-[max(.75rem,env(safe-area-inset-bottom))] z-50 mx-auto max-w-md rounded-full border border-zinc-200/80 bg-white/90 p-1.5 shadow-[0_18px_50px_rgba(0,0,0,.16)] backdrop-blur-xl dark:border-[#262626] dark:bg-[#111]/92 dark:shadow-2xl">
       <div className="mx-auto grid max-w-md" style={{ gridTemplateColumns: `repeat(${destinations.length}, minmax(0, 1fr))` }}>
         {destinations.map(({ path, label, Icon }) => <MobileDestination key={path} path={path} label={label} active={
-          path === '/home' ? composingRequest || ['/home', '/agreements/new', '/upfront', '/funding', '/savings', '/move', '/send', '/receive', '/notifications', '/activity'].includes(route)
+          path === '/home' ? composingRequest || ['/home', '/trade', '/agreements/new', '/upfront', '/funding', '/savings', '/move', '/send', '/receive', '/notifications', '/activity'].includes(route)
             : path === '/account' ? route === '/account'
             : route === path && !composingRequest
         } Icon={Icon} />)}
