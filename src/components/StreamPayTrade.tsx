@@ -105,6 +105,9 @@ function TradeScreen({
     [marketBusy, setMarketBusy] = useState(false);
   const requestSequence = useRef(0);
   const mineSequence = useRef(0);
+  const [mineStatus, setMineStatus] = useState<"loading" | "ready" | "error">(
+    "loading",
+  );
   const all = mode === "preview" ? sampleTradeListings : market;
   const item =
     detail?.id === params.get("item")
@@ -204,18 +207,19 @@ function TradeScreen({
   async function refreshMine() {
     if (!owner) return;
     const sequence = ++mineSequence.current;
+    setMineStatus("loading");
     try {
       const token = await getAccessToken();
       if (!alive.current) return;
       if (!token) throw new Error("Sign in again to load your listings.");
       const own = await tradeRequest("?mine=1", token);
-      if (alive.current && sequence === mineSequence.current)
+      if (alive.current && sequence === mineSequence.current) {
         setMine(own.listings || []);
-    } catch (e) {
-      if (alive.current)
-        setError(
-          e instanceof Error ? e.message : "Your listings could not be loaded.",
-        );
+        setMineStatus("ready");
+      }
+    } catch {
+      if (alive.current && sequence === mineSequence.current)
+        setMineStatus("error");
     }
   }
   useEffect(() => {
@@ -277,6 +281,7 @@ function TradeScreen({
       if (!result.listing)
         throw new Error("Publication could not be confirmed.");
       mineSequence.current++; // An older private read must not overwrite this publication.
+      setMineStatus("ready");
       setRevision(result.listing.revision);
       setMine((previous) => [
         result.listing!,
@@ -503,7 +508,9 @@ function TradeScreen({
               ? "Sample listings"
               : mode === "live"
                 ? "Trade pilot"
-                : "Connecting"}
+                : mode === "error"
+                  ? "Unavailable"
+                  : "Connecting"}
           </span>
         </div>
       </header>
@@ -657,15 +664,38 @@ function TradeScreen({
             <div>
               <h2 className="text-xl font-bold">My listings</h2>
               <p className="mt-2 text-xs leading-5 text-zinc-500">
-                {mode === "live"
-                  ? "Manage your published items and drafts."
-                  : "Unpublished drafts on this device."}
+                {mode === "preview"
+                  ? "Unpublished drafts on this device."
+                  : "Manage your published items and drafts."}
               </p>
             </div>
-            {mode === "live" && (
+            {mode !== "preview" && (
               <section className="space-y-3">
                 <h3 className="text-sm font-bold">Published items</h3>
-                {mine.length === 0 ? (
+                {(mode === "error" || mineStatus === "error") && (
+                  <div role="status" className="text-xs text-zinc-500">
+                    <p>
+                      Published items are unavailable right now. This does not
+                      mean your listings were removed.
+                    </p>
+                    {mode === "live" && (
+                      <button
+                        onClick={() => void refreshMine()}
+                        className="min-h-11 font-bold underline"
+                      >
+                        Retry published items
+                      </button>
+                    )}
+                  </div>
+                )}
+                {mine.length === 0 &&
+                (mode !== "live" || mineStatus !== "ready") ? (
+                  mode !== "error" && mineStatus !== "error" ? (
+                    <p role="status" className="text-xs text-zinc-500">
+                      Loading published items...
+                    </p>
+                  ) : null
+                ) : mine.length === 0 ? (
                   <p className="text-xs text-zinc-500">
                     Your published items will appear here.
                   </p>

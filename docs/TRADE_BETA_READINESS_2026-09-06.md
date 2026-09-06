@@ -1,0 +1,38 @@
+﻿# Trade beta release readiness - 2026-09-06
+
+Status: NOT READY for an unrestricted public release. Discovery-only beta is the next target; checkout remains unavailable.
+
+## Confirmed this audit
+
+- Isolated Trade service is available on the Free compute plan. Live health/listings returned 200; anonymous enquiries/moderation returned 401; financial service-request route returned 404. Warm checks completed in approximately 0.3-1.2 seconds.
+- Database host is available on paid basic_256mb PostgreSQL 18 in Oregon, without high availability. This confirms hosting configuration, not a successful recovery drill.
+- One Pixel is connected. A second authenticated test account/device has not yet been identified.
+- Release signing is enforced by Gradle, but all four required upload-signing variables are absent in process, User and Machine environments. This does not prove the original keystore is absent elsewhere. Do not generate a replacement or uninstall the app to bypass signature mismatch.
+
+## Timeout defect and correction
+
+The reported failed feed request was incorrectly described as a drafts-only screen. Unknown/error mode now preserves a Published items section with an explicit unavailable state; the header distinguishes Unavailable from Connecting. Private listings distinguish loading, successfully empty and failed states, with a dedicated retry. Existing loaded items remain visible during refresh failure.
+
+A synthetic failure test confirmed public failure, public retry, delayed private response, private failure and private retry. No failed or pending response was presented as an empty published-items result. Cache and slow-network layout checks also passed.
+
+## Gates before invited testers
+
+| Gate | Status / required evidence |
+| --- | --- |
+| Always-on API | Pending approval for only the Trade service's Starter / 0.5c-512mb plan, $7/month base compute. No paid change made without approval. |
+| Android signing/update continuity | Configure the original upload key locally, verify certificate/update path, build signed release APK/AAB. Current APK is a debug pilot. |
+| Two-account device lifecycle | Pending second test login/device. Verify publish, anonymous discovery, enquiry/reply, block, report/review, logout and restart; label and remove test listings. Synthetic server/browser tests do not replace this gate. |
+| Recovery | Verify an isolated Trade backup restore without restoring over or exporting financial databases. Record recovery duration and row/evidence integrity. |
+| Operations | Assign report reviewer, define evidence retention/deletion and account suspension procedures; verify alert destination and rollback. |
+| Web/Android parity | Verify deliberate pilot routing and feature availability in each distributed client. Do not merge production main merely to publish a pilot. |
+| Payment boundaries | Checkout disabled and no buyer-protection promises until the goods agreement lifecycle is implemented and audited. |
+
+## Invited-test protocol
+
+Start with 10-20 invited testers in one area after the gates above pass. Use clearly labelled test items until moderators and support are ready for real listings. Record app version, device/OS, network, action and sanitized failure details; never collect access tokens or payment credentials. Stop rollout for cross-account visibility, lost data, unauthorized writes, repeated unrecoverable connection failures or failed updates.
+
+## Source references
+
+- https://render.com/docs/free : Free web services sleep after 15 idle minutes and take about a minute to wake. This can exceed the current 20-second app request budget; it is a plausible explanation of the reported timeout, not a trace-proven attribution.
+- https://render.com/docs/compute-plans : Starter maps to 0.5c-512mb; changing API compute plans requires a successful deployment.
+- https://render.com/articles/render-vs-railway : Starter base compute price is $7/month. Other account usage charges are separate.
