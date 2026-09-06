@@ -109,3 +109,13 @@ See [the incremental audit](./RECEIPT_INCREMENTAL_AUDIT_2026-09-06.md) for the
 PostgreSQL and HTTP checks, failure/recovery evidence and operation commands.
 A valid real user login, scheduled staging operation and a financial reorg
 reversal policy remain unverified or unimplemented. Production remains unchanged.
+
+
+## Scheduled operation continuation - 2026-09-06
+
+The isolated staging sync now runs every 15 minutes on Render, with a separate
+monitor every five minutes. Scheduled failure detection and successful recovery
+were observed, and the corrected cloud build completed a full verified cycle.
+See [the scheduler audit](./RECEIPT_SCHEDULER_AUDIT_2026-09-06.md) for deployment
+IDs, the empty-RPC-log fallback correction, checks and final persisted counts.
+Real authenticated user login and financial reorg reversal remain open gates.

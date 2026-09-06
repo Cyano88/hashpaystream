@@ -63,3 +63,33 @@ block checks. Ambiguous results still fail immediately. Explicit regression
 tests passed for empty fallback, all-missing/all-unavailable providers,
 ambiguity and bounded historical scans. This is a handling gap discovered from
 the failure; cloud verification of the correction follows deployment.
+
+
+The scheduled 05:15 UTC sync completed successfully at 05:19:09 UTC:
+32 receipts, 32 postings, 80 entries, 11 workflows and 32 bindings reconciled;
+both workflow passes returned 11 duplicates and zero inserts/updates. Staging
+returned to ready. The monitor's 05:18 run succeeded with RUNNING while correctly
+keeping readReady false. A subsequent direct monitor check returned READY.
+
+The corrected sync build `502ef30c69c22d76769c0c4048182cfe6a595965` became live
+at 05:16 UTC. The 05:15 run had already started, so a separate final run was
+requested after its completion to verify the newly deployed build. The complete
+smoke suite passed with npm exit status 0; the initial PowerShell-redirection
+wrapper had reported an expected negative-test stderr line as a native error.
+
+
+## Final verification
+
+The corrected cloud build's 05:22 UTC run finished successfully at 05:26:02 UTC.
+All indexing, ledger, workflow, duplicate replay and access checks passed.
+An independent staging database read confirmed verified_at
+`2026-09-06T05:25:58.013Z`, ready state, 32 observations, 32 postings, 80 entries,
+19 accounts, 11 projections, 11 history rows, 32 bindings and 22 versions.
+No reorg audit rows remained. A separate read-only monitor returned READY with
+readReady true at an age of 84 seconds. No financial counts changed.
+
+The sync remains deployed at `502ef30`; the independent monitor remains at
+`bfa0bba` (its code is unchanged by the event-lookup correction). Later
+commits that only record this audit do not auto-deploy. Scheduling is active;
+ongoing failure/recovery history is visible in Render. This is an observed
+staging result, not a production readiness or automatic reorg recovery claim.
