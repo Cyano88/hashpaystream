@@ -14,6 +14,8 @@ import {
 } from "@heroicons/react/24/outline";
 import {
   tradeRequest,
+  cachedTradePage,
+  publicTradePage,
   tradePhotoSource,
   type PublishedListing,
 } from "../lib/tradeApi";
@@ -86,17 +88,23 @@ function TradeScreen({
   const tab: Tab =
     tabs.find((t) => t.toLowerCase().replaceAll(" ", "-") === requested) ||
     "Browse";
+  const initialPage = useRef(cachedTradePage()).current;
   const [mode, setMode] = useState<"loading" | "preview" | "live" | "error">(
-    "loading",
+    initialPage ? (initialPage.enabled ? "live" : "preview") : "loading",
   );
-  const [market, setMarket] = useState<PublishedListing[]>([]),
+  const [market, setMarket] = useState<PublishedListing[]>(
+      initialPage?.listings || [],
+    ),
     [mine, setMine] = useState<PublishedListing[]>([]);
   const [detail, setDetail] = useState<PublishedListing>(),
     [revision, setRevision] = useState(0),
-    [nextPage, setNextPage] = useState<string | null>(null);
+    [nextPage, setNextPage] = useState<string | null>(
+      initialPage?.next || null,
+    );
   const [marketError, setMarketError] = useState(""),
     [marketBusy, setMarketBusy] = useState(false);
   const requestSequence = useRef(0);
+  const mineSequence = useRef(0);
   const all = mode === "preview" ? sampleTradeListings : market;
   const item =
     detail?.id === params.get("item")
@@ -146,13 +154,13 @@ function TradeScreen({
       alive.current = false;
     };
   }, [owner]);
-  async function refreshMarket(more = false) {
+  async function refreshMarket(more = false, force = true) {
     const sequence = ++requestSequence.current;
     setMarketBusy(true);
     setMarketError("");
     try {
       const filters = new URLSearchParams();
-      if (mode === "live") {
+      {
         if (query.trim()) filters.set("q", query.trim());
         if (category !== "All") filters.set("category", category);
         if (city.trim()) filters.set("city", city.trim());
@@ -164,7 +172,10 @@ function TradeScreen({
         }
       }
       if (more && nextPage) filters.set("before", nextPage);
-      const result = await tradeRequest(filters.size ? "?" + filters : "");
+      const result = await publicTradePage(
+        filters.size ? "?" + filters : "",
+        force,
+      );
       if (!alive.current || sequence !== requestSequence.current) return;
       setMode(result.enabled ? "live" : "preview");
       setMarket((previous) =>
@@ -178,13 +189,6 @@ function TradeScreen({
           : result.listings || [],
       );
       setNextPage(result.next || null);
-      if (result.enabled && owner) {
-        const token = await getAccessToken();
-        if (!token) throw new Error("Sign in again to load your listings.");
-        const own = await tradeRequest("?mine=1", token);
-        if (alive.current && sequence === requestSequence.current)
-          setMine(own.listings || []);
-      }
     } catch (e) {
       if (alive.current && sequence === requestSequence.current) {
         setMarketError(
@@ -197,17 +201,45 @@ function TradeScreen({
         setMarketBusy(false);
     }
   }
+  async function refreshMine() {
+    if (!owner) return;
+    const sequence = ++mineSequence.current;
+    try {
+      const token = await getAccessToken();
+      if (!alive.current) return;
+      if (!token) throw new Error("Sign in again to load your listings.");
+      const own = await tradeRequest("?mine=1", token);
+      if (alive.current && sequence === mineSequence.current)
+        setMine(own.listings || []);
+    } catch (e) {
+      if (alive.current)
+        setError(
+          e instanceof Error ? e.message : "Your listings could not be loaded.",
+        );
+    }
+  }
   useEffect(() => {
-    void refreshMarket();
+    if (mode === "live") void refreshMine();
+  }, [owner, mode]);
+  // Mode changes are results, not new fetch triggers. Private Pocket loading
+  // affects only Saved; switching Sell or enquiries must not reload Browse.
+  const savedFilter = tab === "Saved" ? pocket.saved.join(",") : "";
+  useEffect(() => {
+    if (mode === "preview") return;
+    if (
+      mode !== "loading" &&
+      (requested === "enquiries" || tab === "Sell" || tab === "My listings")
+    )
+      return;
+    const timer = window.setTimeout(
+      () => void refreshMarket(false, false),
+      query || city ? 250 : 0,
+    );
     return () => {
+      window.clearTimeout(timer);
       requestSequence.current++;
     };
-  }, []);
-  useEffect(() => {
-    if (mode !== "live") return;
-    const timer = window.setTimeout(() => void refreshMarket(), 250);
-    return () => window.clearTimeout(timer);
-  }, [query, category, city, tab, loaded, mode, pocket.saved.join(",")]);
+  }, [query, category, city, tab, requested === "enquiries", savedFilter]);
   const detailId = params.get("item");
   useEffect(() => {
     if (mode !== "live" || !detailId) return;
@@ -331,7 +363,7 @@ function TradeScreen({
         setNotice(
           action === "sold" ? "Listing marked sold." : "Listing removed.",
         );
-        await refreshMarket();
+        await Promise.all([refreshMarket(), refreshMine()]);
       }
     } catch (e) {
       if (alive.current)
@@ -502,11 +534,13 @@ function TradeScreen({
           </button>
         </p>
       )}
-      {(mode === "loading" || marketBusy) && (
-        <p role="status" className="text-xs text-zinc-500">
-          Loading Trade...
-        </p>
-      )}
+      <span role="status" className="sr-only">
+        {mode === "loading"
+          ? "Loading listings"
+          : marketBusy
+            ? "Updating listings"
+            : ""}
+      </span>
       {error && (
         <p
           role="alert"
@@ -1020,7 +1054,7 @@ function TradeScreen({
         <p role="status" className="text-sm text-zinc-500">
           Loading saved items...
         </p>
-      ) : mode === "loading" || mode === "error" ? null : (
+      ) : (
         <>
           {tab === "Browse" && (
             <div className="rounded-2xl bg-[#e8eee3] px-4 py-3 text-[#243b2b]">
@@ -1143,10 +1177,26 @@ function TradeScreen({
                   : "Latest finds"}
             </h2>
             <span role="status" className="text-[11px] text-zinc-500">
-              {visible.length} {visible.length === 1 ? "item" : "items"}
+              {mode === "loading"
+                ? "Loading"
+                : marketBusy
+                  ? "Updating"
+                  : `${visible.length} ${visible.length === 1 ? "item" : "items"}`}
             </span>
           </div>
-          {visible.length ? (
+          {mode === "loading" ? (
+            <div
+              aria-label="Loading listings"
+              className="grid grid-cols-2 gap-3"
+            >
+              {[0, 1].map((id) => (
+                <div
+                  key={id}
+                  className="aspect-square rounded-2xl bg-zinc-100 dark:bg-zinc-900"
+                />
+              ))}
+            </div>
+          ) : mode === "error" && !visible.length ? null : visible.length ? (
             <div className="grid grid-cols-2 gap-x-3 gap-y-5">
               {visible.map((listing) => (
                 <article key={listing.id} className="min-w-0">
