@@ -1,3 +1,4 @@
+import { useStreamConfirm } from "./ui/StreamConfirmSheet";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { StreamSelect } from "./ui/StreamSelect";
@@ -336,6 +337,7 @@ function TradeConversation({
   getAccessToken,
   onBack,
 }: { threadId: string; onBack: () => void } & Access) {
+  const { confirm, confirmation } = useStreamConfirm();
   const { alive, request } = useAccess(getAccessToken),
     [thread, setThread] = useState<TradeThread>(),
     [messages, setMessages] = useState<TradeMessage[]>([]),
@@ -421,11 +423,13 @@ function TradeConversation({
     if (
       !thread ||
       working.current ||
-      !window.confirm(
-        thread.blockedByMe
-          ? "Unblock messages from this person?"
-          : "Block new messages in both directions? Existing messages remain visible.",
-      )
+      !(await confirm({
+        title: thread.blockedByMe ? "Unblock messages?" : "Block messages?",
+        description: thread.blockedByMe
+          ? "You can message each other again."
+          : "New messages will stop in both directions. Existing messages stay visible.",
+        action: thread.blockedByMe ? "Unblock" : "Block messages",
+      }))
     )
       return;
     working.current = true;
@@ -442,6 +446,7 @@ function TradeConversation({
   }
   return (
     <section className="space-y-4">
+      {confirmation}
       <button
         onClick={onBack}
         className="inline-flex min-h-11 items-center gap-2 text-xs font-bold"
@@ -557,6 +562,7 @@ function TradeModeration({
   getAccessToken,
   onBack,
 }: { onBack: () => void } & Access) {
+  const { confirm, confirmation } = useStreamConfirm();
   const { alive, request } = useAccess(getAccessToken),
     [reports, setReports] = useState<TradeReport[]>([]),
     [selected, setSelected] = useState<any>(),
@@ -589,11 +595,14 @@ function TradeModeration({
     if (
       busy ||
       !selected ||
-      !window.confirm(
-        decision === "hide"
-          ? "Hide this listing and close the report?"
-          : "Dismiss this report?",
-      )
+      !(await confirm({
+        title: decision === "hide" ? "Hide listing?" : "Dismiss report?",
+        description:
+          decision === "hide"
+            ? "This listing will leave Browse and the report will close."
+            : "The report will close. The listing will stay unchanged.",
+        action: decision === "hide" ? "Hide listing" : "Dismiss report",
+      }))
     )
       return;
     setBusy(true);
@@ -612,6 +621,7 @@ function TradeModeration({
   }
   return (
     <section className="space-y-4">
+      {confirmation}
       <button
         onClick={() => (selected ? setSelected(undefined) : onBack())}
         className="min-h-11 text-xs font-bold"
