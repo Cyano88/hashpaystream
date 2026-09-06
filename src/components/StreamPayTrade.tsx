@@ -1,3 +1,4 @@
+import { useStreamConfirm } from "./ui/StreamConfirmSheet";
 import StreamPayTradeEnquiries, {
   TradeItemActions,
 } from "./StreamPayTradeEnquiries";
@@ -79,6 +80,7 @@ function TradeScreen({
   login: () => void;
   getAccessToken: () => Promise<string | null>;
 }) {
+  const { confirm, confirmation } = useStreamConfirm();
   const { search } = useLocation(),
     navigate = useNavigate(),
     home = useStreamPayPath("/home"),
@@ -350,11 +352,14 @@ function TradeScreen({
   ) {
     if (
       busy ||
-      !window.confirm(
-        action === "sold"
-          ? "Mark this listing as sold?"
-          : "Remove this published listing?",
-      )
+      !(await confirm({
+        title: action === "sold" ? "Mark as sold?" : "Remove listing?",
+        description:
+          action === "sold"
+            ? "Buyers will see that this item has sold."
+            : "This item will leave Browse and new messages will close.",
+        action: action === "sold" ? "Mark sold" : "Remove listing",
+      }))
     )
       return;
     setBusy(true);
@@ -480,6 +485,7 @@ function TradeScreen({
   );
   return (
     <section className="stream-screen w-full max-w-md space-y-4 pb-6 pt-4">
+      {confirmation}
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
@@ -791,9 +797,14 @@ function TradeScreen({
                     <button
                       disabled={busy}
                       aria-label={`Delete draft ${d.title}`}
-                      onClick={() => {
+                      onClick={async () => {
                         if (
-                          window.confirm("Delete this draft from this device?")
+                          await confirm({
+                            title: "Delete draft?",
+                            description:
+                              "This draft will be removed from this device.",
+                            action: "Delete draft",
+                          })
                         )
                           void commit({
                             ...pocket,

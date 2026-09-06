@@ -46,6 +46,7 @@ export function initializeNativeApp() {
   })
 
   const backListener = App.addListener('backButton', ({ canGoBack }) => {
+    if (!window.dispatchEvent(new Event('hashpaystream:back', { cancelable: true }))) return
     const route = window.location.pathname.replace(/\/+$/, '') || '/'
     if (canGoBack) {
       window.history.back()
