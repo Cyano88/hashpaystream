@@ -84,7 +84,8 @@
     "test:trade-preview": "node --import tsx scripts/trade-preview-smoke.mjs",
     "test:native-navigation": "node scripts/native-navigation-smoke.mjs",
     "test:trade-backend": "node --import tsx scripts/trade-backend-smoke.mjs",
-    "test:trade-native-photo": "node scripts/trade-native-photo-smoke.mjs"
+    "test:trade-native-photo": "node scripts/trade-native-photo-smoke.mjs",
+    "staging:trade-server": "tsx scripts/serve-trade-pilot.ts"
   },
   "dependencies": {
     "@capacitor/android": "8.5.1",

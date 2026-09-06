@@ -3,6 +3,8 @@ import { Capacitor, CapacitorHttp } from '@capacitor/core'
 const API_PATH_PREFIX = '/api/hashpaystream'
 // https://hashpaystream.app remains the local Capacitor origin; native API traffic uses the resolvable backend host.
 const PRODUCTION_ORIGIN = 'https://hashpaystream.onrender.com'
+const TRADE_PILOT_ORIGIN = String(import.meta.env.VITE_HASHPAYSTREAM_TRADE_API_ORIGIN ?? '').trim()
+if (TRADE_PILOT_ORIGIN && TRADE_PILOT_ORIGIN !== 'https://hashpaystream-trade-pilot.onrender.com') throw new Error('Invalid Trade pilot origin')
 let installed = false
 
 function abortError() {
@@ -38,7 +40,7 @@ export function installNativeApiTransport() {
     }
 
     const nativeResponse = await CapacitorHttp.request({
-      url: `${PRODUCTION_ORIGIN}${requestedUrl.pathname}${requestedUrl.search}`,
+      url: `${TRADE_PILOT_ORIGIN && requestedUrl.pathname.startsWith('/api/hashpaystream/v1/trade/') ? TRADE_PILOT_ORIGIN : PRODUCTION_ORIGIN}${requestedUrl.pathname}${requestedUrl.search}`,
       method,
       headers: Object.fromEntries(headers.entries()),
       ...(rawBody === undefined || method === 'GET' || method === 'HEAD' ? {} : { data }),
