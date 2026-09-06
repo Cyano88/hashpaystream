@@ -29,3 +29,26 @@ remaining UI checks, so the new PDF share-sheet flow was not independently
 completed on the phone in this pass; its rendered output was verified locally.
 
 APK SHA-256: 78a2f80e54ba3ff22f12ee1495c84d9bb9f3de7e15ac9cc80192a87224352938
+
+## Follow-up device verification
+
+Completed the remaining checks directly on Android 1.0.2 on the Pixel:
+
+- Returned-payment PDF opens Android's share sheet. The actual exported PDF
+  parses as one page, has a white background and retains its explorer link.
+  Its embedded JPEG exactly matches the phone's image export.
+- A completed funding position opens a Payment completed receipt with the
+  compact inline check icon. Both PDF and image share sheets open. The actual
+  exported files have identical receipt pixels and a white background.
+- Home balance amounts, recent activity and the expanded activity list render
+  without visible error messages. This is UI verification, not an independent
+  reconciliation of balances against chain state.
+- Force-stop and relaunch restore the signed-in home screen and its data.
+  No logout, data clear, reinstallation or authentication bypass was used.
+- The visible completed-agreement list contained returned payments; successful
+  payment rendering was therefore exercised with an existing settled funding
+  receipt. No new transaction was created to manufacture a test record.
+
+All share sheets were cancelled without selecting a recipient. No payment,
+transfer, signature or external receipt delivery was performed. Device exports
+and UI captures remain in ignored local output, outside this source record.
