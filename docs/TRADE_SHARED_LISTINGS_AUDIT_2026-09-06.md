@@ -126,3 +126,33 @@ The final physical publishing/photo/keyboard interaction checks remain pending.
 The connected Pixel was in the Phone app; the user was asked to leave HashPayStream
 open when available. Installation was completed without taking over the foreground
 app. No real-user listing was published during these checks.
+
+
+## Physical Pixel verification completed
+
+After the user opened HashPayStream, Android 1.0.7 restored the existing signed-in
+session and loaded the live Trade pilot. No credentials were extracted from the
+device. Verification used the normal app UI and a clearly labelled synthetic item.
+
+- Keyboard shown: dumpsys input_method reported mInputShown=true; Agreements,
+  Requests and Account navigation nodes were absent from the UI hierarchy.
+- Keyboard dismissed: mInputShown=false; the navigation returned to its original
+  y=2580..2748 bounds. This closes the earlier pending keyboard check.
+- Published TEST - Not for sale through Sell, with the synthetic JPEG and a
+  description identifying it as temporary. The normal signed-in server auth and
+  live PostgreSQL publication path succeeded.
+- A separate unauthenticated HTTP request retrieved the item and its image/jpeg
+  photo with status 200. Public listing data did not include the owner field.
+- Visually checked the Pixel screenshot: the stored photo rendered correctly in
+  My listings through Android's JSON image transport.
+- Mark sold through the app succeeded; independent reads reported sold and no
+  longer included the item in active discovery.
+- Removed the test listing through the app. Its detail and photo URLs both return
+  404; active discovery contains no test item. My listings has no test item/draft.
+- Deleted only the synthetic Downloads image after comparing it byte-for-byte to
+  the local test fixture. No real listing, payment or personal photo was modified.
+- Left the app on Trade Browse with the keyboard dismissed.
+
+The previously pending on-device publishing, image and keyboard checks are now
+complete. Cross-account modification denial remains covered by the isolated
+PostgreSQL/HTTP tests; the live independent read used an unauthenticated client.
