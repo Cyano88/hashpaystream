@@ -114,9 +114,13 @@ async function exercise(client, schema) {
   await expectRejected(client, 'chain_observation_delete', () => client.query(`delete from ${schema}.chain_observations where observation_id = 'observation_a'`), 'APPEND_ONLY_RECORD_IMMUTABLE')
   checks += 1
 
+  await expectRejected(client, 'projection_payload', () => client.query(`update ${schema}.agreement_projections set projection = '{"changed":true}'::jsonb where agreement_id = 'agreement_example'`), 'AGREEMENT_PROJECTION_SOURCE_CONFLICT')
+  await expectRejected(client, 'unposted_binding', () => client.query(`insert into ${schema}.agreement_receipt_bindings(observation_id,agreement_id) values ('observation_a','agreement_example')`), 'RECEIPT_BINDING_REQUIRES_POSTED_EVIDENCE')
+  checks += 2
+
   const tables = await client.query(`select count(*)::integer as count from information_schema.tables where table_schema = $1`, [schema])
   const triggers = await client.query(`select count(*)::integer as count from information_schema.triggers where trigger_schema = $1`, [schema])
-  if (Number(tables.rows[0]?.count) < 12 || Number(triggers.rows[0]?.count) < 10) throw new Error('DATABASE_OBJECT_COVERAGE_INCOMPLETE')
+  if (Number(tables.rows[0]?.count) < 13 || Number(triggers.rows[0]?.count) < 10) throw new Error('DATABASE_OBJECT_COVERAGE_INCOMPLETE')
   return { checks, tables: Number(tables.rows[0].count), triggers: Number(triggers.rows[0].count) }
 }
 

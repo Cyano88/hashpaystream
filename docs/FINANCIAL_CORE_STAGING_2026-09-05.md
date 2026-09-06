@@ -80,3 +80,18 @@ mapping, exact checks, receipt UI fixes and remaining production gates. These
 system-domain token-movement accounts do not establish user available balances;
 legacy reads remain authoritative until ownership/projections and ongoing
 shadow reconciliation are validated.
+
+
+## Ownership and workflow continuation - 2026-09-06
+
+The next historical staging gate passed: 11 agreement projections, 22 financial
+request versions and 32 receipt bindings are persisted. Customer/provider
+ownership records, accepted terms and wallet bindings matched the authoritative
+evidence. All 22 allowed reads and 22 denied reads behaved as expected; legacy
+lifecycle states matched. Replays, altered projections, binding mutations and
+reorg evidence were checked. Five requests without confirmed receipts were
+excluded, including one linked but unactivated draft.
+
+See [the workflow audit](./RECEIPT_WORKFLOW_AUDIT_2026-09-06.md) for exact evidence,
+limitations and remaining incremental-ingestion/authentication/cutover gates.
+No production route was switched, and no available balance was inferred.
