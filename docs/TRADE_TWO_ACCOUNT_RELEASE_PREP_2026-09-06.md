@@ -48,6 +48,10 @@ The isolated PostgreSQL 18 logical backup/restore passed for all five Trade tabl
 
 Remaining: real authentication-switch test, original Android release signing configuration, backup schedule/retention, monitoring destination and operating procedures.
 
+## September 7 login follow-up
+
+Real browser logout hid private seller listings and the labelled local draft. The browser login UI is open for the Pixel account; real second-account login and seller draft cleanup remain pending. A stale My listings re-entry bug was fixed, tested, deployed to web and installed on Android. See TRADE_LOGIN_REFRESH_AUDIT_2026-09-07.md.
+
 ## Earlier preparation evidence (superseded where noted above)
 
 - `adb devices` returned no connected devices on two checks.
