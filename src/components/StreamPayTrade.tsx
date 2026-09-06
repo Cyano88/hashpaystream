@@ -1212,10 +1212,12 @@ function TradeScreen({
                 ? "Loading"
                 : marketBusy
                   ? "Updating"
-                  : `${visible.length} ${visible.length === 1 ? "item" : "items"}`}
+                  : marketError || mode === "error"
+                    ? "Unavailable"
+                    : `${visible.length} ${visible.length === 1 ? "item" : "items"}`}
             </span>
           </div>
-          {mode === "loading" ? (
+          {mode === "loading" || (marketBusy && !visible.length) ? (
             <div
               aria-label="Loading listings"
               className="grid grid-cols-2 gap-3"
@@ -1227,7 +1229,8 @@ function TradeScreen({
                 />
               ))}
             </div>
-          ) : mode === "error" && !visible.length ? null : visible.length ? (
+          ) : (mode === "error" || marketError) &&
+            !visible.length ? null : visible.length ? (
             <div className="grid grid-cols-2 gap-x-3 gap-y-5">
               {visible.map((listing) => (
                 <article key={listing.id} className="min-w-0">
