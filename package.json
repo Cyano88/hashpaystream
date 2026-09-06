@@ -80,7 +80,8 @@
     "android:debug": "npm run android:sync && cd android && gradlew.bat assembleDebug",
     "android:bundle": "npm run android:sync && cd android && gradlew.bat bundleRelease",
     "test:android-readiness": "node scripts/android-readiness-smoke.mjs && npm run test:android-account-isolation && node scripts/native-receipt-share-smoke.mjs",
-    "test:android-account-isolation": "node scripts/android-account-isolation-smoke.mjs"
+    "test:android-account-isolation": "node scripts/android-account-isolation-smoke.mjs",
+    "test:trade-preview": "node --import tsx scripts/trade-preview-smoke.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.5.1",

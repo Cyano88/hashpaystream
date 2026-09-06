@@ -8,6 +8,7 @@ import StreamPayDocsHome from './components/docs/StreamPayDocsHome'
 import StreamPayArcAgreementDocs from './components/docs/StreamPayArcAgreementDocs'
 import StreamPayCircleMarketplaceDocs from './components/docs/StreamPayCircleMarketplaceDocs'
 import StreamPayHome from './components/StreamPayHome'
+import StreamPayTrade from './components/StreamPayTrade'
 import StreamPayActivity from './components/StreamPayActivity'
 import StreamPayNotifications from './components/StreamPayNotifications'
 import StreamPayRequests from './components/StreamPayRequests'
@@ -108,7 +109,7 @@ function StreamPayRoute() {
   useEffect(() => {
     if (nativeLaunchNormalized.current || !ready || !authenticated || !Capacitor.isNativePlatform()) return
     nativeLaunchNormalized.current = true
-    if (route !== '/home') navigate(homeTo, { replace: true })
+    if (route !== '/home' && route !== '/trade') navigate(homeTo, { replace: true })
   }, [authenticated, homeTo, navigate, ready, route])
 
   useEffect(() => {
@@ -132,6 +133,7 @@ function StreamPayRoute() {
 
   if (!authenticated && CIRCLE_ROUTES.has(route)) content = <Navigate to="/" replace />
   else if (route === '/') content = <StreamPayLanding />
+  else if (route === '/trade') content = <StreamPayTrade />
   else if (route === '/home') content = <StreamPayHome />
   else if (route === '/agreements') content = <AgreementDashboard />
   else if (route === '/agreements/new') content = <Navigate to={composeRequestTo} replace />

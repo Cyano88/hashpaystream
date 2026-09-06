@@ -10,9 +10,10 @@ export function StreamPayLayout({ children }: { children: ReactNode }) {
   const foundationPage = (pathname.replace(/\/+$/, '') || '/') === '/'
   const route = pathname.replace(/\/+$/, '')
   const mobileAppPage =
-    authenticated &&
+    (authenticated || route === '/trade') &&
     [
       '/home',
+      '/trade',
       '/agreements',
       '/agreements/new',
       '/upfront',
@@ -44,7 +45,7 @@ export function StreamPayLayout({ children }: { children: ReactNode }) {
       >
         {children}
       </main>
-      {mobileAppPage && <StreamPayMobileNav />}
+      {mobileAppPage && authenticated && <StreamPayMobileNav />}
     </div>
   )
 }
