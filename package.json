@@ -82,7 +82,9 @@
     "test:android-readiness": "node scripts/android-readiness-smoke.mjs && npm run test:android-account-isolation && node scripts/native-receipt-share-smoke.mjs && npm run test:native-navigation",
     "test:android-account-isolation": "node scripts/android-account-isolation-smoke.mjs",
     "test:trade-preview": "node --import tsx scripts/trade-preview-smoke.mjs",
-    "test:native-navigation": "node scripts/native-navigation-smoke.mjs"
+    "test:native-navigation": "node scripts/native-navigation-smoke.mjs",
+    "test:trade-backend": "node --import tsx scripts/trade-backend-smoke.mjs",
+    "test:trade-native-photo": "node scripts/trade-native-photo-smoke.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.5.1",
@@ -110,6 +112,7 @@
     "pg": "^8.21.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "sharp": "^0.35.4",
     "tsx": "^4.19.2",
     "viem": "^2.51.2"
   },
