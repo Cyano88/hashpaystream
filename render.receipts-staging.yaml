@@ -1,0 +1,50 @@
+# Separate staging-only Blueprint; never merge these entries into production implicitly.
+services:
+  - type: cron
+    name: hashpaystream-receipt-sync-staging
+    runtime: node
+    region: oregon
+    plan: starter
+    repo: https://github.com/Cyano88/hashpaystream
+    branch: infra/financial-core-phase1
+    autoDeployTrigger: off
+    schedule: "*/15 * * * *"
+    buildCommand: npm ci --include=dev
+    startCommand: npm run sync:receipts:staging -- --allow-remote-staging-database
+    envVars:
+      - key: HASHPAYSTREAM_DATABASE_ENVIRONMENT
+        value: staging
+      - key: DATABASE_URL
+        sync: false
+      - key: HASHPAYSTREAM_LEGACY_DATABASE_URL
+        sync: false
+      - key: HASHPAYSTREAM_HASH_PAYLINK_DATABASE_URL
+        sync: false
+      - key: HASHPAYSTREAM_APP_OWNERSHIP_SECRET
+        sync: false
+      - key: HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS
+        sync: false
+      - key: HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS
+        sync: false
+      - key: HASHPAYSTREAM_UPFRONT_CHAIN_ID
+        value: "196"
+  - type: cron
+    name: hashpaystream-receipt-monitor-staging
+    runtime: node
+    region: oregon
+    plan: starter
+    repo: https://github.com/Cyano88/hashpaystream
+    branch: infra/financial-core-phase1
+    autoDeployTrigger: off
+    schedule: "3-58/5 * * * *"
+    buildCommand: npm ci --include=dev
+    startCommand: npm run monitor:receipts:staging -- --allow-remote-staging-database
+    envVars:
+      - key: HASHPAYSTREAM_DATABASE_ENVIRONMENT
+        value: staging
+      - key: DATABASE_URL
+        sync: false
+      - key: HASHPAYSTREAM_LEGACY_DATABASE_URL
+        value: postgres://unused/production_source
+      - key: HASHPAYSTREAM_HASH_PAYLINK_DATABASE_URL
+        value: postgres://unused/authoritative_source

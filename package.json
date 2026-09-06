@@ -67,13 +67,14 @@
     "test:payment-receipts": "node --import tsx scripts/payment-receipts-smoke.mjs",
     "backfill:receipt-ledger:staging": "node --import tsx scripts/backfill-receipt-ledger.mjs --confirm-staging-ledger-backfill",
     "verify:receipt-ledger:rollback": "node --import tsx scripts/backfill-receipt-ledger.mjs --confirm-rollback-only-ledger-check",
-    "test:receipt-workflows": "node --import tsx scripts/receipt-workflow-smoke.mjs && node scripts/receipt-workflow-boundary-smoke.mjs",
+    "test:receipt-workflows": "node --import tsx scripts/receipt-workflow-smoke.mjs && node scripts/receipt-workflow-boundary-smoke.mjs && node --import tsx scripts/receipt-sync-health-smoke.mjs",
     "audit:receipt-ownership": "node --import tsx scripts/audit-receipt-ownership.mjs --confirm-read-only-ownership-audit",
     "verify:receipt-workflows:rollback": "node --import tsx scripts/backfill-receipt-workflows.mjs --confirm-rollback-only-workflow-check",
     "backfill:receipt-workflows:staging": "node --import tsx scripts/backfill-receipt-workflows.mjs --confirm-staging-workflow-backfill",
     "sync:receipts:staging": "node --import tsx scripts/sync-receipt-workflows.mjs --confirm-staging-receipt-sync",
     "verify:receipt-incremental:postgres": "node --import tsx scripts/receipt-incremental-postgres.mjs --confirm-rollback-only-incremental-check",
-    "staging:receipt-server": "node --import tsx scripts/serve-staging-receipts.mjs"
+    "staging:receipt-server": "node --import tsx scripts/serve-staging-receipts.mjs",
+    "monitor:receipts:staging": "node --import tsx scripts/check-receipt-sync-health.mjs --confirm-read-only-sync-health"
   },
   "dependencies": {
     "@circle-fin/w3s-pw-web-sdk": "^1.1.11",

@@ -5,6 +5,7 @@ import { verifiedIdentity } from './service-requests.js'
 import { renderDurableStoreConnectionConfig } from './durable-store.js'
 import { readStagingReceiptWorkflow } from './receipt-workflow-store.js'
 import type { SqlClient } from './financial-core.js'
+import { receiptSyncHealth } from './receipt-sync-health.js'
 
 type Dependencies={env:()=>NodeJS.ProcessEnv;identity:typeof verifiedIdentity;withClient:<T>(env:NodeJS.ProcessEnv,fn:(client:SqlClient)=>Promise<T>)=>Promise<T>}
 const defaultWithClient:Dependencies['withClient']=async(env,fn)=>{
@@ -32,8 +33,7 @@ export function createStagingReceiptHandler(overrides:Partial<Dependencies>={}) 
       if(!/^agr_[a-z0-9]{12,64}$/i.test(agreementId))return res.status(404).json({ok:false,error:'Not found.'})
       const view=await dependencies.withClient(env,async client=>{
         const health=(await client.query<{state:string;verified_at:Date|string}>('select state,verified_at from hashpaystream.receipt_sync_health where singleton=true')).rows[0]
-        const verifiedAt=health?.verified_at?new Date(health.verified_at).getTime():NaN
-        if(health?.state!=='ready'||!Number.isFinite(verifiedAt)||Date.now()-verifiedAt>15*60_000||verifiedAt>Date.now()+60_000)throw Error('STAGING_RECEIPTS_NOT_READY')
+        if(!receiptSyncHealth(health).ready)throw Error('STAGING_RECEIPTS_NOT_READY')
         return readStagingReceiptWorkflow(client,{identityDomain:'human',accountReference},agreementId)
       })
       return view?res.status(200).json({ok:true,...view}):res.status(404).json({ok:false,error:'Not found.'})
