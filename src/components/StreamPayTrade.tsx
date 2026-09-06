@@ -1,7 +1,11 @@
+import StreamPayTradeEnquiries, {
+  TradeItemActions,
+} from "./StreamPayTradeEnquiries";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import {
   ArrowLeftIcon,
+  ChatBubbleLeftRightIcon,
   AdjustmentsHorizontalIcon,
   BookmarkIcon,
   MagnifyingGlassIcon,
@@ -451,21 +455,34 @@ function TradeScreen({
             <h1 className="text-xl font-bold tracking-tight">Trade</h1>
           </div>
         </div>
-        <span className="rounded-full bg-blue-50 px-3 py-1.5 text-[10px] font-bold text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
-          {mode === "preview"
-            ? "Sample listings"
-            : mode === "live"
-              ? "Trade pilot"
-              : "Connecting"}
-        </span>
+        <div className="flex items-center gap-2">
+          {mode === "live" && (
+            <button
+              aria-label="Trade enquiries"
+              onClick={() => navigate(base + "?view=enquiries")}
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-zinc-200 dark:border-white/15"
+            >
+              <ChatBubbleLeftRightIcon className="h-5 w-5" />
+            </button>
+          )}
+          <span className="rounded-full bg-blue-50 px-3 py-1.5 text-[10px] font-bold text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
+            {mode === "preview"
+              ? "Sample listings"
+              : mode === "live"
+                ? "Trade pilot"
+                : "Connecting"}
+          </span>
+        </div>
       </header>
       <nav aria-label="Trade sections" className="stream-segment grid-cols-4">
         {tabs.map((name) => (
           <button
             key={name}
             onClick={() => go(name)}
-            aria-current={tab === name ? "page" : undefined}
-            className={`min-h-11 rounded-full text-xs font-extrabold ${tab === name ? "bg-gray-950 text-white shadow-sm dark:bg-white dark:text-gray-950" : "text-gray-500 dark:text-gray-400"}`}
+            aria-current={
+              tab === name && requested !== "enquiries" ? "page" : undefined
+            }
+            className={`min-h-11 rounded-full text-xs font-extrabold ${tab === name && requested !== "enquiries" ? "bg-gray-950 text-white shadow-sm dark:bg-white dark:text-gray-950" : "text-gray-500 dark:text-gray-400"}`}
           >
             {name}
           </button>
@@ -514,7 +531,23 @@ function TradeScreen({
           {notice}
         </p>
       )}
-      {item ? (
+      {requested === "enquiries" ? (
+        !owner ? (
+          signIn
+        ) : (
+          <StreamPayTradeEnquiries
+            key={params.get("conversation") || "inbox"}
+            threadId={params.get("conversation") || undefined}
+            getAccessToken={getAccessToken}
+            onOpen={(id) =>
+              navigate(
+                base + "?view=enquiries&conversation=" + encodeURIComponent(id),
+              )
+            }
+            onBack={() => navigate(base + "?view=enquiries")}
+          />
+        )
+      ) : item ? (
         <div className="space-y-5">
           <button
             onClick={() => go(tab)}
@@ -552,12 +585,29 @@ function TradeScreen({
                 : item.delivery}
             </p>
           </div>
+          {mode === "live" && (
+            <TradeItemActions
+              key={item.id}
+              item={item as PublishedListing}
+              owner={owner}
+              isOwn={mine.some((listing) => listing.id === item.id)}
+              login={login}
+              getAccessToken={getAccessToken}
+              onOpen={(id) =>
+                navigate(
+                  base +
+                    "?view=enquiries&conversation=" +
+                    encodeURIComponent(id),
+                )
+              }
+            />
+          )}
           <p className="text-xs leading-5 text-zinc-500">
             {mode === "preview"
               ? "Sample item. Not for sale."
               : (item as PublishedListing).status === "sold"
                 ? "Sold"
-                : "Seller listing. Contact and checkout are coming next."}
+                : "Agree on the details here. Checkout is not available yet."}
           </p>
         </div>
       ) : tab === "My listings" ? (

@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import { createHmac } from "node:crypto";
-import { PrivyClient } from "@privy-io/node";
+import { verifiedTradeIdentity } from "./trade-auth.js";
+import { createTradeCommunityRouter } from "./trade-community.js";
 import express, { type Request, type Response } from "express";
 import { rateLimit } from "./rate-limit.js";
 import {
@@ -16,25 +17,6 @@ import {
 
 const ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-async function identity(req: Request, env: NodeJS.ProcessEnv) {
-  const token = String(req.headers.authorization ?? "").match(
-    /^Bearer (\S+)$/i,
-  )?.[1];
-  if (!token) fail("Sign in to publish or manage listings.", 401);
-  const appId = env.PRIVY_APP_ID || env.VITE_PRIVY_APP_ID,
-    appSecret = env.PRIVY_APP_SECRET;
-  if (!appId || !appSecret) fail("Trade authentication is unavailable.", 503);
-  try {
-    const claims = await new PrivyClient({ appId, appSecret })
-      .utils()
-      .auth()
-      .verifyAccessToken(token);
-    if (!claims.user_id) throw new Error("No identity");
-    return claims.user_id;
-  } catch {
-    fail("Your session expired. Sign in again.", 401);
-  }
-}
 function publicListing(record: ListingRecord) {
   const { owner: _owner, ...listing } = record;
   return {
@@ -137,13 +119,13 @@ async function listingInput(value: unknown): Promise<TradeListing> {
 export function createTradeRouter(
   overrides: Partial<{
     env: () => NodeJS.ProcessEnv;
-    identity: typeof identity;
+    identity: typeof verifiedTradeIdentity;
     store: () => TradeStore;
   }> = {},
 ) {
   const deps = {
     env: () => process.env,
-    identity,
+    identity: verifiedTradeIdentity,
     store: configuredTradeStore,
     ...overrides,
   };
@@ -171,15 +153,13 @@ export function createTradeRouter(
         await fn(req, res);
       } catch (error) {
         const status = Number((error as { status?: number }).status) || 500;
-        res
-          .status(status)
-          .json({
-            ok: false,
-            error:
-              status >= 500
-                ? "Trade is temporarily unavailable. Try again."
-                : (error as Error).message,
-          });
+        res.status(status).json({
+          ok: false,
+          error:
+            status >= 500
+              ? "Trade is temporarily unavailable. Try again."
+              : (error as Error).message,
+        });
       }
     };
   async function owner(req: Request) {
@@ -191,6 +171,9 @@ export function createTradeRouter(
       .update(`hashpaystream.trade\0${user}`)
       .digest("hex");
   }
+  router.use(
+    createTradeCommunityRouter({ env: deps.env, identity: deps.identity }),
+  );
   router.get(
     "/listings",
     handle(async (req, res) => {
@@ -292,15 +275,13 @@ export function createTradeRouter(
         next();
       } catch (error) {
         const status = Number((error as { status?: number }).status) || 500;
-        res
-          .status(status)
-          .json({
-            ok: false,
-            error:
-              status >= 500
-                ? "Trade authentication is unavailable."
-                : (error as Error).message,
-          });
+        res.status(status).json({
+          ok: false,
+          error:
+            status >= 500
+              ? "Trade authentication is unavailable."
+              : (error as Error).message,
+        });
       }
     },
     express.json({ limit: "8mb" }),
@@ -336,15 +317,13 @@ export function createTradeRouter(
   );
   router.use(
     (error: any, _req: Request, res: Response, _next: express.NextFunction) =>
-      res
-        .status(error.status === 413 ? 413 : 400)
-        .json({
-          ok: false,
-          error:
-            error.status === 413
-              ? "Photos are too large. Use smaller images."
-              : "Invalid request body.",
-        }),
+      res.status(error.status === 413 ? 413 : 400).json({
+        ok: false,
+        error:
+          error.status === 413
+            ? "Photos are too large. Use smaller images."
+            : "Invalid request body.",
+      }),
   );
   return router;
 }
