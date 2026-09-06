@@ -35,6 +35,19 @@ Remaining release gates: original signing configuration, full account switch/log
 
 The isolated PostgreSQL 18 logical backup/restore passed for all five Trade tables, full row/evidence content, indexes and constraints. Source remained read-only; the temporary local server and data copy were removed. See TRADE_RECOVERY_DRILL_2026-09-06.md for measured durations and limitations. Backup scheduling/retention and disaster cutover remain operational work.
 
+## Live retry and active moderation follow-up
+
+- Published a second clearly labelled synthetic listing for the existing browser seller and Pixel buyer. Pixel opened its enquiry. No real purchase or payment occurred.
+- For one browser message POST, Playwright forwarded the request to the real service and dropped its response. The browser showed Failed to fetch and retained the message text; the Pixel already displayed the message. Removed the interception and retried through Send message. The composer cleared and both devices showed a single entry.
+- Independent read-only database verification confirmed exactly one message for that listing after the retry. The injected browser network error was expected.
+- Submitted an Other report labelled TEST ONLY / no misconduct. Pixel reviewer opened it and used the Pocket-style Hide listing sheet while the item was still active.
+- Public feed returned 200 without the item; its exact public photo URL returned 404. The report left the queue. Read-only database verification confirmed listing status removed and report status resolved / decision hide. Synthetic messages and evidence remain retained.
+- Extended the isolated browser fixture to change authentication state without page reload: account A to B, logout, then back to A. Drafts and saved items did not cross accounts and reappeared for A. Mobile overflow and runtime-error checks passed. Authentication was simulated in this fixture; this does not claim real Privy logout/login-switch coverage.
+- Restricted Trade database role still has no membership in the production financial role. No database writes were made by the audit verifier.
+- No code or APK changed in this follow-up.
+
+Remaining: real authentication-switch test, original Android release signing configuration, backup schedule/retention, monitoring destination and operating procedures.
+
 ## Earlier preparation evidence (superseded where noted above)
 
 - `adb devices` returned no connected devices on two checks.
