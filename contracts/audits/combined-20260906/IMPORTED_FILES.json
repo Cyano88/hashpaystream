@@ -1,0 +1,95 @@
+{
+  "archiveSha256": "e51c11f8f330acc44898b71ddbee81ab25b61a9ca41a23aea3156b6bb13428ad",
+  "files": [
+    {
+      "path": "src/ArcRepaymentRouter.sol",
+      "sha256": "b061595571293f99b34a4822cd2ef21d9a4a0882e9abc0bfc2105335bd1e3b9e",
+      "bytes": 5109,
+      "normalizedSha256": "b061595571293f99b34a4822cd2ef21d9a4a0882e9abc0bfc2105335bd1e3b9e"
+    },
+    {
+      "path": "src/ArcRepaymentRouterV4.sol",
+      "sha256": "f4cddb03742ce231abdfa67e0ba3253f8e7669135a32e8b8f384732342d66d05",
+      "bytes": 5813,
+      "normalizedSha256": "f4cddb03742ce231abdfa67e0ba3253f8e7669135a32e8b8f384732342d66d05"
+    },
+    {
+      "path": "src/LockedSavingsCohortVault.sol",
+      "sha256": "a70fef245133e36dab1faca6c29e3adcc92f167056f3005c392e1c1551b43f85",
+      "bytes": 10150,
+      "normalizedSha256": "046cefae54f1b0395ad5e57ee58aac10727a71686ecd98c230d102540b2da65f"
+    },
+    {
+      "path": "src/PersonalSavingsVault.sol",
+      "sha256": "019e273ffce7d51eac56ef4f48046ef97fb81ad80a3544db144bb270cf3205f1",
+      "bytes": 6812,
+      "normalizedSha256": "7db6493214742554fa18b252dcf53e4307987f1ec8232bb2879722b9d2b5d186"
+    },
+    {
+      "path": "src/test/MockERC1271Signer.sol",
+      "sha256": "5761653d790c5349f08e38163a05ebca17c0ceae74c7e4fefcd04638b10eee21",
+      "bytes": 644,
+      "normalizedSha256": "5761653d790c5349f08e38163a05ebca17c0ceae74c7e4fefcd04638b10eee21"
+    },
+    {
+      "path": "src/test/MockUSDC.sol",
+      "sha256": "0e07917e8faf251e28c45160c70bd44e58633504c6d51c3d6c6d51a3ad18bb38",
+      "bytes": 417,
+      "normalizedSha256": "49bf31178473de8caefbe831ea2d6a461d11ea4b7c04b53afa609e3d0cc115ec"
+    },
+    {
+      "path": "src/test/ReentrantUSDC.sol",
+      "sha256": "e8c85abff497a549ed7d66db5595877eb2957dfd545acabea4e0f42fac9b6e75",
+      "bytes": 1128,
+      "normalizedSha256": "4ce2111c154532fd1b759f2eb40436d241e1b32000de368c5f01e2f746913722"
+    },
+    {
+      "path": "src/UpfrontAdvanceEscrow.sol",
+      "sha256": "ec0aa291be1943eb3215c8c57f8ef769acba5aa0b32b0b31c4a2f02990b014b4",
+      "bytes": 15715,
+      "normalizedSha256": "ec0aa291be1943eb3215c8c57f8ef769acba5aa0b32b0b31c4a2f02990b014b4"
+    },
+    {
+      "path": "src/UpfrontAdvanceEscrowV2.sol",
+      "sha256": "711e7b1faa33d9bb9730f77559127f2de373c37926b41324486a12868587a73e",
+      "bytes": 16266,
+      "normalizedSha256": "711e7b1faa33d9bb9730f77559127f2de373c37926b41324486a12868587a73e"
+    },
+    {
+      "path": "test/ArcRepaymentRouter.test.ts",
+      "sha256": "4b61b7648c5773eb4dd24cbc7e9aaedf1db58ff41305660cc32cf6bf0b38db62",
+      "bytes": 4836,
+      "normalizedSha256": "4b61b7648c5773eb4dd24cbc7e9aaedf1db58ff41305660cc32cf6bf0b38db62"
+    },
+    {
+      "path": "test/ArcRepaymentRouterV4.test.ts",
+      "sha256": "481cfa5511c07016dd5640c4f0d74742729b254e5af360700c18b875411e3753",
+      "bytes": 6725,
+      "normalizedSha256": "481cfa5511c07016dd5640c4f0d74742729b254e5af360700c18b875411e3753"
+    },
+    {
+      "path": "test/LockedSavingsCohortVault.test.ts",
+      "sha256": "f0e20f54eff574eadd18070c736a0dd02fa32da53db4408018cfd5f5f2a881dd",
+      "bytes": 15881,
+      "normalizedSha256": "141d44215bf8ac3ccf7be893606e74e17525598570bd53741a16ff096e0a5c3c"
+    },
+    {
+      "path": "test/PersonalSavingsVault.test.ts",
+      "sha256": "4ededcf719ae521f06e8a22f87ddd6662aa745fa5d4b4b1f67fb1b2f58f44184",
+      "bytes": 9746,
+      "normalizedSha256": "514d8ffc89c1e52f6d38abeee7d53f57c3aa1798d4ff66e7c484f575ab1181ef"
+    },
+    {
+      "path": "test/UpfrontAdvanceEscrow.test.ts",
+      "sha256": "7335601c49a3b8a4f529be8cf3ad505657d96d0b05ba9d2d636d47a60a9eb60f",
+      "bytes": 9509,
+      "normalizedSha256": "7335601c49a3b8a4f529be8cf3ad505657d96d0b05ba9d2d636d47a60a9eb60f"
+    },
+    {
+      "path": "test/UpfrontAdvanceEscrowV2.test.ts",
+      "sha256": "b463485932da73ef80def61a2535589017501d3221e8386f510d783d10dbc110",
+      "bytes": 12149,
+      "normalizedSha256": "b463485932da73ef80def61a2535589017501d3221e8386f510d783d10dbc110"
+    }
+  ]
+}

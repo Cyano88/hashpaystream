@@ -35,6 +35,7 @@ export default function SavingsDepositSheet({ savings, onClose }: { savings: Sav
   const [error, setError] = useState('')
   const [complete, setComplete] = useState(false)
   const actionPending = useRef(false)
+  const sheet = useRef<HTMLElement>(null)
   const interval = cadence === 'weekly' ? WEEKLY_SECONDS : MONTHLY_SECONDS
   const preview = useMemo(() => {
     try {
@@ -50,11 +51,15 @@ export default function SavingsDepositSheet({ savings, onClose }: { savings: Sav
       if (event.key === 'Escape' && !actionPending.current) onClose()
     }
     const previousOverflow = document.body.style.overflow
+    const previousFocus = document.activeElement as HTMLElement | null
     document.body.style.overflow = 'hidden'
+    const frame = window.requestAnimationFrame(() => sheet.current?.focus())
     window.addEventListener('keydown', onKeyDown)
     return () => {
       document.body.style.overflow = previousOverflow
+      window.cancelAnimationFrame(frame)
       window.removeEventListener('keydown', onKeyDown)
+      previousFocus?.focus()
     }
   }, [onClose])
 
@@ -114,7 +119,7 @@ export default function SavingsDepositSheet({ savings, onClose }: { savings: Sav
 
   return <div className='fixed inset-0 z-[60] flex items-end justify-center bg-black/70 backdrop-blur-sm' role='dialog' aria-modal='true' aria-labelledby='savings-sheet-title'>
     <button type='button' aria-label='Close savings form' className='absolute inset-0' onClick={() => { if (!actionPending.current) onClose() }} />
-    <section className='relative z-10 max-h-[calc(100dvh-1rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-[28px] border border-zinc-200 bg-[#f6f6f3] px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 text-zinc-950 shadow-2xl dark:border-white/10 dark:bg-[#111111] dark:text-white'>
+    <section ref={sheet} tabIndex={-1} className='relative z-10 max-h-[calc(100dvh-1rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-[28px] border border-zinc-200 bg-[#f6f6f3] px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 text-zinc-950 shadow-2xl outline-none dark:border-white/10 dark:bg-[#111111] dark:text-white'>
       <span className='mx-auto block h-1 w-10 rounded-full bg-zinc-300 dark:bg-white/20' />
       {complete ? <div className='py-10 text-center'>
         <span className='mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500 dark:text-emerald-400'><CheckIcon className='h-7 w-7' /></span>

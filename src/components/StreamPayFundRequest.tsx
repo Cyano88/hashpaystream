@@ -321,7 +321,7 @@ export default function StreamPayFundRequest({ item, onBack, payer, onFunded }: 
       {review && expired && <button disabled={busy || refundPending || refundSubmitted} onClick={() => void refund()} className="mt-5 min-h-12 w-full rounded-full bg-gray-950 text-sm font-bold text-white disabled:opacity-45 dark:bg-white dark:text-gray-950">{busy ? 'Opening Circle...' : refundPending || refundSubmitted ? 'Confirming return...' : 'Return remaining USDC'}</button>}
       {review && delivery && (active || completed) && <DeliveryPanel delivery={delivery} busy={busy} confirming={deliveryConfirming} issueMode={issueMode} issueText={issueText} onIssueMode={setIssueMode} onIssueText={setIssueText} onDecision={decideDelivery} />}
       {item.earlyPaySettlement && <EarlyPaySettlementSummary settlement={item.earlyPaySettlement} />}
-      {review?.receipt && (completed || refunded) && <UnifiedReceipt receipt={review.receipt} className="mt-5" />}
+      {review?.receipt && (completed || refunded) && <UnifiedReceipt receipt={review.receipt} settlement={item.earlyPaySettlement} submittedWorkUrl={delivery?.evidenceReference} className="mt-5" />}
       {review && !completed && !refunded && !expired && !(active && delivery) && <button disabled={busy || active || pending} onClick={() => void confirm()} className="mt-5 min-h-12 w-full rounded-full bg-gray-950 text-sm font-bold text-white disabled:opacity-45 dark:bg-white dark:text-gray-950">{busy ? 'Please wait...' : actionLabel}</button>}
     </div>
   </section>

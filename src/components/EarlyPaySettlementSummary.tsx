@@ -31,12 +31,14 @@ export default function EarlyPaySettlementSummary({ settlement }: { settlement: 
         <span className="hidden shrink-0 text-[10px] font-bold text-gray-400 group-open:inline">Hide</span>
       </summary>
       <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-gray-200 pt-3 dark:border-white/[0.08]">
+        {settlement.status === 'refunded' ? <><Metric label="Funding returned" value={settlement.advanceUsdcUnits} /><Metric label="Partner profit" value="0" /><Metric label="HashPayStream fee" value="0" /></> : <>
         <Metric label="Early payment" value={settlement.advanceUsdcUnits} />
         <Metric label="Provider receives later" value={settlement.providerRemainderUsdcUnits} />
         <Metric label="Provider total" value={settlement.providerTotalUsdcUnits} />
         <Metric label="Partner receives" value={settlement.funderRepaymentUsdcUnits} />
         <Metric label="Partner earns" value={settlement.funderProfitUsdcUnits} />
         <Metric label="HashPayStream fee" value={settlement.platformFeeUsdcUnits} />
+        </>}
       </div>
     </details>
   )

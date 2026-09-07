@@ -8,3 +8,7 @@ contracts/artifacts/
 contracts/cache/
 contracts/coverage/
 contracts/typechain-types/
+
+output/playwright/
+
+output/trade-postgres-audit/

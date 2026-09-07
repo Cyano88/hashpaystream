@@ -11,6 +11,7 @@ import type { AgreementSummary } from './useAgreements'
 
 export type StreamNotice = {
   id: string
+  destination: string
   role: 'Service provider' | 'Customer' | 'Payment' | 'HashPayStream'
   title: string
   detail: string
@@ -21,7 +22,7 @@ export type StreamNotice = {
 
 function agreementEventNotice(agreement: AgreementSummary, event: { id: string; event: string; createdAt: string; receivedAt?: string }): StreamNotice {
   const occurredAt = event.createdAt || event.receivedAt || ''
-  const base = { id: `event:${agreement.id}:${event.id}`, detail: agreement.title || 'Agreement', occurredAt }
+  const base = { id: `event:${agreement.id}:${event.id}`, destination: `/agreements?agreementId=${encodeURIComponent(agreement.id)}`, detail: agreement.title || 'Agreement', occurredAt }
   switch (event.event) {
     case 'delivery.submitted': return { ...base, role: 'Service provider', title: 'Service provider submitted delivery', tone: 'text-blue-600', Icon: BriefcaseIcon }
     case 'delivery.updated': return { ...base, role: 'Service provider', title: 'Service provider updated delivery', tone: 'text-blue-600', Icon: BriefcaseIcon }
@@ -51,11 +52,12 @@ export function buildStreamNotices(agreements: AgreementSummary[], requests: Ser
       'request.funded': { title: 'Customer funded the agreement', role: 'Payment' },
     }
     const label = labels[event.type] ?? { title: 'Request updated', role: 'HashPayStream' as const }
-    return { id: `request:${item.id}:${event.id}`, role: label.role, title: label.title, detail: terms?.title ?? 'Job request', occurredAt: event.createdAt, tone: event.type.includes('decline') || event.type.includes('cancel') ? 'text-gray-500' : 'text-blue-600', Icon: event.type.includes('accept') ? CheckCircleIcon : BriefcaseIcon }
+    return { id: `request:${item.id}:${event.id}`, destination: `/requests?tab=${item.direction}`, role: label.role, title: label.title, detail: terms?.title ?? 'Job request', occurredAt: event.createdAt, tone: event.type.includes('decline') || event.type.includes('cancel') ? 'text-gray-500' : 'text-blue-600', Icon: event.type.includes('accept') ? CheckCircleIcon : BriefcaseIcon }
   }))
   const agreementNotices = agreements.flatMap(agreement => {
     const customerResponse: StreamNotice[] = agreement.customerRequest?.decision === 'declined' ? [{
       id: `customer:${agreement.id}:declined`,
+      destination: `/agreements?agreementId=${encodeURIComponent(agreement.id)}`,
       role: 'Customer',
       title: 'Customer declined request',
       detail: agreement.title || 'Agreement',
@@ -110,5 +112,14 @@ export function useNotificationReadState(notices: StreamNotice[]) {
     setRead(new Set(ids))
     window.dispatchEvent(new Event(READ_EVENT))
   }, [notices, userId])
-  return { unreadCount, markAllRead }
+  const markRead = useCallback((noticeId: string) => {
+    if (!userId || typeof window === 'undefined') return
+    const ids = new Set(readIds(userId))
+    ids.add(noticeId)
+    const next = Array.from(ids).slice(-300)
+    window.localStorage.setItem(storageKey(userId), JSON.stringify(next))
+    setRead(new Set(next))
+    window.dispatchEvent(new Event(READ_EVENT))
+  }, [userId])
+  return { unreadCount, markAllRead, markRead }
 }

@@ -11,7 +11,6 @@ import {
   LockClosedIcon,
 } from '@heroicons/react/24/outline'
 import { Link } from '../../lib/router'
-import { useHashPayStreamSessionSplash } from '../../lib/useHashPayStreamSessionSplash'
 import { AgreementSignInLanding } from '../agreements/AgreementSignInLanding'
 import { LoadingRing } from '../ui/LoadingRing'
 import FundingPartnerReviewPanel from './FundingPartnerReviewPanel'
@@ -80,7 +79,6 @@ export default function StreamPayAnalytics() {
   const [data, setData] = useState<Analytics>()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const splashState = useHashPayStreamSessionSplash(!authenticated)
 
   const load = useCallback(async () => {
     if (!authenticated) {
@@ -113,7 +111,7 @@ export default function StreamPayAnalytics() {
     if (ready) void load()
   }, [load, ready])
 
-  if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
+  if (!authenticated) return <AgreementSignInLanding />
   if (!ready || loading) {
     return <section className="flex min-h-[58vh] items-center"><LoadingRing className="h-5 w-5 text-gray-300" /></section>
   }

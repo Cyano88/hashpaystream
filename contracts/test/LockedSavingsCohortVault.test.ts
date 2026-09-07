@@ -111,7 +111,8 @@ describe('LockedSavingsCohortVault', () => {
       .to.emit(context.vault, 'RewardsApplied')
       .withArgs(nextId, await context.vault.THIRTY_DAYS(), 100_000n)
     expect(await context.vault.termRewardCarry(await context.vault.THIRTY_DAYS())).to.equal(9_900_000n)
-    expect((await context.vault.cohorts(nextId)).rewardPool).to.equal(100_000n)
+    expect((await context.vault.cohorts(nextId)).rewardPool).to.equal(50_000n)
+    expect((await context.vault.cohorts(nextId)).finalRewardPool).to.equal(100_000n)
     expect((await context.vault.cohorts(nextId)).rewardsPaid).to.equal(50_000n)
     expect(await context.vault.totalManaged()).to.equal(10_950_000n)
   })
@@ -155,6 +156,8 @@ describe('LockedSavingsCohortVault', () => {
     expect(await context.vault.totalManaged()).to.equal(5n * USDC - aliceReward - bobReward)
     expect(await context.vault.termRewardCarry(await context.vault.THIRTY_DAYS())).to.equal(5n * USDC - aliceReward - bobReward)
     expect((await context.vault.cohorts(cohortId)).rewardsPaid).to.equal(aliceReward + bobReward)
+    expect((await context.vault.cohorts(cohortId)).rewardPool).to.equal(0)
+    expect((await context.vault.cohorts(cohortId)).totalPrincipal).to.equal(0)
     await expect(context.vault.connect(context.bob).claim(cohortId)).to.be.revertedWithCustomError(context.vault, 'NoPosition')
   })
 
@@ -244,5 +247,12 @@ describe('LockedSavingsCohortVault', () => {
     await expect(context.vault.connect(context.alice).exitEarly(cohortId)).to.be.revertedWithCustomError(context.vault, 'CohortMatured')
     await context.vault.connect(context.alice).claim(cohortId)
     expect(await context.token.balanceOf(context.alice.address)).to.equal(1_000n * USDC)
+  })
+
+  it('rejects a zero address or EOA as the savings asset', async () => {
+    const [alice] = await ethers.getSigners()
+    const factory = await ethers.getContractFactory('LockedSavingsCohortVault')
+    await expect(factory.deploy(ethers.ZeroAddress)).to.be.revertedWithCustomError(factory, 'InvalidAddress')
+    await expect(factory.deploy(alice.address)).to.be.revertedWithCustomError(factory, 'InvalidAddress')
   })
 })

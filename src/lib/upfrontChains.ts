@@ -26,7 +26,10 @@ export const arcTestnet = defineChain({
   testnet: true,
 })
 
-export const upfrontXLayerChain = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID ?? '1952') === '196'
+// HashPayStream Upfront and Savings use X Layer mainnet. Defaulting to testnet
+// when a mobile build omits the public chain flag silently points balances and
+// runtime configuration at different networks.
+export const upfrontXLayerChain = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID ?? '196') === '196'
   ? xLayerMainnet
   : xLayerTestnet
 

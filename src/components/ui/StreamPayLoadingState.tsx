@@ -1,7 +1,8 @@
 type Active = 'home' | 'agreements' | 'requests' | 'account' | 'savings' | 'funding'
-function Bone({ className }: { className: string }) { return <span aria-hidden="true" className={`block animate-pulse rounded-lg bg-gray-200/85 [animation-duration:700ms] motion-reduce:animate-none dark:bg-white/[0.08] ${className}`} /> }
+function Bone({ className }: { className: string }) { return <span aria-hidden="true" className={className} /> }
 
 export function StreamPayLoadingState({ active }: { active: Active }) {
+  const label = `Opening ${active === 'home' ? 'Home' : active[0].toUpperCase() + active.slice(1)}`
   if (active === 'funding') return <section aria-busy="true" aria-label="Opening Funding" className="stream-screen w-full max-w-md py-5">
     <div className="flex items-center gap-3"><Bone className="h-10 w-10 rounded-full" /><div><Bone className="h-4 w-20" /><Bone className="mt-2 h-2.5 w-36" /></div></div>
     <div className="mt-6 rounded-[24px] border border-zinc-800 bg-zinc-950 p-4"><Bone className="h-3 w-24 !bg-white/15" /><Bone className="mt-3 h-9 w-32 !bg-white/20" /><div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/10 pt-3"><Bone className="h-8 w-20 !bg-white/15" /><Bone className="h-8 w-16 !bg-white/15" /></div></div>

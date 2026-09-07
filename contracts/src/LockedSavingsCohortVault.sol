@@ -29,6 +29,7 @@ contract LockedSavingsCohortVault is ReentrancyGuard {
         uint256 totalPrincipal;
         uint256 finalPrincipal;
         uint256 rewardPool;
+        uint256 finalRewardPool;
         uint256 rewardsPaid;
     }
 
@@ -64,7 +65,7 @@ contract LockedSavingsCohortVault is ReentrancyGuard {
     event LockedSavingsClaimed(bytes32 indexed cohortId, address indexed owner, uint256 principal, uint256 reward);
 
     constructor(IERC20 asset_) {
-        if (address(asset_) == address(0)) revert InvalidAddress();
+        if (address(asset_) == address(0) || address(asset_).code.length == 0) revert InvalidAddress();
         asset = asset_;
     }
 
@@ -172,19 +173,23 @@ contract LockedSavingsCohortVault is ReentrancyGuard {
                     emit RewardsApplied(cohortId, cohort.duration, applied);
                 }
             }
+            cohort.finalRewardPool = cohort.rewardPool;
         }
 
-        uint256 proportionalReward = (cohort.rewardPool * position.principal) / cohort.finalPrincipal;
+        uint256 proportionalReward = (cohort.finalRewardPool * position.principal) / cohort.finalPrincipal;
         uint256 maximumReward = (position.principal * MAXIMUM_REWARD_BPS) / BPS;
         uint256 reward = proportionalReward < maximumReward ? proportionalReward : maximumReward;
         uint256 principal = position.principal;
         position.principal = 0;
         position.claimed = true;
+        cohort.totalPrincipal -= principal;
         cohort.activePositions -= 1;
         cohort.remainingClaims -= 1;
         cohort.rewardsPaid += reward;
-        if (cohort.remainingClaims == 0 && cohort.rewardPool > cohort.rewardsPaid) {
-            uint256 carry = cohort.rewardPool - cohort.rewardsPaid;
+        cohort.rewardPool -= reward;
+        if (cohort.remainingClaims == 0 && cohort.rewardPool != 0) {
+            uint256 carry = cohort.rewardPool;
+            cohort.rewardPool = 0;
             termRewardCarry[cohort.duration] += carry;
             emit RewardsCarriedForward(cohortId, cohort.duration, carry);
         }

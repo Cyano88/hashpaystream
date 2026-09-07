@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
 import { createPublicClient, getAddress, http, isAddress, zeroAddress, type Address, type Hex } from 'viem'
 import { upfrontXLayerChain } from './upfrontChains'
 import { XLAYER_USDC_ADDRESS, useXLayerUsdcBalance } from './useXLayerUsdcBalance'
@@ -14,6 +15,7 @@ const PLAN_READ_BATCH_SIZE = 20
 const rawVault = String(import.meta.env.VITE_HASHPAYSTREAM_SAVINGS_VAULT_ADDRESS ?? '').trim()
 export const SAVINGS_VAULT_ADDRESS: Address | undefined = isAddress(rawVault) && getAddress(rawVault) !== zeroAddress ? getAddress(rawVault) : undefined
 const SAVINGS_CONFIG_PATH = '/api/hashpaystream/v1/savings/config'
+const SAVINGS_CONFIG_URL = Capacitor.isNativePlatform() ? `https://hashpaystream.app${SAVINGS_CONFIG_PATH}` : SAVINGS_CONFIG_PATH
 
 type SavingsRuntimeConfig = {
   vaultAddress?: Address
@@ -21,6 +23,7 @@ type SavingsRuntimeConfig = {
   status: 'active' | 'paused' | 'in_review'
 }
 
+let savingsRuntimeCache: SavingsRuntimeConfig | undefined
 function validAddress(value: unknown) {
   if (!isAddress(String(value ?? ''))) return undefined
   const candidate = getAddress(String(value))
@@ -28,7 +31,10 @@ function validAddress(value: unknown) {
 }
 
 function useSavingsRuntimeConfig() {
-  const [runtime, setRuntime] = useState<SavingsRuntimeConfig>()
+  // Cache the read address, but require a fresh response before allowing deposits.
+  const [runtime, setRuntime] = useState<SavingsRuntimeConfig | undefined>(() => savingsRuntimeCache
+    ? { ...savingsRuntimeCache, depositsEnabled: false, status: 'paused' }
+    : undefined)
   const [ready, setReady] = useState(false)
   const [error, setError] = useState('')
   const sequence = useRef(0)
@@ -38,7 +44,7 @@ function useSavingsRuntimeConfig() {
     const controller = new AbortController()
     const timeout = window.setTimeout(() => controller.abort(), 8_000)
     try {
-      const response = await fetch(SAVINGS_CONFIG_PATH, { headers: { accept: 'application/json' }, signal: controller.signal })
+      const response = await fetch(SAVINGS_CONFIG_URL, { headers: { accept: 'application/json' }, signal: controller.signal })
       const payload = await response.json().catch(() => undefined) as {
         ok?: unknown
         savings?: { chainId?: unknown; assetAddress?: unknown; vaultAddress?: unknown; depositsEnabled?: unknown; status?: unknown }
@@ -51,13 +57,16 @@ function useSavingsRuntimeConfig() {
       const status = payload.savings.status
       if (status !== 'active' && status !== 'paused' && status !== 'in_review') throw new Error('Savings launch status is invalid.')
       if (request === sequence.current) {
-        setRuntime({ vaultAddress, depositsEnabled: payload.savings.depositsEnabled === true && status === 'active', status })
+        const next: SavingsRuntimeConfig = { vaultAddress, depositsEnabled: payload.savings.depositsEnabled === true && status === 'active', status }
+        savingsRuntimeCache = next
+        setRuntime(next)
         setError('')
         setReady(true)
       }
     } catch {
       if (request === sequence.current) {
-        setRuntime(current => current ? { ...current, depositsEnabled: false, status: 'paused' } : current)
+        savingsRuntimeCache = savingsRuntimeCache ? { ...savingsRuntimeCache, depositsEnabled: false, status: 'paused' } : undefined
+        setRuntime(savingsRuntimeCache)
         setError('New savings plans are temporarily unavailable.')
         setReady(true)
       }
@@ -71,7 +80,7 @@ function useSavingsRuntimeConfig() {
     const timer = window.setInterval(() => void refresh(), 30_000)
     const onFocus = () => void refresh()
     window.addEventListener('focus', onFocus)
-    return () => { window.clearInterval(timer); window.removeEventListener('focus', onFocus) }
+    return () => { ++sequence.current; window.clearInterval(timer); window.removeEventListener('focus', onFocus) }
   }, [refresh])
 
   const vaultAddress = runtime?.vaultAddress ?? SAVINGS_VAULT_ADDRESS

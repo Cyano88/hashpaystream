@@ -1,6 +1,5 @@
 import { ArrowDownLeftIcon, ArrowUpRightIcon, BanknotesIcon, CheckBadgeIcon, CheckCircleIcon, ClockIcon, XCircleIcon } from '@heroicons/react/24/outline'
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSplash'
 import { formatUsdc, useAgreements } from '../lib/useAgreements'
 import { useStreamAccount } from '../lib/streamAccount'
 import { useServiceRequests } from '../lib/serviceRequests'
@@ -30,7 +29,6 @@ export default function StreamPayActivity() {
   const account = useStreamAccount(true)
   const requests = useServiceRequests()
   const [showAll, setShowAll] = useState(false)
-  const splashState = useHashPayStreamSessionSplash(!authenticated)
   useEffect(() => {
     const pending = window.localStorage.getItem('hashpaystream.pendingArcTransfer')
     if (!authenticated || !pending) return
@@ -55,7 +53,7 @@ export default function StreamPayActivity() {
     return [...agreementRows, ...requestRows, ...transferRows].filter(item => item.occurredAt).sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
   }, [account.activity, agreements, requestNotices])
   const visible = showAll ? activity : activity.slice(0, 20)
-  if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
+  if (!authenticated) return <AgreementSignInLanding />
   if (!ready || loading || account.loading || requests.loading) return <StreamPayLoadingState active="agreements" />
 
   return <section className="stream-screen w-full max-w-md py-5 sm:py-8">

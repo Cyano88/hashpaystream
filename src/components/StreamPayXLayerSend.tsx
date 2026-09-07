@@ -25,7 +25,7 @@ export default function StreamPayXLayerSend() {
   const moveTo = useStreamPayPath('/move')
   const homeTo = useStreamPayPath('/home')
 
-  if (!authenticated) return <AgreementSignInLanding splashState="idle" />
+  if (!authenticated) return <AgreementSignInLanding />
 
   async function send() {
     setBusy(true); setError('')

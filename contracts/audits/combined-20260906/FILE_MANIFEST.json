@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "path": "context/deploy-savings-mainnet.ts",
+      "sha256": "01e4382a332202397ef8d207c92aff7079f9689bec62c2aa1a0d09fd05b3b66f",
+      "bytes": 2002
+    },
+    {
+      "path": "CONTRACT_INTERACTIONS.md",
+      "sha256": "028811e1736bb9de6e2eaee61b1800d4739b559f515be6eac9dfd5a156b955da",
+      "bytes": 3272
+    },
+    {
+      "path": "COVER_NOTE.txt",
+      "sha256": "d82308eab24ec1e1b5d6194d2ddd041bd564b535178aebd4fd8ea579d01f9a4d",
+      "bytes": 543
+    },
+    {
+      "path": "evidence/test-results.txt",
+      "sha256": "d452113277cc181720db1b9fe6fe47dd94c1801b615327c50dc2fe3b7851266d",
+      "bytes": 3645
+    },
+    {
+      "path": "hardhat.config.ts",
+      "sha256": "d774b5aeb215e97c451652ba1a38379579368674202b9cd4b1f6eb30d9f3467b",
+      "bytes": 390
+    },
+    {
+      "path": "historical/hardening-v2/hardening-v2-manifest.json",
+      "sha256": "53b790262652c18e47f0c356258a049232e74477f0e774a4882541819cfe0c47",
+      "bytes": 2646
+    },
+    {
+      "path": "historical/hardening-v2/HARDENING_V2_DEPENDENCY_AUDIT.md",
+      "sha256": "54ec0a4cf8f350c51083f2e7befa26e910370f81e24d41b837f37dcc708fb8a3",
+      "bytes": 794
+    },
+    {
+      "path": "historical/hardening-v2/HARDENING_V2_REVIEW.md",
+      "sha256": "b8d2949fc49ed5acac058e39f20e7c919b4056217eb1f73bf97f24e5a982c8ab",
+      "bytes": 2117
+    },
+    {
+      "path": "historical/hardening-v2/hardhat.config.ts",
+      "sha256": "be163f1c25a05095b7d3b07f7ea1e1b3d0042e034e2729f1783c09b4080c1544",
+      "bytes": 1373
+    },
+    {
+      "path": "historical/hardening-v2/package.json",
+      "sha256": "12687aa838f0c1e86294a740b1da790acb6ea860f271f9cd210a88554bd9e2d6",
+      "bytes": 2106
+    },
+    {
+      "path": "historical/hardening-v2/X_RAY_FINDINGS_DISPOSITION_2026-09-03.md",
+      "sha256": "852be5f57e60c367ac5a0426cb43722dc29cd8dd6abad5f9ccc5a2e86e53ff11",
+      "bytes": 5145
+    },
+    {
+      "path": "historical/personal-savings-v1/personal-savings-v1-manifest.json",
+      "sha256": "0b0a7b59e132f13dec2923079700d1fefef2013296f89d9a39f25769f9214b1a",
+      "bytes": 1354
+    },
+    {
+      "path": "historical/personal-savings-v1/PERSONAL_SAVINGS_V1_REVIEW.md",
+      "sha256": "4c228daf4e9290bdf40d84ec92cc962c2445dbe7777464171b0425478f88d17b",
+      "bytes": 7999
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "d7c99057a439c082d6ceccc7ea45df78c25e16821476dcde4b7744ede07f5ef7",
+      "bytes": 322172
+    },
+    {
+      "path": "package.json",
+      "sha256": "d5c2d9409996cd9757f6701deba2fe90b57fe1bfeec79c501948c90db732da6c",
+      "bytes": 468
+    },
+    {
+      "path": "PROVENANCE.json",
+      "sha256": "d7552171cd76c864263c3642b18787c92dc2a1362c5f235f2a5d33ed6a659522",
+      "bytes": 9155
+    },
+    {
+      "path": "README.md",
+      "sha256": "818a3ca605be672d65153353e9c23fb17731fd676eb065b374d8737b6152ac0f",
+      "bytes": 3352
+    },
+    {
+      "path": "scripts/verify-package.mjs",
+      "sha256": "dfd77c3f573ca93d8513b6eda375938bcaa0c8501bb9a33da213d61b8c788da2",
+      "bytes": 1170
+    },
+    {
+      "path": "src/ArcRepaymentRouter.sol",
+      "sha256": "b061595571293f99b34a4822cd2ef21d9a4a0882e9abc0bfc2105335bd1e3b9e",
+      "bytes": 5109
+    },
+    {
+      "path": "src/ArcRepaymentRouterV4.sol",
+      "sha256": "f4cddb03742ce231abdfa67e0ba3253f8e7669135a32e8b8f384732342d66d05",
+      "bytes": 5813
+    },
+    {
+      "path": "src/LockedSavingsCohortVault.sol",
+      "sha256": "a70fef245133e36dab1faca6c29e3adcc92f167056f3005c392e1c1551b43f85",
+      "bytes": 10150
+    },
+    {
+      "path": "src/PersonalSavingsVault.sol",
+      "sha256": "019e273ffce7d51eac56ef4f48046ef97fb81ad80a3544db144bb270cf3205f1",
+      "bytes": 6812
+    },
+    {
+      "path": "src/test/MockERC1271Signer.sol",
+      "sha256": "5761653d790c5349f08e38163a05ebca17c0ceae74c7e4fefcd04638b10eee21",
+      "bytes": 644
+    },
+    {
+      "path": "src/test/MockUSDC.sol",
+      "sha256": "0e07917e8faf251e28c45160c70bd44e58633504c6d51c3d6c6d51a3ad18bb38",
+      "bytes": 417
+    },
+    {
+      "path": "src/test/ReentrantUSDC.sol",
+      "sha256": "e8c85abff497a549ed7d66db5595877eb2957dfd545acabea4e0f42fac9b6e75",
+      "bytes": 1128
+    },
+    {
+      "path": "src/UpfrontAdvanceEscrow.sol",
+      "sha256": "ec0aa291be1943eb3215c8c57f8ef769acba5aa0b32b0b31c4a2f02990b014b4",
+      "bytes": 15715
+    },
+    {
+      "path": "src/UpfrontAdvanceEscrowV2.sol",
+      "sha256": "711e7b1faa33d9bb9730f77559127f2de373c37926b41324486a12868587a73e",
+      "bytes": 16266
+    },
+    {
+      "path": "test/ArcRepaymentRouter.test.ts",
+      "sha256": "4b61b7648c5773eb4dd24cbc7e9aaedf1db58ff41305660cc32cf6bf0b38db62",
+      "bytes": 4836
+    },
+    {
+      "path": "test/ArcRepaymentRouterV4.test.ts",
+      "sha256": "481cfa5511c07016dd5640c4f0d74742729b254e5af360700c18b875411e3753",
+      "bytes": 6725
+    },
+    {
+      "path": "test/LockedSavingsCohortVault.test.ts",
+      "sha256": "f0e20f54eff574eadd18070c736a0dd02fa32da53db4408018cfd5f5f2a881dd",
+      "bytes": 15881
+    },
+    {
+      "path": "test/PersonalSavingsVault.test.ts",
+      "sha256": "4ededcf719ae521f06e8a22f87ddd6662aa745fa5d4b4b1f67fb1b2f58f44184",
+      "bytes": 9746
+    },
+    {
+      "path": "test/UpfrontAdvanceEscrow.test.ts",
+      "sha256": "7335601c49a3b8a4f529be8cf3ad505657d96d0b05ba9d2d636d47a60a9eb60f",
+      "bytes": 9509
+    },
+    {
+      "path": "test/UpfrontAdvanceEscrowV2.test.ts",
+      "sha256": "b463485932da73ef80def61a2535589017501d3221e8386f510d783d10dbc110",
+      "bytes": 12149
+    },
+    {
+      "path": "tsconfig.json",
+      "sha256": "fdea621cecc686f06ca12c27a7cd9c07939e1280da53ccc8a38d9dbd3cd0b28c",
+      "bytes": 291
+    },
+    {
+      "path": "VERIFICATION.md",
+      "sha256": "d3ba5d549bd8f721b2c63c89a114184c74b9e82db52645c2061985afbf6500c6",
+      "bytes": 1536
+    }
+  ],
+  "excludes": [
+    "FILE_MANIFEST.json (self reference)"
+  ]
+}
