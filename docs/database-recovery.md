@@ -1,53 +1,29 @@
 # Database recovery runbook
 
-HashPayStream stores its ownership journal, signed webhook history, and agent
-credential registry in the paid Render Postgres database. Treat database URLs,
-exports, record contents, and agent credentials as sensitive.
+Status: Render-only recovery is the accepted production approach. Recovery metadata is available; a provider restore drill and measured recovery time are still unverified. Do not require a Pixel backup, an external download, or a new backup service.
 
-## Recovery objectives
+Database credentials, exports and record contents are sensitive. Keep them out of source control, release artifacts and command output.
 
-- Use Render point-in-time recovery for the smallest available recovery point.
-- Keep a downloaded logical export in approved encrypted storage outside Render.
-- Restore only into a new isolated database. Never test a restore against production.
-- Measure the restore time during every drill; do not claim an RTO until measured.
+## Verify recovery availability
 
-## Establish the production baseline
+Use the database Recovery page or the read-only Render recovery endpoint. Record the database identity, recoveryStatus, startsAt and observation time. AVAILABLE proves that recovery is offered, not that a restore has succeeded. Verify the currently selectable recovery window before choosing a point.
 
-Run the audit inside a Render one-off job so `DATABASE_URL` remains private:
+## Prepare a comparable baseline
 
-```text
-npm run audit:database-recovery
-```
+The existing `npm run audit:database-recovery` command runs a read-only transaction and emits a fingerprint, row count, schema check and store-count checks. It reads only `public.render_durable_kv` and expects ten named stores. It does not verify Trade listings, community tables, other database schemas, externally stored assets, provider state or blockchain state. Inventory the actual database before claiming full recovery coverage; repository migrations alone do not prove which tables are deployed.
 
-Record only the emitted fingerprint, row count, and validation booleans in the
-private operations record. The command intentionally never prints store keys,
-JSON values, connection strings, or credentials.
+A baseline taken now cannot certify a restore to an earlier time while writes continued. For an exact comparison, use an explicitly authorized, observed write-quiescent interval that covers both the baseline snapshot and selected recovery point. Include all writers, not just the web service. Alternatively, use historical evidence tied to the selected point and document its coverage. Do not stop production writers under this runbook's authority alone.
 
-## Create the independent export
+Keep the baseline fingerprint, row count and validation booleans in private operations evidence. Do not print records or credentials. Run audits with credentials held in the process environment through the existing protected operations tooling.
 
-1. Open the HashPayStream database in Render and select **Recovery**.
-2. Confirm point-in-time recovery is available and record the earliest and latest selectable times.
-3. Select **Create export** and wait until the export is ready.
-4. Download the `.dir.tar.gz` archive to approved encrypted storage outside Render.
-5. Record its creation time, byte size, and SHA-256 digest without committing the archive.
+## Perform an isolated Render restore drill
 
-Render retains dashboard exports for only its documented retention period, so
-the downloaded copy is the long-term artifact.
+1. Confirm the concrete target, recovery point, expected baseline, coverage and cost before creating a recovery instance. The current release scope does not authorize an additional paid service.
+2. Create only an isolated recovery database through Render once applicable authorization is present. Follow the provider's current minimum recovery-point age and selectable window.
+3. Do not connect production services, workers, webhooks or notification senders to the restored database.
+4. Wait for availability and run the read-only audit with `HASHPAYSTREAM_RECOVERY_EXPECTED_FINGERPRINT` set to the matching baseline. Require `ok`, `schemaValid` and `fingerprintMatches` to be true for the command's stated coverage, with zero missing or unexpected stores.
+5. Independently validate every other deployed application table and required external asset reference identified in the inventory. A durable-store fingerprint alone cannot certify the full application.
+6. Record the selected recovery point, request/availability/validation times, observed recovery duration and all coverage limitations. Do not claim a recovery time before measuring it.
+7. Retain or remove the isolated instance only under applicable authorization after verifying its exact identity and that no service references it. Never delete the production database or change its service bindings as part of this drill.
 
-## Perform an isolated restore drill
-
-1. Choose a recovery time at least ten minutes old and create a new recovery database.
-2. Copy existing settings, but do not point HashPayStream or any other service at it.
-3. Wait for the recovery database to become available.
-4. Run the audit against the recovery database with the production baseline:
-
-```text
-HASHPAYSTREAM_RECOVERY_EXPECTED_FINGERPRINT=<baseline> npm run audit:database-recovery
-```
-
-5. Require `ok`, `schemaValid`, and `fingerprintMatches` to be `true`, with zero missing or unexpected stores.
-6. Record the elapsed restore time as the observed drill RTO.
-7. Delete the isolated recovery database only after recording the result and verifying that no service references it.
-
-Deleting a database also deletes its Render-held recovery material. Confirm the
-database ID and service references before deleting any recovery instance.
+No recovery instance, export, production write freeze or cutover has been performed by documenting this procedure. Financial public release remains NO-GO until the required recovery evidence is obtained.
