@@ -38,3 +38,5 @@ Migration audit: see docs/LEGACY_MIGRATION_DISPOSITION_2026-09-07.md. The three 
 
 Reviewed deployment preparation: V2/V4 command selection, mandatory frozen build/artifact checks, paused-state checks and read-only creation verification are prepared and tested offline. The old empty-unpaused retirement bypass is removed. See docs/REVIEWED_DEPLOYMENT_PREPARATION_2026-09-07.md; no deployment or activation has occurred.
 
+
+Authorized database history reset: completed on 2026-09-07; see docs/HISTORY_RESET_2026-09-07.md. All payment/agreement/request history was cleared with non-target data verified unchanged. Earlier database migration findings are historical; the reset does not retire or settle the on-chain positions or prove production readiness.

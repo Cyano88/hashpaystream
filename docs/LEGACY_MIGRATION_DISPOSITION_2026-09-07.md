@@ -1,6 +1,6 @@
 # Legacy migration disposition - 2026-09-07
 
-Status: FINANCIAL RELEASE NO-GO. Read-only audit; no records, contracts or provider agreements were changed.
+Status: FINANCIAL RELEASE NO-GO. This audit describes the pre-reset state. The user subsequently authorized deletion of database history; completed reset evidence is in HISTORY_RESET_2026-09-07.md. Contracts and provider agreements were not changed.
 
 ## Three previously incomplete records
 
