@@ -4,6 +4,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { hasRenderDurableStore, readDurableJson } from './durable-store.js'
 import { agentCredentialRegistryConfig } from './agent-credential-registry.js'
 import { upfrontSettlementV3Enabled } from './upfront-v3.js'
+import { checkTradeReadiness } from './trade-readiness.js'
 
 const DEFAULT_OWNERSHIP_STORE_KEYS = [
   'hashpaystream:human-agreement-owners:v1',
@@ -224,6 +225,7 @@ export type ReadinessDependencies = {
   hasStore: () => boolean
   read: <T>(key: string) => Promise<T | undefined>
   env: () => NodeJS.ProcessEnv
+  checkTrade: (env: NodeJS.ProcessEnv) => Promise<void>
   logError: (event: {
     component: 'hashpaystream-readiness'
     event: 'dependency_unavailable'
@@ -238,6 +240,7 @@ const defaults: ReadinessDependencies = {
   hasStore: hasRenderDurableStore,
   read: readDurableJson,
   env: () => process.env,
+  checkTrade: checkTradeReadiness,
   logError: event => console.error(JSON.stringify(event)),
 }
 
@@ -255,6 +258,7 @@ export function createHashPayStreamReadinessHandler(
       return res.status(503).json({ ok: false, service: 'hashpaystream', status: 'unavailable' })
     }
     let env: NodeJS.ProcessEnv = {}
+    let tradeUnavailable = false
     try {
       if (!dependencies.hasStore()) throw new Error('Durable store is unavailable.')
       env = dependencies.env()
@@ -272,12 +276,19 @@ export function createHashPayStreamReadinessHandler(
       await Promise.all(ownershipStoreKeys.map(key => dependencies.read(key)))
       const registryConfig = agentCredentialRegistryConfig(env)
       if (registryConfig) await dependencies.read(registryConfig.storeKey)
+      try {
+        await dependencies.checkTrade(env)
+      } catch {
+        tradeUnavailable = true
+        throw new Error('Trade is unavailable.')
+      }
       return res.status(200).json({ ok: true, service: 'hashpaystream', status: 'ready' })
     } catch {
       try {
         const missingEnvironment = [...new Set([...missingCircleWalletEnvironmentNames(env), ...missingDirectEnvironmentNames(env), ...missingUpfrontEnvironmentNames(env)])].sort()
         const configurationIssues = [...new Set([
           ...(!circleWalletConfigurationReady(env) ? ['CIRCLE_WALLET_CONFIGURATION_INVALID'] : []),
+          ...(tradeUnavailable ? ['TRADE_UNAVAILABLE'] : []),
           ...directConfigurationIssueCodes(env),
           ...upfrontConfigurationIssueCodes(env),
         ])].sort()
