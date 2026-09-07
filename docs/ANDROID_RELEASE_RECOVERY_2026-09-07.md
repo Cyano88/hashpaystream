@@ -26,3 +26,23 @@ The request-level retry probe could not complete because the controlled browser 
 Seller email verification is open again in the fresh browser. Signed-release live two-account enquiry/reply and final account-isolation checks remain pending that login. The original browser's previous synthetic seller draft cannot currently be rechecked because that browser session closed. Do not mark these gates complete or treat this build as public-beta approval.
 
 Reference: https://developers.circle.com/sdks/user-controlled/web-sdk
+
+## Live signed-release two-account follow-up
+
+The operator completed seller login in the fresh browser; the Circle wallet gate cleared and the authenticated Home screen rendered. No wallet-code change was needed for this successful attempt. This does not establish the cause of the prior device-ID timeout.
+
+Using distinct browser seller and signed Android 1.0.13 buyer sessions, a clearly labelled synthetic listing was published through the UI. Public API confirmed active revision 1 (listing a6587cc8-2c14-4ab4-8448-f8a891ca344a), and seller My listings retained it after a full browser reload. Android search found it. Buyer details exposed Ask seller and Report listing, without seller edit/sold/remove controls.
+
+Android created the enquiry and sent one synthetic message. The seller received it and replied once; Android Refresh displayed the reply. After an Android force-stop/cold launch, the authenticated conversation still contained exactly one copy of each message. This verifies ordinary delivery and retention; it is not an acknowledgement-loss retry/idempotency experiment.
+
+Android hardware Back cancelled the shared Block messages confirmation without submitting. Reopening and confirming the block removed the composer on both devices. The seller saw Messaging is blocked and had no Unblock control for the buyer's block. Android confirmed Unblock through the same sheet; both composers returned after refresh. No report was submitted and no payment or agreement was created.
+
+Cleanup: seller removed the synthetic listing through the shared confirmation sheet. A bounded public API read confirmed the listing absent; its exact photo returned HTTP 404. Two synthetic messages and the removed-item conversation e9602ab5-3f93-4133-9e2d-bd5c151b97b0 remain as historical records. No database rows were deleted directly.
+
+During the final Android removed-item check, a screenshot exposed an Android app-not-responding dialog. Therefore missing navigation in that intermediate UI dump is not evidence of logout. ActivityManager recorded a 5014ms input-dispatch focus-loss timeout at emulator time 10:02:32. The captured app main-thread stack waited in BinderProxy.transact / InputMethodManager.getInputMethodList / WebViewChromium.onWindowFocusChanged. A SelectToSpeak popup activity was listed as resumed; enabled_accessibility_services read null. These observations identify the stall location but do not establish its cause or exonerate app behavior. Sanitized main-thread evidence is in ignored output/playwright/signed-release-anr-main.txt.
+
+The emulator was rebooted without clearing data, after returning adbd to non-root. Recovery verification is pending below. This ANR remains a release-readiness concern; do not convert the successful functional checks into an unconditional public-release approval.
+
+The OS-only reboot stalled before sys.boot_completed. A sample showed emulator load around 9.6 on two configured cores, roughly 1.2 GB free guest memory, and the ranchu graphics composer as the largest CPU consumer. HashPayStream had not been launched during that boot. The emulator process was then shut down via adb emu kill and relaunched with the same AVD, software GPU, memory/CPU settings, and no snapshot; no wipe-data flag was used. This environment instability limits attribution of the ANR. Fresh-process recovery verification follows.
+
+Fresh-process recovery completed: sys.boot_completed returned 1. Android System UI then displayed its own unresponsive dialog; choosing Wait recovered it. HashPayStream Home showed the authenticated buyer session. Trade enquiries retained the removed synthetic item; opening it displayed exactly one buyer message and one seller reply, with no message composer. Emulator adbd was verified back to uid 2000 (non-root). Public cleanup and post-reboot session/conversation recovery therefore passed, while the app/System UI ANR observations remain unresolved environment/runtime concerns. No application code changed in this follow-up. The physical Pixel app was untouched. The local UI helper now refreshes its saved XML even when an Android system dialog is foreground, avoiding stale-file interpretation in future checks.
