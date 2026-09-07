@@ -52,3 +52,23 @@ During entry, bottom navigation was absent with the keyboard open and returned a
 After force-stopping and cold-starting only the emulator app, opening Trade and My listings returned the sign-in gate. Waiting for startup to settle did not restore authenticated navigation. Draft persistence cannot yet be judged because the original account is signed out. This is a release blocker pending reproduction and diagnosis, not a claimed data-loss result. The visible emulator was returned to the enlarged sign-in flow and a second login was requested. The emulator clock matches the PC's UTC time. No app data was cleared, no authentication storage or token contents were inspected, and no speculative authentication fix was applied.
 
 The synthetic local draft must be checked and removed after the same account signs in again. Authenticated enquiries, session persistence, connection recovery and the remaining two-account checks are not marked passed by this run.
+
+## Session persistence diagnostic follow-up
+
+A second successful login recovered the synthetic local draft in the same account. Draft persistence therefore passed this restart check; cleanup remains pending while signed out. Session loss reproduced after backgrounding the app before force-stop.
+
+Temporary diagnostic APKs were installed only on emulator-5556. They log fixed event labels, authentication readiness booleans, and a custom non-sensitive localStorage marker. No authentication storage values, cookies, tokens, or request bodies were inspected. The original desktop APK/AAB and physical Pixel app remain unchanged.
+
+The marker was absent on repeated cold launches, including an inline check before application module imports. The origin remained https://hashpaystream.app. Enabling the legacy WebView database setting did not resolve this and was removed. The same loss reproduced on the original Google WebView 124.0.6367.219 and official AOSP WebView 128.0.6613.88 (APK Git blob SHA-1 fcd919744aaba4ff5f9d30701e0f1e135cbf0ad6). This does not establish a specific WebView defect or a production fix. Filesystem metadata confirms that the app's localStorage LevelDB directory exists with app ownership and non-empty files; contents were not read.
+
+The diagnostic fetch wrapper may miss SDK requests whose fetch reference was captured during module initialization; absence of refresh labels is not proof that no refresh was attempted. Immediate marker read-after-write and delayed checks are the next diagnostic step. Temporary instrumentation must be removed before preparing any distributable build. Public testing remains blocked by session restoration.
+
+The marker passed immediate read-after-write and a 15-second check, but was absent after both force-stop and background-process termination. A minimal page with no app or authentication imports reproduced the loss in the existing profile. The same minimal APK under a separate application ID, app.hashpaystream.storageaudit, retained the marker across restart on the same emulator.
+
+With only the original emulator app stopped, its localStorage LevelDB directory was moved intact to /data/user/0/app.hashpaystream/local-storage-audit-backup. This is a reversible diagnostic preservation step, not a production migration. No database entries were inspected. IndexedDB was not moved or cleared. The minimal page then retained the marker across restart in the original application ID with a newly created localStorage database.
+
+The original Google WebView 124 provider was restored. After one launch on that provider, the full diagnostic app retained the marker on its next cold launch (08:29:30 UTC, PID 8176: early_present and storage_present). This narrows the reproduced failure to the existing emulator localStorage profile, but the underlying cause of that profile's failure remains unconfirmed. A repaired test profile is not evidence that authenticated session persistence now passes.
+
+Temporary tracked/untracked source instrumentation was preserved under ignored output/playwright/session-diagnostic-source and removed from production source. The original desktop signed APK was reinstalled with install -r, preserving emulator app data. A new authenticated restart check and draft cleanup remain pending user sign-in. Intermediate ignored build outputs are diagnostic artifacts and must not be distributed; a future release must use the normal full web sync and release build.
+
+The separate marker-only test app was uninstalled after verification and emulator adbd was returned to non-root. The original release is at the email verification screen in the enlarged emulator. The requested recipient was verified without exposing any login code. Only this audit document differs in tracked source.
