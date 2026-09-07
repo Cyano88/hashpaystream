@@ -31,3 +31,5 @@ When the fixed checks pass, stop implementation and present the release decision
 ## Checkpoint reached
 
 Candidate 1.0.15 / code 16 is built, signed with the existing release key and installed on Pixel. Full app smoke, web build, native checks, lint/unit tests and all 42 frozen contract tests passed. Home and Trade device smoke passed. The broad live payment/theme walkthrough and operational/deployment gates above remain open. Goal remains ACTIVE; full financial production is NO-GO.
+
+Integration follow-up: see docs/REVIEWED_CONTRACT_INTEGRATION_2026-09-07.md. Arc public mainnet is announced for September 16; no production network parameters are assumed. The separate upstream signer now has tested, inactive V2 support in local commit 73685fc. HashPayStream-side integration and legacy-record disposition remain next.
