@@ -32,7 +32,7 @@ Render point-in-time recovery is verified available, and the small-dataset logic
 
 Report evidence persists after listing removal; hide and dismiss resolve reports without purging evidence. No automatic evidence purge or retention period was introduced. A documented retention/deletion policy and reviewer coverage are required before widening the beta.
 
-Release signing configuration and a real Privy login-switch test remain outstanding. Do not describe the installed debug APK as a signed public release.
+Follow-up: signed Android 1.0.13 and authenticated runtime checks are recorded in the Android release branch audit (docs/ANDROID_RELEASE_RECOVERY_2026-09-07.md). The original Pixel installation remains the older debug app; the physical signed test uses an isolated package. See TRADE_MONITORING_FOLLOWUP_2026-09-07.md for the deployed Trade readiness coverage and remaining operational gates.
 
 ## References
 

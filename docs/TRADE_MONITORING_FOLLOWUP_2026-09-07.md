@@ -16,7 +16,7 @@ Render already uses /readyz on the existing Starter service. This extends that p
 - Direct SSH preflight was unavailable because the current SSH key was rejected. No SSH access settings were changed.
 - Provider API confirmed main service /readyz, Starter plan, notifyOnFail=notify and Trade enabled. PostgreSQL recoveryStatus remains AVAILABLE, with startsAt=2026-09-03T22:40:53Z at this check. These are configuration/recovery-window checks, not proof of alert receipt or an independent retained backup.
 
-Deployment and live verification are recorded below once complete.
+Deployed code commit 4df8c1f12d8ec3d325e3c5f583b6c0428671f0b3 is confirmed live on the existing main Render service. The post-deploy public /readyz returned 200 in 1.328 seconds, confirming the candidate passed the internal Trade probe. Live health/feed checks returned 200; anonymous conversations, moderation and existing service requests returned 401. Hosted workflow run 34114360777 completed successfully against the same commit, including both readiness and Trade boundary checks. TypeScript compilation passed. These verify current healthy behavior; no production fault was injected and alert recipient delivery remains unverified.
 
 ## Outstanding operator inputs
 
