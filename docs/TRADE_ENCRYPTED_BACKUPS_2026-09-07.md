@@ -2,6 +2,15 @@
 
 Status: export tooling and an isolated synthetic PostgreSQL 18 restore drill are complete. Production exports, off-site upload, scheduling, retention deletion and production recovery-key custody are not enabled.
 
+## Current operating decision - Render-managed recovery
+
+The operator selected Render-only backup operation after considering the Pixel snapshot approach. Use the existing paid Render Postgres continuous point-in-time recovery as the automatic database recovery baseline. The standalone encrypted-export tooling below remains available but is not scheduled or required for this chosen workflow. Do not resume Pixel copying or ask for an external destination as though that choice were still pending.
+
+Live verification on 2026-09-07: hashpaystream-db is available on PostgreSQL 18 / basic_256mb. Both the main DATABASE_URL and the dedicated Trade database URL point to this instance. The recovery API returns AVAILABLE with startsAt=2026-09-03T22:40:53Z. Render's export list is empty. No provider configuration, extra service or paid plan was changed, and no Pixel backup or production recovery key was created.
+
+Render continually backs up paid Postgres instances, so ongoing database changes are included without a connected PC or phone. This is a bounded recovery window, not indefinite archive retention. The available startsAt is current API evidence; do not infer a workspace subscription tier from it. A provider PITR restore/failover drill has not been performed by this change. The earlier isolated logical restore drills do not establish PITR cutover readiness.
+
+References: https://render.com/docs/postgresql-backups and https://render.com/docs/service-types
 ## Scope
 
 The command accepts only the dedicated `hashpaystream_trade_pilot` database and `hashpaystream_trade_pilot_user` role. It rejects superuser/role-creation/database-creation privileges and unexpected non-system tables. The five Trade tables are explicitly selected for export; financial databases are outside this command's scope.
