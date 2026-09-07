@@ -59,7 +59,7 @@ export default function FundingPositionReceipt({ receipt }: { receipt: FundingRe
     status: receipt.status, fundingStatus: receipt.status, eventId: receipt.positionId, txHash: settlementUrl ? settlement!.transactionHash : '',
     chain: completed ? 'arc-testnet' : chainId === 196 ? 'xlayer-mainnet' : chainId === 1952 ? 'xlayer-testnet' : 'unknown', payer: receipt.funder || '',
     amount: usdc(completed || refunded ? receipt.repaymentUsdcUnits : receipt.advanceUsdcUnits).replace(' USDC', ''),
-    asset: 'USDC', createdAt: settlementUrl ? settlement!.timestamp : 0, referenceId: receipt.positionId,
+    asset: 'USDC', createdAt: settlementUrl ? settlement!.timestamp : 0, referenceId: settlementUrl ? settlement!.transactionHash : receipt.positionId,
     fundingRows: [
       ...(receipt.title ? [{ label: 'Agreement', value: receipt.title }] : []),
       { label: 'Funded on X Layer', value: usdc(receipt.advanceUsdcUnits) },

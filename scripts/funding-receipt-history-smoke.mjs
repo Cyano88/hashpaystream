@@ -38,6 +38,7 @@ try {
   assert.match(settled, new RegExp('https://testnet.arcscan.app/tx/' + tx))
   assert.doesNotMatch(settled, /xlayer.*\/address\//)
   assert.equal(globalThis.__fundingSharedReceipt.txHash, tx)
+  assert.equal(globalThis.__fundingSharedReceipt.referenceId, tx)
   assert.equal(globalThis.__fundingSharedReceipt.createdAt, proof.timestamp)
   assert.equal(globalThis.__fundingSharedReceipt.chain, 'arc-testnet')
   const withoutProof = render({ ...receipt, status: 'settled' })
