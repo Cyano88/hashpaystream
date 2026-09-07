@@ -45,6 +45,8 @@ export function installNativeApiTransport() {
       connectTimeout: 15_000,
       readTimeout: 30_000,
       responseType: 'json',
+    }).catch(() => {
+      throw new Error('Could not connect. Check your connection and try again.')
     })
     if (init.signal?.aborted) throw abortError()
 
