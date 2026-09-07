@@ -2,13 +2,18 @@
   "network": "Arc Testnet",
   "chainId": 5042002,
   "repaymentRouter": {
-    "address": "0xF4D6700B383b6b8Eb14c3b43d5124444D2ecb7b9",
-    "transactionHash": "0x375eb13d19747d01300eb1fc4b00a4601fb3254594b7fdb7285b31751e6fe510",
-    "blockNumber": 59469052,
+    "address": "0x78d42Ada91e5121cbe85A50f50436B1Cc3a23999",
+    "transactionHash": "0x697b715bda014205c836413b8fd86999e6c59ad8674000ab6e8cd995b9e41b1a",
+    "blockNumber": 60970039,
     "asset": "0x3600000000000000000000000000000000000000",
     "creditSigner": "0x83Bd6A645cBE8d04b5F33f2c2c87A1d1FDD71D5b",
     "owner": "0xF3bE84452e17e9F0656F54884113cD2D7288C2E3",
-    "settlementVersion": 3,
-    "replacesRouter": "0x300D0D41a10006f3cb1Da01aed2Fc28418c7E6Be"
-  }
+    "treasury": "0xF3bE84452e17e9F0656F54884113cD2D7288C2E3",
+    "settlementVersion": 4,
+    "signatureVersion": "4",
+    "pausedAtVerification": true,
+    "replacesRouter": "0xF4D6700B383b6b8Eb14c3b43d5124444D2ecb7b9"
+  },
+  "financialProductionReady": false,
+  "verificationRecord": "reviewed-rehearsal-20260907.json"
 }

@@ -3,7 +3,7 @@
   "scope": "reviewed mixed-network rehearsal; not financial production activation",
   "sourceCommit": "7eef883b3613741c97d2288365be7f16ac3426e3",
   "auditArchiveSha256": "e51c11f8f330acc44898b71ddbee81ab25b61a9ca41a23aea3156b6bb13428ad",
-  "productionConfigurationChanged": false,
+  "productionConfigurationChanged": true,
   "workerActivated": false,
   "legacyRetirementVerified": false,
   "contracts": [
@@ -90,5 +90,25 @@
         "feeUnit": "OKB"
       }
     }
-  ]
+  ],
+  "configurationCutover": {
+    "verifiedAt": "2026-09-07T22:06:58.918Z",
+    "deployments": [
+      {
+        "id": "srv-d9opfcad0e5s73c3omag",
+        "commit": "4bd1ced66f5448e22c199556c51ab209faa73889",
+        "deployId": "dep-dafj9dqd0e5s73cl3ae0"
+      },
+      {
+        "id": "srv-da3082b7uimc73fnvl2g",
+        "commit": "73685fc7d326af5d7e541d0acc2af9a4819e34c1",
+        "deployId": "dep-dafj0dtbedkc739f8jq0"
+      }
+    ],
+    "workerEnabled": false,
+    "automaticSettlementEnabled": false,
+    "contractsPaused": true,
+    "androidVersion": "1.0.17",
+    "androidSourceCommit": "fc521e95f2e61a8c1fc4c7a405be2ad582638c4d"
+  }
 }
