@@ -1,6 +1,6 @@
 # Reviewed migration transaction proposal - 2026-09-07
 
-Status: UNSIGNED, NOT BROADCAST. Estimates observed at 2026-09-07T21:00:38.859Z. Scope choice remains pending: the current integration supports an Arc testnet rehearsal paired with X Layer mainnet; this is not an Arc production launch.
+Status: UNSIGNED, NOT BROADCAST. Estimates observed at 2026-09-07T21:00:38.859Z. The user approved the Arc testnet rehearsal paired with X Layer mainnet after reviewing this proposal. This is not an Arc production launch.
 
 ## Proposed sequence
 
@@ -30,3 +30,11 @@ The historical Arc receipt was unavailable from the current RPC, so this proposa
 The old escrow is unpaused and its current token balance is zero. Complete historical event coverage and legacy retirement are not established. Deleting database records did not change on-chain positions. No pause, deployment, funds transfer, unpause or configuration switch occurred.
 
 Sanitized plan and unsigned calldata are in ignored output/playwright/reviewed-migration-plan.json and reviewed-migration-unsigned.json. No private keys are included. Execution still requires the intended network scope and the owner's concrete pause transaction to be authorized and completed.
+
+## Execution checkpoint after approval
+
+The approved sequence is waiting for the old escrow owner's signature. A fresh read confirms the same owner, the escrow remains unpaused, and that owner has sufficient balance for the current pause gas estimate. All six usable private keys in the existing local contracts environment were checked by deriving their public addresses; none matches the old escrow owner. No private key was printed or exported.
+
+The browser owner-wallet controller failed on two attempts. There is no confirmed usable owner signing session in this checkpoint. The unsigned request is prepared in output/playwright/owner-pause-transaction.json: chain 196, from the verified owner, to the old escrow, value zero, setPaused(true). Gas estimation succeeds; that is not a signature or authorization proof.
+
+No migration transaction was broadcast. Do not bypass the paused-old-escrow deployment guard or substitute a deployer/worker key for the owner. Resume from obtaining the owner signature, verify the pause receipt/state, then refresh deployment estimates/nonces before proceeding with the approved deployment sequence.
