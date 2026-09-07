@@ -1,4 +1,5 @@
 import { ethers } from 'hardhat'
+import { assertReviewedBuild, assertReviewedArtifact } from './assert-reviewed-build'
 
 function address(name: string) {
   const value = String(process.env[name] ?? '').trim()
@@ -7,6 +8,8 @@ function address(name: string) {
 }
 
 async function main() {
+  assertReviewedBuild()
+  await assertReviewedArtifact('ArcRepaymentRouterV4')
   const network = await ethers.provider.getNetwork()
   if (network.chainId !== 5_042_002n) throw new Error('Expected Arc testnet 5042002.')
   const [deployer] = await ethers.getSigners()
@@ -16,17 +19,19 @@ async function main() {
   const asset = address('ARC_TEST_USDC_ADDRESS')
   const creditSigner = address('UPFRONT_REPAYMENT_CREDIT_SIGNER')
   const owner = address('UPFRONT_ARC_CONTRACT_OWNER')
-  const factory = await ethers.getContractFactory('ArcRepaymentRouter')
-  const transaction = await factory.getDeployTransaction(asset, creditSigner, owner)
+  const treasury = address('HASHPAYSTREAM_PLATFORM_TREASURY_ADDRESS')
+  const factory = await ethers.getContractFactory('ArcRepaymentRouterV4')
+  const transaction = await factory.getDeployTransaction(asset, creditSigner, treasury, owner)
   const gasEstimate = await ethers.provider.estimateGas({ from: deployer.address, data: transaction.data })
   const fee = await ethers.provider.getFeeData()
   const gasPrice = fee.maxFeePerGas ?? fee.gasPrice ?? 0n
   const deployerNativeBalance = await ethers.provider.getBalance(deployer.address)
   const maximumEstimatedNativeCost = gasEstimate * gasPrice
-  const reservedAddresses = [asset, creditSigner, owner]
+  const reservedAddresses = [asset, creditSigner, treasury, owner]
   const addressCollision = reservedAddresses.includes(predictedContract)
   console.log(JSON.stringify({
-    action: 'DEPLOY_ARC_REPAYMENT_ROUTER',
+    action: 'DEPLOY_REVIEWED_ARC_REPAYMENT_ROUTER',
+    contractName: 'ArcRepaymentRouterV4', signatureVersion: '4', financialProductionReady: false,
     dryRun: true,
     chainId: network.chainId.toString(),
     deployer: deployer.address,
@@ -35,7 +40,7 @@ async function main() {
     predictedContract,
     addressCollision,
     deployable: !addressCollision && deployerNativeBalance >= maximumEstimatedNativeCost,
-    constructor: { asset, creditSigner, owner },
+    constructor: { asset, creditSigner, treasury, owner, startsPaused: true },
     gasEstimate: gasEstimate.toString(),
     maximumEstimatedNativeCost: ethers.formatEther(maximumEstimatedNativeCost),
   }, null, 2))

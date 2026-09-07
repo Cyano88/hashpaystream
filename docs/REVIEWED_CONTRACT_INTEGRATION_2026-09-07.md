@@ -65,3 +65,5 @@ No production history configuration or record was changed. This closes the candi
 
 
 Legacy follow-up: docs/LEGACY_MIGRATION_DISPOSITION_2026-09-07.md identifies one expired unfunded predecessor offer and two released advances whose Arc testnet agreements expired/refunded without repayment credit. They use the older eleven-field position layout, outside the current history reader. Their disposition and full event coverage remain required before activation.
+
+Deployment preparation follow-up: docs/REVIEWED_DEPLOYMENT_PREPARATION_2026-09-07.md supersedes the earlier observation that the plan/deploy commands select legacy factories. The local commands now select reviewed V2/V4 with source/artifact guards and explicit confirmations, and separate read-only reviewed verification commands are prepared. Nothing has been deployed; Arc mainnet parameters, legacy disposition and activation gates remain open.

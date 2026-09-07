@@ -1,4 +1,5 @@
 import { ethers } from 'hardhat'
+import { assertReviewedBuild, assertReviewedArtifact } from './assert-reviewed-build'
 
 const OFFICIAL_XLAYER_USDC = '0xB6CEceAB302E2E4948951eE7843FC24E92933061'
 
@@ -9,6 +10,8 @@ function address(name: string) {
 }
 
 async function main() {
+  assertReviewedBuild()
+  await assertReviewedArtifact('UpfrontAdvanceEscrowV2')
   const network = await ethers.provider.getNetwork()
   if (network.chainId !== 196n) throw new Error(`Expected X Layer mainnet 196; received ${network.chainId}.`)
   const [deployer] = await ethers.getSigners()
@@ -23,7 +26,7 @@ async function main() {
     protectionSigner: address('UPFRONT_PROTECTION_SIGNER'),
     owner: address('UPFRONT_XLAYER_CONTRACT_OWNER'),
   }
-  const factory = await ethers.getContractFactory('UpfrontAdvanceEscrow')
+  const factory = await ethers.getContractFactory('UpfrontAdvanceEscrowV2')
   const transaction = await factory.getDeployTransaction(
     constructor.asset,
     constructor.arcRepaymentRouter,
@@ -38,7 +41,7 @@ async function main() {
   const reservedAddresses = [constructor.asset, constructor.arcRepaymentRouter, constructor.underwritingSigner, constructor.protectionSigner, constructor.owner]
   const addressCollision = reservedAddresses.includes(predictedContract)
   console.log(JSON.stringify({
-    dryRun: true, chainId: network.chainId.toString(), deployer: deployer.address,
+    dryRun: true, contractName: 'UpfrontAdvanceEscrowV2', signatureVersion: '2', financialProductionReady: false, chainId: network.chainId.toString(), deployer: deployer.address,
     deployerNativeBalance: (await ethers.provider.getBalance(deployer.address)).toString(),
     predictedContract, addressCollision, deployable: !addressCollision,
     ownerIsDeployer: constructor.owner === deployer.address,

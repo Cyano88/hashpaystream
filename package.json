@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit",
     "test:agreement-gateway": "node --import tsx scripts/agreement-gateway-smoke.mjs",
     "test:upfront-agreement-gateway": "node --import tsx scripts/upfront-agreement-gateway-smoke.mjs",
+    "test:reviewed-deployment-commands": "node scripts/reviewed-deployment-commands-smoke.mjs",
     "test:funding-receipt": "node scripts/funding-receipt-history-smoke.mjs",
     "test:upfront-assessment": "node --import tsx scripts/upfront-v3-smoke.mjs && node --import tsx scripts/upfront-fees-smoke.mjs && node --import tsx scripts/upfront-assessment-smoke.mjs && node --import tsx scripts/polydesk-upfront-client-smoke.mjs && node --import tsx scripts/upfront-protection-attestation-smoke.mjs && node --import tsx scripts/upfront-protection-handler-smoke.mjs && node --import tsx scripts/upfront-opportunities-smoke.mjs",
     "test:upfront-reviews": "node --import tsx scripts/upfront-reviews-smoke.mjs",
