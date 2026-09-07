@@ -62,3 +62,6 @@ GET provider status, funding-partner history and existing partner selections can
 Verification covers preserved settled economics/status, exact old position/target selection, provider and funding-partner ownership isolation, no historical capacity/signing/store writes, rejection of new assignments, request-injected targets, malformed/duplicate configuration, and rendered receipt explorer/share metadata. Both legacy and reviewed-version opportunities suites pass.
 
 No production history configuration or record was changed. This closes the candidate read-routing gap for structurally valid records, not migration safety: the three incomplete records still require individual disposition, and complete on-chain event inventory plus controlled cutover remain outstanding. Historical unfinished positions must be resolved before switching; this history list is not an alternative execution route for their release/refund/settlement.
+
+
+Legacy follow-up: docs/LEGACY_MIGRATION_DISPOSITION_2026-09-07.md identifies one expired unfunded predecessor offer and two released advances whose Arc testnet agreements expired/refunded without repayment credit. They use the older eleven-field position layout, outside the current history reader. Their disposition and full event coverage remain required before activation.
