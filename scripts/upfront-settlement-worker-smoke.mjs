@@ -178,3 +178,16 @@ const seeded = await runUpfrontSettlementPass({ ...base, readStore: async () => 
   recover: async checkpoint => { assert.equal(checkpoint.nextBlock, '50'); return { checkpoint, evidence } },
   submit: async () => { throw Error('MUST_NOT_BROADCAST') } })
 assert.equal(seeded.alreadySettled, 1); assert.equal(persistedStart, '50')
+
+// Another relayer settles while the provider call is in flight. Preserve the earlier search start.
+const raceStore = structuredClone(freshStore)
+let head = 100n
+const raced = await runUpfrontSettlementPass({ ...base, readStore: async () => raceStore,
+  blockNumber: async () => head, isSettled: async () => false,
+  agreement: async () => { head = 200n; return { chain: { onchainAgreementId: agreementHash } } },
+  saveCheckpoint: async (_key, _record, checkpoint) => { raceStore.records.complete.fundingRequest.settlementCheckpoint = checkpoint },
+  submit: async () => undefined,
+  recover: async checkpoint => { assert.ok(BigInt(checkpoint.nextBlock) <= 110n); return { checkpoint, evidence } },
+})
+assert.equal(raced.settled, 1)
+console.log('Concurrent relayer settlement remains inside the durable recovery range.')

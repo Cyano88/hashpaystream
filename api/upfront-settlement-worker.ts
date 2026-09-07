@@ -225,13 +225,16 @@ export async function runUpfrontSettlementPass(overrides: Partial<UpfrontSettlem
           }
           await dependencies.markSettled(config.storeKey, recordKey, found.evidence)
         }
+        // Capture the search start before checking state: another relayer may settle
+        // during provider/signature work, before our own submission check.
+        const submissionStartBlock = checkpoint ? undefined : await dependencies.blockNumber(config)
         if (await dependencies.isSettled(current.arcAgreementHash, config)) { await recover(); result.alreadySettled += 1; continue }
         if (funding.status === 'settled') throw Error('SETTLEMENT_CHAIN_STATE_MISMATCH')
         const authoritative = await dependencies.agreement(record.agreementId, config)
         if (!authoritative.chain || authoritative.chain.onchainAgreementId.toLowerCase() !== current.arcAgreementHash.toLowerCase()) throw new Error('ARC_AGREEMENT_MISMATCH')
         const signed = await dependencies.sign({ request: record.request, position: current, agreement: authoritative, arcRouter: config.router, escrowVersion: config.escrowVersion, privateKey: config.repaymentKey, now: dependencies.now() })
         if (!checkpoint) {
-          checkpoint = { chainId: 5042002, router: config.router, agreementHash: current.arcAgreementHash, nextBlock: (await dependencies.blockNumber(config)).toString() }
+          checkpoint = { chainId: 5042002, router: config.router, agreementHash: current.arcAgreementHash, nextBlock: (submissionStartBlock! > 2n ? submissionStartBlock! - 2n : 0n).toString() }
           await dependencies.saveCheckpoint(config.storeKey, recordKey, checkpoint)
         }
         const evidence = await dependencies.submit(signed, config)
