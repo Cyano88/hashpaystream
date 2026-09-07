@@ -13,7 +13,7 @@ The predecessor returns the eleven-field Position layout found in UpfrontAdvance
 - The provider's authenticated read endpoint returned HTTP 200 for both released positions. Both authoritative Arc testnet chain IDs and agreement IDs matched their X Layer positions.
 - One provider agreement is expired with remaining funds; the other is refunded with no remaining funds. Neither reports the full protected amount released as repayment.
 
-These findings explain the missing identifiers but do not dispose of the two released advances. Do not mark them settled, delete them, treat empty escrow balances as retirement evidence, or broadcast corrective transactions. Operator confirmation of whether they are internal technical proofs or obligations to another person is pending. Any actual financial resolution needs its own concrete, authorized action and verified result.
+Operator clarification on 2026-09-07: the user described these as testnet transactions, then explicitly requested migration. Preserve the two actual Released states and the expired/refunded provider evidence; this instruction does not prove on-chain settlement. The recorded architecture is mixed-network: the audited escrow offers and RPC checks use X Layer mainnet 196, while the associated Arc agreements use testnet 5042002. Do not relabel the X Layer side as testnet. The requested migration destination is being clarified: carrying forward legacy history and deploying/switching to reviewed contracts require different actions. No record deletion, settlement rewrite or transaction has been performed.
 
 ## Historical-read scope correction
 
@@ -35,4 +35,3 @@ A complete fixed-block inventory still needs a suitable existing archive/indexed
 2. Complete event coverage and legacy history treatment, with no unidentified funded or released obligation.
 3. Prepare and verify the reviewed V2/V4 deployment and production network parameters. The commands now select reviewed V2/V4 artifacts with frozen-source and paused-state guards (commit ba7fa02); offline verification passed. No reviewed deployment or production network activation has occurred. See REVIEWED_DEPLOYMENT_PREPARATION_2026-09-07.md.
 4. Finish recovery/alert evidence and final candidate validation. No change to the frozen product scope.
-
