@@ -1,3 +1,4 @@
+const testEscrowVersion = process.env.HPS_TEST_ESCROW_VERSION ?? '1'
 import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -80,7 +81,7 @@ const approved = {
       onchainOffer: {
         domain: {
           name: 'HashPayStream Upfront',
-          version: '1',
+          version: testEscrowVersion,
           chainId: 1952,
           verifyingContract: '0x2222222222222222222222222222222222222222',
         },
@@ -156,6 +157,7 @@ const base = {
   }),
   env: () => ({
     HASHPAYSTREAM_UPFRONT_ENABLED: 'true',
+    HASHPAYSTREAM_UPFRONT_ESCROW_VERSION: testEscrowVersion,
     HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED: 'true',
     HASHPAYSTREAM_APP_OWNERSHIP_SECRET: secret,
     HASHPAYSTREAM_XLAYER_RPC_URL: 'https://xlayer.example',

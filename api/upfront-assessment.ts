@@ -1,3 +1,4 @@
+import { upfrontProtocol, type UpfrontEscrowVersion } from '../src/lib/upfrontProtocol.js'
 import { createHash, createHmac } from 'node:crypto'
 import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
@@ -52,7 +53,7 @@ export type UpfrontAssessmentDependencies = {
   assess: (request: AgreementIntelligenceRequest, config: { baseUrl: string; apiKey: string }) => Promise<{ status: number; body: Record<string, unknown> }>
   underwrite: (request: AgreementIntelligenceRequest, intelligence: ReturnType<typeof safeAssessmentResponse>, config: {
     baseUrl: string; serviceToken: string; signingSecret: string; expectedKeyId?: string
-    expectedSigner: Address; escrowContract: Address; chainId: number; now: Date
+    expectedSigner: Address; escrowContract: Address; escrowVersion?: UpfrontEscrowVersion; chainId: number; now: Date
   }) => Promise<PolyDeskDecision>
   env: () => NodeJS.ProcessEnv
   now: () => Date
@@ -141,6 +142,7 @@ function configuration(env: NodeJS.ProcessEnv) {
   const polyDeskSigningKeyId = clean(env.HASHPAYSTREAM_POLYDESK_SIGNING_KEY_ID, 80)
   const polyDeskExpectedSigner = clean(env.HASHPAYSTREAM_POLYDESK_EIP712_SIGNER, 42)
   const polyDeskEscrowContract = clean(env.HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS, 42)
+  const escrowVersion = upfrontProtocol(env.HASHPAYSTREAM_UPFRONT_ESCROW_VERSION).escrowVersion
   const polyDeskChainId = Number(env.HASHPAYSTREAM_UPFRONT_CHAIN_ID ?? 1952)
   const secret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300)
   const storeKey = clean(env.HASHPAYSTREAM_UPFRONT_STORE_KEY ?? DEFAULT_STORE_KEY, 160)
@@ -167,7 +169,7 @@ function configuration(env: NodeJS.ProcessEnv) {
   return {
     apiKey, secret, storeKey, ownershipStoreKey, arcApiKey, arcRouter, baseUrl: baseUrl.origin, agreementBaseUrl: agreementBaseUrl.origin,
     polyDeskBaseUrl: polyDeskBaseUrl.origin, polyDeskServiceToken, polyDeskSigningSecret, polyDeskSigningKeyId,
-    polyDeskExpectedSigner: getAddress(polyDeskExpectedSigner), polyDeskEscrowContract: getAddress(polyDeskEscrowContract), polyDeskChainId,
+    polyDeskExpectedSigner: getAddress(polyDeskExpectedSigner), polyDeskEscrowContract: getAddress(polyDeskEscrowContract), polyDeskChainId, escrowVersion,
   }
 }
 
@@ -377,7 +379,7 @@ export function createHashPayStreamUpfrontAssessmentHandler(overrides: Partial<U
         expectedKeyId: config.polyDeskSigningKeyId || undefined,
         expectedSigner: config.polyDeskExpectedSigner,
         escrowContract: config.polyDeskEscrowContract,
-        chainId: config.polyDeskChainId,
+        chainId: config.polyDeskChainId, escrowVersion: config.escrowVersion,
         now: dependencies.now(),
       })
       const combinedAssessment = { intelligence: response, decision: underwriting }

@@ -1,3 +1,4 @@
+import { upfrontProtocol } from '../lib/upfrontProtocol'
 import { useEffect, useRef, useState } from 'react'
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import {
@@ -177,7 +178,7 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
       const signed = await attestation('release')
       const domain = signed.domain ?? {}; const raw = signed.message ?? {}
       if (
-        signed.primaryType !== 'ProtectionAttestation' || !SIGNATURE.test(String(signed.signature ?? ''))
+        signed.primaryType !== 'ProtectionAttestation' || domain.name !== 'HashPayStream Upfront' || domain.version !== upfrontProtocol(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ESCROW_VERSION).escrowVersion || !SIGNATURE.test(String(signed.signature ?? ''))
         || Number(domain.chainId) !== upfrontXLayerChain.id || address(domain.verifyingContract, 'Escrow') !== getAddress(ESCROW)
         || hex32(raw.positionId, 'Position').toLowerCase() !== opportunity.positionId.toLowerCase() || address(raw.funder, 'Funder') !== account
         || address(raw.repaymentRecipient, 'Repayment wallet') !== account
@@ -216,7 +217,7 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
       const domain = signed.domain ?? {}; const raw = signed.message ?? {}
       if (
         signed.primaryType !== 'SplitSettlement' || !SIGNATURE.test(String(signed.signature ?? ''))
-        || domain.name !== 'HashPayStream Upfront Repayment' || domain.version !== '3'
+        || domain.name !== 'HashPayStream Upfront Repayment' || domain.version !== upfrontProtocol(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ESCROW_VERSION).repaymentVersion
         || Number(domain.chainId) !== arcTestnet.id || address(domain.verifyingContract, 'Repayment router') !== getAddress(ARC_ROUTER)
         || address(raw.funder, 'Repayment wallet') !== account
       ) throw new Error('The repayment proof does not match this funding wallet.')

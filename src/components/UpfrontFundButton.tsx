@@ -1,3 +1,4 @@
+import { upfrontProtocol } from '../lib/upfrontProtocol'
 import { useRef, useState } from 'react'
 import { useWallets } from '@privy-io/react-auth'
 import {
@@ -127,7 +128,7 @@ function parseOffer(opportunity: Opportunity): SignedOffer {
   const domain = signed.domain as Record<string, unknown> | undefined
   const raw = signed.message as Record<string, unknown> | undefined
   if (signed.primaryType !== 'UnderwritingOffer' || !domain || !raw) throw new Error('The verified underwriting offer is incomplete.')
-  if (domain.name !== 'HashPayStream Upfront' || domain.version !== '1' || Number(domain.chainId) !== upfrontXLayerChain.id) {
+  if (domain.name !== 'HashPayStream Upfront' || domain.version !== upfrontProtocol(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ESCROW_VERSION).escrowVersion || Number(domain.chainId) !== upfrontXLayerChain.id) {
     throw new Error('The underwriting offer targets a different network or protocol.')
   }
   if (!isAddress(String(domain.verifyingContract ?? '')) || !isAddress(EXPECTED_ESCROW)) throw new Error('The configured escrow is invalid.')
@@ -168,7 +169,7 @@ function parseFundingTerms(opportunity: Opportunity, escrow: Address) {
   if (signed?.primaryType !== 'FundingTerms' || !domain || !raw || !SIGNATURE.test(signature) || !SIGNATURE.test(providerSignature)) {
     throw new Error('The accepted funding terms are incomplete.')
   }
-  if (domain.name !== 'HashPayStream Upfront' || domain.version !== '1' || Number(domain.chainId) !== upfrontXLayerChain.id || !isAddress(String(domain.verifyingContract ?? '')) || getAddress(String(domain.verifyingContract)) !== escrow) {
+  if (domain.name !== 'HashPayStream Upfront' || domain.version !== upfrontProtocol(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_ESCROW_VERSION).escrowVersion || Number(domain.chainId) !== upfrontXLayerChain.id || !isAddress(String(domain.verifyingContract ?? '')) || getAddress(String(domain.verifyingContract)) !== escrow) {
     throw new Error('The accepted funding terms target a different contract.')
   }
   const offerHash = String(raw.offerHash ?? '')

@@ -1,3 +1,4 @@
+import { upfrontProtocol } from '../src/lib/upfrontProtocol.js'
 import { createHmac } from 'node:crypto'
 import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
@@ -74,7 +75,7 @@ function polyDeskConfiguration(env: NodeJS.ProcessEnv) {
   ) fail('PolyDesk review signing is unavailable.', 503)
   return {
     baseUrl: parsed.origin, serviceToken, signingSecret, expectedKeyId: expectedKeyId || undefined,
-    expectedSigner: getAddress(expectedSigner), escrowContract: getAddress(escrowContract), chainId,
+    expectedSigner: getAddress(expectedSigner), escrowContract: getAddress(escrowContract), chainId, escrowVersion: upfrontProtocol(env.HASHPAYSTREAM_UPFRONT_ESCROW_VERSION).escrowVersion,
   }
 }
 

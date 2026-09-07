@@ -1,3 +1,4 @@
+import { upfrontProtocol, type UpfrontEscrowVersion } from '../src/lib/upfrontProtocol.js'
 import { createHmac } from 'node:crypto'
 import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
@@ -16,7 +17,7 @@ const REQUEST_ID = /^uai_[a-zA-Z0-9]{12,80}$/
 const NATIVE_XLAYER_USDC = getAddress('0xB6CEceAB302E2E4948951eE7843FC24E92933061')
 
 type Identity = { userId: string; emails: string[]; wallets: Address[] }
-type ChainConfig = { rpcUrl: string; escrow: Address; chainId: number; arcRpcUrl: string; arcRouter: Address }
+type ChainConfig = { escrowVersion: UpfrontEscrowVersion; rpcUrl: string; escrow: Address; chainId: number; arcRpcUrl: string; arcRouter: Address }
 type TermsConfig = { privateKey: Hex; signer: Address; treasury: Address }
 type PositionState = { funder: Address; repaymentRecipient: Address; status: 'available' | 'funded' | 'released' | 'settled' | 'refunded' }
 type OpportunityStatus = PositionState['status'] | 'expired' | 'declined'
@@ -101,7 +102,7 @@ function chainConfiguration(env: NodeJS.ProcessEnv): ChainConfig {
   let parsed: URL; let parsedArc: URL
   try { parsed = new URL(rpcUrl); parsedArc = new URL(arcRpcUrl) } catch { failure('The funding networks are unavailable.', 503) }
   if (parsed!.protocol !== 'https:' || parsedArc!.protocol !== 'https:' || parsed!.username || parsed!.password || parsedArc!.username || parsedArc!.password || !isAddress(escrowText) || !isAddress(arcRouterText) || ![1952, 196].includes(chainId)) failure('The funding networks are unavailable.', 503)
-  return { rpcUrl: parsed!.toString(), escrow: getAddress(escrowText), chainId, arcRpcUrl: parsedArc!.toString(), arcRouter: getAddress(arcRouterText) }
+  return { escrowVersion: upfrontProtocol(env.HASHPAYSTREAM_UPFRONT_ESCROW_VERSION).escrowVersion, rpcUrl: parsed!.toString(), escrow: getAddress(escrowText), chainId, arcRpcUrl: parsedArc!.toString(), arcRouter: getAddress(arcRouterText) }
 }
 
 function termsConfiguration(env: NodeJS.ProcessEnv): TermsConfig {
@@ -124,7 +125,7 @@ function opportunity(record: UpfrontAssessmentRecord, now: Date, config: ChainCo
   if (decision.decision !== 'APPROVE' || !offer || !Number.isFinite(Date.parse(expiresAt))) return undefined
   const domain = offer.domain && typeof offer.domain === 'object' ? offer.domain as Record<string, unknown> : undefined
   const message = offer.message && typeof offer.message === 'object' ? offer.message as Record<string, unknown> : undefined
-  if (offer.primaryType !== 'UnderwritingOffer' || !domain || !message || domain.name !== 'HashPayStream Upfront' || domain.version !== '1' || Number(domain.chainId) !== config.chainId || !isAddress(String(domain.verifyingContract ?? '')) || getAddress(String(domain.verifyingContract)) !== config.escrow || !isAddress(String(message.provider ?? '')) || !/^0x[a-fA-F0-9]{64}$/.test(String(message.termsHash ?? '')) || !/^0x[a-fA-F0-9]{64}$/.test(String(message.intelligenceCommitment ?? '')) || !/^0x[a-fA-F0-9]{64}$/.test(String(message.nonce ?? ''))) return undefined
+  if (offer.primaryType !== 'UnderwritingOffer' || !domain || !message || domain.name !== 'HashPayStream Upfront' || domain.version !== config.escrowVersion || Number(domain.chainId) !== config.chainId || !isAddress(String(domain.verifyingContract ?? '')) || getAddress(String(domain.verifyingContract)) !== config.escrow || !isAddress(String(message.provider ?? '')) || !/^0x[a-fA-F0-9]{64}$/.test(String(message.termsHash ?? '')) || !/^0x[a-fA-F0-9]{64}$/.test(String(message.intelligenceCommitment ?? '')) || !/^0x[a-fA-F0-9]{64}$/.test(String(message.nonce ?? ''))) return undefined
   const protectedUnits = clean(record.request.agreement.amountUsdcUnits, 32)
   const requestedUnits = clean(record.request.advance.requestedUsdcUnits, 32)
   const maximumAdvanceBps = Number(decision.maximumAdvanceBps)
@@ -137,7 +138,7 @@ function opportunity(record: UpfrontAssessmentRecord, now: Date, config: ChainCo
   if (!Number.isInteger(offerMessage.maxAdvanceBps) || !Number.isSafeInteger(offerMessage.protectionDeadline) || offerMessage.protectionDeadline !== record.request.agreement.protectionDeadline || !Number.isSafeInteger(offerMessage.underwritingDeadline) || offerMessage.protectionDeadline <= offerMessage.underwritingDeadline || offerMessage.underwritingDeadline !== expiresAtSeconds) return undefined
   const live = offerMessage.underwritingDeadline > Math.floor(now.getTime() / 1000) && hasMinimumUpfrontProtectionWindow(offerMessage.protectionDeadline, now, minimumRemainingSeconds)
   if (!includeExpired && !live) return undefined
-  const positionId = hashTypedData({ domain: { name: 'HashPayStream Upfront', version: '1', chainId: config.chainId, verifyingContract: config.escrow }, types: OFFER_TYPES, primaryType: 'UnderwritingOffer', message: offerMessage })
+  const positionId = hashTypedData({ domain: { name: 'HashPayStream Upfront', version: config.escrowVersion, chainId: config.chainId, verifyingContract: config.escrow }, types: OFFER_TYPES, primaryType: 'UnderwritingOffer', message: offerMessage })
   return { id: record.request.requestId, agreementId: record.agreementId, title: record.request.agreement.title, protectedUsdcUnits: protectedUnits, requestedAdvanceUsdcUnits: fundableUnits.toString(), maximumAdvanceBps, durationSeconds: record.request.agreement.durationSeconds, providerPayoutAddress: record.request.advance.providerPayoutAddress, evidenceGrade: clean(intelligence.evidenceGrade, 24), confidence: Number(intelligence.confidence), expiresAt, live, positionId, onchainOffer: offer }
 }
 
@@ -204,7 +205,7 @@ async function signedTerms(input: {
     deadline,
     nonce: keccak256(toBytes(`hashpaystream.funding-terms\0${input.candidate.id}\0${input.partnerWallet}\0${input.advanceAmount}`)),
     chainId: input.chain.chainId,
-    escrow: input.chain.escrow,
+    escrow: input.chain.escrow, escrowVersion: input.chain.escrowVersion,
     privateKey: input.terms.privateKey,
   })
 }

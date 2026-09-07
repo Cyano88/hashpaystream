@@ -1,3 +1,4 @@
+import { upfrontProtocol, type UpfrontEscrowVersion } from '../src/lib/upfrontProtocol.js'
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 import { getAddress, recoverTypedDataAddress, type Address, type Hex } from 'viem'
 import type { AgreementIntelligenceRequest } from './agreement-intelligence-schema.js'
@@ -16,7 +17,7 @@ const UNDERWRITING_TYPES = {
 } as const
 
 type OnchainUnderwritingOffer = {
-  domain: { name: 'HashPayStream Upfront'; version: '1'; chainId: number; verifyingContract: Address }
+  domain: { name: 'HashPayStream Upfront'; version: UpfrontEscrowVersion; chainId: number; verifyingContract: Address }
   primaryType: 'UnderwritingOffer'
   message: {
     provider: Address; termsHash: Hex; intelligenceCommitment: Hex; protectedAmount: string
@@ -125,6 +126,7 @@ export async function verifyPolyDeskDecision(value: unknown, input: {
   expectedKeyId?: string
   expectedSigner: Address
   escrowContract: Address
+  escrowVersion?: UpfrontEscrowVersion
   chainId: number
   now: Date
 }): Promise<PolyDeskDecision> {
@@ -195,7 +197,7 @@ export async function verifyPolyDeskDecision(value: unknown, input: {
     const expectedCommitment = '0x' + input.intelligence.requestCommitment.slice(7)
     if (
       !offer
-      || offer.domain.name !== 'HashPayStream Upfront' || offer.domain.version !== '1'
+      || offer.domain.name !== 'HashPayStream Upfront' || offer.domain.version !== upfrontProtocol(input.escrowVersion).escrowVersion
       || offer.domain.chainId !== input.chainId
       || !/^0x[a-fA-F0-9]{40}$/.test(offer.domain.verifyingContract)
       || getAddress(offer.domain.verifyingContract) !== getAddress(input.escrowContract)
@@ -247,6 +249,7 @@ export async function requestPolyDeskUnderwriting(input: {
   expectedKeyId?: string
   expectedSigner: Address
   escrowContract: Address
+  escrowVersion?: UpfrontEscrowVersion
   chainId: number
   now: Date
   manualReview?: {

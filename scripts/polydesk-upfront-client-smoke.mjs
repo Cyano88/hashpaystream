@@ -90,3 +90,15 @@ await assert.rejects(
 )
 
 console.log('HashPayStream PolyDesk EIP-712 verification checks passed.')
+
+// The expected version comes from server configuration, never the envelope.
+const reviewedOffer = { ...offer, domain: { ...offer.domain, version: '2' } }
+reviewedOffer.signature = await account.signTypedData({ domain: reviewedOffer.domain, types: TYPES, primaryType: offer.primaryType, message: { ...offer.message, protectedAmount: BigInt(offer.message.protectedAmount) } })
+const reviewedDecision = { ...decision, onchainOffer: reviewedOffer }
+const reviewedHash = createHash('sha256').update(canonical(reviewedDecision)).digest('hex')
+const reviewedEnvelope = { ok: true, decision: { ...reviewedDecision, attestation: { algorithm: 'hmac-sha256', keyId: 'polydesk-test-v1', payloadHash: 'sha256:' + reviewedHash, signature: createHmac('sha256', signingSecret).update(reviewedHash).digest('hex') } } }
+assert.equal((await verifyPolyDeskDecision(reviewedEnvelope, { ...input, escrowVersion: '2' })).onchainOffer.domain.version, '2')
+await assert.rejects(() => verifyPolyDeskDecision(reviewedEnvelope, input), /invalid onchain underwriting offer/)
+await assert.rejects(() => verifyPolyDeskDecision(envelope, { ...input, escrowVersion: '2' }), /invalid onchain underwriting offer/)
+await assert.rejects(() => verifyPolyDeskDecision(reviewedEnvelope, { ...input, escrowVersion: '3' }), /Unsupported Upfront/)
+console.log('Reviewed underwriting version binding and cross-version rejection passed.')

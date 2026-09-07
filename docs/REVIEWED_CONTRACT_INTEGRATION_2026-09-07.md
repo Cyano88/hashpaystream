@@ -8,8 +8,8 @@ Arc's official August 5 announcement schedules public mainnet for September 16, 
 
 ## Verified compatibility gap
 
-- Reviewed UpfrontAdvanceEscrowV2 uses EIP-712 name HashPayStream Upfront, version 2. Current application funding/protection signing and verification use version 1.
-- Reviewed ArcRepaymentRouterV4 uses EIP-712 name HashPayStream Upfront Repayment, version 4. Current signing and client verification use version 3.
+- Reviewed UpfrontAdvanceEscrowV2 uses EIP-712 name HashPayStream Upfront, version 2. Deployed application funding/protection signing and verification use version 1.
+- Reviewed ArcRepaymentRouterV4 uses EIP-712 name HashPayStream Upfront Repayment, version 4. Deployed signing and client verification use version 3.
 - Current deploy-mainnet.ts instantiates legacy UpfrontAdvanceEscrow; deploy-arc.ts instantiates legacy ArcRepaymentRouter. Do not use those existing commands as a reviewed-stack deployment plan.
 - V4 additionally requires an immutable platform treasury constructor value and starts paused. Both contract interfaces, signature domains and configured counterpart/treasury must be checked before activation.
 - The upstream underwriting service is polydesk-upfront.onrender.com, backed by the separate polydesk-upfront-service repository. Its inspected main commit is 4b695d0 and its signing domain is version 1. A coordinated signer/API/client change is required; changing only addresses will fail.
@@ -36,3 +36,19 @@ Upstream preparation branch: release/hashpaystream-v2 in C:/Users/USER/polydesk-
 The existing signed Android 1.0.15 remains the UI/consolidation checkpoint. Do not rebuild it for each isolated integration edit; produce the next final candidate after this fixed integration set passes together.
 
 Upstream preparation completed at commit 73685fc7d326af5d7e541d0acc2af9a4819e34c1: all 7 tests and TypeScript build passed under Node 22. Original upstream checkout and deployed configuration remain unchanged.
+
+## Application integration checkpoint
+
+HashPayStream now supports the operator-controlled HASHPAYSTREAM_UPFRONT_ESCROW_VERSION and VITE_HASHPAYSTREAM_UPFRONT_ESCROW_VERSION settings. Only 1 and 2 are accepted; absent retains legacy behavior. Escrow 1 maps to repayment signature 3; escrow 2 maps to repayment signature 4. The fee-agreement schema remains version 3. All three services/build configurations must agree before activation. These settings have not been activated in production.
+
+The version is bound through underwriting verification, funding terms, protection and repayment signing, settlement worker, funding CLI and browser validation. Unsupported values and cross-version signatures fail closed. This does not yet support historical contract routing or Arc mainnet: both remain explicit gates, not implied by version 2 support.
+
+Validation: TypeScript, assessment/funding/protection smoke, reviewed-version opportunities smoke, review smoke and settlement-worker smoke passed. The local integration harness uses the actual upstream handler and HashPayStream request verification/signing functions with frozen compiled V2/V4 contracts on two owned loopback Hardhat nodes (196 and 5042002). Funding consent, protected release, three-party repayment, refund timing, paused state, treasury binding and replay/version rejection are checked against contract execution.
+
+Run from the candidate using Node 22:
+
+```powershell
+node --import tsx scripts/upfront-reviewed-contracts-local.mjs C:\Users\USER\hashpaystream-contract-verification-20260907 C:\Users\USER\polydesk-upfront-production-20260907
+```
+
+The harness uses synthetic keys and mock USDC only; no production environment is loaded into its nodes. Intelligence evidence, authoritative agreement state and the repayment source are simulated. Passing proves signature/contract compatibility, not real cross-chain delivery, provider operation, migration safety or financial production readiness. No reviewed contract source was changed.

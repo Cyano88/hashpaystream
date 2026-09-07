@@ -59,3 +59,17 @@ assert.equal(BigInt(repayment.message.funderAmount) + BigInt(repayment.message.p
 await assert.rejects(() => signSplitSettlement({ request, position: { ...position, status: 'Released' }, agreement: { ...completedAgreement, chain: { ...completedAgreement.chain, releasedUsdcUnits: '1' } }, arcRouter, privateKey, now: new Date('2026-08-20T12:05:00.000Z') }), /not complete/)
 
 console.log('HashPayStream Upfront protection and repayment attestation checks passed.')
+
+for (const escrowVersion of ['1', '2']) {
+  const release = await signProtectionAttestation({ request, position, agreement, arcRouter, xLayerChainId: 1952, xLayerEscrow: '0x2222222222222222222222222222222222222222', escrowVersion, privateKey, now: new Date('2026-08-19T12:05:00.000Z'), minimumRemainingSeconds: 21600 })
+  assert.equal(release.domain.version, escrowVersion)
+  const releaseMessage = { ...release.message, protectedAmount: BigInt(release.message.protectedAmount), advanceAmount: BigInt(release.message.advanceAmount) }
+  assert.equal(await recoverTypedDataAddress({ ...release, types: PROTECTION_TYPES, message: releaseMessage }), release.signer)
+  assert.notEqual(await recoverTypedDataAddress({ ...release, domain: { ...release.domain, version: escrowVersion === '1' ? '2' : '1' }, types: PROTECTION_TYPES, message: releaseMessage }), release.signer)
+  const split = await signSplitSettlement({ request, position: { ...position, status: 'Released' }, agreement: completedAgreement, arcRouter, escrowVersion, privateKey, now: new Date('2026-08-20T12:05:00.000Z') })
+  assert.equal(split.domain.version, escrowVersion === '2' ? '4' : '3')
+  const splitMessage = { ...split.message, funderAmount: BigInt(split.message.funderAmount), providerAmount: BigInt(split.message.providerAmount), treasuryAmount: BigInt(split.message.treasuryAmount) }
+  assert.equal(await recoverTypedDataAddress({ ...split, types: REPAYMENT_TYPES, message: splitMessage }), split.signer)
+  assert.notEqual(await recoverTypedDataAddress({ ...split, domain: { ...split.domain, version: escrowVersion === '2' ? '3' : '4' }, types: REPAYMENT_TYPES, message: splitMessage }), split.signer)
+}
+console.log('Legacy and reviewed protection/repayment domain isolation passed.')

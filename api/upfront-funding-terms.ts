@@ -1,3 +1,4 @@
+import { upfrontProtocol, type UpfrontEscrowVersion } from '../src/lib/upfrontProtocol.js'
 import { getAddress, hashTypedData, type Address, type Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { quoteUpfrontFees, type UpfrontFeeQuote } from './upfront-fees.js'
@@ -18,7 +19,7 @@ export const FUNDING_TERMS_TYPES = {
 } as const
 
 export type SignedFundingTerms = {
-  domain: { name: 'HashPayStream Upfront'; version: '1'; chainId: number; verifyingContract: Address }
+  domain: { name: 'HashPayStream Upfront'; version: UpfrontEscrowVersion; chainId: number; verifyingContract: Address }
   primaryType: 'FundingTerms'
   message: {
     offerHash: Hex
@@ -49,10 +50,11 @@ export async function signFundingTerms(input: {
   nonce: Hex
   chainId: number
   escrow: Address
+  escrowVersion?: UpfrontEscrowVersion
   privateKey: Hex
 }): Promise<SignedFundingTerms> {
   const quote = quoteUpfrontFees({ protectedAmount: input.protectedAmount, advanceAmount: input.advanceAmount, durationSeconds: input.durationSeconds })
-  const domain = { name: 'HashPayStream Upfront', version: '1', chainId: input.chainId, verifyingContract: getAddress(input.escrow) } as const
+  const domain = { name: 'HashPayStream Upfront', version: upfrontProtocol(input.escrowVersion).escrowVersion, chainId: input.chainId, verifyingContract: getAddress(input.escrow) } as const
   const message = {
     offerHash: input.offerHash,
     funder: getAddress(input.funder),

@@ -1,3 +1,4 @@
+import { upfrontProtocol, type UpfrontEscrowVersion } from '../src/lib/upfrontProtocol.js'
 import { getAddress, keccak256, toBytes, type Address, type Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import type { AgreementIntelligenceRequest } from './agreement-intelligence-schema.js'
@@ -90,7 +91,7 @@ function assertBinding(input: {
 
 export async function signProtectionAttestation(input: {
   request: AgreementIntelligenceRequest; position: UpfrontPosition; agreement: AuthoritativeArcAgreement
-  arcRouter: Address; xLayerChainId: number; xLayerEscrow: Address; privateKey: Hex; now: Date; minimumRemainingSeconds: number
+  arcRouter: Address; xLayerChainId: number; xLayerEscrow: Address; escrowVersion?: UpfrontEscrowVersion; privateKey: Hex; now: Date; minimumRemainingSeconds: number
 }) {
   const chain = assertBinding(input)
   if (input.position.status !== 'Funded' || input.agreement.status !== 'active') invalid('Advance release requires a funded X Layer position and active Arc protection.')
@@ -108,13 +109,13 @@ export async function signProtectionAttestation(input: {
     observedAt, deadline,
   }
   const account = privateKeyToAccount(input.privateKey)
-  const domain = { name: 'HashPayStream Upfront', version: '1', chainId: input.xLayerChainId, verifyingContract: getAddress(input.xLayerEscrow) } as const
+  const domain = { name: 'HashPayStream Upfront', version: upfrontProtocol(input.escrowVersion).escrowVersion, chainId: input.xLayerChainId, verifyingContract: getAddress(input.xLayerEscrow) } as const
   return { domain, primaryType: 'ProtectionAttestation' as const, message: { ...message, protectedAmount: message.protectedAmount.toString(), advanceAmount: message.advanceAmount.toString() }, signer: account.address, signature: await account.signTypedData({ domain, types: PROTECTION_TYPES, primaryType: 'ProtectionAttestation', message }) }
 }
 
 export async function signSplitSettlement(input: {
   request: AgreementIntelligenceRequest; position: UpfrontPosition; agreement: AuthoritativeArcAgreement
-  arcRouter: Address; privateKey: Hex; now: Date
+  arcRouter: Address; escrowVersion?: UpfrontEscrowVersion; privateKey: Hex; now: Date
 }) {
   const chain = assertBinding(input)
   if (input.position.status !== 'Released' || input.agreement.status !== 'completed') invalid('Repayment credit requires a released advance and completed Arc agreement.')
@@ -136,7 +137,7 @@ export async function signSplitSettlement(input: {
     funderAmount, providerAmount, treasuryAmount, observedAt, deadline,
   }
   const account = privateKeyToAccount(input.privateKey)
-  const domain = { name: 'HashPayStream Upfront Repayment', version: '3', chainId: 5_042_002, verifyingContract: getAddress(input.arcRouter) } as const
+  const domain = { name: 'HashPayStream Upfront Repayment', version: upfrontProtocol(input.escrowVersion).repaymentVersion, chainId: 5_042_002, verifyingContract: getAddress(input.arcRouter) } as const
   return {
     domain,
     primaryType: 'SplitSettlement' as const,

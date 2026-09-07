@@ -1,3 +1,4 @@
+import { upfrontProtocol, type UpfrontEscrowVersion } from '../src/lib/upfrontProtocol.js'
 import { createPublicClient, createWalletClient, defineChain, getAddress, http, isAddress, type Address, type Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { mutateDurableJson, readDurableJson } from './durable-store.js'
@@ -35,6 +36,7 @@ const arcTestnet = defineChain({
 
 export type UpfrontSettlementWorkerConfig = {
   enabled: boolean
+  escrowVersion?: UpfrontEscrowVersion
   storeKey: string
   baseUrl: string
   apiKey: string
@@ -76,7 +78,7 @@ export function upfrontSettlementWorkerConfiguration(env: NodeJS.ProcessEnv): Up
   const apiKey = clean(env.HASHPAYSTREAM_UPFRONT_ARC_API_KEY, 220)
   if (!apiKey.startsWith('hpl_test_') || apiKey.length < 32) throw new Error('ARC_API_KEY_INVALID')
   return {
-    enabled,
+    enabled, escrowVersion: upfrontProtocol(env.HASHPAYSTREAM_UPFRONT_ESCROW_VERSION).escrowVersion,
     storeKey: clean(env.HASHPAYSTREAM_UPFRONT_STORE_KEY ?? 'hashpaystream:upfront-assessments:v1', 160),
     baseUrl: new URL(url(env.HASHPAYSTREAM_HASH_PAYLINK_BASE_URL ?? 'https://app.hashpaylink.com', 'HASH_PAYLINK_URL_INVALID')).origin,
     apiKey,
@@ -176,7 +178,7 @@ export async function runUpfrontSettlementPass(overrides: Partial<UpfrontSettlem
         if (await dependencies.isSettled(current.arcAgreementHash, config)) { await dependencies.markSettled(config.storeKey, recordKey); result.alreadySettled += 1; continue }
         const authoritative = await dependencies.agreement(record.agreementId, config)
         if (!authoritative.chain || authoritative.chain.onchainAgreementId.toLowerCase() !== current.arcAgreementHash.toLowerCase()) throw new Error('ARC_AGREEMENT_MISMATCH')
-        const signed = await dependencies.sign({ request: record.request, position: current, agreement: authoritative, arcRouter: config.router, privateKey: config.repaymentKey, now: dependencies.now() })
+        const signed = await dependencies.sign({ request: record.request, position: current, agreement: authoritative, arcRouter: config.router, escrowVersion: config.escrowVersion, privateKey: config.repaymentKey, now: dependencies.now() })
         await dependencies.submit(signed, config)
         await dependencies.markSettled(config.storeKey, recordKey)
         result.settled += 1
