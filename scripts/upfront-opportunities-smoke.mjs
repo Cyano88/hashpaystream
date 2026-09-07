@@ -462,3 +462,75 @@ assert.equal(v3Disabled.statusCode, 503)
 console.log(
   'HashPayStream private capacity-aware funding request checks passed.',
 )
+
+
+// A contract switch preserves explicit historical reads without reviving old offers.
+const historicalRecord = structuredClone(approved)
+historicalRecord.fundingRequest = {
+  settlementVersion: 3, partnerApplicationId: 'partner_a', partnerWalletAddress: funderA,
+  advanceUsdcUnits: '20000000', fundingTerms: assignedA.body.opportunities[0].fundingTerms,
+  providerSignature, status: 'settled', requestedAt: now.toISOString(),
+  expiresAt: '2026-08-21T12:15:00.000Z',
+}
+store = { schema: 1, records: { historical: historicalRecord } }
+const historicalTarget = {
+  escrowVersion: testEscrowVersion, chainId: 1952,
+  escrow: '0x2222222222222222222222222222222222222222',
+  rpcUrl: 'https://legacy-xlayer.example/', arcRpcUrl: 'https://legacy-arc.example/',
+  arcRouter: '0x4444444444444444444444444444444444444444',
+}
+const switchedEnv = {
+  ...base.env(), HASHPAYSTREAM_UPFRONT_ESCROW_VERSION: '2',
+  HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS: '0x6666666666666666666666666666666666666666',
+  HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS: '0x7777777777777777777777777777777777777777',
+  HASHPAYSTREAM_UPFRONT_HISTORY_TARGETS: JSON.stringify([historicalTarget]),
+}
+let historyReads = 0
+const historyDependencies = {
+  ...base, env: () => switchedEnv,
+  position: async (id, target) => {
+    historyReads += 1
+    assert.equal(id, assignedA.body.opportunities[0].positionId)
+    assert.deepEqual(target, historicalTarget)
+    return { funder: funderA, repaymentRecipient: funderA, status: 'settled' }
+  },
+  capacity: async () => { assert.fail('Historical reads must not obtain funding capacity') },
+  mutateStore: async () => { assert.fail('Historical requests must not mutate the store') },
+}
+const historicalDesk = await call(createUpfrontOpportunitiesHandler({ ...historyDependencies, identity: identity(partnerAIdentity) }))
+assert.equal(historicalDesk.statusCode, 200)
+assert.equal(historicalDesk.body.opportunities.length, 1)
+assert.equal(historicalDesk.body.opportunities[0].positionStatus, 'settled')
+assert.equal(historicalDesk.body.opportunities[0].readOnly, true)
+assert.equal(historicalDesk.body.opportunities[0].live, false)
+assert.equal(historicalDesk.body.opportunities[0].fundingChainId, 1952)
+assert.deepEqual(historicalDesk.body.opportunities[0].fundingTerms.quote, assignedA.body.opportunities[0].fundingTerms.quote)
+assert.equal('target' in historicalDesk.body.opportunities[0], false, 'Never expose operator RPC configuration')
+const historicalProvider = await call(createUpfrontOpportunitiesHandler({ ...historyDependencies, identity: identity(providerIdentity) }), { query: { view: 'provider_status', agreementId: approved.agreementId } })
+assert.equal(historicalProvider.body.selection.status, 'settled')
+const historicalPartners = await call(createUpfrontOpportunitiesHandler({ ...historyDependencies, identity: identity(providerIdentity) }), { query: { view: 'partners', requestId: request.requestId } })
+assert.deepEqual(historicalPartners.body.partners, [])
+assert.equal(historicalPartners.body.selection.status, 'settled')
+const unrelatedPartner = await call(createUpfrontOpportunitiesHandler({ ...historyDependencies, identity: identity(partnerBIdentity) }))
+assert.deepEqual(unrelatedPartner.body.opportunities, [])
+const unrelatedProvider = await call(createUpfrontOpportunitiesHandler({ ...historyDependencies, identity: identity({ ...providerIdentity, userId: 'different-provider' }) }), { query: { view: 'provider_status', agreementId: approved.agreementId } })
+assert.equal(unrelatedProvider.body.selection, null)
+assert.ok(historyReads > 0)
+
+historicalRecord.fundingRequest.status = 'pending'
+const stillUnfunded = { ...historyDependencies, position: async () => ({ funder: funderA, repaymentRecipient: funderA, status: 'available' }) }
+const expiredHistory = await call(createUpfrontOpportunitiesHandler({ ...stillUnfunded, identity: identity(partnerAIdentity) }))
+assert.equal(expiredHistory.body.opportunities[0].positionStatus, 'expired', 'Even an unexpired historical offer must not be fundable')
+assert.equal(expiredHistory.body.opportunities[0].readOnly, true)
+const rejectedAssignment = await call(createUpfrontOpportunitiesHandler({ ...stillUnfunded, identity: identity(providerIdentity) }), { method: 'POST', body: { action: 'select_partner', requestId: request.requestId, partnerId: 'partner_a', advanceUsdcUnits: '20000000', providerSignature } })
+assert.equal(rejectedAssignment.statusCode, 409)
+const noHistory = { ...switchedEnv }
+delete noHistory.HASHPAYSTREAM_UPFRONT_HISTORY_TARGETS
+const untrusted = await call(createUpfrontOpportunitiesHandler({ ...historyDependencies, env: () => noHistory, identity: identity(partnerAIdentity), position: async () => { assert.fail('Unknown contract must not be queried') } }), { query: { historyTargets: JSON.stringify([historicalTarget]) } })
+assert.deepEqual(untrusted.body.opportunities, [])
+
+for (const invalidHistory of ['bad-json', '{}', JSON.stringify([{ ...historicalTarget, rpcUrl: 'http://legacy.example' }]), JSON.stringify([{ ...historicalTarget, escrowVersion: '9' }]), JSON.stringify([historicalTarget, historicalTarget])]) {
+  const invalidConfig = await call(createUpfrontOpportunitiesHandler({ ...historyDependencies, env: () => ({ ...switchedEnv, HASHPAYSTREAM_UPFRONT_HISTORY_TARGETS: invalidHistory }), identity: identity(partnerAIdentity) }))
+  assert.equal(invalidConfig.statusCode, 503)
+}
+console.log('Historical contract receipt continuity, owner isolation, explicit target binding and funding exclusion passed.')

@@ -105,6 +105,31 @@ function chainConfiguration(env: NodeJS.ProcessEnv): ChainConfig {
   return { escrowVersion: upfrontProtocol(env.HASHPAYSTREAM_UPFRONT_ESCROW_VERSION).escrowVersion, rpcUrl: parsed!.toString(), escrow: getAddress(escrowText), chainId, arcRpcUrl: parsedArc!.toString(), arcRouter: getAddress(arcRouterText) }
 }
 
+// Explicit operator allowlist only. Stored offers cannot choose RPC or router targets.
+function historyConfigurations(env: NodeJS.ProcessEnv, active: ChainConfig): ChainConfig[] {
+  const raw = env.HASHPAYSTREAM_UPFRONT_HISTORY_TARGETS
+  if (raw === undefined) return []
+  let values: unknown
+  try { values = JSON.parse(raw) } catch { failure('Funding history configuration is invalid.', 503) }
+  if (!Array.isArray(values) || values.length > 8) failure('Funding history configuration is invalid.', 503)
+  const targets = values.map(value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) failure('Funding history configuration is invalid.', 503)
+    const target = value as Record<string, unknown>
+    if (!['1', '2'].includes(String(target.escrowVersion))) failure('Funding history configuration is invalid.', 503)
+    return chainConfiguration({
+      HASHPAYSTREAM_UPFRONT_ESCROW_VERSION: String(target.escrowVersion),
+      HASHPAYSTREAM_UPFRONT_CHAIN_ID: String(target.chainId),
+      HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS: String(target.escrow),
+      HASHPAYSTREAM_XLAYER_RPC_URL: String(target.rpcUrl),
+      HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS: String(target.arcRouter),
+      HASHPAYSTREAM_ARC_RPC_URL: String(target.arcRpcUrl),
+    })
+  })
+  const keys = [active, ...targets].map(target => [target.chainId, target.escrow.toLowerCase()].join(':'))
+  if (new Set(keys).size !== keys.length) failure('Funding history targets must be distinct.', 503)
+  return targets
+}
+
 function termsConfiguration(env: NodeJS.ProcessEnv): TermsConfig {
   const privateKey = clean(env.HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY, 66)
   const signer = clean(env.HASHPAYSTREAM_UPFRONT_PROTECTION_SIGNER, 42)
@@ -139,7 +164,7 @@ function opportunity(record: UpfrontAssessmentRecord, now: Date, config: ChainCo
   const live = offerMessage.underwritingDeadline > Math.floor(now.getTime() / 1000) && hasMinimumUpfrontProtectionWindow(offerMessage.protectionDeadline, now, minimumRemainingSeconds)
   if (!includeExpired && !live) return undefined
   const positionId = hashTypedData({ domain: { name: 'HashPayStream Upfront', version: config.escrowVersion, chainId: config.chainId, verifyingContract: config.escrow }, types: OFFER_TYPES, primaryType: 'UnderwritingOffer', message: offerMessage })
-  return { id: record.request.requestId, agreementId: record.agreementId, title: record.request.agreement.title, protectedUsdcUnits: protectedUnits, requestedAdvanceUsdcUnits: fundableUnits.toString(), maximumAdvanceBps, durationSeconds: record.request.agreement.durationSeconds, providerPayoutAddress: record.request.advance.providerPayoutAddress, evidenceGrade: clean(intelligence.evidenceGrade, 24), confidence: Number(intelligence.confidence), expiresAt, live, positionId, onchainOffer: offer }
+  return { id: record.request.requestId, agreementId: record.agreementId, title: record.request.agreement.title, protectedUsdcUnits: protectedUnits, requestedAdvanceUsdcUnits: fundableUnits.toString(), maximumAdvanceBps, durationSeconds: record.request.agreement.durationSeconds, providerPayoutAddress: record.request.advance.providerPayoutAddress, evidenceGrade: clean(intelligence.evidenceGrade, 24), confidence: Number(intelligence.confidence), expiresAt, live, readOnly: false, fundingChainId: config.chainId, positionId, onchainOffer: offer }
 }
 
 async function position(id: Hex, config: ChainConfig): Promise<PositionState> {
@@ -237,6 +262,17 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
       const terms = termsConfiguration(env)
       const now = dependencies.now()
       const minimumRemainingSeconds = minimumUpfrontRemainingSeconds(env)
+      const history = historyConfigurations(env, chain)
+      const readCandidate = (record: UpfrontAssessmentRecord) => {
+        const active = opportunity(record, now, chain, minimumRemainingSeconds, Boolean(record.fundingRequest))
+        if (active) return { candidate: active, target: chain }
+        if (!record.fundingRequest) return undefined
+        for (const target of history) {
+          const candidate = opportunity(record, now, target, minimumRemainingSeconds, true)
+          if (candidate) return { candidate: { ...candidate, live: false, readOnly: true }, target }
+        }
+        return undefined
+      }
       const storeKey = clean(env.HASHPAYSTREAM_UPFRONT_STORE_KEY ?? DEFAULT_STORE_KEY, 160)
       const partnerStoreKey = clean(env.HASHPAYSTREAM_FUNDING_PARTNER_STORE_KEY ?? DEFAULT_PARTNER_STORE_KEY, 160)
       const [storeValue, partners] = await Promise.all([dependencies.readStore(storeKey), dependencies.readPartners(partnerStoreKey)])
@@ -255,9 +291,10 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
         let selectedCandidate: NonNullable<ReturnType<typeof opportunity>> | undefined
         let selectedPosition: PositionState | undefined
         for (const record of records.filter(item => item.fundingRequest)) {
-          const candidate = opportunity(record, now, chain, minimumRemainingSeconds, true)
-          if (!candidate) continue
-          const positionState = await dependencies.position(candidate.positionId, chain)
+          const matched = readCandidate(record)
+          if (!matched) continue
+          const { candidate, target } = matched
+          const positionState = await dependencies.position(candidate.positionId, target)
           selectedRecord = record
           selectedCandidate = candidate
           selectedPosition = positionState
@@ -265,8 +302,9 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
         }
         const record = selectedRecord ?? records[0]
         if (!record?.response) return res.json({ ok: true, assessment: null, selection: null })
-        const candidate = selectedCandidate ?? opportunity(record, now, chain, minimumRemainingSeconds, true)
-        const positionState = selectedPosition ?? (candidate && record.fundingRequest ? await dependencies.position(candidate.positionId, chain) : undefined)
+        const matched = readCandidate(record)
+        const candidate = selectedCandidate ?? matched?.candidate
+        const positionState = selectedPosition ?? (matched && record.fundingRequest ? await dependencies.position(matched.candidate.positionId, matched.target) : undefined)
         return res.json({
           ok: true,
           assessment: providerAssessment(record.response),
@@ -281,9 +319,10 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
         if (!REQUEST_ID.test(requestId)) failure('Early-pay request is invalid.', 400)
         const found = findRecord(store, requestId)
         if (!found || found[1].ownerReference !== providerReference(secret, identity.userId)) failure('Early-pay request was not found.', 404)
-        const candidate = opportunity(found[1], now, chain, minimumRemainingSeconds, Boolean(found[1].fundingRequest))
+        const matched = req.method === 'GET' ? readCandidate(found[1]) : undefined
+        const candidate = matched?.candidate ?? opportunity(found[1], now, chain, minimumRemainingSeconds, Boolean(found[1].fundingRequest))
         if (!candidate) failure('This early-pay request is no longer available.', 409)
-        const positionState = await dependencies.position(candidate.positionId, chain)
+        const positionState = await dependencies.position(candidate.positionId, matched?.target ?? chain)
         const selected = providerSelection(found[1], candidate, positionState, partners)
         if (req.method === 'GET') {
           if (selected?.status === 'pending' || selected?.status === 'funded' || selected?.status === 'released') return res.json({ ok: true, partners: [], selection: selected })
@@ -369,10 +408,10 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
       }
 
       const candidates = Object.values(store.records).flatMap(record => {
-        const candidate = opportunity(record, now, chain, minimumRemainingSeconds, Boolean(record.fundingRequest))
-        return candidate ? [{ record, candidate }] : []
+        const matched = readCandidate(record)
+        return matched ? [{ record, ...matched }] : []
       })
-      const inspected = await Promise.all(candidates.map(async item => ({ ...item, position: await dependencies.position(item.candidate.positionId, chain) })))
+      const inspected = await Promise.all(candidates.map(async item => ({ ...item, position: await dependencies.position(item.candidate.positionId, item.target) })))
       const opportunities: Array<(typeof candidates)[number]['candidate'] & {
         positionStatus: OpportunityStatus
         funder?: Address

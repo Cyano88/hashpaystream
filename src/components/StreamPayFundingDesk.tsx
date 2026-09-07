@@ -13,6 +13,8 @@ import { reconcileFundingPositions } from '../lib/stableSnapshots'
 import FundingPositionReceipt from './FundingPositionReceipt'
 
 type Opportunity = {
+  readOnly?: boolean
+  fundingChainId?: number
   id: string
   agreementId: string
   title: string
@@ -278,13 +280,16 @@ function FundingDetail({ item, onBack, onUpdated }: { item: Opportunity; onBack:
         positionId: item.positionId,
         status: item.positionStatus as 'funded' | 'released' | 'settled' | 'refunded',
         escrowAddress,
+        xLayerChainId: item.fundingChainId,
         advanceUsdcUnits: item.requestedAdvanceUsdcUnits,
         repaymentUsdcUnits: item.positionStatus === 'refunded' ? item.requestedAdvanceUsdcUnits : quote.funderRepaymentUsdcUnits,
         profitUsdcUnits: item.positionStatus === 'refunded' ? '0' : quote.funderProfitUsdcUnits,
         platformFeeUsdcUnits: quote.platformFeeUsdcUnits,
       }} />}
 
-      {item.positionStatus === 'available'
+      {item.readOnly
+        ? <p className="mt-3 text-[11px] text-gray-500">Payment history.</p>
+        : item.positionStatus === 'available'
         ? <div><UpfrontFundButton opportunity={item} onFunded={onUpdated} /><button type="button" disabled={declining} onClick={() => void decline()} className="mt-2 min-h-10 w-full text-xs font-bold text-gray-400 disabled:opacity-50">{declining ? 'Declining…' : 'Decline request'}</button>{declineError && <p className="mt-2 text-[11px] text-rose-600">{declineError}</p>}</div>
         : item.positionStatus === 'expired' || item.positionStatus === 'declined'
           ? <p className="mt-5 rounded-2xl bg-gray-50 px-4 py-3 text-[11px] leading-5 text-gray-500 dark:bg-white/[0.04] dark:text-gray-400">{item.positionStatus === 'expired' ? 'This funding request expired before funds moved.' : 'You declined this funding request.'}</p>

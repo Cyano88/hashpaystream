@@ -52,3 +52,13 @@ node --import tsx scripts/upfront-reviewed-contracts-local.mjs C:\Users\USER\has
 ```
 
 The harness uses synthetic keys and mock USDC only; no production environment is loaded into its nodes. Intelligence evidence, authoritative agreement state and the repayment source are simulated. Passing proves signature/contract compatibility, not real cross-chain delivery, provider operation, migration safety or financial production readiness. No reviewed contract source was changed.
+
+## Historical receipt continuity checkpoint
+
+The candidate supports HASHPAYSTREAM_UPFRONT_HISTORY_TARGETS as an explicit JSON array (at most eight targets). Each entry requires escrowVersion (1 or 2), chainId (196 or 1952), escrow, rpcUrl, arcRouter and arcRpcUrl. RPC URLs must be HTTPS without embedded credentials. Duplicate chain/escrow targets, including the active target, are rejected. Configuration is server-owned; neither request parameters nor stored offers may supply RPC/router destinations.
+
+GET provider status, funding-partner history and existing partner selections can read matching historical targets. Historical offers are marked readOnly and never live, including offers whose timestamps have not expired. New partner assignment, signing and funding remain active-target-only. The app retains receipt access and omits transaction controls for historical records. Receipt explorer links and shared receipt network metadata use the record's funding chain, not the current app network. Operator RPC URLs are not returned to the client.
+
+Verification covers preserved settled economics/status, exact old position/target selection, provider and funding-partner ownership isolation, no historical capacity/signing/store writes, rejection of new assignments, request-injected targets, malformed/duplicate configuration, and rendered receipt explorer/share metadata. Both legacy and reviewed-version opportunities suites pass.
+
+No production history configuration or record was changed. This closes the candidate read-routing gap for structurally valid records, not migration safety: the three incomplete records still require individual disposition, and complete on-chain event inventory plus controlled cutover remain outstanding. Historical unfinished positions must be resolved before switching; this history list is not an alternative execution route for their release/refund/settlement.

@@ -3,7 +3,7 @@ import type { PaylinkReceipt } from '../lib/paymentReceiptPdf'
 import { useState } from 'react'
 import { ArrowTopRightOnSquareIcon, CheckIcon, ChevronDownIcon, ClipboardIcon } from '@heroicons/react/24/outline'
 import { isAddress } from 'viem'
-import { upfrontXLayerChain } from '../lib/upfrontChains'
+import { upfrontXLayerChain, xLayerMainnet, xLayerTestnet } from '../lib/upfrontChains'
 
 type FundingReceipt = {
   title?: string
@@ -14,6 +14,7 @@ type FundingReceipt = {
   positionId: string
   status: 'funded' | 'released' | 'settled' | 'refunded'
   escrowAddress?: string
+  xLayerChainId?: number
   advanceUsdcUnits: string
   repaymentUsdcUnits: string
   profitUsdcUnits: string
@@ -42,7 +43,9 @@ export default function FundingPositionReceipt({ receipt }: { receipt: FundingRe
   const [copied, setCopied] = useState(false)
   const completed = receipt.status === 'settled'
   const refunded = receipt.status === 'refunded'
-  const explorer = upfrontXLayerChain.blockExplorers?.default.url
+  const chainId = receipt.xLayerChainId ?? upfrontXLayerChain.id
+  const fundingChain = chainId === 196 ? xLayerMainnet : chainId === 1952 ? xLayerTestnet : undefined
+  const explorer = fundingChain?.blockExplorers?.default.url
   const explorerUrl = explorer && receipt.escrowAddress && isAddress(receipt.escrowAddress)
     ? `${explorer}/address/${receipt.escrowAddress}`
     : ''
@@ -50,7 +53,7 @@ export default function FundingPositionReceipt({ receipt }: { receipt: FundingRe
   const shared: PaylinkReceipt = {
     type: 'funding', receiptId: receipt.positionId, receiptHash: '', title: receipt.title || 'Funding receipt',
     status: receipt.status, fundingStatus: receipt.status, eventId: receipt.positionId, txHash: '',
-    chain: completed ? 'arc-testnet' : upfrontXLayerChain.id === 196 ? 'xlayer-mainnet' : 'xlayer-testnet', payer: receipt.funder || '',
+    chain: completed ? 'arc-testnet' : chainId === 196 ? 'xlayer-mainnet' : chainId === 1952 ? 'xlayer-testnet' : 'unknown', payer: receipt.funder || '',
     amount: usdc(completed || refunded ? receipt.repaymentUsdcUnits : receipt.advanceUsdcUnits).replace(' USDC', ''),
     asset: 'USDC', createdAt: 0, referenceId: receipt.positionId,
     fundingRows: [
