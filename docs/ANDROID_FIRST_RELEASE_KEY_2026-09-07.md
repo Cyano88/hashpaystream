@@ -32,3 +32,13 @@ The certificate comparison against the existing 1.0.11 debug APK returned `direc
 The desktop release folder contains only distributable APK/AAB, public certificate, checksums, and instructions. Keep the private key and password separate. Preserve this signing identity for future direct APK updates. Decide Play App Signing setup explicitly before publishing to Google Play.
 
 References: [Android app signing](https://developer.android.com/studio/publish/app-signing), [bundletool](https://developer.android.com/tools/bundletool), and [Java 21 JarInputStream manifest handling](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/jar/JarInputStream.html).
+
+## Backup and clean installation follow-up
+
+The operator confirmed saving the signing password separately, then requested the encrypted key backup in a new folder on the Pixel. The PKCS12 copy was opened locally and its private-key entry and release certificate verified. The encrypted key, public certificate, instructions and checksums were copied to Downloads/HashPayStream-Key-Backup-20260907 on the Pixel. Device-side SHA-256 matched the original key and certificate. No password or DPAPI credential file was transferred. The operator confirmed seeing the folder. This completes the independent device-copy step; manual password-manager recovery was not independently exercised.
+
+A clean Android 15 emulator was installed using Google's command-line tools, emulator 37.1.11 and API 35 Google APIs x86_64 revision 9. Tool archive SHA-256 matched Google's published value. The 1,738,815,903-byte system image matched repository SHA-1 0103e6dab21290c4b9d16550a3ce99476f884eef. Windows Hypervisor Platform passed the acceleration check. The SDK manager stalled on the image, so the official archive was downloaded directly and verified before extraction.
+
+On the isolated HashPayStream_Release_API35 emulator (emulator-5556), package enumeration confirmed no existing app installation. The exact release-folder APK installed successfully. Android reports version 1.0.12 / code 13 without DEBUGGABLE. The sign-in screen rendered; a warm HTTPS Trade intent opened the live Trade UI with the empty feed; My listings displayed the sign-in gate; hardware Back returned to Browse. Screenshots and UI evidence are in ignored output/playwright files. No AndroidRuntime error appeared in the sampled emulator log. The physical Pixel app was not replaced or cleared.
+
+Authenticated signed-release tests remain pending user login. After a full emulator reboot, the installed app remained present and a cold launch rendered the sign-in screen again, verified by screenshot. The visible emulator window is ready for user login. No public release or Play upload was performed.
