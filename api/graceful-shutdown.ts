@@ -16,6 +16,7 @@ type ShutdownEvent = {
 export type GracefulShutdownDependencies = {
   server: ShutdownServer
   onDraining: () => void
+  drain?: () => Promise<void>
   schedule: typeof setTimeout
   cancel: typeof clearTimeout
   exit: (code: number) => void
@@ -65,27 +66,37 @@ export function createHashPayStreamShutdown(
       dependencies.exit(1)
     }, graceMs)
     timer.unref?.()
+    let drain: Promise<void> | undefined
+    let drainFailed = false
+    if (dependencies.drain) {
+      try { drain = dependencies.drain().catch(() => { drainFailed = true }) }
+      catch { drainFailed = true }
+    }
 
     try {
       dependencies.server.close(error => {
-        if (settled) return
-        settled = true
-        dependencies.cancel(timer)
-        if (error) {
+        const finish = () => {
+          if (settled) return
+          settled = true
+          dependencies.cancel(timer)
+          if (error || drainFailed) {
+            safeLog(dependencies.log, {
+              component: 'hashpaystream-lifecycle',
+              event: 'shutdown_failed',
+              signal,
+            })
+            dependencies.exit(1)
+            return
+          }
           safeLog(dependencies.log, {
             component: 'hashpaystream-lifecycle',
-            event: 'shutdown_failed',
+            event: 'shutdown_complete',
             signal,
           })
-          dependencies.exit(1)
-          return
+          dependencies.exit(0)
         }
-        safeLog(dependencies.log, {
-          component: 'hashpaystream-lifecycle',
-          event: 'shutdown_complete',
-          signal,
-        })
-        dependencies.exit(0)
+        if (drain) void drain.then(finish)
+        else finish()
       })
       try {
         dependencies.server.closeIdleConnections?.()

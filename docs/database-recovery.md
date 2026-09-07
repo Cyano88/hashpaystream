@@ -18,12 +18,14 @@ Keep the baseline fingerprint, row count and validation booleans in private oper
 
 ## Perform an isolated Render restore drill
 
+Never test a restore against production.
+
 1. Confirm the concrete target, recovery point, expected baseline, coverage and cost before creating a recovery instance. The current release scope does not authorize an additional paid service.
 2. Create only an isolated recovery database through Render once applicable authorization is present. Follow the provider's current minimum recovery-point age and selectable window.
 3. Do not connect production services, workers, webhooks or notification senders to the restored database.
 4. Wait for availability and run the read-only audit with `HASHPAYSTREAM_RECOVERY_EXPECTED_FINGERPRINT` set to the matching baseline. Require `ok`, `schemaValid` and `fingerprintMatches` to be true for the command's stated coverage, with zero missing or unexpected stores.
 5. Independently validate every other deployed application table and required external asset reference identified in the inventory. A durable-store fingerprint alone cannot certify the full application.
 6. Record the selected recovery point, request/availability/validation times, observed recovery duration and all coverage limitations. Do not claim a recovery time before measuring it.
-7. Retain or remove the isolated instance only under applicable authorization after verifying its exact identity and that no service references it. Never delete the production database or change its service bindings as part of this drill.
+7. Retain or remove the isolated instance only under applicable authorization after checking its exact identity and verifying that no service references it. Never delete the production database or change its service bindings as part of this drill.
 
 No recovery instance, export, production write freeze or cutover has been performed by documenting this procedure. Financial public release remains NO-GO until the required recovery evidence is obtained.

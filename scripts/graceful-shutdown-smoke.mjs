@@ -72,3 +72,22 @@ loggerFailure.close()
 assert.deepEqual(loggerFailure.exits, [0])
 
 console.log('HashPayStream graceful shutdown smoke checks passed.')
+
+let finishWorker
+const workerDrain = new Promise(resolve => { finishWorker = resolve })
+const withWorker = harness({ drain: () => workerDrain })
+withWorker.shutdown('SIGTERM'); withWorker.close()
+assert.deepEqual(withWorker.exits, [], 'HTTP close must wait for settlement drain')
+finishWorker(); await new Promise(resolve => setImmediate(resolve))
+assert.deepEqual(withWorker.exits, [0])
+const brokenWorker = harness({ drain: async () => { throw Error('private drain failure') } })
+brokenWorker.shutdown('SIGTERM'); brokenWorker.close()
+await new Promise(resolve => setImmediate(resolve))
+assert.deepEqual(brokenWorker.exits, [1])
+assert.equal(JSON.stringify(brokenWorker.events).includes('private drain failure'), false)
+let lateDrain
+const boundedWorker = harness({ drain: () => new Promise(resolve => { lateDrain = resolve }) })
+boundedWorker.shutdown('SIGTERM'); boundedWorker.close(); boundedWorker.force()
+lateDrain(); await new Promise(resolve => setImmediate(resolve))
+assert.deepEqual(boundedWorker.exits, [1], 'Grace timeout remains bounded and late drain cannot exit twice')
+console.log('Service shutdown waits for the worker and bounds failed or stalled drains.')
