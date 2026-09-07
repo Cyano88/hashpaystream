@@ -1,6 +1,8 @@
 // Application-to-reviewed-contract integration. Synthetic funds and loopback nodes only.
 // Usage: node --import tsx scripts/upfront-reviewed-contracts-local.mjs <frozen-harness> <upstream-checkout>
 import assert from 'node:assert/strict'
+import { runUpfrontSettlementPass } from '../api/upfront-settlement-worker.ts'
+import { verifySettlementReceipt, recoverSettlementEvidence } from '../api/upfront-settlement-evidence.ts'
 import { spawn } from 'node:child_process'
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises'
 import { createServer } from 'node:net'
@@ -140,7 +142,61 @@ try {
   await assert.rejects(() => arc.send(router, 'settleRepayment', [unitsMessage(wrongTreasury.message, ['funderAmount', 'providerAmount', 'treasuryAmount']), wrongTreasury.signature]), /TreasuryMismatch/)
   const legacySplit = await signSplitSettlement({ ...splitInput, escrowVersion: '1' })
   await assert.rejects(() => arc.send(router, 'settleRepayment', [splitMessage, legacySplit.signature]), /InvalidSignature/)
-  await arc.send(router, 'settleRepayment', [splitMessage, split.signature])
+  const journalFile = join(folder, 'worker-journal.json')
+  await writeFile(journalFile, JSON.stringify({ schema: 1, records: { rehearsal: {
+    status: 'completed', request: funded.request, agreementId: completed.id,
+    fundingRequest: { status: 'pending', fundingTerms: { message: { offerHash: funded.position.positionId } } },
+  } } }))
+  let broadcasts = 0, failDatabaseWrite = true
+  const readJournal = async () => JSON.parse(await readFile(journalFile, 'utf8'))
+  const environment = {
+    HASHPAYSTREAM_UPFRONT_AUTO_SETTLEMENT_ENABLED: 'true', HASHPAYSTREAM_UPFRONT_ESCROW_VERSION: '2',
+    HASHPAYSTREAM_UPFRONT_STORE_KEY: 'synthetic:local-worker', HASHPAYSTREAM_UPFRONT_ARC_API_KEY: 'hpl_test_' + 'a'.repeat(40),
+    HASHPAYSTREAM_HASH_PAYLINK_BASE_URL: 'https://unused.invalid', HASHPAYSTREAM_XLAYER_RPC_URL: 'https://unused.invalid',
+    HASHPAYSTREAM_ARC_RPC_URL: 'https://unused.invalid', HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS: escrow.address,
+    HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS: router.address, HASHPAYSTREAM_UPFRONT_REPAYMENT_PRIVATE_KEY: keys[2],
+    HASHPAYSTREAM_UPFRONT_REPAYMENT_SIGNER: protectionSigner.address,
+  }
+  const now = await arc.now()
+  const worker = {
+    env: () => environment, now: () => now, readStore: readJournal, log: () => {},
+    position: async () => ({ ...funded.position, status: Number((await x.read(escrow, 'positions', [funded.position.positionId]))[15]) === 2 ? 'Released' : 'Funded', arcAgreementHash: funded.agreement.chain.onchainAgreementId }),
+    agreement: async () => completed,
+    isSettled: agreementHash => arc.read(router, 'settledAgreements', [agreementHash]),
+    blockNumber: () => arc.client.getBlockNumber({ cacheTime: 0 }),
+    recover: checkpoint => recoverSettlementEvidence(arc.client, checkpoint),
+    saveCheckpoint: async (_key, recordKey, checkpoint) => {
+      const journal = await readJournal(); journal.records[recordKey].fundingRequest.settlementCheckpoint = checkpoint
+      await writeFile(journalFile, JSON.stringify(journal))
+    },
+    submit: async signed => {
+      broadcasts++
+      const receipt = await arc.send(router, 'settleRepayment', [unitsMessage(signed.message, ['funderAmount', 'providerAmount', 'treasuryAmount']), signed.signature])
+      await arc.client.request({ method: 'evm_mine', params: [] })
+      await new Promise(resolve => setTimeout(resolve, 25))
+      return verifySettlementReceipt(arc.client, router.address, signed.message.arcAgreementHash, receipt.transactionHash)
+    },
+    markSettled: async (_key, recordKey, evidence) => {
+      if (failDatabaseWrite) { failDatabaseWrite = false; throw Error('SIMULATED_DATABASE_FAILURE') }
+      const journal = await readJournal(); Object.assign(journal.records[recordKey].fundingRequest, { status: 'settled', settlementEvidence: evidence })
+      await writeFile(journalFile, JSON.stringify(journal))
+    },
+  }
+  const first = await runUpfrontSettlementPass(worker)
+  assert.deepEqual(first.codes, ['SIMULATED_DATABASE_FAILURE'])
+  assert.equal(broadcasts, 1)
+  assert.equal((await readJournal()).records.rehearsal.fundingRequest.status, 'pending')
+  const retry = await runUpfrontSettlementPass(worker)
+  assert.equal(retry.alreadySettled, 1)
+  assert.equal(broadcasts, 1)
+  const proof = (await readJournal()).records.rehearsal.fundingRequest.settlementEvidence
+  assert.equal(proof.chainId, 5042002)
+  assert.equal(proof.router.toLowerCase(), router.address.toLowerCase())
+  assert.equal(proof.funderAmount, splitMessage.funderAmount.toString())
+  assert.equal(proof.providerAmount, splitMessage.providerAmount.toString())
+  assert.equal(proof.treasuryAmount, splitMessage.treasuryAmount.toString())
+  assert.equal((await runUpfrontSettlementPass(worker)).eligible, 0)
+  console.log('PASS: actual V4 transaction evidence survives failed state write; new worker pass recovers from disk checkpoint with exactly one broadcast.')
   for (const [address, amount] of [[funder.address, splitMessage.funderAmount], [providerArc.address, splitMessage.providerAmount], [treasury.address, splitMessage.treasuryAmount]]) assert.equal(await arc.read(tokenArc, 'balanceOf', [address]), amount)
   assert.equal(await arc.read(tokenArc, 'balanceOf', [router.address]), 0n)
   await assert.rejects(() => arc.send(router, 'settleRepayment', [splitMessage, split.signature]), /AgreementAlreadyCredited/)
@@ -163,5 +219,6 @@ try {
       await closed
     }
   }
+  assert.equal(resolve(folder, '..'), resolve(tmpdir()), 'Only remove our own temporary rehearsal directory')
   await rm(folder, { recursive: true, force: true })
 }
