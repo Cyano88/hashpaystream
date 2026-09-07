@@ -16,7 +16,7 @@ One versioned web and signed Android candidate, with the approved existing produ
 - [ ] Verify configured deployment identities, networks and runtime-code provenance against reviewed artifacts. Resolve the legacy unpaused escrow/testnet-router discrepancy before any financial launch claim.
 - [ ] Pass candidate application build, smoke suite, native readiness checks and signed Android validation. Verify login, payment lifecycle, receipt sharing, retry/account isolation and system/light/dark behavior against the final candidate.
 - [ ] Complete recovery/alert evidence or record the precise external dependency and keep the financial release no-go.
-- [ ] Produce release notes, rollback instructions and a final go/no-go checklist tied to exact commits/artifacts.
+- [x] Produce release notes, rollback instructions and a final go/no-go checklist tied to exact commits/artifacts. See docs/RELEASE_CANDIDATE_1_0_16.md; financial release remains NO-GO.
 
 ## Scope guard
 
@@ -30,10 +30,11 @@ When the fixed checks pass, stop implementation and present the release decision
 
 ## Checkpoint reached
 
-Candidate 1.0.15 / code 16 is built, signed with the existing release key and installed on Pixel. Full app smoke, web build, native checks, lint/unit tests and all 42 frozen contract tests passed. Home and Trade device smoke passed. The broad live payment/theme walkthrough and operational/deployment gates above remain open. Goal remains ACTIVE; full financial production is NO-GO.
+Candidate 1.0.16 / code 17 is built, signed with the existing release key and installed on Pixel. Build source is 5e5fe6e7c0ad91c7b2c8e668769098a6f4e04e0a. All smoke components passed across the full run and corrected final surface check; web build, native checks, release lint/unit tests and 281-file embedded artifact comparison passed. All 42 frozen contract tests passed. Final APK cold launch succeeded and main navigation was observed in the UI hierarchy. Earlier 1.0.15 Trade smoke does not certify the final APK. The final live payment/theme/Trade walkthrough and operational/deployment gates remain open. Goal remains ACTIVE; full financial production is NO-GO.
 
 Integration follow-up: see docs/REVIEWED_CONTRACT_INTEGRATION_2026-09-07.md. Arc public mainnet is announced for September 16; no production network parameters are assumed. The separate upstream signer now has tested, inactive V2 support in local commit 73685fc. HashPayStream-side reviewed-domain support and the synthetic local funding/release/split/refund lifecycle now pass. Legacy-record disposition, deployment preparation and operational evidence remain open. Production activation is unchanged.
 
 Migration audit: see docs/LEGACY_MIGRATION_DISPOSITION_2026-09-07.md. The three incomplete records are identified, but two released predecessor advances have no repayment recorded in the original protocol; operator disposition and complete event coverage remain open. Current history support covers fee-settlement records, not this older eleven-field layout.
 
 Reviewed deployment preparation: V2/V4 command selection, mandatory frozen build/artifact checks, paused-state checks and read-only creation verification are prepared and tested offline. The old empty-unpaused retirement bypass is removed. See docs/REVIEWED_DEPLOYMENT_PREPARATION_2026-09-07.md; no deployment or activation has occurred.
+

@@ -33,5 +33,6 @@ A complete fixed-block inventory still needs a suitable existing archive/indexed
 
 1. Resolve and record the disposition of the two released predecessor advances; preserve their actual status and evidence.
 2. Complete event coverage and legacy history treatment, with no unidentified funded or released obligation.
-3. Prepare and verify the reviewed V2/V4 deployment and production network parameters. Existing deploy-mainnet.ts and deploy-arc.ts still instantiate legacy contracts and must not be used as reviewed deployment commands.
+3. Prepare and verify the reviewed V2/V4 deployment and production network parameters. The commands now select reviewed V2/V4 artifacts with frozen-source and paused-state guards (commit ba7fa02); offline verification passed. No reviewed deployment or production network activation has occurred. See REVIEWED_DEPLOYMENT_PREPARATION_2026-09-07.md.
 4. Finish recovery/alert evidence and final candidate validation. No change to the frozen product scope.
+
