@@ -1,6 +1,6 @@
 # Reviewed migration transaction proposal - 2026-09-07
 
-Status: UNSIGNED, NOT BROADCAST. Estimates observed at 2026-09-07T21:00:38.859Z. The user approved the Arc testnet rehearsal paired with X Layer mainnet after reviewing this proposal. This is not an Arc production launch.
+Status: APPROVED DEPLOYMENT COMPLETED; BOTH NEW CONTRACTS VERIFIED PAUSED. The proposal and earlier checkpoints below are retained as history; see the completion record at the end. Estimates observed at 2026-09-07T21:00:38.859Z. The user approved the Arc testnet rehearsal paired with X Layer mainnet after reviewing this proposal. This is not an Arc production launch.
 
 ## Proposed sequence
 
@@ -38,3 +38,16 @@ The approved sequence is waiting for the old escrow owner's signature. A fresh r
 The browser owner-wallet controller failed on two attempts. There is no confirmed usable owner signing session in this checkpoint. The unsigned request is prepared in output/playwright/owner-pause-transaction.json: chain 196, from the verified owner, to the old escrow, value zero, setPaused(true). Gas estimation succeeds; that is not a signature or authorization proof.
 
 No migration transaction was broadcast. Do not bypass the paused-old-escrow deployment guard or substitute a deployer/worker key for the owner. Resume from obtaining the owner signature, verify the pause receipt/state, then refresh deployment estimates/nonces before proceeding with the approved deployment sequence.
+
+## Verified deployment completion
+
+The owner paused the old escrow through the existing HashPayStream Privy admin flow; the paused state was independently verified before deployment. The approved sequence then completed using the existing deployer keys and the guarded reviewed deployment commands.
+
+- ArcRepaymentRouterV4: 0x78d42Ada91e5121cbe85A50f50436B1Cc3a23999, Arc testnet 5042002, block 60970039. Transaction 0x697b715bda014205c836413b8fd86999e6c59ad8674000ab6e8cd995b9e41b1a. Actual fee 0.032665629375 Arc test USDC.
+- UpfrontAdvanceEscrowV2: 0x98A45f994E5fb887a950D20BEd60bA83cB00430c, X Layer mainnet 196, block 70047382. Transaction 0x5f86a447bdccdeb8bf11326a149d2f1a18a881fbb02251eb30da19ea20879d50. Actual fee 0.000046305702315285 OKB.
+
+Both creation receipts succeeded. The reviewed verifiers checked exact creation bytecode/constructor arguments, deployed code presence, chain and signature domains, owner, empty pending owner, asset, signer/counterpart getters and paused state; router treasury matched. New escrow counterpart is the verified new router. Frozen source/compiler/artifact checks passed before deployment. All 32 Solidity files compiled with the pinned toolchain.
+
+Structured evidence is in contracts/deployments/reviewed-rehearsal-20260907.json. Do not overwrite the existing active deployment records until a coordinated configuration switch has actually occurred. The old escrow remains paused; old router and historical chain positions were not altered. No legacy retirement proof is inferred.
+
+No app/upstream environment switch, worker activation, new funder allowlisting or new-contract unpause occurred. The new contracts remain paused. Next is preparing a consistent app/upstream/worker configuration change with the reviewed 2/4 signature domains; activation remains gated by the remaining agreement-layer checks and intended network scope.

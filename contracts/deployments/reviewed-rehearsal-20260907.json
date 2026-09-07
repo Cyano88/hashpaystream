@@ -1,0 +1,94 @@
+{
+  "recordedAt": "2026-09-07T21:29:11.211Z",
+  "scope": "reviewed mixed-network rehearsal; not financial production activation",
+  "sourceCommit": "7eef883b3613741c97d2288365be7f16ac3426e3",
+  "auditArchiveSha256": "e51c11f8f330acc44898b71ddbee81ab25b61a9ca41a23aea3156b6bb13428ad",
+  "productionConfigurationChanged": false,
+  "workerActivated": false,
+  "legacyRetirementVerified": false,
+  "contracts": [
+    {
+      "deployment": {
+        "contractName": "ArcRepaymentRouterV4",
+        "signatureVersion": "4",
+        "financialProductionReady": false,
+        "paused": true,
+        "chainId": "5042002",
+        "contract": "0x78d42Ada91e5121cbe85A50f50436B1Cc3a23999",
+        "asset": "0x3600000000000000000000000000000000000000",
+        "creditSigner": "0x83Bd6A645cBE8d04b5F33f2c2c87A1d1FDD71D5b",
+        "treasury": "0xF3bE84452e17e9F0656F54884113cD2D7288C2E3",
+        "owner": "0xF3bE84452e17e9F0656F54884113cD2D7288C2E3",
+        "deployer": "0x295177803fd02e1880d661Be3b66F6124787f978",
+        "priorRouter": "0xF4D6700B383b6b8Eb14c3b43d5124444D2ecb7b9",
+        "legacyRetirementVerified": false,
+        "transactionHash": "0x697b715bda014205c836413b8fd86999e6c59ad8674000ab6e8cd995b9e41b1a"
+      },
+      "verification": {
+        "verified": true,
+        "readOnly": true,
+        "contractName": "ArcRepaymentRouterV4",
+        "chainId": "5042002",
+        "contract": "0x78d42Ada91e5121cbe85A50f50436B1Cc3a23999",
+        "creationBytecodeAndArgumentsMatch": true,
+        "paused": true,
+        "signatureVersion": "4",
+        "financialProductionReady": false,
+        "deploymentBlock": 60970039
+      },
+      "receipt": {
+        "transactionHash": "0x697b715bda014205c836413b8fd86999e6c59ad8674000ab6e8cd995b9e41b1a",
+        "blockHash": "0xe4daf780193ce7cff03ee421243c4f79a6ca48e620220a88058a05e4cedd9b71",
+        "blockNumber": "60970039",
+        "status": "success",
+        "gasUsed": "1290494",
+        "effectiveGasPrice": "25312500000",
+        "feePaid": "0.032665629375",
+        "feeUnit": "Arc test USDC"
+      }
+    },
+    {
+      "deployment": {
+        "contractName": "UpfrontAdvanceEscrowV2",
+        "signatureVersion": "2",
+        "financialProductionReady": false,
+        "chainId": "196",
+        "contract": "0x98A45f994E5fb887a950D20BEd60bA83cB00430c",
+        "asset": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
+        "arcRepaymentRouter": "0x78d42Ada91e5121cbe85A50f50436B1Cc3a23999",
+        "underwritingSigner": "0xB089C3d5F06074856d7665A1Aa53Dc0d761930aE",
+        "protectionSigner": "0xfd23c4697e41Bb6874d72D5f2b56Af8aB00CAb99",
+        "owner": "0xA16D33E7B36099F0EF82048fb78b25754Bf49931",
+        "paused": true,
+        "allowlistedFunders": [],
+        "deployer": "0xAeAEA86026c820934EFfC356B94bC3092efA9eb6",
+        "predictedContract": "0x98A45f994E5fb887a950D20BEd60bA83cB00430c",
+        "priorEscrow": "0xCA4f547527A64a94c9b45306f311D8658d8A3Dbf",
+        "legacyRetirementVerified": false,
+        "transactionHash": "0x5f86a447bdccdeb8bf11326a149d2f1a18a881fbb02251eb30da19ea20879d50"
+      },
+      "verification": {
+        "verified": true,
+        "readOnly": true,
+        "contractName": "UpfrontAdvanceEscrowV2",
+        "chainId": "196",
+        "contract": "0x98A45f994E5fb887a950D20BEd60bA83cB00430c",
+        "creationBytecodeAndArgumentsMatch": true,
+        "paused": true,
+        "signatureVersion": "2",
+        "financialProductionReady": false,
+        "deploymentBlock": 70047382
+      },
+      "receipt": {
+        "transactionHash": "0x5f86a447bdccdeb8bf11326a149d2f1a18a881fbb02251eb30da19ea20879d50",
+        "blockHash": "0xcee4bf2141bf6e04e9a030dea0f9a7a80b1e9b6b6c11220d814fcc9247e77fc3",
+        "blockNumber": "70047382",
+        "status": "success",
+        "gasUsed": "2315285",
+        "effectiveGasPrice": "20000001",
+        "feePaid": "0.000046305702315285",
+        "feeUnit": "OKB"
+      }
+    }
+  ]
+}
