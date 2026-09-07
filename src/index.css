@@ -128,3 +128,12 @@ html[data-stream-keyboard="open"] .stream-bottom-nav {
 html[data-stream-keyboard="open"] .stream-mobile-main {
   padding-bottom: 1rem;
 }
+
+html.dark body { background: #0A0A0A; color: #F9FAFB; }
+html[data-stream-theme-surface="launch"] body { background: #06070a; }
+.stream-auth-surface, .stream-auth-main { color-scheme: light; }
+
+/* Keep touch, keyboard and wheel scrolling without visible scroll tracks. */
+* { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { display: none; width: 0; height: 0; }
+html[data-stream-theme-surface='launch'], html[data-stream-theme-surface='launch'] body { overflow: hidden; overscroll-behavior: none; }

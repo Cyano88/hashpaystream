@@ -3,19 +3,17 @@ import { usePrivy } from '@privy-io/react-auth'
 import { ArrowLeftIcon, CheckIcon, ClipboardDocumentIcon, WalletIcon } from '@heroicons/react/24/outline'
 import { Link } from '../lib/router'
 import { useCircleWallet } from '../lib/circleWallet'
-import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSplash'
 import { useStreamAccount } from '../lib/streamAccount'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
 
 export default function StreamPayReceive() {
   const { authenticated } = usePrivy()
-  const splashState = useHashPayStreamSessionSplash(!authenticated)
   const account = useStreamAccount()
   const wallet = useCircleWallet()
   const [copied, setCopied] = useState('')
   const homeTo = useStreamPayPath('/home')
-  if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
+  if (!authenticated) return <AgreementSignInLanding />
   async function copy(value: string, key: string) { if (!value) return; await navigator.clipboard.writeText(value); setCopied(key); window.setTimeout(() => setCopied(''), 1300) }
   const address = wallet.address
   return <section className="stream-screen w-full max-w-md py-5 sm:py-8">

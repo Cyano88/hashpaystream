@@ -7,7 +7,6 @@ import {
 } from '@heroicons/react/24/outline'
 import { useMemo } from 'react'
 import { Link } from '../lib/router'
-import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSplash'
 import { formatUsdcBalance, useAgreements } from '../lib/useAgreements'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
@@ -40,7 +39,6 @@ export default function StreamPayHome() {
   const { ready, authenticated, agreements, loading, error } = useAgreements()
   const wallet = useCircleWallet()
   const requests = useServiceRequests()
-  const splashState = useHashPayStreamSessionSplash(!authenticated)
   useStreamAccount()
   const createTo = useStreamPayPath('/requests?compose=1')
   const upfrontTo = useStreamPayPath('/upfront')
@@ -63,7 +61,7 @@ export default function StreamPayHome() {
   const availableBalance = decimalUsdcUnits(wallet.balance)
   const totalBalance = availableBalance + customerEscrow.protected + customerEscrow.refundable
 
-  if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
+  if (!authenticated) return <AgreementSignInLanding />
   if (!ready || loading || requests.loading || (!wallet.balanceReady && !wallet.balanceError)) return <StreamPayLoadingState active="home" />
 
   const actions = [

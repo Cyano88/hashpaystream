@@ -9,6 +9,8 @@ import {
 } from '@heroicons/react/24/outline'
 import { LoadingRing } from '../ui/LoadingRing'
 
+import { useThemeSurface } from '../../lib/ThemeContext'
+
 const CODE_LENGTH = 6
 const RESEND_SECONDS = 30
 
@@ -34,6 +36,7 @@ export function StreamPayEmailLogin({
 }: {
   className?: string
 }) {
+  useThemeSurface('auth')
   const { sendCode, loginWithCode } = useLoginWithEmail()
   const [step, setStep] = useState<'email' | 'code'>('email')
   const [email, setEmail] = useState('')

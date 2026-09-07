@@ -1,3 +1,5 @@
+import { Capacitor } from '@capacitor/core'
+import { SplashScreen } from '@capacitor/splash-screen'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { PrivyProvider, type PrivyClientConfig } from '@privy-io/react-auth'
@@ -8,7 +10,7 @@ import '@fontsource/plus-jakarta-sans/700.css'
 import '@fontsource/plus-jakarta-sans/800.css'
 import './index.css'
 import App from './App'
-import { ThemeProvider, useTheme } from './lib/ThemeContext'
+import { ThemeProvider } from './lib/ThemeContext'
 import { CircleWalletProvider } from './lib/circleWallet'
 import { arcTestnet, upfrontXLayerChain } from './lib/upfrontChains'
 import { initializeNativeApp } from './lib/nativeApp'
@@ -32,8 +34,14 @@ window.addEventListener('vite:preloadError', event => {
 installNativeApiTransport()
 initializeNativeApp()
 
+function NativeLaunchHandoff() {
+  React.useEffect(() => {
+    if (Capacitor.isNativePlatform()) void SplashScreen.hide({ fadeOutDuration: 180 }).catch(() => {})
+  }, [])
+  return null
+}
+
 function Providers() {
-  const { theme } = useTheme()
   if (!appId) {
     return <main className="grid min-h-screen place-items-center bg-gray-50 px-4 text-sm font-semibold text-gray-600">VITE_PRIVY_APP_ID is required.</main>
   }
@@ -49,7 +57,7 @@ function Providers() {
     },
     externalWallets: { disableAllExternalWallets: true },
     appearance: {
-      theme: theme === 'dark' ? 'dark' : 'light',
+      theme: 'light',
       accentColor: '#2563eb',
       logo: logoUrl,
       landingHeader: 'HashPayStream',
@@ -65,5 +73,5 @@ function Providers() {
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode><ThemeProvider><Providers /></ThemeProvider></React.StrictMode>,
+  <React.StrictMode><ThemeProvider><Providers /><NativeLaunchHandoff /></ThemeProvider></React.StrictMode>,
 )

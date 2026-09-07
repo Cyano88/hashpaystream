@@ -3,7 +3,6 @@ import { usePrivy } from '@privy-io/react-auth'
 import { ArrowTopRightOnSquareIcon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, ClipboardIcon } from '@heroicons/react/24/outline'
 import { Link, useLocation, useNavigate } from '../../lib/router'
 import { useStreamPayPath } from '../../lib/useStreamPayPath'
-import { useHashPayStreamSessionSplash } from '../../lib/useHashPayStreamSessionSplash'
 import UnifiedReceipt from '../UnifiedReceipt'
 import { AgreementSignInLanding } from './AgreementSignInLanding'
 import type { PaylinkReceipt } from '../../lib/paymentReceiptPdf'
@@ -273,7 +272,6 @@ export default function AgreementDashboard() {
   const [showAllActivity, setShowAllActivity] = useState(false)
   const [visibleAgreementCount, setVisibleAgreementCount] = useState(10)
   const loadSequence = useRef(0)
-  const splashState = useHashPayStreamSessionSplash(!authenticated)
   useEffect(() => {
     setAgreements(scope ? dashboardCache.get(scope) ?? [] : [])
   }, [scope])
@@ -490,7 +488,7 @@ export default function AgreementDashboard() {
   }
 
   if (!authenticated) {
-    return <AgreementSignInLanding splashState={splashState} />
+    return <AgreementSignInLanding />
   }
 
   if (!ready || loading || requests.loading) {

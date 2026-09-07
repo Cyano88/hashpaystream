@@ -29,6 +29,8 @@ import { BrowserRouter, Navigate, useLocation, useNavigate } from './lib/router'
 import { useHashPayStreamSessionSplash } from './lib/useHashPayStreamSessionSplash'
 import { useStreamPayPath } from './lib/useStreamPayPath'
 import { CircleWalletGate } from './components/CircleWalletGate'
+import { HashPayStreamMark } from './components/HashPayStreamMark'
+import { useThemeSurface } from './lib/ThemeContext'
 import { useCircleWallet } from './lib/circleWallet'
 
 const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/upfront', '/funding', '/savings', '/move', '/move/xlayer/send', '/send', '/receive', '/activity', '/notifications', '/requests', '/account', '/operations', '/admin/analytics'])
@@ -48,8 +50,9 @@ const CIRCLE_ROUTES = new Set([
 const SESSION_READY_TIMEOUT_MS = 12_000
 
 function SessionLoadingSurface({ sessionDelayed, onRetry }: { sessionDelayed: boolean; onRetry: () => void }) {
+  useThemeSurface('launch')
   return (
-    <div className={'flex min-h-screen w-full items-center justify-center bg-gray-50 dark:bg-[#111113]'} aria-busy={true} aria-label={'Loading HashPayStream'}>
+    <div className={'flex min-h-screen w-full items-center justify-center bg-[#06070a]'} aria-busy={true} aria-label={'Loading HashPayStream'}>
       {sessionDelayed ? (
         <div className={'mx-auto max-w-xs px-6 text-center'} role={'status'} aria-live={'polite'}>
           <p className={'text-sm font-semibold text-gray-900 dark:text-white'}>Taking longer than expected</p>
@@ -58,7 +61,7 @@ function SessionLoadingSurface({ sessionDelayed, onRetry }: { sessionDelayed: bo
             Retry
           </button>
         </div>
-      ) : <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-blue-600" />}
+      ) : <div className="flex items-center"><HashPayStreamMark className="h-11 w-11" /><span className="ml-3 text-[1.35rem] font-semibold tracking-[-0.045em] text-white">HashPay<span className="text-blue-500">Stream</span></span></div>}
     </div>
   )
 }
@@ -118,17 +121,8 @@ function StreamPayRoute() {
 
   const retrySession = () => window.location.reload()
 
-  if (splashState !== 'idle') {
-    return (
-      <>
-        <div className="min-h-screen w-full bg-black" aria-hidden="true" />
-        <HashPayStreamSessionSplash splashState={splashState} sessionDelayed={sessionDelayed} onRetry={retrySession} />
-      </>
-    )
-  }
-
   if (!ready && authDecisionRoute) {
-    return <SessionLoadingSurface sessionDelayed={sessionDelayed} onRetry={retrySession} />
+    return <><SessionLoadingSurface sessionDelayed={sessionDelayed} onRetry={retrySession} /><HashPayStreamSessionSplash splashState={splashState} sessionDelayed={sessionDelayed} onRetry={retrySession} /></>
   }
 
   if (!authenticated && CIRCLE_ROUTES.has(route)) content = <Navigate to="/" replace />
@@ -161,15 +155,10 @@ function StreamPayRoute() {
   else if (route === '/privacy') content = <StreamPayLegal page="privacy" />
   else content = <Navigate to="/" replace />
 
-  if (authenticated && CIRCLE_ROUTES.has(route)) {
-    return (
-      <CircleWalletGate>
-        <StreamPayLayout>{content}</StreamPayLayout>
-      </CircleWalletGate>
-    )
-  }
-
-  return <StreamPayLayout>{content}</StreamPayLayout>
+  const screen = authenticated && CIRCLE_ROUTES.has(route)
+    ? <CircleWalletGate><StreamPayLayout>{content}</StreamPayLayout></CircleWalletGate>
+    : <StreamPayLayout>{content}</StreamPayLayout>
+  return <>{screen}<HashPayStreamSessionSplash splashState={splashState} sessionDelayed={sessionDelayed} onRetry={retrySession} /></>
 }
 
 export default function App() {

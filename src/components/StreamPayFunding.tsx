@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowLeftIcon, BanknotesIcon, CheckBadgeIcon, ClockIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
-import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSplash'
 import { Link, useLocation, useNavigate } from '../lib/router'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { fetchWithTimeout } from '../lib/fetchWithTimeout'
@@ -30,7 +29,6 @@ export default function StreamPayFunding() {
   const view = new URLSearchParams(search).get('view')
   const fundingMode = view === 'funding'
   const applying = view === 'apply'
-  const splashState = useHashPayStreamSessionSplash(!authenticated)
   const scope = authenticated ? user?.id ?? 'pending' : ''
   const cached = scope ? fundingProfileCache.get(scope) : undefined
   const [profile, setProfile] = useState<Profile | undefined>(() => cached)
@@ -75,7 +73,7 @@ export default function StreamPayFunding() {
     }
   }
 
-  if (!authenticated) return <AgreementSignInLanding splashState={splashState} />
+  if (!authenticated) return <AgreementSignInLanding />
   if (!ready || loading) return <StreamPayLoadingState active="funding" />
   if (!fundingMode && !applying) return <StreamPayGrow fundingStatus={profile?.status} />
   if (profile?.status === 'approved') return <StreamPayFundingDesk />

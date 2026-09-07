@@ -18,6 +18,17 @@ type CircleWalletContextValue = {
 
 const Context = createContext<CircleWalletContextValue | null>(null)
 const APP_ID = String(import.meta.env.VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET ?? import.meta.env.VITE_CIRCLE_USER_WALLET_APP_ID ?? '').trim()
+const CIRCLE_LIGHT_THEME: Parameters<CircleSdk['setThemeColor']>[0] = {
+  bg: '#FFFFFF', divider: '#E5E7EB', textMain: '#030712', textMain2: '#111827',
+  textAuxiliary: '#4B5563', textAuxiliary2: '#6B7280', textSummary: '#374151',
+  textSummaryHighlight: '#030712', textPlaceholder: '#6B7280',
+  inputBg: '#F5F5F7', inputBgDisabled: '#F3F4F6', inputText: '#030712',
+  dropdownBg: '#FFFFFF', interactiveBg: '#EFF6FF', textInteractive: '#2563EB',
+  pinDotBase: '#FFFFFF', pinDotBaseBorder: '#D1D5DB', pinDotActivated: '#2563EB', enteredPinText: '#030712',
+  mainBtnBg: '#2563EB', mainBtnText: '#FFFFFF', mainBtnBgOnHover: '#1D4ED8',
+  secondBtnText: '#374151', secondBtnBorder: '#D1D5DB', secondBtnBgOnHover: '#F3F4F6',
+  tooltipBg: '#111827', tooltipText: '#FFFFFF', error: '#DC2626', success: '#059669',
+}
 const NATIVE_ORIGIN = 'https://hashpaystream.app'
 const DEVICE_ID_STORAGE_PREFIX = 'hashpaystream:circle-device-id:v1'
 const EMAIL_VERIFICATION_TIMEOUT_MS = 10 * 60 * 1000
@@ -137,6 +148,7 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
         if (!authenticated || !email) throw new Error('Sign in with email to open your Circle wallet.')
         const { W3SSdk } = await import('@circle-fin/w3s-pw-web-sdk')
         const sdk = new W3SSdk({ appSettings: { appId: APP_ID } })
+        sdk.setThemeColor(CIRCLE_LIGHT_THEME)
         const deviceId = await getCircleDeviceId(sdk)
 
         const stored = forceEmailVerification.current ? undefined : await readPersistedCircleSession(window.localStorage, APP_ID, email, deviceId)
@@ -325,6 +337,7 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
     if (!session) throw new Error('Open your Circle wallet first.')
     const { W3SSdk } = await import('@circle-fin/w3s-pw-web-sdk')
     const sdk = new W3SSdk({ appSettings: { appId: APP_ID } })
+    sdk.setThemeColor(CIRCLE_LIGHT_THEME)
     sdk.setAuthentication({ userToken: session.userToken, encryptionKey: session.encryptionKey })
     const prepared = await request({ action: 'send_usdc', userToken: session.userToken, walletId: session.wallet.id, walletAddress: session.wallet.address, recipient, amountUnits: parseUnits(amount, 6).toString() })
     const challengeId = find(prepared, ['challengeId'])
@@ -349,6 +362,7 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
     if (!challengeId.trim()) throw new Error('Circle confirmation is unavailable.')
     const { W3SSdk } = await import('@circle-fin/w3s-pw-web-sdk')
     const sdk = new W3SSdk({ appSettings: { appId: APP_ID } })
+    sdk.setThemeColor(CIRCLE_LIGHT_THEME)
     sdk.setAuthentication({ userToken: session.userToken, encryptionKey: session.encryptionKey })
     const result = await execute(sdk, challengeId)
     return { transactionHash: find(result, ['txHash', 'transactionHash']) }

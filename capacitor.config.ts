@@ -15,20 +15,21 @@ const config: CapacitorConfig = {
   plugins: {
     SystemBars: {
       insetsHandling: 'css',
-      style: 'LIGHT',
+      style: 'DARK',
       hidden: false,
       animation: 'NONE',
     },
     StatusBar: {
       overlaysWebView: false,
-      style: 'LIGHT',
-      backgroundColor: '#F5F5F7',
+      style: 'DARK',
+      backgroundColor: '#06070a',
     },
     SplashScreen: {
       launchAutoHide: true,
-      launchShowDuration: 1_000,
-      backgroundColor: '#F5F5F7',
+      launchShowDuration: 12_000,
+      backgroundColor: '#06070a',
       showSpinner: false,
+      androidSplashResourceName: 'hashpaystream_launch',
     },
     Keyboard: {
       resize: 'native',

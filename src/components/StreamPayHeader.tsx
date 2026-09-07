@@ -64,14 +64,14 @@ export function StreamPayHeader() {
               </Link>
             </nav>
           )}
-          <button
+          {authenticated && <button
             type="button"
             onClick={toggle}
             title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-[#1c1c20] text-gray-500 dark:text-gray-400 shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
           >
             {theme === 'dark' ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
-          </button>
+          </button>}
         </div>
       </div>
     </header>

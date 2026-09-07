@@ -28,7 +28,7 @@ export default function StreamPaySavings() {
   const savingsTo = useStreamPayPath('/savings')
   const createPlanTo = useStreamPayPath('/savings?plan=create')
 
-  if (!authenticated) return <AgreementSignInLanding splashState='idle' />
+  if (!authenticated) return <AgreementSignInLanding />
   if (!savings.configReady || (savings.configured && !savings.savingsReady)) return <StreamPayLoadingState active='savings' />
 
   return <section className='stream-screen min-h-[calc(100dvh-6rem)] w-full max-w-md pb-28 pt-5'>

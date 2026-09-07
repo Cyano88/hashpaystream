@@ -7,6 +7,7 @@ import { StatusBar, Style } from '@capacitor/status-bar'
 const HOME_PATH = '/home'
 
 function applySystemBars() {
+  if (document.documentElement.dataset.streamBoot === 'true') return
   const forcedSurface = document.documentElement.dataset.streamSystemSurface
   const dark = forcedSurface === 'dark'
     || (forcedSurface !== 'light' && document.documentElement.classList.contains('dark'))
@@ -19,6 +20,7 @@ function applySystemBars() {
   // Legacy fallback for Android 14 and older. Capacitor 8 SystemBars injects
   // --safe-area-inset-* for modern edge-to-edge Android versions.
   void StatusBar.setOverlaysWebView({ overlay: false })
+  void StatusBar.setBackgroundColor({ color: document.documentElement.dataset.streamThemeSurface === 'launch' ? '#06070a' : dark ? '#0A0A0A' : '#F5F5F7' })
 }
 
 function scheduleSystemBars() {

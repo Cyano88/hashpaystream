@@ -4,7 +4,6 @@ import { ArrowLeftIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
 import { getAddress, isAddress, parseUnits } from 'viem'
 import { Link } from '../lib/router'
 import { useCircleWallet } from '../lib/circleWallet'
-import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSplash'
 import { useStreamAccount } from '../lib/streamAccount'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { formatUsdcBalance } from '../lib/useAgreements'
@@ -14,7 +13,6 @@ type Mode = 'pocket' | 'address'
 
 export default function StreamPaySend() {
   const { authenticated } = usePrivy()
-  const splashState = useHashPayStreamSessionSplash(!authenticated)
   const account = useStreamAccount()
   const wallet = useCircleWallet()
   const [mode, setMode] = useState<Mode>('pocket')
@@ -27,7 +25,7 @@ export default function StreamPaySend() {
   const [hash, setHash] = useState('')
   const homeTo = useStreamPayPath('/home')
   if (!authenticated)
-    return <AgreementSignInLanding splashState={splashState} />
+    return <AgreementSignInLanding />
 
   async function resolve() {
     setError('')

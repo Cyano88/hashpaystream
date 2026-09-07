@@ -5,7 +5,6 @@ import {
 } from '@heroicons/react/24/outline'
 import { usePrivy } from '@privy-io/react-auth'
 import { Navigate } from '../lib/router'
-import { useHashPayStreamSessionSplash } from '../lib/useHashPayStreamSessionSplash'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
 
@@ -19,7 +18,6 @@ const agreementScenes = [
 export default function StreamPayLanding() {
   const homeTo = useStreamPayPath('/home')
   const { authenticated } = usePrivy()
-  const splashState = useHashPayStreamSessionSplash(!authenticated)
   const [activeScene, setActiveScene] = useState(0)
 
   useEffect(() => {
@@ -101,7 +99,7 @@ export default function StreamPayLanding() {
         </div>
 
         <div className="order-1 mx-auto w-full max-w-md lg:order-2 lg:flex lg:h-full lg:items-center">
-          <AgreementSignInLanding splashState={splashState} compact />
+          <AgreementSignInLanding compact />
         </div>
       </section>
 
