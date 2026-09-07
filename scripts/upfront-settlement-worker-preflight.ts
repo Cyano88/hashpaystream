@@ -1,5 +1,6 @@
 import pg from 'pg'
-import { createPublicClient, http } from 'viem'
+import { createPublicClient, http, parseAbi } from 'viem'
+import { verifySettlementTargets, SettlementTargetError } from '../api/upfront-settlement-targets.js'
 import { renderDurableStoreConnectionConfig } from '../api/durable-store.js'
 import { upfrontSettlementWorkerConfiguration } from '../api/upfront-settlement-worker.js'
 
@@ -52,6 +53,7 @@ class PreflightCheckError extends Error {
 }
 
 function code(reason: unknown, stage: PreflightStage) {
+  if (reason instanceof SettlementTargetError) return reason.code
   if (reason instanceof PreflightCheckError) return reason.errorCode
   if (stage !== 'databaseConnection' || !reason || typeof reason !== 'object') return stageFailureCodes[stage]
 
@@ -127,6 +129,21 @@ try {
   stage = 'arcContract'
   const routerCode = await arc.getBytecode({ address: config.router })
   requireCheck(Boolean(routerCode && routerCode !== '0x'), 'ROUTER_CODE_MISSING')
+  const targetAbi = parseAbi([
+    'function eip712Domain() view returns (bytes1,string,string,uint256,address,bytes32,uint256[])',
+    'function paused() view returns (bool)', 'function arcRepaymentRouter() view returns (address)',
+    'function creditSigner() view returns (address)', 'function platformTreasury() view returns (address)',
+    'function asset() view returns (address)',
+  ])
+  await verifySettlementTargets({
+    escrowVersion: config.escrowVersion ?? '1', escrow: config.escrow, router: config.router,
+    signer: config.repaymentSigner, treasury: String(process.env.HASHPAYSTREAM_PLATFORM_TREASURY_ADDRESS ?? ''),
+    read: (target, functionName) => (target === 'escrow' ? xLayer : arc).readContract({
+      address: target === 'escrow' ? config.escrow : config.router, abi: targetAbi,
+      functionName: functionName as typeof targetAbi[number]['name'],
+    }),
+    gasBalance: () => arc.getBalance({ address: config.repaymentSigner }),
+  })
 
   console.log(JSON.stringify({
     ok: true,
@@ -138,6 +155,11 @@ try {
     arcChainId,
     contracts: { escrow: 'deployed', router: 'deployed' },
     signer: 'matched',
+    routerSigner: 'authorized',
+    signatureVersions: { escrow: '2', repayment: '4' },
+    relayerGas: 'nonzero; transaction-specific estimate required at submission',
+    runtimeCodeProvenance: 'separate reviewed deployment verification required',
+    financialProductionReady: false,
   }))
 } catch (reason) {
   console.error(JSON.stringify({

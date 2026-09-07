@@ -4,6 +4,10 @@ import { readFileSync } from 'node:fs'
 const source = readFileSync(new URL('./upfront-settlement-worker-preflight.ts', import.meta.url), 'utf8')
 
 for (const requirement of [
+  'verifySettlementTargets',
+  'SettlementTargetError',
+  'await verifySettlementTargets({',
+  'financialProductionReady: false',
   'NODE_VERSION_INVALID',
   'DATABASE_NOT_CONFIGURED',
   'DURABLE_STORE_MISSING',

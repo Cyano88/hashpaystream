@@ -49,7 +49,7 @@
     "test:circle-marketplace": "node --import tsx scripts/circle-marketplace-smoke.mjs",
     "test:upfront-settlement": "node --import tsx scripts/upfront-settlement-worker-smoke.mjs && node --import tsx scripts/upfront-settlement-runtime-smoke.mjs && node --import tsx scripts/upfront-settlement-daemon-smoke.mjs",
     "test:upfront-settlement-daemon": "node --import tsx scripts/upfront-settlement-daemon-smoke.mjs",
-    "test:upfront-settlement-preflight": "node scripts/upfront-settlement-worker-preflight-smoke.mjs",
+    "test:upfront-settlement-preflight": "node scripts/upfront-settlement-worker-preflight-smoke.mjs && node --import tsx scripts/upfront-settlement-targets-smoke.mjs",
     "test:savings-config": "node --import tsx scripts/savings-config-smoke.mjs",
     "test:financial-core": "node --import tsx scripts/financial-core-smoke.mjs",
     "test:financial-core-inventory": "node --import tsx scripts/financial-core-inventory-smoke.mjs",
