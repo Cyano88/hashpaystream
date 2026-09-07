@@ -20,7 +20,7 @@ Prior fourteen targeted agreement checks covered role isolation, immutable accep
 
 ## Remaining ordered gaps
 
-1. Preserve actual settlement transaction hash and original network in durable records and receipts. The submit adapter returns void; markSettled saves status only. Recover evidence after chain success/database failure without paying twice.
+1. Settlement transaction evidence is implemented and locally verified: durable checkpoint before submission, successful receipt/event verification, atomic status/evidence persistence, bounded recovery and original-network receipt links. Release verification is pending; live financial execution remains unproven.
 2. Complete separately authorized funding, delivery/review, split/refund and retry walkthrough. Verify exact funder/provider/platform amounts, single execution, receipt export and wallet flows.
 3. Decide and authorize activation only after target checks, appropriate network readiness and operational recovery evidence. No funder allowlisting, unpause, worker activation, funds movement or real alert delivery occurred in this configuration cutover.
 

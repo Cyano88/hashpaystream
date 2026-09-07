@@ -47,7 +47,7 @@
     "agent:credentials": "node --import tsx scripts/agent-credential-admin.mjs",
     "audit:database-recovery": "node --import tsx scripts/database-recovery-audit.mjs",
     "test:circle-marketplace": "node --import tsx scripts/circle-marketplace-smoke.mjs",
-    "test:upfront-settlement": "node --import tsx scripts/upfront-settlement-worker-smoke.mjs && node --import tsx scripts/upfront-settlement-runtime-smoke.mjs && node --import tsx scripts/upfront-settlement-daemon-smoke.mjs",
+    "test:upfront-settlement": "node --import tsx scripts/upfront-settlement-evidence-smoke.mjs && node --import tsx scripts/upfront-settlement-worker-smoke.mjs && node --import tsx scripts/upfront-settlement-runtime-smoke.mjs && node --import tsx scripts/upfront-settlement-daemon-smoke.mjs",
     "test:upfront-settlement-daemon": "node --import tsx scripts/upfront-settlement-daemon-smoke.mjs",
     "test:upfront-settlement-preflight": "node scripts/upfront-settlement-worker-preflight-smoke.mjs && node --import tsx scripts/upfront-settlement-targets-smoke.mjs",
     "test:savings-config": "node --import tsx scripts/savings-config-smoke.mjs",

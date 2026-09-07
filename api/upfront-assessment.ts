@@ -1,3 +1,4 @@
+import type { SettlementCheckpoint, SettlementEvidence } from '../src/lib/settlementEvidence.js'
 import { upfrontProtocol, type UpfrontEscrowVersion } from '../src/lib/upfrontProtocol.js'
 import { createHash, createHmac } from 'node:crypto'
 import type { Request, Response } from 'express'
@@ -21,6 +22,8 @@ export type UpfrontReviewState = {
   reviewerReference?: string
 }
 export type UpfrontFundingRequest = {
+  settlementEvidence?: SettlementEvidence
+  settlementCheckpoint?: SettlementCheckpoint
   settlementVersion: 3
   partnerApplicationId: string
   partnerWalletAddress: Address

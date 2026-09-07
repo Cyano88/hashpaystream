@@ -1,3 +1,4 @@
+import { settlementTransactionUrl, type SettlementEvidence } from '../lib/settlementEvidence'
 import UnifiedReceipt from './UnifiedReceipt'
 import type { PaylinkReceipt } from '../lib/paymentReceiptPdf'
 import { useState } from 'react'
@@ -6,6 +7,7 @@ import { isAddress } from 'viem'
 import { upfrontXLayerChain, xLayerMainnet, xLayerTestnet } from '../lib/upfrontChains'
 
 type FundingReceipt = {
+  settlementEvidence?: SettlementEvidence
   title?: string
   funder?: string
   repaymentRecipient?: string
@@ -46,16 +48,18 @@ export default function FundingPositionReceipt({ receipt }: { receipt: FundingRe
   const chainId = receipt.xLayerChainId ?? upfrontXLayerChain.id
   const fundingChain = chainId === 196 ? xLayerMainnet : chainId === 1952 ? xLayerTestnet : undefined
   const explorer = fundingChain?.blockExplorers?.default.url
-  const explorerUrl = explorer && receipt.escrowAddress && isAddress(receipt.escrowAddress)
+  const settlement = completed ? receipt.settlementEvidence : undefined
+  const settlementUrl = settlementTransactionUrl(settlement)
+  const explorerUrl = completed ? settlementUrl : explorer && receipt.escrowAddress && isAddress(receipt.escrowAddress)
     ? `${explorer}/address/${receipt.escrowAddress}`
     : ''
 
   const shared: PaylinkReceipt = {
     type: 'funding', receiptId: receipt.positionId, receiptHash: '', title: receipt.title || 'Funding receipt',
-    status: receipt.status, fundingStatus: receipt.status, eventId: receipt.positionId, txHash: '',
+    status: receipt.status, fundingStatus: receipt.status, eventId: receipt.positionId, txHash: settlementUrl ? settlement!.transactionHash : '',
     chain: completed ? 'arc-testnet' : chainId === 196 ? 'xlayer-mainnet' : chainId === 1952 ? 'xlayer-testnet' : 'unknown', payer: receipt.funder || '',
     amount: usdc(completed || refunded ? receipt.repaymentUsdcUnits : receipt.advanceUsdcUnits).replace(' USDC', ''),
-    asset: 'USDC', createdAt: 0, referenceId: receipt.positionId,
+    asset: 'USDC', createdAt: settlementUrl ? settlement!.timestamp : 0, referenceId: receipt.positionId,
     fundingRows: [
       ...(receipt.title ? [{ label: 'Agreement', value: receipt.title }] : []),
       { label: 'Funded on X Layer', value: usdc(receipt.advanceUsdcUnits) },
@@ -70,7 +74,7 @@ export default function FundingPositionReceipt({ receipt }: { receipt: FundingRe
   }
 
   async function copyProof() {
-    await navigator.clipboard.writeText(receipt.positionId)
+    await navigator.clipboard.writeText(settlementUrl ? settlement!.transactionHash : receipt.positionId)
     setCopied(true)
     window.setTimeout(() => setCopied(false), 1800)
   }
@@ -91,7 +95,7 @@ export default function FundingPositionReceipt({ receipt }: { receipt: FundingRe
       <button type="button" onClick={() => void copyProof()} className="flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-gray-200 text-[11px] font-bold dark:border-white/10">
         {copied ? <CheckIcon className="h-3.5 w-3.5" /> : <ClipboardIcon className="h-3.5 w-3.5" />}{copied ? 'Copied' : 'Copy proof'}
       </button>
-      {explorerUrl && <a href={explorerUrl} target="_blank" rel="noopener noreferrer" className="flex min-h-10 items-center justify-center gap-1.5 rounded-full bg-gray-950 text-[11px] font-bold text-white dark:bg-white dark:text-gray-950">View funding on X Layer<ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" /></a>}
+      {explorerUrl && <a href={explorerUrl} target="_blank" rel="noopener noreferrer" className="flex min-h-10 items-center justify-center gap-1.5 rounded-full bg-gray-950 text-[11px] font-bold text-white dark:bg-white dark:text-gray-950">{completed ? 'View repayment on Arc' : 'View funding on X Layer'}<ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" /></a>}
     </div>
     <UnifiedReceipt receipt={shared} className="mt-4" />
   </details>

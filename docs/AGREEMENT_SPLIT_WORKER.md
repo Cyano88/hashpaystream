@@ -14,7 +14,7 @@ The interval defaults to 30 seconds and is bounded to 10 seconds through 5 minut
 
 ## Shutdown and rollback
 
-Shutdown stops new worker scheduling and waits for the active pass alongside HTTP draining. The existing 25-second service shutdown limit remains authoritative; a longer transaction wait can be interrupted by process exit. A subsequent worker pass must reconcile on-chain settled state before submitting again. This change does not yet add durable transaction hashes; transaction-linked receipt recovery remains the next agreement-layer task.
+Shutdown stops new worker scheduling and waits for the active pass alongside HTTP draining. The existing 25-second service shutdown limit remains authoritative; a longer transaction wait can be interrupted by process exit. A subsequent worker pass must reconcile on-chain settled state before submitting again. Settlement evidence now preserves the transaction hash, original chain/router, agreement hash, block identity, timestamp and emitted split amounts. A durable block checkpoint is written before submission. Retries read settled state first and recover proof from the router event instead of paying again.
 
 To deactivate, set the worker flag false and restart the service through the normal deployment process. Do not change keys, delete records or operate a second uncoordinated worker as a rollback.
 
@@ -23,3 +23,11 @@ To deactivate, set the worker flag false and restart the service through the nor
 Node 22 checks passed for runtime activation, competing lock holders, startup idempotence, webhook wakeups, daemon scheduling/backoff, stopping during an active pass, no post-stop work, failed unlock cleanup, provider timeout continuation, and HTTP/worker drain with a bounded forced exit. Surface checks confirm actual server startup/webhook/shutdown wiring. TypeScript validation passed.
 
 Runtime concurrency tests use a controlled pool; they do not certify live PostgreSQL failover, a deployed worker or a real split. No production secrets, signing, funds movement or notification delivery were used in tests.
+
+## Transaction evidence recovery
+
+Only a successful receipt with exactly one matching router/agreement event is accepted. Two confirmations and a matching canonical block hash are required before persistence; this is not an absolute finality guarantee. Status and evidence are committed together. Existing conflicting evidence is rejected. A missing checkpoint for an externally completed settlement can be seeded only from the matching checked-in router deployment record, never an invented block or another router. Unknown historical targets require a verified deployment record.
+
+Recovery scans at most 100 blocks per agreement per pass, preserving progress with a two-block overlap. RPC errors and incomplete evidence defer the record; they cannot mark it settled or authorize another submission when the router already reports it settled. A historical scan can therefore require multiple passes. Existing records and signer secrets are never deleted or exported by recovery.
+
+The funding receipt uses this proof for its Arc transaction link and shared image/PDF transaction hash and timestamp. Older settled records without recovered proof do not receive a fabricated transaction link. Full live financial execution remains gated on separate activation and an authorized walkthrough.

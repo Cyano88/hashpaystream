@@ -33,12 +33,17 @@ const released = {
   protectedAmount: '10000', advanceAmount: '3000', funderRepaymentAmount: '3024', platformFeeAmount: '106', protectionDeadline: 2_000_000_000, status: 'Released',
 }
 const signed = { message: { arcAgreementHash: agreementHash, funderAmount: '3024', providerAmount: '6870', treasuryAmount: '106' }, signature: `0x${'66'.repeat(65)}` }
+const evidence = { chainId: 5042002, router: address(2), agreementHash, transactionHash: `0x${'77'.repeat(32)}` }
 let settledMarks = 0
 const base = {
   env: () => env,
   readStore: async () => store,
   position: async () => released,
   agreement: async () => ({ chain: { onchainAgreementId: agreementHash } }),
+  recoveryStartBlock: async () => undefined,
+  blockNumber: async () => 100n,
+  saveCheckpoint: async (_key, _record, checkpoint) => { store.records.complete.fundingRequest.settlementCheckpoint = checkpoint },
+  recover: async checkpoint => ({ checkpoint, evidence }),
   markSettled: async () => { settledMarks += 1 },
   sign: async () => signed,
   now: () => new Date('2026-08-30T12:00:00.000Z'),
@@ -46,7 +51,7 @@ const base = {
 }
 
 let submissions = 0
-const completed = await runUpfrontSettlementPass({ ...base, isSettled: async () => false, submit: async () => { submissions += 1 } })
+const completed = await runUpfrontSettlementPass({ ...base, isSettled: async () => false, submit: async () => { submissions += 1; return evidence } })
 assert.deepEqual(completed, { eligible: 1, settled: 1, alreadySettled: 0, deferred: 0, codes: [] })
 assert.equal(submissions, 1)
 assert.equal(settledMarks, 1)
@@ -116,7 +121,7 @@ try {
     runUpfrontSettlementPass({
       ...realAdapterBase,
       readStore: async () => ({ schema: 1, records: { first: store.records.complete, second: store.records.complete } }),
-      isSettled: async () => false, submit: async () => {},
+      isSettled: async () => false, submit: async () => evidence,
     }),
     new Promise((_resolve, reject) => { watchdog = setTimeout(() => reject(Error('Provider timeout failed to release the pass')), 1000) }),
   ]).finally(() => clearTimeout(watchdog))
@@ -128,3 +133,48 @@ try {
   AbortSignal.timeout = originalTimeout
 }
 console.log('Provider timeout defers only the affected agreement and continues settlement processing.')
+// A chain success followed by a failed database write must recover without paying twice.
+const recoveryStore = structuredClone(store)
+delete recoveryStore.records.complete.fundingRequest.settlementCheckpoint
+let chainSettled = false, payments = 0, writes = 0
+const recoveryBase = {
+  ...base, readStore: async () => recoveryStore,
+  isSettled: async () => chainSettled,
+  saveCheckpoint: async (_key, _record, checkpoint) => { recoveryStore.records.complete.fundingRequest.settlementCheckpoint = structuredClone(checkpoint) },
+  submit: async () => { assert.ok(recoveryStore.records.complete.fundingRequest.settlementCheckpoint); payments++; chainSettled = true; return evidence },
+  markSettled: async (_key, _record, proof) => {
+    writes++; if (writes === 1) throw Error('DATABASE_UNAVAILABLE')
+    recoveryStore.records.complete.fundingRequest.status = 'settled'
+    recoveryStore.records.complete.fundingRequest.settlementEvidence = proof
+  },
+}
+assert.deepEqual((await runUpfrontSettlementPass(recoveryBase)).codes, ['DATABASE_UNAVAILABLE'])
+assert.equal(payments, 1)
+assert.equal((await runUpfrontSettlementPass(recoveryBase)).alreadySettled, 1)
+assert.equal(payments, 1)
+assert.equal(recoveryStore.records.complete.fundingRequest.settlementEvidence.transactionHash, evidence.transactionHash)
+assert.equal((await runUpfrontSettlementPass(recoveryBase)).eligible, 0)
+const freshStore = structuredClone(store)
+delete freshStore.records.complete.fundingRequest.settlementCheckpoint
+const noCheckpoint = await runUpfrontSettlementPass({ ...base, readStore: async () => freshStore, isSettled: async () => false,
+  saveCheckpoint: async () => { throw Error('DATABASE_UNAVAILABLE') }, submit: async () => { throw Error('MUST_NOT_BROADCAST') } })
+assert.deepEqual(noCheckpoint.codes, ['DATABASE_UNAVAILABLE'])
+const missingHistory = await runUpfrontSettlementPass({ ...base, readStore: async () => freshStore, isSettled: async () => true,
+  submit: async () => { throw Error('MUST_NOT_BROADCAST') } })
+assert.deepEqual(missingHistory.codes, ['SETTLEMENT_EVIDENCE_CHECKPOINT_MISSING'])
+let progress
+const pendingEvidence = await runUpfrontSettlementPass({ ...base, isSettled: async () => true,
+  recover: async checkpoint => ({ checkpoint: { ...checkpoint, nextBlock: '198' } }),
+  saveCheckpoint: async (_key, _record, checkpoint) => { progress = checkpoint.nextBlock },
+  markSettled: async () => { throw Error('MUST_NOT_MARK_WITHOUT_PROOF') } })
+assert.deepEqual(pendingEvidence.codes, ['SETTLEMENT_EVIDENCE_PENDING']); assert.equal(progress, '198')
+console.log('Durable checkpoint, failed database write, single-payment recovery and evidence-pending checks passed.')
+
+const externallySettled = structuredClone(freshStore)
+let persistedStart
+const seeded = await runUpfrontSettlementPass({ ...base, readStore: async () => externallySettled,
+  isSettled: async () => true, recoveryStartBlock: async () => 50n,
+  saveCheckpoint: async (_key, _record, checkpoint) => { persistedStart = checkpoint.nextBlock },
+  recover: async checkpoint => { assert.equal(checkpoint.nextBlock, '50'); return { checkpoint, evidence } },
+  submit: async () => { throw Error('MUST_NOT_BROADCAST') } })
+assert.equal(seeded.alreadySettled, 1); assert.equal(persistedStart, '50')

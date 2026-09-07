@@ -1,3 +1,4 @@
+import type { SettlementEvidence } from '../src/lib/settlementEvidence.js'
 import { upfrontProtocol, type UpfrontEscrowVersion } from '../src/lib/upfrontProtocol.js'
 import { createHmac } from 'node:crypto'
 import type { Request, Response } from 'express'
@@ -413,6 +414,7 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
       })
       const inspected = await Promise.all(candidates.map(async item => ({ ...item, position: await dependencies.position(item.candidate.positionId, item.target) })))
       const opportunities: Array<(typeof candidates)[number]['candidate'] & {
+        settlementEvidence?: SettlementEvidence
         positionStatus: OpportunityStatus
         funder?: Address
         repaymentRecipient?: Address
@@ -427,6 +429,7 @@ export function createUpfrontOpportunitiesHandler(overrides: Partial<Dependencie
             fundingTerms: record.fundingRequest.fundingTerms,
             providerSignature: record.fundingRequest.providerSignature,
             positionStatus: 'settled',
+            settlementEvidence: record.fundingRequest.settlementEvidence,
             funder: position.funder,
             repaymentRecipient: position.repaymentRecipient,
           })

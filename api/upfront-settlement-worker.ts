@@ -1,3 +1,6 @@
+import { readFile } from 'node:fs/promises'
+import type { SettlementCheckpoint, SettlementEvidence } from '../src/lib/settlementEvidence.js'
+import { recoverSettlementEvidence, verifySettlementReceipt } from './upfront-settlement-evidence.js'
 import { upfrontProtocol, type UpfrontEscrowVersion } from '../src/lib/upfrontProtocol.js'
 import { createPublicClient, createWalletClient, defineChain, getAddress, http, isAddress, type Address, type Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -55,12 +58,16 @@ export type UpfrontSettlementWorkerDependencies = {
   env: () => NodeJS.ProcessEnv
   now: () => Date
   readStore: (key: string) => Promise<UpfrontAssessmentStore | undefined>
-  markSettled: (key: string, recordKey: string) => Promise<void>
+  markSettled: (key: string, recordKey: string, evidence: SettlementEvidence) => Promise<void>
+  saveCheckpoint: (key: string, recordKey: string, checkpoint: SettlementCheckpoint) => Promise<void>
+  recoveryStartBlock: (config: UpfrontSettlementWorkerConfig) => Promise<bigint | undefined>
+  blockNumber: (config: UpfrontSettlementWorkerConfig) => Promise<bigint>
+  recover: (checkpoint: SettlementCheckpoint, config: UpfrontSettlementWorkerConfig) => Promise<{ evidence?: SettlementEvidence; checkpoint: SettlementCheckpoint }>
   agreement: (id: string, config: UpfrontSettlementWorkerConfig) => Promise<AuthoritativeArcAgreement>
   position: (id: Hex, config: UpfrontSettlementWorkerConfig) => Promise<WorkerPosition>
   isSettled: (agreementHash: Hex, config: UpfrontSettlementWorkerConfig) => Promise<boolean>
   sign: typeof signSplitSettlement
-  submit: (signed: SignedSettlement, config: UpfrontSettlementWorkerConfig) => Promise<void>
+  submit: (signed: SignedSettlement, config: UpfrontSettlementWorkerConfig) => Promise<SettlementEvidence | undefined>
   log: (event: Record<string, unknown>) => void
 }
 
@@ -133,8 +140,9 @@ async function submit(signed: SignedSettlement, config: UpfrontSettlementWorkerC
     const simulation = await client.simulateContract({ account, address: config.router, abi: ROUTER_ABI, functionName: 'settleRepayment', args: [message, signed.signature] })
     const wallet = createWalletClient({ account, chain: arcTestnet, transport: http(config.arcRpcUrl) })
     const hash = await wallet.writeContract(simulation.request)
-    const receipt = await client.waitForTransactionReceipt({ hash, timeout: 60_000 })
+    const receipt = await client.waitForTransactionReceipt({ hash, confirmations: 2, timeout: 60_000 })
     if (receipt.status !== 'success') throw new Error('SETTLEMENT_REVERTED')
+    return await verifySettlementReceipt(client, config.router, message.arcAgreementHash, hash)
   } catch (reason) {
     if (await isSettled(message.arcAgreementHash, config).catch(() => false)) return
     throw reason
@@ -145,13 +153,32 @@ const defaults: UpfrontSettlementWorkerDependencies = {
   env: () => process.env,
   now: () => new Date(),
   readStore: key => readDurableJson<UpfrontAssessmentStore>(key),
-  markSettled: async (key, recordKey) => {
+  markSettled: async (key, recordKey, evidence) => {
     await mutateDurableJson<UpfrontAssessmentStore>(key, current => {
       const record = current?.records?.[recordKey]
-      if (!record?.fundingRequest) return current ?? { schema: 1, records: {} }
-      return { ...current!, records: { ...current!.records, [recordKey]: { ...record, fundingRequest: { ...record.fundingRequest, status: 'settled' } } } }
+      if (!record?.fundingRequest || record.fundingRequest.status === 'declined') throw Error('SETTLEMENT_RECORD_CHANGED')
+      const checkpoint = record.fundingRequest.settlementCheckpoint
+      if (!checkpoint || checkpoint.chainId !== evidence.chainId || checkpoint.router.toLowerCase() !== evidence.router.toLowerCase() || checkpoint.agreementHash.toLowerCase() !== evidence.agreementHash.toLowerCase()) throw Error('SETTLEMENT_EVIDENCE_TARGET_MISMATCH')
+      const prior = record.fundingRequest.settlementEvidence
+      if (prior && (prior.transactionHash !== evidence.transactionHash || prior.chainId !== evidence.chainId || prior.router !== evidence.router)) throw Error('SETTLEMENT_EVIDENCE_CONFLICT')
+      return { ...current!, records: { ...current!.records, [recordKey]: { ...record, fundingRequest: { ...record.fundingRequest, status: 'settled', settlementEvidence: evidence } } } }
     })
   },
+  saveCheckpoint: async (key, recordKey, checkpoint) => {
+    await mutateDurableJson<UpfrontAssessmentStore>(key, current => {
+      const record = current?.records?.[recordKey]
+      if (!record?.fundingRequest || record.fundingRequest.status === 'declined') throw Error('SETTLEMENT_RECORD_CHANGED')
+      return { ...current!, records: { ...current!.records, [recordKey]: { ...record, fundingRequest: { ...record.fundingRequest, settlementCheckpoint: checkpoint } } } }
+    })
+  },
+  recoveryStartBlock: async config => {
+    const tracked = JSON.parse(await readFile(new URL('../contracts/deployments/arc-testnet.json', import.meta.url), 'utf8'))
+    if (tracked.chainId !== 5042002 || String(tracked.repaymentRouter?.address).toLowerCase() !== config.router.toLowerCase()) return undefined
+    const block = tracked.repaymentRouter?.blockNumber
+    return Number.isSafeInteger(block) && block >= 0 ? BigInt(block) : undefined
+  },
+  blockNumber: config => createPublicClient({ transport: http(config.arcRpcUrl) }).getBlockNumber(),
+  recover: (checkpoint, config) => recoverSettlementEvidence(createPublicClient({ transport: http(config.arcRpcUrl) }), checkpoint),
   agreement,
   position,
   isSettled,
@@ -175,19 +202,41 @@ export async function runUpfrontSettlementPass(overrides: Partial<UpfrontSettlem
     const store = await dependencies.readStore(config.storeKey)
     for (const [recordKey, record] of Object.entries(store?.records ?? {})) {
       const funding = record.fundingRequest
-      if (record.status !== 'completed' || !record.request || !record.agreementId || !funding || funding.status !== 'pending') continue
+      if (record.status !== 'completed' || !record.request || !record.agreementId || !funding || (funding.status !== 'pending' && !(funding.status === 'settled' && !funding.settlementEvidence))) continue
       const positionId = funding.fundingTerms?.message?.offerHash
       if (!/^0x[a-fA-F0-9]{64}$/.test(String(positionId ?? ''))) continue
       try {
         const current = await dependencies.position(positionId as Hex, config)
         if (current.status !== 'Released' || current.arcAgreementHash === ZERO_HASH) continue
         result.eligible += 1
-        if (await dependencies.isSettled(current.arcAgreementHash, config)) { await dependencies.markSettled(config.storeKey, recordKey); result.alreadySettled += 1; continue }
+        let checkpoint = funding.settlementCheckpoint
+        if (checkpoint && (checkpoint.chainId !== 5042002 || checkpoint.router.toLowerCase() !== config.router.toLowerCase() || checkpoint.agreementHash.toLowerCase() !== current.arcAgreementHash.toLowerCase())) throw Error('SETTLEMENT_EVIDENCE_TARGET_MISMATCH')
+        const recover = async () => {
+          if (!checkpoint) {
+            const start = await dependencies.recoveryStartBlock(config)
+            if (start === undefined) throw Error('SETTLEMENT_EVIDENCE_CHECKPOINT_MISSING')
+            checkpoint = { chainId: 5042002, router: config.router, agreementHash: current.arcAgreementHash, nextBlock: start.toString() }
+            await dependencies.saveCheckpoint(config.storeKey, recordKey, checkpoint)
+          }
+          const found = await dependencies.recover(checkpoint, config)
+          if (!found.evidence) {
+            await dependencies.saveCheckpoint(config.storeKey, recordKey, found.checkpoint)
+            throw Error('SETTLEMENT_EVIDENCE_PENDING')
+          }
+          await dependencies.markSettled(config.storeKey, recordKey, found.evidence)
+        }
+        if (await dependencies.isSettled(current.arcAgreementHash, config)) { await recover(); result.alreadySettled += 1; continue }
+        if (funding.status === 'settled') throw Error('SETTLEMENT_CHAIN_STATE_MISMATCH')
         const authoritative = await dependencies.agreement(record.agreementId, config)
         if (!authoritative.chain || authoritative.chain.onchainAgreementId.toLowerCase() !== current.arcAgreementHash.toLowerCase()) throw new Error('ARC_AGREEMENT_MISMATCH')
         const signed = await dependencies.sign({ request: record.request, position: current, agreement: authoritative, arcRouter: config.router, escrowVersion: config.escrowVersion, privateKey: config.repaymentKey, now: dependencies.now() })
-        await dependencies.submit(signed, config)
-        await dependencies.markSettled(config.storeKey, recordKey)
+        if (!checkpoint) {
+          checkpoint = { chainId: 5042002, router: config.router, agreementHash: current.arcAgreementHash, nextBlock: (await dependencies.blockNumber(config)).toString() }
+          await dependencies.saveCheckpoint(config.storeKey, recordKey, checkpoint)
+        }
+        const evidence = await dependencies.submit(signed, config)
+        if (evidence) await dependencies.markSettled(config.storeKey, recordKey, evidence)
+        else await recover()
         result.settled += 1
       } catch (reason) {
         result.deferred += 1

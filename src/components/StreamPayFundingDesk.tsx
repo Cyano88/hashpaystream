@@ -1,3 +1,4 @@
+import type { SettlementEvidence } from '../lib/settlementEvidence'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowLeftIcon, BanknotesIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
@@ -13,6 +14,7 @@ import { reconcileFundingPositions } from '../lib/stableSnapshots'
 import FundingPositionReceipt from './FundingPositionReceipt'
 
 type Opportunity = {
+  settlementEvidence?: SettlementEvidence
   readOnly?: boolean
   fundingChainId?: number
   id: string
@@ -272,6 +274,7 @@ function FundingDetail({ item, onBack, onUpdated }: { item: Opportunity; onBack:
       </details>
 
       {quote && ['funded', 'released', 'settled', 'refunded'].includes(item.positionStatus) && <FundingPositionReceipt receipt={{
+        settlementEvidence: item.settlementEvidence,
         title: item.title,
         funder: item.funder,
         repaymentRecipient: item.repaymentRecipient,

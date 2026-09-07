@@ -32,6 +32,19 @@ try {
   assert.equal(globalThis.__fundingSharedReceipt.chain, 'unknown')
   render({ ...receipt, xLayerChainId: 1952, status: 'settled' })
   assert.equal(globalThis.__fundingSharedReceipt.chain, 'arc-testnet')
+  const tx = '0x' + 'ab'.repeat(32)
+  const proof = { chainId: 5042002, transactionHash: tx, timestamp: 1700000000000 }
+  const settled = render({ ...receipt, status: 'settled', settlementEvidence: proof })
+  assert.match(settled, new RegExp('https://testnet.arcscan.app/tx/' + tx))
+  assert.doesNotMatch(settled, /xlayer.*\/address\//)
+  assert.equal(globalThis.__fundingSharedReceipt.txHash, tx)
+  assert.equal(globalThis.__fundingSharedReceipt.createdAt, proof.timestamp)
+  assert.equal(globalThis.__fundingSharedReceipt.chain, 'arc-testnet')
+  const withoutProof = render({ ...receipt, status: 'settled' })
+  assert.doesNotMatch(withoutProof, /View repayment on Arc/)
+  assert.equal(globalThis.__fundingSharedReceipt.txHash, '')
+  render({ ...receipt, status: 'settled', settlementEvidence: { ...proof, chainId: 196 } })
+  assert.equal(globalThis.__fundingSharedReceipt.txHash, '')
   console.log('Rendered funding receipts use the original network for explorer links and shared receipt input.')
 } finally {
   delete globalThis.__fundingSharedReceipt
