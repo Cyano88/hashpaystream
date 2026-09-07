@@ -113,6 +113,13 @@ function missingUpfrontEnvironmentNames(env: NodeJS.ProcessEnv) {
   return required.sort()
 }
 
+// Deliberate suspension is operationally healthy, not financial activation.
+// Both flags must be explicitly false; missing or contradictory flags still fail.
+function settlementIntentionallySuspended(env: NodeJS.ProcessEnv) {
+  return clean(env.HASHPAYSTREAM_SETTLEMENT_WORKER_ENABLED, 20).toLowerCase() === 'false'
+    && clean(env.HASHPAYSTREAM_UPFRONT_AUTO_SETTLEMENT_ENABLED, 20).toLowerCase() === 'false'
+}
+
 function upfrontConfigurationReady(env: NodeJS.ProcessEnv) {
   if (clean(env.HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() !== 'true') return true
   const address = (value: unknown) => /^0x[a-fA-F0-9]{40}$/.test(clean(value, 42)) && !/^0x0{40}$/i.test(clean(value, 42))
@@ -173,7 +180,7 @@ function upfrontConfigurationReady(env: NodeJS.ProcessEnv) {
     && clean(env.VITE_HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() === 'true'
     && clean(env.VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED, 20).toLowerCase() === 'true'
     && v3Enabled === browserV3Enabled
-    && (!v3Enabled || autoSettlementEnabled)
+    && (!v3Enabled || autoSettlementEnabled || settlementIntentionallySuspended(env))
     && (!v3Enabled || address(platformTreasury))
     && clean(env.HASHPAYSTREAM_DIRECT_ARC_ENABLED, 20).toLowerCase() === 'true'
   )
@@ -214,7 +221,7 @@ function upfrontConfigurationIssueCodes(env: NodeJS.ProcessEnv) {
   }
   if (clean(env.VITE_HASHPAYSTREAM_UPFRONT_ENABLED, 20).toLowerCase() !== 'true' || clean(env.VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED, 20).toLowerCase() !== 'true') issues.push('UPFRONT_BROWSER_FLAGS_INVALID')
   if (v3Enabled !== browserV3Enabled) issues.push('FEE_SETTLEMENT_V3_FLAGS_MISMATCH')
-  if (v3Enabled && !autoSettlementEnabled) issues.push('AUTO_SETTLEMENT_DISABLED')
+  if (v3Enabled && !autoSettlementEnabled && !settlementIntentionallySuspended(env)) issues.push('AUTO_SETTLEMENT_DISABLED')
   if (v3Enabled && !address(env.HASHPAYSTREAM_PLATFORM_TREASURY_ADDRESS)) issues.push('PLATFORM_TREASURY_INVALID')
   if (clean(env.HASHPAYSTREAM_DIRECT_ARC_ENABLED, 20).toLowerCase() !== 'true') issues.push('DIRECT_ARC_CONFIGURATION_INVALID')
   return [...new Set(issues)].sort()

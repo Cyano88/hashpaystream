@@ -202,3 +202,35 @@ assert.equal(invalidMethod.statusCode, 405)
 assert.equal(invalidMethod.headers.allow, 'GET')
 
 console.log('HashPayStream readiness smoke checks passed.')
+
+const suspendedEnvironment = {
+  ...completeV3Environment,
+  HASHPAYSTREAM_SETTLEMENT_WORKER_ENABLED: 'false',
+  HASHPAYSTREAM_UPFRONT_AUTO_SETTLEMENT_ENABLED: 'false',
+}
+for (const [overrides, expectedStatus] of [
+  [{}, 200],
+  [{ HASHPAYSTREAM_SETTLEMENT_WORKER_ENABLED: 'true' }, 503],
+  [{ HASHPAYSTREAM_SETTLEMENT_WORKER_ENABLED: 'invalid' }, 503],
+  [{ HASHPAYSTREAM_UPFRONT_AUTO_SETTLEMENT_ENABLED: '' }, 503],
+  [{ HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY: '' }, 503],
+  [{ HASHPAYSTREAM_PLATFORM_TREASURY_ADDRESS: '' }, 503],
+  [{ VITE_HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS: '0x4444444444444444444444444444444444444444' }, 503],
+]) {
+  const response = await call(createHashPayStreamReadinessHandler({
+    hasStore: () => true, read: async () => undefined,
+    env: () => ({ ...suspendedEnvironment, ...overrides }), logError: () => {},
+  }))
+  assert.equal(response.statusCode, expectedStatus)
+}
+for (const failingDependency of [
+  { read: async () => { throw new Error('store unavailable') } },
+  { checkTrade: async () => { throw new Error('trade unavailable') } },
+]) {
+  const response = await call(createHashPayStreamReadinessHandler({
+    hasStore: () => true, read: async () => undefined,
+    env: () => suspendedEnvironment, logError: () => {}, ...failingDependency,
+  }))
+  assert.equal(response.statusCode, 503)
+}
+console.log('Explicit settlement suspension and dependency failure checks passed.')
