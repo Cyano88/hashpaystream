@@ -42,3 +42,13 @@ A clean Android 15 emulator was installed using Google's command-line tools, emu
 On the isolated HashPayStream_Release_API35 emulator (emulator-5556), package enumeration confirmed no existing app installation. The exact release-folder APK installed successfully. Android reports version 1.0.12 / code 13 without DEBUGGABLE. The sign-in screen rendered; a warm HTTPS Trade intent opened the live Trade UI with the empty feed; My listings displayed the sign-in gate; hardware Back returned to Browse. Screenshots and UI evidence are in ignored output/playwright files. No AndroidRuntime error appeared in the sampled emulator log. The physical Pixel app was not replaced or cleared.
 
 Authenticated signed-release tests remain pending user login. After a full emulator reboot, the installed app remained present and a cold launch rendered the sign-in screen again, verified by screenshot. The visible emulator window is ready for user login. No public release or Play upload was performed.
+
+## Authenticated signed-release test: session restoration blocker
+
+The operator completed email sign-in in the emulator. The signed app then exposed authenticated Trade navigation and loaded the private My listings screen with zero published items and zero local drafts. A synthetic local draft named TEST release draft 1.0.12 was created with price 100 NGN, city Lagos, size M, a clearly labelled test description, and the existing synthetic test image selected through Android's photo picker. The app confirmed: Draft saved on this device. It is not published. No listing was published and no message or payment was sent.
+
+During entry, bottom navigation was absent with the keyboard open and returned after Back dismissed the keyboard. Form values remained intact, and photo selection returned successfully to the signed app.
+
+After force-stopping and cold-starting only the emulator app, opening Trade and My listings returned the sign-in gate. Waiting for startup to settle did not restore authenticated navigation. Draft persistence cannot yet be judged because the original account is signed out. This is a release blocker pending reproduction and diagnosis, not a claimed data-loss result. The visible emulator was returned to the enlarged sign-in flow and a second login was requested. The emulator clock matches the PC's UTC time. No app data was cleared, no authentication storage or token contents were inspected, and no speculative authentication fix was applied.
+
+The synthetic local draft must be checked and removed after the same account signs in again. Authenticated enquiries, session persistence, connection recovery and the remaining two-account checks are not marked passed by this run.
