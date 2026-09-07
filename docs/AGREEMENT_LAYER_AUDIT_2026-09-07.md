@@ -20,7 +20,7 @@ Prior fourteen targeted agreement checks covered role isolation, immutable accep
 
 ## Remaining ordered gaps
 
-1. Settlement transaction evidence is implemented and locally verified: durable checkpoint before submission, successful receipt/event verification, atomic status/evidence persistence, bounded recovery and original-network receipt links. Release verification is pending; live financial execution remains unproven.
+1. Settlement transaction evidence is implemented and locally verified: durable checkpoint before submission, successful receipt/event verification, atomic status/evidence persistence, bounded recovery and original-network receipt links. Released on web commit 56ecbe02883b6306d7c11b1ca39b5588ec4b36df and installed as Android 1.0.18 (code 19). Live health/readiness pass; matching web/Android assets, signatures, and device launch verified. Live financial execution remains unproven.
 2. Complete separately authorized funding, delivery/review, split/refund and retry walkthrough. Verify exact funder/provider/platform amounts, single execution, receipt export and wallet flows.
 3. Decide and authorize activation only after target checks, appropriate network readiness and operational recovery evidence. No funder allowlisting, unpause, worker activation, funds movement or real alert delivery occurred in this configuration cutover.
 
