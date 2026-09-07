@@ -92,12 +92,19 @@ export function upfrontSettlementWorkerConfiguration(env: NodeJS.ProcessEnv): Up
 }
 
 async function agreement(id: string, config: UpfrontSettlementWorkerConfig) {
-  const response = await fetch(`${config.baseUrl}/api/v2/agreements?id=${encodeURIComponent(id)}`, { cache: 'no-store', headers: { 'x-api-key': config.apiKey, accept: 'application/json' } })
-  const body = await response.json().catch(() => ({})) as { agreement?: AuthoritativeArcAgreement }
-  if (!response.ok || !body.agreement) throw new Error('AGREEMENT_UNAVAILABLE')
-  return body.agreement
+  try {
+    const response = await fetch(`${config.baseUrl}/api/v2/agreements?id=${encodeURIComponent(id)}`, {
+      cache: 'no-store', headers: { 'x-api-key': config.apiKey, accept: 'application/json' },
+      signal: AbortSignal.timeout(20_000),
+    })
+    const body = await response.json() as { agreement?: AuthoritativeArcAgreement }
+    if (!response.ok || !body.agreement) throw new Error('AGREEMENT_UNAVAILABLE')
+    return body.agreement
+  } catch (reason) {
+    if (reason instanceof Error && ['TimeoutError', 'AbortError'].includes(reason.name)) throw new Error('AGREEMENT_TIMEOUT')
+    throw new Error('AGREEMENT_UNAVAILABLE')
+  }
 }
-
 async function position(id: Hex, config: UpfrontSettlementWorkerConfig): Promise<WorkerPosition> {
   const value = await createPublicClient({ transport: http(config.xLayerRpcUrl) }).readContract({ address: config.escrow, abi: POSITION_ABI, functionName: 'positions', args: [id] })
   const status = value[15] === 1 ? 'Funded' : value[15] === 2 ? 'Released' : value[15] === 3 ? 'Refunded' : undefined
@@ -126,7 +133,7 @@ async function submit(signed: SignedSettlement, config: UpfrontSettlementWorkerC
     const simulation = await client.simulateContract({ account, address: config.router, abi: ROUTER_ABI, functionName: 'settleRepayment', args: [message, signed.signature] })
     const wallet = createWalletClient({ account, chain: arcTestnet, transport: http(config.arcRpcUrl) })
     const hash = await wallet.writeContract(simulation.request)
-    const receipt = await client.waitForTransactionReceipt({ hash })
+    const receipt = await client.waitForTransactionReceipt({ hash, timeout: 60_000 })
     if (receipt.status !== 'success') throw new Error('SETTLEMENT_REVERTED')
   } catch (reason) {
     if (await isSettled(message.arcAgreementHash, config).catch(() => false)) return

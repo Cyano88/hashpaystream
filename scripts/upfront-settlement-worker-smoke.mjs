@@ -90,3 +90,41 @@ scheduler.stop()
 assert.equal(passStarts, 2)
 
 console.log('HashPayStream automatic settlement idempotency and retry checks passed.')
+
+// The real provider adapter must abort a stalled response and continue the pass.
+const originalFetch = globalThis.fetch
+const originalTimeout = AbortSignal.timeout
+const timeoutRequests = []
+let providerCalls = 0
+let abortObserved = false
+try {
+  AbortSignal.timeout = milliseconds => {
+    timeoutRequests.push(milliseconds)
+    return originalTimeout.call(AbortSignal, 5)
+  }
+  globalThis.fetch = async (_url, options) => {
+    providerCalls += 1
+    assert.ok(options.signal instanceof AbortSignal)
+    if (providerCalls === 1) return new Promise((_resolve, reject) => {
+      options.signal.addEventListener('abort', () => { abortObserved = true; reject(options.signal.reason) }, { once: true })
+    })
+    return { ok: true, json: async () => ({ agreement: { chain: { onchainAgreementId: agreementHash } } }) }
+  }
+  const { agreement: _mockedAgreement, ...realAdapterBase } = base
+  let watchdog
+  const result = await Promise.race([
+    runUpfrontSettlementPass({
+      ...realAdapterBase,
+      readStore: async () => ({ schema: 1, records: { first: store.records.complete, second: store.records.complete } }),
+      isSettled: async () => false, submit: async () => {},
+    }),
+    new Promise((_resolve, reject) => { watchdog = setTimeout(() => reject(Error('Provider timeout failed to release the pass')), 1000) }),
+  ]).finally(() => clearTimeout(watchdog))
+  assert.equal(abortObserved, true)
+  assert.deepEqual(timeoutRequests, [20_000, 20_000])
+  assert.deepEqual(result, { eligible: 2, settled: 1, alreadySettled: 0, deferred: 1, codes: ['AGREEMENT_TIMEOUT'] })
+} finally {
+  globalThis.fetch = originalFetch
+  AbortSignal.timeout = originalTimeout
+}
+console.log('Provider timeout defers only the affected agreement and continues settlement processing.')
