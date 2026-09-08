@@ -1,3 +1,4 @@
+import { payerLifecycleOutcome } from '../lib/payerLifecycleOutcome'
 import { useEffect, useState } from 'react'
 import { ArrowLeftIcon, CheckCircleIcon, LockClosedIcon } from '@heroicons/react/24/outline'
 import { useCircleWallet } from '../lib/circleWallet'
@@ -27,6 +28,7 @@ type FundingReview = {
   attempt: FundingAttempt | null
   recovery?: { stage: 'approval' | 'activation'; pending: true; chainSubmitted: boolean } | null
   lifecycle?: {
+    cancel?: { eligible: boolean; reason: string | null }
     refund?: { eligible: boolean; reason: string | null }
     action?: { action: 'cancel' | 'refund'; status: string; transactionHash?: string | null } | null
   } | null
@@ -131,7 +133,8 @@ export default function StreamPayFundRequest({ item, onBack, payer, onFunded }: 
     if (!refundPending || !wallet.session) return
     const poll = () => void payer<LifecycleAction>({ action: refundSubmitted ? 'payer_lifecycle_status' : 'payer_lifecycle_recover', requestId: item.id, circleUserToken: wallet.session!.userToken }).then(result => {
       const status = result.lifecycleAction?.status
-      const complete = status === 'confirmed' || result.pending === false
+      const complete = payerLifecycleOutcome(result) === 'confirmed'
+      if (payerLifecycleOutcome(result) === 'failed') { setRefundPending(false); setError('The return was not confirmed. Refresh the agreement to review its status.'); return }
       if (status === 'submitted') setRefundSubmitted(true)
       if (complete) {
         setRefundConfirmed(true)
@@ -216,19 +219,20 @@ export default function StreamPayFundRequest({ item, onBack, payer, onFunded }: 
     }
   }
 
-  async function refund() {
+  async function refund(lifecycleAction: 'refund' | 'cancel' = 'refund') {
     if (busy || refundPending) return
     if (!wallet.session) { await wallet.reconnect(); return }
     setBusy(true); setError('')
     try {
-      const challenge = await payer<LifecycleAction>({ action: 'payer_lifecycle_challenge', requestId: item.id, lifecycleAction: 'refund', circleUserToken: wallet.session.userToken })
+      const challenge = await payer<LifecycleAction>({ action: 'payer_lifecycle_challenge', requestId: item.id, lifecycleAction, circleUserToken: wallet.session.userToken })
       if (!challenge.challengeId) throw new Error('Circle refund confirmation is unavailable.')
       const execution = await wallet.executeChallenge(challenge.challengeId)
       const result = execution.transactionHash
         ? await payer<LifecycleAction>({ action: 'payer_lifecycle_record', requestId: item.id, transactionHash: execution.transactionHash, circleUserToken: wallet.session.userToken })
         : await payer<LifecycleAction>({ action: 'payer_lifecycle_recover', requestId: item.id, circleUserToken: wallet.session.userToken })
       const status = result.lifecycleAction?.status
-      const complete = status === 'confirmed' || result.pending === false
+      const complete = payerLifecycleOutcome(result) === 'confirmed'
+      if (payerLifecycleOutcome(result) === 'failed') throw new Error('The return was not confirmed. Refresh the agreement to review its status.')
       const submitted = Boolean(execution.transactionHash) || status === 'submitted'
       setRefundSubmitted(submitted)
       setRefundConfirmed(complete)
@@ -267,12 +271,13 @@ export default function StreamPayFundRequest({ item, onBack, payer, onFunded }: 
 
   const terms = item.terms.find(value => value.version === item.activeVersion) ?? item.terms[item.terms.length - 1]
   const attempt = review?.attempt
+  const cancelled = item.status === 'cancelled' || (review?.lifecycle?.action?.action === 'cancel' && review.lifecycle.action.status === 'confirmed')
   const refunded = refundConfirmed
     || item.status === 'refunded'
-    || (review?.lifecycle?.action?.action === 'refund' && review.lifecycle.action.status === 'confirmed')
+    || (review?.lifecycle?.action && review.lifecycle.action.status === 'confirmed')
   const completed = item.status === 'completed'
-  const expired = !refunded && (Boolean(review?.lifecycle?.refund?.eligible) || item.status === 'expired')
-  const active = attempt?.status === 'active' && item.status === 'funded' && !expired && !refunded
+  const expired = !completed && !cancelled && !refunded && (Boolean(review?.lifecycle?.refund?.eligible) || item.status === 'expired')
+  const active = attempt?.status === 'active' && item.status === 'funded' && !expired && !refunded && !cancelled
   const pending = Boolean(review?.recovery?.pending)
     || attempt?.status === 'approval_submitted'
     || attempt?.status === 'activation_submitted'
@@ -293,7 +298,7 @@ export default function StreamPayFundRequest({ item, onBack, payer, onFunded }: 
       <button onClick={onBack} aria-label="Back to request" className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm dark:bg-white/[0.06]">
         <ArrowLeftIcon className="h-4 w-4" />
       </button>
-      <h1 className="text-xl font-extrabold">{refunded ? 'Agreement closed' : completed ? 'Agreement completed' : active ? 'Review delivery' : 'Review and fund'}</h1>
+      <h1 className="text-xl font-extrabold">{refunded || cancelled ? 'Agreement closed' : completed ? 'Agreement completed' : active ? 'Review delivery' : 'Review and fund'}</h1>
     </div>
     <div className="mt-5 rounded-[24px] border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.07] dark:bg-white/[0.035]">
       <div className="flex items-start justify-between gap-4">
@@ -314,15 +319,17 @@ export default function StreamPayFundRequest({ item, onBack, payer, onFunded }: 
       {active && <div className="mt-4 flex items-center gap-2 text-xs font-bold text-emerald-600"><CheckCircleIcon className="h-5 w-5" />Funding confirmed</div>}
       {completed && <div className="mt-4 flex items-center gap-2 text-xs font-bold text-emerald-600"><CheckCircleIcon className="h-5 w-5" />Payment released on Arc</div>}
       {refunded && <div className="mt-4 flex items-center gap-2 text-xs font-bold text-emerald-600"><CheckCircleIcon className="h-5 w-5" />USDC returned to your Circle wallet</div>}
+      {cancelled && <p className="mt-4 text-xs font-bold text-gray-500">Agreement cancelled</p>}
       {expired && <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">This agreement ended. Return the remaining USDC to your Circle wallet.</p>}
       {visibleError && <p className="mt-4 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700 dark:bg-red-400/10 dark:text-red-200">{visibleError}</p>}
       {!review && !visibleError && <div className="mt-5 h-12 animate-pulse rounded-full bg-gray-100 dark:bg-white/[0.06]" />}
       {visibleError && (!review || wallet.state === 'error') && <button onClick={() => { setError(''); setReviewRetry(value => value + 1); if (wallet.state === 'error') void wallet.reconnect() }} className="mt-4 min-h-11 w-full rounded-full border border-gray-200 text-xs font-bold dark:border-white/10">Try again</button>}
       {review && expired && <button disabled={busy || refundPending || refundSubmitted} onClick={() => void refund()} className="mt-5 min-h-12 w-full rounded-full bg-gray-950 text-sm font-bold text-white disabled:opacity-45 dark:bg-white dark:text-gray-950">{busy ? 'Opening Circle...' : refundPending || refundSubmitted ? 'Confirming return...' : 'Return remaining USDC'}</button>}
+      {review?.lifecycle?.cancel?.eligible && active && !terms.upfrontRequested && <button disabled={busy || refundPending || refundSubmitted} onClick={() => void refund('cancel')} className="mt-4 min-h-11 w-full rounded-full border border-gray-200 text-xs font-bold disabled:opacity-45 dark:border-white/10">{refundPending || refundSubmitted ? 'Confirming return...' : 'Cancel and return USDC'}</button>}
       {review && delivery && (active || completed) && <DeliveryPanel delivery={delivery} busy={busy} confirming={deliveryConfirming} issueMode={issueMode} issueText={issueText} onIssueMode={setIssueMode} onIssueText={setIssueText} onDecision={decideDelivery} />}
       {item.earlyPaySettlement && <EarlyPaySettlementSummary settlement={item.earlyPaySettlement} />}
-      {review?.receipt && (completed || refunded) && <UnifiedReceipt receipt={review.receipt} settlement={item.earlyPaySettlement} submittedWorkUrl={delivery?.evidenceReference} className="mt-5" />}
-      {review && !completed && !refunded && !expired && !(active && delivery) && <button disabled={busy || active || pending} onClick={() => void confirm()} className="mt-5 min-h-12 w-full rounded-full bg-gray-950 text-sm font-bold text-white disabled:opacity-45 dark:bg-white dark:text-gray-950">{busy ? 'Please wait...' : actionLabel}</button>}
+      {review?.receipt && (completed || refunded || cancelled) && <UnifiedReceipt receipt={review.receipt} settlement={item.earlyPaySettlement} submittedWorkUrl={delivery?.evidenceReference} className="mt-5" />}
+      {review && !completed && !cancelled && !refunded && !expired && !(active && delivery) && <button disabled={busy || active || pending} onClick={() => void confirm()} className="mt-5 min-h-12 w-full rounded-full bg-gray-950 text-sm font-bold text-white disabled:opacity-45 dark:bg-white dark:text-gray-950">{busy ? 'Please wait...' : actionLabel}</button>}
     </div>
   </section>
 }

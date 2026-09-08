@@ -349,7 +349,7 @@ export default function AgreementDashboard() {
     return ['completed', 'cancelled', 'refunded'].includes(agreement.status)
   }), [agreements, filter])
   const customerAgreements = useMemo(() => requests.requests.filter(request =>
-    request.role === 'customer' && Boolean(request.agreementId) && ['awaiting_funding', 'funded', 'expired', 'completed', 'refunded'].includes(request.status)
+    request.role === 'customer' && Boolean(request.agreementId) && ['awaiting_funding', 'funded', 'expired', 'completed', 'refunded', 'cancelled'].includes(request.status)
   ), [requests.requests])
   const filteredCustomerAgreements = useMemo(() => customerAgreements.filter(request => {
     const status = customerAgreementStatus(request)

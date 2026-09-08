@@ -64,3 +64,23 @@ const afterCompletion = await call('GET')
 assert.equal(afterCompletion.body.requests[0].status, 'completed')
 
 console.log('HashPayStream customer-led request roles, version acceptance, provider ownership, and payer checkout checks passed.')
+
+// Local negotiation endpoints must not overwrite financial lifecycle states.
+const savedRequest = structuredClone(requestStore.requests[created.body.request.id])
+for (const state of ['awaiting_funding', 'funded', 'expired', 'completed', 'refunded', 'cancelled', 'declined']) {
+  for (const [actor, action] of [[customer, 'customer_cancel'], [provider, 'provider_decline']]) {
+    identity = actor
+    requestStore.requests[savedRequest.id] = { ...structuredClone(savedRequest), status: state }
+    const before = JSON.stringify(requestStore)
+    assert.equal((await call('POST', { action, requestId: savedRequest.id, version: 1 })).statusCode, 409)
+    assert.equal(JSON.stringify(requestStore), before)
+  }
+}
+identity = customer
+requestStore.requests[savedRequest.id] = structuredClone(savedRequest)
+eventStore = { schema: 1, events: {
+  cancel: { event: 'agreement.cancelled', agreementId: savedRequest.agreementId, createdAt: '2026-08-26T12:02:00.000Z' },
+  stale: { event: 'agreement.activated', agreementId: savedRequest.agreementId, createdAt: '2026-08-26T12:03:00.000Z' },
+} }
+assert.equal((await call('GET')).body.requests[0].status, 'cancelled')
+console.log('Terminal mutations rejected and cancellation remains final after late activation events.')

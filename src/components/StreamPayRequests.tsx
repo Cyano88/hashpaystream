@@ -307,7 +307,7 @@ function RequestCard({
       </div>
       {item.earlyPaySettlement && <div className="border-t border-gray-100 px-3 pb-3 dark:border-white/[0.07]"><EarlyPaySettlementSummary settlement={item.earlyPaySettlement} /></div>}
       {providerHasEarlyPay && <ProviderEarlyPayAction item={item} earlyPayTo={earlyPayTo} useFundsTo={useFundsTo} />}
-      {item.agreementId && ['completed', 'refunded'].includes(item.status) && (
+      {item.agreementId && ['completed', 'refunded', 'cancelled'].includes(item.status) && (
         <Link
           to={agreementTo}
           className="flex min-h-11 w-full items-center justify-center border-t border-gray-100 text-xs font-bold text-gray-950 dark:border-white/[0.07] dark:text-white"

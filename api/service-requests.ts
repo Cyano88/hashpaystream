@@ -218,14 +218,14 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
       const viewer = accountKey(cfg.secret, identity.email)
       if (req.method === 'GET') {
         const [stored, humanEvents, upfrontEvents, assessments, partners] = await Promise.all([dependencies.readRequests(cfg.requestStore), dependencies.readEvents(cfg.humanEvents), dependencies.readEvents(cfg.upfrontEvents), dependencies.readAssessments(cfg.assessmentStore), dependencies.readPartners(cfg.partnerStore)])
-        const lifecycle = new Map<string, { status: 'funded' | 'expired' | 'completed' | 'refunded'; createdAt: string }>()
+        const lifecycle = new Map<string, { status: 'funded' | 'expired' | 'completed' | 'refunded' | 'cancelled'; createdAt: string }>()
         for (const event of Object.values({ ...(humanEvents?.events ?? {}), ...(upfrontEvents?.events ?? {}) }).sort((left, right) => left.createdAt.localeCompare(right.createdAt))) {
-          const status = event.event === 'agreement.expired' ? 'expired' : event.event === 'agreement.completed' ? 'completed' : event.event === 'agreement.refunded' ? 'refunded' : ['agreement.activated', 'agreement.step_released'].includes(event.event) ? 'funded' : null
-          if (status) lifecycle.set(event.agreementId, { status, createdAt: event.createdAt })
+          const status = event.event === 'agreement.cancelled' ? 'cancelled' : event.event === 'agreement.expired' ? 'expired' : event.event === 'agreement.completed' ? 'completed' : event.event === 'agreement.refunded' ? 'refunded' : ['agreement.activated', 'agreement.step_released'].includes(event.event) ? 'funded' : null
+          if (status && !['completed', 'refunded', 'cancelled'].includes(lifecycle.get(event.agreementId)?.status ?? '')) lifecycle.set(event.agreementId, { status, createdAt: event.createdAt })
         }
         const reconciled = Object.values(stored?.requests ?? {}).filter(item => item.customerAccountKey === viewer || item.providerAccountKey === viewer).map(item => {
           const observed = item.agreementId ? lifecycle.get(item.agreementId) : undefined
-          if (!observed || !['awaiting_funding', 'funded', 'expired', 'completed', 'refunded'].includes(item.status)) return item
+          if (!observed || ['completed', 'refunded', 'cancelled'].includes(item.status) || !['awaiting_funding', 'funded', 'expired'].includes(item.status)) return item
           const events = observed.status === 'funded' && !item.events.some(event => event.type === 'request.funded') ? [...item.events, { id: `${item.id}:funded`, type: 'request.funded', actor: 'customer' as const, createdAt: observed.createdAt, version: item.activeVersion }] : item.events
           return { ...item, status: observed.status, updatedAt: observed.createdAt, events }
         })
@@ -294,11 +294,12 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
             'agreement.step_released',
             'agreement.expired',
             'agreement.refunded',
+            'agreement.cancelled',
             'agreement.completed',
           ].includes(event.event))
-          .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+          .sort((left, right) => Number(['agreement.completed', 'agreement.refunded', 'agreement.cancelled'].includes(left.event)) - Number(['agreement.completed', 'agreement.refunded', 'agreement.cancelled'].includes(right.event)) || left.createdAt.localeCompare(right.createdAt))
           .at(-1)
-        const effectiveStatus = observed?.event === 'agreement.expired'
+        const effectiveStatus = ['completed', 'refunded', 'cancelled'].includes(item.status) ? item.status : observed?.event === 'agreement.cancelled' ? 'cancelled' : observed?.event === 'agreement.expired'
           ? 'expired'
           : observed?.event === 'agreement.refunded'
             ? 'refunded'
@@ -308,11 +309,11 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
               ? 'funded'
               : item.status
         const allowedStatuses = payerAction === 'review'
-          ? ['awaiting_funding', 'funded', 'expired', 'refunded', 'completed']
+          ? ['awaiting_funding', 'funded', 'expired', 'refunded', 'completed', 'cancelled']
           : payerAction === 'delivery-decision'
             ? ['funded']
             : payerAction.startsWith('lifecycle-')
-              ? ['funded', 'expired']
+              ? payerAction === 'lifecycle-challenge' ? ['funded', 'expired'] : ['funded', 'expired', 'refunded', 'cancelled', 'completed']
               : ['awaiting_funding']
         if (!allowedStatuses.includes(effectiveStatus)) fail('This customer action is not available for the request.', 409)
         const fragment = item.payerReviewPath.split('#', 2)[1] ?? ''
@@ -354,7 +355,7 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
         const next = safeStore(current); const item = next.requests[requestId]
         if (!item || (item.customerAccountKey !== viewer && item.providerAccountKey !== viewer)) fail('Request not found.', 404)
         const role: Role = item.customerAccountKey === viewer ? 'customer' : 'provider'
-        if (['declined', 'cancelled', 'funded', 'awaiting_funding'].includes(item.status)) fail('This request can no longer be changed.', 409)
+        if (item.agreementId || !['sent', 'countered', 'provider_accepted'].includes(item.status)) fail('This request can no longer be changed.', 409)
         const version = Number(body.version)
         if (!Number.isInteger(version) || version !== item.activeVersion) fail('These terms changed. Review the latest version.', 409)
         const updated = { ...item, terms: [...item.terms], events: [...item.events], updatedAt: now }

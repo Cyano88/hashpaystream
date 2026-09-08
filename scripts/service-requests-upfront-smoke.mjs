@@ -303,6 +303,17 @@ const completedReview = await call('POST', { action: 'payer_review', requestId: 
 assert.equal(completedReview.statusCode, 200)
 assert.equal((await call('GET')).body.requests[0].status, 'completed')
 
+for (const event of ['agreement.refunded', 'agreement.cancelled']) {
+  agreementEvents.events = { terminal: { event, agreementId: 'agr_upfront123456789', createdAt: '2026-08-26T13:07:00.000Z' }, late: { event: 'agreement.activated', agreementId: 'agr_upfront123456789', createdAt: '2026-08-26T13:08:00.000Z' } }
+  assert.equal((await call('POST', { action: 'payer_review', requestId: offer.body.request.id })).statusCode, 200)
+  for (const action of ['payer_lifecycle_status', 'payer_lifecycle_recover', 'payer_lifecycle_record']) {
+    assert.equal((await call('POST', { action, requestId: offer.body.request.id })).statusCode, 200)
+  }
+  assert.equal((await call('POST', { action: 'payer_lifecycle_challenge', requestId: offer.body.request.id, lifecycleAction: 'refund' })).statusCode, 409)
+  assert.equal((await call('POST', { action: 'payer_delivery_decision', requestId: offer.body.request.id, decision: 'accept' })).statusCode, 409)
+}
+console.log('Terminal webhook races preserve payer review/recovery and reject new financial actions.')
+
 v3Enabled = false
 assert.equal((await call('POST', {
   action: 'payer_review',
