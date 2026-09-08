@@ -19,7 +19,7 @@ function actionError(reason: unknown) {
   const message = reason instanceof Error ? reason.message : String(reason ?? '')
   const code = typeof reason === 'object' && reason !== null && 'code' in reason ? String((reason as { code?: unknown }).code ?? '') : ''
   if (code === '4001' || ['user rejected', 'user denied', 'request rejected'].some(value => message.toLowerCase().includes(value))) return 'Transaction cancelled. No funds moved.'
-  return 'The savings plan could not be created. No funds moved.'
+  return 'The transaction could not be verified. Check your wallet and savings before trying again.'
 }
 
 function cleanAmount(value: string) {
@@ -97,7 +97,7 @@ export default function SavingsDepositSheet({ savings, onClose }: { savings: Sav
       const receipt = await client.waitForTransactionReceipt({ hash })
       if (receipt.status !== 'success') throw new Error('Savings transaction reverted.')
       transactionConfirmed = true
-      const created = parseEventLogs({ abi: SAVINGS_VAULT_ABI, logs: receipt.logs, eventName: 'PlanCreated' })
+      const created = parseEventLogs({ abi: SAVINGS_VAULT_ABI, logs: receipt.logs.filter(log => getAddress(log.address) === getAddress(savings.vaultAddress!)), eventName: 'PlanCreated' })
         .find(event => event.args.owner && getAddress(event.args.owner) === savings.address)
       if (!created || created.args.amount !== units || created.args.releaseAmount !== releaseUnits || created.args.interval !== interval) {
         throw new Error('Savings confirmation did not match the reviewed plan.')
@@ -124,21 +124,21 @@ export default function SavingsDepositSheet({ savings, onClose }: { savings: Sav
       {complete ? <div className='py-10 text-center'>
         <span className='mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500 dark:text-emerald-400'><CheckIcon className='h-7 w-7' /></span>
         <h2 id='savings-sheet-title' className='mt-5 text-xl font-black'>Savings plan created</h2>
-        <p className='mt-2 text-xs leading-5 text-zinc-500 dark:text-white/50'>Your first release becomes available after one {cadence === 'weekly' ? 'week' : 'month'}.</p>
+        <p className='mt-2 text-xs leading-5 text-zinc-500 dark:text-white/50'>Your first release becomes available after {cadence === 'weekly' ? '7 days' : '30 days'}.</p>
         <button type='button' onClick={onClose} className='stream-primary mt-7 w-full'>Done</button>
       </div> : <>
         <div className='mt-5 flex items-start justify-between gap-4'><div><h2 id='savings-sheet-title' className='text-lg font-black'>Create savings plan</h2><p className='mt-1 text-[11px] text-zinc-500 dark:text-white/45'>USDC · X Layer</p></div><img src='/brand/usdc-token.svg' alt='USDC' className='h-10 w-10 object-contain' /></div>
         <label className='mt-6 block'><span className='flex items-center justify-between text-[11px] font-bold text-zinc-500 dark:text-white/55'><span>Amount to save</span><button type='button' onClick={() => setAmount(savings.balance)} className='text-emerald-600 dark:text-emerald-400'>MAX</button></span><span className='mt-2 flex items-center border-b border-zinc-300 dark:border-white/15'><span className='text-2xl font-black text-zinc-400 dark:text-white/35'>$</span><input inputMode='decimal' value={amount} onChange={event => { setAmount(cleanAmount(event.target.value)); setError('') }} placeholder='0.00' className='min-w-0 flex-1 bg-transparent px-2 py-3 text-3xl font-black outline-none' /><b className='text-xs text-zinc-400 dark:text-white/35'>USDC</b></span></label>
         <p className='mt-2 text-[10px] text-zinc-400 dark:text-white/35'>Available {savings.units === undefined ? '0 USDC' : formatUsdcBalance(savings.units)}</p>
-        <div className='mt-6'><p className='text-[11px] font-bold text-zinc-500 dark:text-white/55'>Release schedule</p><div className='mt-2 grid grid-cols-2 rounded-full bg-zinc-200/70 p-1 dark:bg-white/[0.06]'>{(['weekly', 'monthly'] as const).map(value => <button key={value} type='button' onClick={() => setCadence(value)} className={`rounded-full px-4 py-2.5 text-xs font-black capitalize transition ${cadence === value ? 'bg-zinc-950 text-white dark:bg-white dark:text-black' : 'text-zinc-500 dark:text-white/45'}`}>{value}</button>)}</div></div>
-        <label className='mt-5 block'><span className='text-[11px] font-bold text-zinc-500 dark:text-white/55'>Release each {cadence === 'weekly' ? 'week' : 'month'}</span><span className='mt-2 flex items-center rounded-2xl border border-zinc-200 bg-white px-4 dark:border-white/10 dark:bg-white/[0.035]'><input inputMode='decimal' value={releaseAmount} onChange={event => { setReleaseAmount(cleanAmount(event.target.value)); setError('') }} placeholder='0.00' className='min-w-0 flex-1 bg-transparent py-3.5 text-sm font-black outline-none' /><b className='text-xs text-zinc-400 dark:text-white/35'>USDC</b></span></label>
+        <div className='mt-6'><p className='text-[11px] font-bold text-zinc-500 dark:text-white/55'>Release schedule</p><div className='mt-2 grid grid-cols-2 rounded-full bg-zinc-200/70 p-1 dark:bg-white/[0.06]'>{(['weekly', 'monthly'] as const).map(value => <button key={value} type='button' onClick={() => setCadence(value)} className={`rounded-full px-4 py-2.5 text-xs font-black capitalize transition ${cadence === value ? 'bg-zinc-950 text-white dark:bg-white dark:text-black' : 'text-zinc-500 dark:text-white/45'}`}>{value === 'weekly' ? 'Every 7 days' : 'Every 30 days'}</button>)}</div></div>
+        <label className='mt-5 block'><span className='text-[11px] font-bold text-zinc-500 dark:text-white/55'>Release every {cadence === 'weekly' ? '7 days' : '30 days'}</span><span className='mt-2 flex items-center rounded-2xl border border-zinc-200 bg-white px-4 dark:border-white/10 dark:bg-white/[0.035]'><input inputMode='decimal' value={releaseAmount} onChange={event => { setReleaseAmount(cleanAmount(event.target.value)); setError('') }} placeholder='0.00' className='min-w-0 flex-1 bg-transparent py-3.5 text-sm font-black outline-none' /><b className='text-xs text-zinc-400 dark:text-white/35'>USDC</b></span></label>
         {preview && <div className='mt-4 grid grid-cols-3 gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-3 dark:border-white/[0.07] dark:bg-white/[0.035]'>
           <PreviewMetric label='First release' value={shortDate(preview.firstReleaseAt)} />
           <PreviewMetric label='Releases' value={String(preview.releases)} />
           <PreviewMetric label='Final release' value={shortDate(preview.finalReleaseAt)} />
         </div>}
         {preview && preview.finalReleaseAmount !== parseUnits(releaseAmount, 6) && <p className='mt-2 text-center text-[10px] text-zinc-400 dark:text-white/35'>Final release: {formatUsdcBalance(preview.finalReleaseAmount)}</p>}
-        <div className='mt-5 rounded-2xl bg-zinc-200/60 px-4 py-3 text-[11px] leading-5 text-zinc-500 dark:bg-white/[0.045] dark:text-white/45'>No interest is earned. Emergency access to your remaining savings takes 48 hours.</div>
+        <div className='mt-5 rounded-2xl bg-zinc-200/60 px-4 py-3 text-[11px] leading-5 text-zinc-500 dark:bg-white/[0.045] dark:text-white/45'>Withdraw each release when available. No interest is earned. Emergency access to your remaining savings takes 48 hours.</div>
         {error && <p role='alert' className='mt-4 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700 dark:bg-red-400/10 dark:text-red-200'>{error}</p>}
         <button type='button' disabled={Boolean(stage) || !preview || !savings.depositsEnabled} onClick={() => void createPlan()} className='mt-5 w-full rounded-full bg-emerald-500 px-5 py-4 text-sm font-black text-emerald-950 disabled:opacity-35'>{stage || 'Create savings plan'}</button>
         <p className='mt-3 text-center text-[10px] leading-4 text-zinc-400 dark:text-white/35'>Your wallet may ask you to approve USDC once. HashPayStream cannot withdraw it.</p>

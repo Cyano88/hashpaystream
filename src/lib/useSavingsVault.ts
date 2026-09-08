@@ -200,6 +200,7 @@ export function useSavingsVault() {
             client.readContract({ address: vaultAddress, abi: SAVINGS_VAULT_ABI, functionName: 'remaining', args: [id], blockNumber: snapshotBlock }),
             client.readContract({ address: vaultAddress, abi: SAVINGS_VAULT_ABI, functionName: 'withdrawable', args: [id], blockNumber: snapshotBlock }),
           ])
+          if (getAddress(plan[0]) !== getAddress(wallet.address!)) throw new Error('Savings plan owner mismatch.')
           return { id, deposited: plan[1], withdrawn: plan[2], releaseAmount: plan[3], firstReleaseAt: Number(plan[4]), interval: Number(plan[5]), emergencyExitAt: Number(plan[6]), remaining, withdrawable }
         }))
         next.push(...batch)
@@ -215,7 +216,7 @@ export function useSavingsVault() {
     const timer = window.setInterval(() => void refresh(), 20_000)
     const onFocus = () => void refresh()
     window.addEventListener('focus', onFocus)
-    return () => { window.clearInterval(timer); window.removeEventListener('focus', onFocus) }
+    return () => { sequence.current += 1; window.clearInterval(timer); window.removeEventListener('focus', onFocus) }
   }, [refresh])
 
   const totals = useMemo(() => plans.reduce((sum, plan) => ({ saved: sum.saved + plan.remaining, available: sum.available + plan.withdrawable }), { saved: 0n, available: 0n }), [plans])

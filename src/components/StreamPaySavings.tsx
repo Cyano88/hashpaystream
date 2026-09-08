@@ -70,7 +70,7 @@ function LaunchBoundary({ unavailable }: { unavailable: boolean }) {
   return <div className='mt-5 rounded-[24px] border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-[#151515]'>
     <span className='flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-500'><ClockIcon className='h-5 w-5' /></span>
     <h2 className='mt-4 text-base font-black'>{unavailable ? 'Savings is temporarily unavailable' : 'Savings is coming soon'}</h2>
-    <p className='mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400'>{unavailable ? 'We could not load savings right now. Your other HashPayStream features are unaffected.' : 'Set aside USDC once, then receive the amount you choose every week or month.'}</p>
+    <p className='mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400'>{unavailable ? 'We could not load savings right now. Your other HashPayStream features are unaffected.' : 'Set aside USDC once. Your chosen amount unlocks every 7 or 30 days for you to withdraw.'}</p>
     {!unavailable && <div className='mt-4 flex items-center justify-between rounded-2xl bg-zinc-50 px-4 py-3 dark:bg-white/[0.04]'><div><p className='text-xs font-black'>Need it earlier?</p><p className='mt-1 text-[11px] text-zinc-500 dark:text-zinc-400'>Emergency access takes 48 hours.</p></div><span className='stream-pill'>48 hours</span></div>}
   </div>
 }

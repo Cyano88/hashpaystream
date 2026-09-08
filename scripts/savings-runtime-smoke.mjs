@@ -7,7 +7,7 @@ import TestRenderer, { act } from 'react-test-renderer'
 import { getAddress, isAddress, zeroAddress } from 'viem'
 
 // Execute the actual hook with deterministic HTTP and timers, without loading wallet providers.
-const source = fs.readFileSync('src/lib/useSavingsVault.ts', 'utf8').split('export const SAVINGS_VAULT_ABI')[0]
+const source = fs.readFileSync('src/lib/useSavingsVault.ts', 'utf8').replace(/\r\n/g, '\n').split('export const SAVINGS_VAULT_ABI')[0]
   .replace(/^import .*\n/gm, '').replace(/^export \{.*\n/gm, '').replace(/import\.meta\.env/g, '({})')
 const compiled = ts.transpileModule(source + '\nexport { useSavingsRuntimeConfig }', { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
 const pending = []

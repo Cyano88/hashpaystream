@@ -18,7 +18,7 @@ function safeError(reason: unknown) {
   const message = reason instanceof Error ? reason.message : String(reason ?? '')
   const code = typeof reason === 'object' && reason !== null && 'code' in reason ? String((reason as { code?: unknown }).code ?? '') : ''
   if (code === '4001' || message.toLowerCase().includes('user rejected')) return 'Transaction cancelled. No funds moved.'
-  return 'Savings could not be updated. No funds moved.'
+  return 'The transaction could not be verified. Check your wallet and savings before trying again.'
 }
 
 export default function SavingsPlanCard({ plan, savings }: { plan: SavingsPlan; savings: SavingsState }) {
@@ -62,7 +62,7 @@ export default function SavingsPlanCard({ plan, savings }: { plan: SavingsPlan; 
           : action === 'cancelEmergencyExit'
             ? 'EmergencyExitCancelled'
             : 'EmergencyExitCompleted'
-      const confirmed = parseEventLogs({ abi: SAVINGS_VAULT_ABI, logs: receipt.logs, eventName })
+      const confirmed = parseEventLogs({ abi: SAVINGS_VAULT_ABI, logs: receipt.logs.filter(log => getAddress(log.address) === getAddress(savings.vaultAddress!)), eventName })
         .some(event => event.args.planId === plan.id && event.args.owner && getAddress(event.args.owner) === savings.address)
       if (!confirmed) throw new Error('Savings confirmation did not match this plan.')
       await Promise.all([savings.refresh(), savings.refreshSavings()])
@@ -80,7 +80,7 @@ export default function SavingsPlanCard({ plan, savings }: { plan: SavingsPlan; 
   }
 
   return <article className='rounded-[22px] border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-[#151515]'>
-    <div className='flex items-start justify-between gap-4'><div><p className='text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600'>{plan.interval === WEEKLY_SECONDS ? 'Weekly savings' : 'Monthly savings'}</p><p className='mt-1 text-xl font-black tabular-nums'>{formatUsdcBalance(plan.remaining)}</p><p className='mt-0.5 text-[10px] font-bold text-zinc-400'>Remaining</p></div><span className='stream-pill'>{plan.withdrawable > 0n ? 'Available' : 'Saving'}</span></div>
+    <div className='flex items-start justify-between gap-4'><div><p className='text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600'>{plan.interval === WEEKLY_SECONDS ? 'Every 7 days' : 'Every 30 days'}</p><p className='mt-1 text-xl font-black tabular-nums'>{formatUsdcBalance(plan.remaining)}</p><p className='mt-0.5 text-[10px] font-bold text-zinc-400'>Remaining</p></div><span className='stream-pill'>{plan.withdrawable > 0n ? 'Available' : 'Saving'}</span></div>
     <div className='mt-4 grid grid-cols-3 gap-3 rounded-2xl bg-zinc-50 px-4 py-3 dark:bg-white/[0.035]'>
       <div><p className='text-[10px] font-bold text-zinc-400'>Each release</p><p className='mt-1 text-xs font-black'>{formatUsdcBalance(plan.releaseAmount)}</p></div>
       <div><p className='text-[10px] font-bold text-zinc-400'>Available now</p><p className='mt-1 text-xs font-black'>{formatUsdcBalance(plan.withdrawable)}</p></div>
