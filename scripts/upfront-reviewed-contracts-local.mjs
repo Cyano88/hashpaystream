@@ -129,6 +129,12 @@ try {
   assert.equal(await x.read(tokenX, 'balanceOf', [provider.address]), BigInt(funded.position.advanceAmount))
   assert.equal(Number((await x.read(escrow, 'positions', [funded.position.positionId]))[15]), 2)
   console.log('PASS: upstream underwriting, app verification, funding consent and protected release accepted by V2; legacy signatures rejected.')
+  await assert.rejects(() => x.send(escrow, 'refundAdvance', [funded.position.positionId], funder), /PositionNotFunded/)
+  for (const terminalStatus of ['cancelled', 'refunded']) {
+    await assert.rejects(() => signSplitSettlement({ request: funded.request, position: { ...funded.position, status: 'Released' }, agreement: { ...funded.agreement, status: terminalStatus }, arcRouter: router.address, privateKey: keys[2], now: new Date(), escrowVersion: '2' }), /completed Arc agreement/)
+  }
+  console.log('CONFIRMED LIMITATION: released advances cannot be refunded and cancelled/refunded Arc agreements cannot authorize repayment.')
+
 
   // Simulated authoritative agreement completion and repayment source: no real bridge/provider claim.
   const completed = { ...funded.agreement, status: 'completed', chain: { ...funded.agreement.chain, releasedUsdcUnits: funded.position.protectedAmount, remainingUsdcUnits: '0' } }
@@ -207,10 +213,12 @@ try {
   await assert.rejects(() => x.send(escrow, 'refundAdvance', [refund.position.positionId], funder), /ProtectionNotExpired/)
   await x.client.request({ method: 'evm_setNextBlockTimestamp', params: [refund.position.protectionDeadline + 1] })
   await x.client.request({ method: 'evm_mine', params: [] })
+  await x.send(escrow, 'setPaused', [true])
+  assert.equal(await x.read(escrow, 'paused'), true)
   await x.send(escrow, 'refundAdvance', [refund.position.positionId], funder)
   assert.equal(await x.read(tokenX, 'balanceOf', [funder.address]), before + BigInt(refund.position.advanceAmount))
   assert.equal(Number((await x.read(escrow, 'positions', [refund.position.positionId]))[15]), 3)
-  console.log('PASS: unreleased advance refunds exactly after deadline. Local synthetic lifecycle complete; no external chain or provider calls.')
+  console.log('PASS: unreleased advance refunds exactly after deadline while funding and releases are paused. Local synthetic lifecycle complete; no external chain or provider calls.')
 } finally {
   for (const child of children) {
     if (child.exitCode === null && child.pid) {
