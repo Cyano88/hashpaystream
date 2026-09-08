@@ -82,3 +82,37 @@ assert.equal(readSavingsReceiptReferences({...scope,owner:scope.asset}).length,0
 assert.ok(readSavingsReceiptReferences(scope).length > 0)
 assert.equal(new Set(readSavingsReceiptReferences(scope).map(item=>item.hash)).size,readSavingsReceiptReferences(scope).length)
 console.log('Savings export amounts, timestamps, plan identity, network links and scoped receipt references passed.')
+
+// A damaged optional receipt index must not trap a verified monetary operation.
+const historyKey = `hashpaystream:savings-transaction:${scope.chainId}:${scope.owner.toLowerCase()}:${scope.vault.toLowerCase()}:${scope.asset.toLowerCase()}:receipts`
+window.localStorage.setItem(historyKey,'{broken')
+await runSavingsTransaction(scope,intent,send,async()=>receipt())
+assert.equal(readSavingsTransaction(scope),undefined)
+assert.equal(readSavingsReceiptReferences(scope)[0].hash,hash)
+assert.equal(window.localStorage.getItem(`${historyKey}:unreadable`),'{broken','Preserve the damaged index for recovery')
+console.log('Damaged receipt index cannot trap a confirmed savings transaction.')
+
+const originalNavigator = Object.getOwnPropertyDescriptor(globalThis,'navigator')
+let lockHeld=false
+Object.defineProperty(globalThis,'navigator',{configurable:true,value:{locks:{request:async(_key,options,callback)=>{
+ assert.equal(options.ifAvailable,true)
+ if(lockHeld)return callback(null)
+ lockHeld=true
+ try{return await callback({name:_key})}finally{lockHeld=false}
+}}}})
+const otherTab=await import('../src/lib/savingsTransaction.ts?otherTab=exclusive')
+let allowSubmit
+const firstTab=runSavingsTransaction(scope,intent,async()=>{await new Promise(resolve=>allowSubmit=resolve);return send()},async()=>receipt())
+await assert.rejects(otherTab.runSavingsTransaction(scope,intent,async()=>{throw Error('DUPLICATE_SUBMISSION')},async()=>receipt()),/another tab/)
+allowSubmit();await firstTab
+if(originalNavigator)Object.defineProperty(globalThis,'navigator',originalNavigator);else delete globalThis.navigator
+console.log('Separate module/tab savings operations share an exclusive browser lock.')
+
+const normalSet=window.localStorage.setItem
+window.localStorage.setItem=(key,value)=>{if(key===historyKey)throw Error('storage quota');return normalSet.call(window.localStorage,key,value)}
+await assert.rejects(runSavingsTransaction(scope,intent,send,async()=>receipt()),/confirmed, but its receipt could not be saved/)
+assert.ok(readSavingsTransaction(scope),'Keep the confirmed hash until receipt storage can recover')
+window.localStorage.setItem=normalSet
+await runSavingsTransaction(scope,intent,async()=>{throw Error('MUST_NOT_RESUBMIT')},async()=>receipt())
+assert.equal(readSavingsTransaction(scope),undefined)
+console.log('Receipt storage failure remains truthful and recovers without resubmission.')

@@ -1,6 +1,7 @@
 import { getAddress, parseAbi, parseEventLogs, type Address, type Hex, type TransactionReceipt } from 'viem'
 
 export class SavingsTransactionError extends Error {}
+class SavingsReceiptIndexError extends Error {}
 
 export type SavingsIntent = {
   action: 'approve' | 'createPlan' | 'withdraw' | 'requestEmergencyExit' | 'cancelEmergencyExit' | 'completeEmergencyExit'
@@ -29,7 +30,7 @@ export function readSavingsReceiptReferences(scope: SavingsTransactionScope): Pe
   const raw = window.localStorage.getItem(`${key(scope)}:receipts`)
   if (!raw) return []
   const entries = JSON.parse(raw)
-  if (!Array.isArray(entries)) throw new Error('Savings receipt references could not be loaded.')
+  if (!Array.isArray(entries)) throw new SavingsReceiptIndexError('Savings receipt references could not be loaded.')
   return entries.filter(value => /^0x[0-9a-fA-F]{64}$/.test(value?.hash) && ['createPlan', 'withdraw', 'completeEmergencyExit'].includes(value?.intent?.action)).slice(0, 100)
 }
 
@@ -75,9 +76,20 @@ export function verifySavingsReceipt(scope: SavingsTransactionScope, pending: Pe
 
 // A retry checks the saved hash and original intent; it never resubmits that operation.
 export async function runSavingsTransaction(scope: SavingsTransactionScope, intent: SavingsIntent, submit: () => Promise<Hex>, wait: (hash: Hex, onReplacement: SavingsReplacementHandler) => Promise<TransactionReceipt>) {
+  if (typeof navigator !== 'undefined' && navigator.locks) {
+    return navigator.locks.request(key(scope), { mode: 'exclusive', ifAvailable: true }, lock => {
+      if (!lock) throw new Error('A savings transaction is already being checked in another tab.')
+      return runLockedSavingsTransaction(scope, intent, submit, wait)
+    })
+  }
+  return runLockedSavingsTransaction(scope, intent, submit, wait)
+}
+
+async function runLockedSavingsTransaction(scope: SavingsTransactionScope, intent: SavingsIntent, submit: () => Promise<Hex>, wait: (hash: Hex, onReplacement: SavingsReplacementHandler) => Promise<TransactionReceipt>) {
   const id = key(scope)
   if (locks.has(id)) throw new Error('A savings transaction is already being checked.')
   locks.add(id)
+  let verified = false
   try {
     let pending = readSavingsTransaction(scope)
     if (!pending) {
@@ -105,14 +117,24 @@ export async function runSavingsTransaction(scope: SavingsTransactionScope, inte
       throw new SavingsTransactionError('Savings transaction reverted. No savings funds moved.')
     }
     verifySavingsReceipt(scope, pending, receipt)
+    verified = true
     if (['createPlan', 'withdraw', 'completeEmergencyExit'].includes(pending.intent.action)) {
-      const references = readSavingsReceiptReferences(scope).filter(item => item.hash.toLowerCase() !== pending!.hash.toLowerCase())
+      let references: PendingSavingsTransaction[]
+      try { references = readSavingsReceiptReferences(scope) }
+      catch (reason) {
+        if (!(reason instanceof SyntaxError || reason instanceof SavingsReceiptIndexError)) throw reason
+        // Preserve the unreadable optional index before rebuilding it from chain-verified evidence.
+        const raw = window.localStorage.getItem(`${id}:receipts`)
+        if (raw !== null) window.localStorage.setItem(`${id}:receipts:unreadable`, raw)
+        references = []
+      }
+      references = references.filter(item => item.hash.toLowerCase() !== pending!.hash.toLowerCase())
       window.localStorage.setItem(`${id}:receipts`, JSON.stringify([pending, ...references].slice(0, 100)))
     }
     window.localStorage.removeItem(id); memory.delete(id)
     return pending.intent
   } catch (reason) {
-    if (memory.has(id)) throw new SavingsTransactionError('Your savings transaction is awaiting verification. Check transaction to continue.')
+    if (memory.has(id)) throw new SavingsTransactionError(verified ? 'Your savings transaction is confirmed, but its receipt could not be saved on this device. Check transaction to retry saving it.' : 'Your savings transaction is awaiting verification. Check transaction to continue.')
     throw reason
   } finally {
     locks.delete(id)
