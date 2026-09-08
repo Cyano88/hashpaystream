@@ -91,15 +91,13 @@ export function createTradeCommunityRouter(
         await fn(req, res, viewer, user);
       } catch (error) {
         const status = Number((error as { status?: number }).status) || 500;
-        res
-          .status(status)
-          .json({
-            ok: false,
-            error:
-              status >= 500
-                ? "Trade enquiries are temporarily unavailable. Try again."
-                : (error as Error).message,
-          });
+        res.status(status).json({
+          ok: false,
+          error:
+            status >= 500
+              ? "Trade enquiries are temporarily unavailable. Try again."
+              : (error as Error).message,
+        });
       }
     };
   const parse = express.json({ limit: "32kb" });
@@ -108,6 +106,36 @@ export function createTradeCommunityRouter(
     windowMs: 60000,
     max: 40,
   });
+  router.get(
+    "/offers",
+    secure(async (req, res, viewer) =>
+      res.json({
+        ok: true,
+        offers: await deps.store().offers(viewer, id(req.query.threadId)),
+        paymentsEnabled: false,
+      }),
+    ),
+  );
+  router.post(
+    "/offers",
+    writes,
+    parse,
+    secure(async (req, res, viewer) =>
+      res.json({
+        ok: true,
+        offer: await deps
+          .store()
+          .offer(
+            viewer,
+            id(req.body?.threadId),
+            id(req.body?.id),
+            content(req.body?.action, 20),
+            req.body?.terms,
+          ),
+        paymentsEnabled: false,
+      }),
+    ),
+  );
   router.get(
     "/capabilities",
     secure(async (req, res, _viewer, user) =>

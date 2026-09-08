@@ -5,6 +5,8 @@ import {
   tradeFailure as fail,
 } from "./trade-store.js";
 
+import { validateTradeTerms } from "../src/lib/tradeAgreement.js";
+
 type Client = pg.PoolClient;
 export function createTradeCommunityStore(pool: pg.Pool) {
   let schema: Promise<void> | undefined;
@@ -32,6 +34,14 @@ export function createTradeCommunityStore(pool: pg.Pool) {
           created_at bigint not null, resolved_at bigint, resolved_by text, decision text);
         alter table hashpaystream_trade_reports drop constraint if exists hashpaystream_trade_reports_reporter_listing_id_key;
         create unique index if not exists trade_report_open_target on hashpaystream_trade_reports(reporter,listing_id,coalesce(thread_id,'00000000-0000-0000-0000-000000000000'::uuid)) where status='open';
+        create table if not exists hashpaystream_trade_offers (
+          id uuid primary key, thread_id uuid not null references hashpaystream_trade_threads(id),
+          listing_id uuid not null references hashpaystream_trade_listings(id), listing_revision integer not null,
+          terms jsonb not null, snapshot jsonb not null,
+          status text not null check(status in ('proposed','accepted','declined','withdrawn','cancelled')),
+          created_at bigint not null, expires_at bigint not null, decided_at bigint);
+        create unique index if not exists trade_one_accepted_item on hashpaystream_trade_offers(listing_id) where status='accepted';
+        create index if not exists trade_offers_thread on hashpaystream_trade_offers(thread_id,created_at);
         create index if not exists trade_reports_open on hashpaystream_trade_reports(status,created_at);
       `);
     })().catch((error) => {
@@ -84,7 +94,189 @@ export function createTradeCommunityStore(pool: pg.Pool) {
     mine: row.sender === viewer,
     createdAt: Number(row.created_at),
   });
+  const publicOffer = (r: any) => ({
+    id: r.id,
+    status:
+      r.status === "proposed" && Number(r.expires_at) <= Date.now()
+        ? "expired"
+        : r.status,
+    terms: r.terms,
+    snapshot: {
+      title: r.snapshot.title,
+      condition: r.snapshot.condition,
+      description: r.snapshot.description,
+      size: r.snapshot.size,
+    },
+    listingRevision: r.listing_revision,
+    createdAt: Number(r.created_at),
+    expiresAt: Number(r.expires_at),
+    decidedAt: r.decided_at ? Number(r.decided_at) : undefined,
+  });
   return {
+    async offers(viewer: string, id: string) {
+      return transaction(async (client) => {
+        await thread(client, id, viewer);
+        const rows = await client.query(
+          "select id,status,terms,snapshot - 'photos' as snapshot,listing_revision,created_at,expires_at,decided_at from hashpaystream_trade_offers where thread_id=$1 order by created_at desc,id desc limit 20",
+          [id],
+        );
+        return rows.rows.map(publicOffer);
+      });
+    },
+    async offer(
+      viewer: string,
+      threadId: string,
+      offerId: string,
+      action: string,
+      rawTerms?: unknown,
+    ) {
+      return transaction(async (client) => {
+        const t = await thread(client, threadId, viewer);
+        await pairLock(client, t.buyer, t.seller);
+        // All buyers for a one-off item serialize on the listing, including listing edits.
+        const listing = (
+          await client.query(
+            "select * from hashpaystream_trade_listings where id=$1 for update",
+            [t.listing_id],
+          )
+        ).rows[0];
+        const existing = (
+          await client.query(
+            "select * from hashpaystream_trade_offers where id=$1 for update",
+            [offerId],
+          )
+        ).rows[0];
+        if (existing && existing.thread_id !== threadId)
+          fail("Offer not found.", 404);
+        if (action === "propose") {
+          if (viewer !== t.seller)
+            fail("Only the seller can propose final terms.", 403);
+          let terms;
+          try {
+            terms = validateTradeTerms(rawTerms);
+          } catch (e) {
+            fail((e as Error).message, 400);
+          }
+          if (existing) {
+            if (
+              JSON.stringify(existing.terms) !==
+              JSON.stringify(JSON.parse(JSON.stringify(terms)))
+            ) {
+              // jsonb key order is not an identity guarantee.
+              if (
+                Object.keys(terms).some(
+                  (k) => existing.terms[k] !== terms[k as keyof typeof terms],
+                )
+              )
+                fail("Offer retry does not match the original terms.", 409);
+            }
+            return publicOffer(existing);
+          }
+          if (
+            listing.status !== "active" ||
+            (await blocks(client, t.buyer, t.seller)).blocked
+          )
+            fail("This item is unavailable for a new agreement.", 409);
+          if (
+            listing.data.delivery !== "Either" &&
+            listing.data.delivery !== terms.handover
+          )
+            fail("Handover must match the listing.", 409);
+          const count = (
+            await client.query(
+              "select count(*)::int as count from hashpaystream_trade_offers where thread_id=$1",
+              [threadId],
+            )
+          ).rows[0].count;
+          if (count >= 20)
+            fail("This conversation has reached its offer limit.", 409);
+          if (
+            (
+              await client.query(
+                "select id from hashpaystream_trade_offers where listing_id=$1 and status='accepted'",
+                [t.listing_id],
+              )
+            ).rowCount
+          )
+            fail("This item already has accepted terms.", 409);
+          await client.query(
+            "update hashpaystream_trade_offers set status='withdrawn',decided_at=$2 where thread_id=$1 and status='proposed'",
+            [threadId, Date.now()],
+          );
+          const now = Date.now();
+          const r = await client.query(
+            "insert into hashpaystream_trade_offers(id,thread_id,listing_id,listing_revision,terms,snapshot,status,created_at,expires_at) values($1,$2,$3,$4,$5,$6,'proposed',$7,$8) returning *",
+            [
+              offerId,
+              threadId,
+              t.listing_id,
+              listing.revision,
+              terms,
+              listing.data,
+              now,
+              now + 86400000,
+            ],
+          );
+          await client.query(
+            "update hashpaystream_trade_threads set updated_at=$2 where id=$1",
+            [threadId, now],
+          );
+          return publicOffer(r.rows[0]);
+        }
+        if (!existing) fail("Offer not found.", 404);
+        if (!["accept", "decline", "withdraw", "cancel"].includes(action))
+          fail("Invalid offer action.", 400);
+        if (
+          ((action === "accept" || action === "decline") &&
+            viewer !== t.buyer) ||
+          (action === "withdraw" && viewer !== t.seller)
+        )
+          fail("This action belongs to the other participant.", 403);
+        const target = {
+          accept: "accepted",
+          decline: "declined",
+          withdraw: "withdrawn",
+          cancel: "cancelled",
+        }[action];
+        if (existing.status === target) return publicOffer(existing);
+        if (
+          action === "cancel"
+            ? existing.status !== "accepted"
+            : existing.status !== "proposed"
+        )
+          fail("This offer changed. Refresh before continuing.", 409);
+        if (action === "accept") {
+          if (Number(existing.expires_at) <= Date.now())
+            fail("This offer expired. Ask the seller for new terms.", 409);
+          if (
+            listing.status !== "active" ||
+            listing.revision !== existing.listing_revision
+          )
+            fail("The listing changed. Ask the seller for new terms.", 409);
+          if ((await blocks(client, t.buyer, t.seller)).blocked)
+            fail("This agreement is unavailable between these accounts.", 403);
+          if (
+            (
+              await client.query(
+                "select id from hashpaystream_trade_offers where listing_id=$1 and status='accepted'",
+                [t.listing_id],
+              )
+            ).rowCount
+          )
+            fail("This item already has accepted terms.", 409);
+        }
+        const result = await client.query(
+          "update hashpaystream_trade_offers set status=$2,decided_at=$3 where id=$1 returning *",
+          [offerId, target, Date.now()],
+        );
+        // No payment is possible in this layer. Cancellation never represents a refund.
+        await client.query(
+          "update hashpaystream_trade_threads set updated_at=$2 where id=$1",
+          [threadId, Date.now()],
+        );
+        return publicOffer(result.rows[0]);
+      });
+    },
     async threads(viewer: string, before?: string) {
       await ready();
       const result = await pool.query(
@@ -158,12 +350,12 @@ export function createTradeCommunityStore(pool: pg.Pool) {
         const t = await thread(client, id, viewer),
           other = t.buyer === viewer ? t.seller : t.buyer;
         const state = await blocks(client, viewer, other);
-        const status = (
+        const listing = (
           await client.query(
-            "select status from hashpaystream_trade_listings where id=$1",
+            "select status,data from hashpaystream_trade_listings where id=$1",
             [t.listing_id],
           )
-        ).rows[0].status;
+        ).rows[0];
         const rows = await client.query(
           `select * from hashpaystream_trade_messages where thread_id=$1 and ($2::uuid is null or (created_at,id)<(select created_at,id from hashpaystream_trade_messages where id=$2 and thread_id=$1)) order by created_at desc,id desc limit 50`,
           [id, before ?? null],
@@ -174,7 +366,14 @@ export function createTradeCommunityStore(pool: pg.Pool) {
             listingId: t.listing_id,
             title: t.title,
             role: t.buyer === viewer ? "buyer" : "seller",
-            listingStatus: status,
+            listingStatus: listing.status,
+            listingTerms: {
+              price: listing.data.price,
+              currency: listing.data.currency,
+              location: listing.data.city,
+              handover:
+                listing.data.delivery === "Delivery" ? "Delivery" : "Pickup",
+            },
             ...state,
           },
           messages: rows.rows.map((r) => publicMessage(r, viewer)).reverse(),

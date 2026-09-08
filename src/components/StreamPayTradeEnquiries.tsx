@@ -1,3 +1,4 @@
+import TradeAgreementCard from "./TradeAgreementCard";
 import { useStreamConfirm } from "./ui/StreamConfirmSheet";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
@@ -507,6 +508,13 @@ function TradeConversation({
         >
           Earlier messages
         </button>
+      )}
+      {thread && (
+        <TradeAgreementCard
+          key={threadId}
+          thread={thread}
+          getAccessToken={getAccessToken}
+        />
       )}
       <div className="space-y-3" aria-label="Conversation messages">
         {messages.map((m) => (

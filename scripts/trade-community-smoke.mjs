@@ -248,7 +248,7 @@ try {
     1,
   );
   // A confirmed send remains retry-safe after a subsequent block/removal.
-  assert.equal((await call('messages','buyer',message)).status,200);
+  assert.equal((await call("messages", "buyer", message)).status, 200);
   // Real SQL pagination, identity quotas, and blocking serialized against sends.
   const second = { ...listing, id: randomUUID() };
   await listings.save(second, 0);
@@ -292,15 +292,186 @@ try {
     () => store.send(owner("seller"), another, randomUUID(), "After block"),
     (e) => e.status === 403,
   );
-  await store.block(owner('buyer'),another,false);
-  const thirdThread=await store.start(owner('intruder'),second.id);
-  const reportOne=await store.report(owner('seller'),second.id,another,'Harassment','Synthetic conversation report one.');
-  const reportTwo=await store.report(owner('seller'),second.id,thirdThread,'Harassment','Synthetic conversation report two.');
-  assert.notEqual(reportOne,reportTwo);
-  await store.moderate(owner('admin'),reportOne,'dismiss');
-  assert.notEqual(await store.report(owner('seller'),second.id,another,'Harassment','Synthetic subsequent issue report.'),reportOne);
-  for(let i=0;i<20;i++)await pool.query('insert into hashpaystream_trade_messages(id,thread_id,sender,body,created_at) values($1,$2,$3,$4,$5)',[randomUUID(),another,owner('buyer'),'Rate fixture',Date.now()]);
-  await assert.rejects(()=>store.send(owner('buyer'),another,randomUUID(),'Rate limited'),e=>e.status===429);
+  await store.block(owner("buyer"), another, false);
+  const thirdThread = await store.start(owner("intruder"), second.id);
+  const reportOne = await store.report(
+    owner("seller"),
+    second.id,
+    another,
+    "Harassment",
+    "Synthetic conversation report one.",
+  );
+  const reportTwo = await store.report(
+    owner("seller"),
+    second.id,
+    thirdThread,
+    "Harassment",
+    "Synthetic conversation report two.",
+  );
+  assert.notEqual(reportOne, reportTwo);
+  await store.moderate(owner("admin"), reportOne, "dismiss");
+  assert.notEqual(
+    await store.report(
+      owner("seller"),
+      second.id,
+      another,
+      "Harassment",
+      "Synthetic subsequent issue report.",
+    ),
+    reportOne,
+  );
+  for (let i = 0; i < 20; i++)
+    await pool.query(
+      "insert into hashpaystream_trade_messages(id,thread_id,sender,body,created_at) values($1,$2,$3,$4,$5)",
+      [randomUUID(), another, owner("buyer"), "Rate fixture", Date.now()],
+    );
+  await assert.rejects(
+    () => store.send(owner("buyer"), another, randomUUID(), "Rate limited"),
+    (e) => e.status === 429,
+  );
+  const item = { ...listing, id: randomUUID() };
+  await listings.save(item, 0);
+  const buying = await store.start(owner("buyer"), item.id),
+    otherBuying = await store.start(owner("intruder"), item.id);
+  const terms = {
+    price: "10.25",
+    deliveryFee: "0",
+    currency: "NGN",
+    handover: "Pickup",
+    location: "Test area",
+    dispatchDays: 3,
+    inspectionHours: 48,
+    returns:
+      "Return within 3 days for undisclosed damage; seller pays return delivery.",
+    carrier: "",
+  };
+  const offerId = randomUUID();
+  await assert.rejects(
+    () => store.offer(owner("buyer"), buying, offerId, "propose", terms),
+    (e) => e.status === 403,
+  );
+  await assert.rejects(
+    () => store.offers(owner("intruder"), buying),
+    (e) => e.status === 404,
+  );
+  const offer = await store.offer(
+    owner("seller"),
+    buying,
+    offerId,
+    "propose",
+    terms,
+  );
+  assert.equal(offer.status, "proposed");
+  assert.equal(
+    (await store.offer(owner("seller"), buying, offerId, "propose", terms)).id,
+    offerId,
+  );
+  await assert.rejects(
+    () =>
+      store.offer(owner("seller"), buying, offerId, "propose", {
+        ...terms,
+        price: "11",
+      }),
+    (e) => e.status === 409,
+  );
+  await assert.rejects(
+    () => store.offer(owner("seller"), buying, offerId, "accept"),
+    (e) => e.status === 403,
+  );
+  const competingId = randomUUID();
+  await store.offer(
+    owner("seller"),
+    otherBuying,
+    competingId,
+    "propose",
+    terms,
+  );
+  const accepts = await Promise.allSettled([
+    store.offer(owner("buyer"), buying, offerId, "accept"),
+    store.offer(owner("intruder"), otherBuying, competingId, "accept"),
+  ]);
+  assert.equal(
+    accepts.filter((r) => r.status === "fulfilled").length,
+    1,
+    "Only one buyer can reserve a one-off item",
+  );
+  const won = accepts[0].status === "fulfilled",
+    winningId = won ? offerId : competingId,
+    winningThread = won ? buying : otherBuying,
+    winningBuyer = owner(won ? "buyer" : "intruder");
+  assert.equal(
+    (await store.offer(winningBuyer, winningThread, winningId, "accept"))
+      .status,
+    "accepted",
+  );
+  await assert.rejects(
+    () =>
+      store.offer(
+        owner("seller"),
+        winningThread,
+        randomUUID(),
+        "propose",
+        terms,
+      ),
+    (e) => e.status === 409,
+  );
+  await store.block(winningBuyer, winningThread, true);
+  assert.equal(
+    (await store.offer(winningBuyer, winningThread, winningId, "cancel"))
+      .status,
+    "cancelled",
+    "Blocking messages must not trap unfunded accepted terms",
+  );
+  await store.block(winningBuyer, winningThread, false);
+  const staleId = randomUUID();
+  await store.offer(owner("seller"), buying, staleId, "propose", terms);
+  await listings.save(
+    { ...item, description: "A changed description after the original offer." },
+    1,
+  );
+  await assert.rejects(
+    () => store.offer(owner("buyer"), buying, staleId, "accept"),
+    (e) => e.status === 409,
+  );
+  assert.equal(
+    (await store.offers(owner("buyer"), buying))[0].snapshot.description,
+    listing.description,
+  );
+  const stored = (
+    await pool.query(
+      "select snapshot from hashpaystream_trade_offers where id=$1",
+      [staleId],
+    )
+  ).rows[0];
+  assert.deepEqual(stored.snapshot.photos, listing.photos);
+  const expiredId = randomUUID();
+  await store.offer(owner("seller"), buying, expiredId, "propose", terms);
+  await pool.query(
+    "update hashpaystream_trade_offers set expires_at=$2 where id=$1",
+    [expiredId, Date.now() - 1],
+  );
+  await assert.rejects(
+    () => store.offer(owner("buyer"), buying, expiredId, "accept"),
+    (e) => e.status === 409,
+  );
+  assert.equal(
+    (await store.offers(owner("buyer"), buying))[0].status,
+    "expired",
+  );
+  await assert.rejects(
+    () =>
+      store.offer(owner("seller"), buying, randomUUID(), "propose", {
+        ...terms,
+        deliveryFee: "1",
+      }),
+    (e) => e.status === 400,
+  );
+  const apiOffers = await call("offers?threadId=" + buying, "buyer");
+  assert.equal(apiOffers.status, 200);
+  assert.equal(apiOffers.body.paymentsEnabled, false);
+  console.log(
+    "Trade agreements passed: role isolation, immutable retries/snapshots, racing buyers, stale listing rejection, expiry, blocked cancellation, and payment containment.",
+  );
   console.log(
     "Trade enquiries passed: real PostgreSQL/HTTP participant isolation, idempotent messages, block/unblock, report evidence, admin denial/review, listing hide, closed messaging and pagination.",
   );
