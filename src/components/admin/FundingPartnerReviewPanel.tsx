@@ -1,3 +1,4 @@
+import ArcRepaymentControl from './ArcRepaymentControl';
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { createPublicClient, createWalletClient, custom, getAddress, http, isAddress } from "viem";
@@ -295,6 +296,7 @@ export default function FundingPartnerReviewPanel() {
       id="funding-partners"
       className="mt-5 rounded-2xl border border-gray-200 p-5 dark:border-white/10"
     >
+      <ArcRepaymentControl />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="flex items-center gap-2 text-sm font-semibold text-gray-950 dark:text-white">

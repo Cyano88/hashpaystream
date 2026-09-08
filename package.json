@@ -22,7 +22,7 @@
     "test:upfront-reviews": "node --import tsx scripts/upfront-reviews-smoke.mjs",
     "test:funding-partners": "node --import tsx scripts/funding-partners-smoke.mjs",
     "test:stream-accounts": "node --import tsx scripts/stream-accounts-smoke.mjs",
-    "test:circle-wallet": "node --import tsx scripts/circle-session-smoke.mjs && node --import tsx scripts/circle-wallet-smoke.mjs",
+    "test:circle-wallet": "node --import tsx scripts/circle-session-smoke.mjs && node --import tsx scripts/circle-wallet-smoke.mjs && node --import tsx scripts/circle-router-control-smoke.mjs",
     "test:customer-requests": "node --import tsx scripts/customer-requests-smoke.mjs",
     "test:service-requests": "node --import tsx scripts/service-requests-smoke.mjs && node --import tsx scripts/service-requests-upfront-smoke.mjs",
     "test:notifications": "node --import tsx scripts/stream-notifications-smoke.mjs",

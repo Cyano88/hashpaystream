@@ -9,6 +9,19 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const transferAbi = parseAbi(['function transfer(address to,uint256 amount) returns (bool)'])
 const batchAbi = parseAbi(['function executeBatch((address target,uint256 value,bytes data)[] calls)'])
+const routerAdminAbi = parseAbi(['function owner() view returns (address)', 'function paused() view returns (bool)', 'function setPaused(bool shouldPause)'])
+export async function readArcRouterControl(env: NodeJS.ProcessEnv) {
+  const address = env.HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS?.trim() ?? ''
+  const rpc = env.HASHPAYSTREAM_ARC_RPC_URL?.trim() || 'https://rpc.testnet.arc.network'
+  if (!isAddress(address) || !rpc.startsWith('https://')) fail('Repayment router is not configured.', 503)
+  const client = createPublicClient({ transport: http(rpc, { timeout: 15000, retryCount: 1 }) })
+  if (await client.getChainId() !== 5042002) fail('Repayment router network mismatch.', 503)
+  const [owner, paused] = await Promise.all([
+    client.readContract({ address, abi: routerAdminAbi, functionName: 'owner' }),
+    client.readContract({ address, abi: routerAdminAbi, functionName: 'paused' }),
+  ])
+  return { address: getAddress(address), owner: getAddress(owner), paused }
+}
 const balanceAbi = parseAbi(['function balanceOf(address owner) view returns (uint256)'])
 
 export type CircleArcWallet = { id: string; address: string; blockchain: string; accountType?: string; state?: string }
@@ -91,10 +104,11 @@ export async function readArcUsdcBalance(walletAddress: string, env: NodeJS.Proc
   }
 }
 
-export function createCircleWalletHandler(overrides: { env?: () => NodeJS.ProcessEnv; identity?: typeof verifiedEmail; balance?: typeof readArcUsdcBalance } = {}) {
+export function createCircleWalletHandler(overrides: { env?: () => NodeJS.ProcessEnv; identity?: typeof verifiedEmail; balance?: typeof readArcUsdcBalance; routerControl?: typeof readArcRouterControl } = {}) {
   const environment = overrides.env ?? (() => process.env)
   const identity = overrides.identity ?? verifiedEmail
   const balance = overrides.balance ?? readArcUsdcBalance
+  const routerControl = overrides.routerControl ?? readArcRouterControl
   const balanceCache = new Map<string, { units: bigint; observedAt: number }>()
   return async function circleWallet(req: Request, res: Response) {
     res.setHeader('Cache-Control', 'no-store')
@@ -153,6 +167,23 @@ export function createCircleWalletHandler(overrides: { env?: () => NodeJS.Proces
           stale = true
         }
         return res.json({ ok: true, walletAddress: address, balanceUsdcUnits: balanceUsdcUnits.toString(), stale })
+      }
+      if (action === 'router_status' || action === 'set_router_paused') {
+        const control = await routerControl(env)
+        if (action === 'router_status') return res.json({ ok: true, ...control })
+        if (typeof body.paused !== 'boolean') fail('Choose whether to pause repayment.', 400)
+        const walletId = clean(body.walletId, 256)
+        const walletAddress = clean(body.walletAddress, 42)
+        if (!walletId || !isAddress(walletAddress)) fail('Circle wallet details are invalid.', 400)
+        const wallet = await readOwnedWallet(userToken, walletId, walletAddress, env)
+        if (getAddress(wallet.address) !== control.owner) fail('Connect the repayment router owner Circle wallet.', 403)
+        if (control.paused === body.paused) return res.json({ ok: true, unchanged: true, ...control })
+        // Only the server-configured router pause method can be prepared here.
+        // Circle still requires the wallet owner's approval before execution.
+        const data = encodeFunctionData({ abi: routerAdminAbi, functionName: 'setPaused', args: [body.paused] })
+        const callData = encodeFunctionData({ abi: batchAbi, functionName: 'executeBatch', args: [[{ target: control.address, value: 0n, data }]] })
+        const challenge = await circleJson<Record<string, unknown>>(env, '/v1/w3s/user/transactions/contractExecution', { method: 'POST', userToken, body: { idempotencyKey: crypto.randomUUID(), walletId: wallet.id, feeLevel: 'HIGH', refId: 'hashpaystream-router-pause', contractAddress: getAddress(wallet.address), callData } })
+        return res.json({ ok: true, ...challenge })
       }
       if (action === 'send_usdc') {
         const walletId = clean(body.walletId, 256)
