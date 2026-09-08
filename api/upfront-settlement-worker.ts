@@ -207,7 +207,23 @@ function errorCode(reason: unknown) {
   let classified = 'SETTLEMENT_DEFERRED'
   let cause: unknown = reason
   for (let depth = 0; depth < 8 && cause instanceof Error; depth += 1) {
-    classified = classifications[cause.name] ?? classified
+    const specific: Record<string, string> = {
+      'nonce too low': 'SETTLEMENT_NONCE_TOO_LOW',
+      'nonce too high': 'SETTLEMENT_NONCE_TOO_HIGH',
+      'insufficient funds': 'RELAYER_GAS_UNAVAILABLE',
+      'underpriced': 'SETTLEMENT_UNDERPRICED',
+      'fee cap less than block base fee': 'SETTLEMENT_FEE_CAP_TOO_LOW',
+      'intrinsic gas too low': 'SETTLEMENT_INTRINSIC_GAS_TOO_LOW',
+      'exceeds block gas limit': 'SETTLEMENT_BLOCK_GAS_LIMIT',
+      'invalid sender': 'SETTLEMENT_INVALID_SENDER',
+      'method not found': 'SETTLEMENT_RPC_METHOD_UNAVAILABLE',
+      'not supported': 'SETTLEMENT_RPC_UNSUPPORTED',
+      'rate limit': 'SETTLEMENT_RPC_RATE_LIMITED',
+    }
+    const details = String((cause as Error & { details?: unknown }).details ?? cause.message).toLowerCase()
+    for (const [phrase, category] of Object.entries(specific)) if (details.includes(phrase)) return category
+    const next = classifications[cause.name]
+    if (next && (classified === 'SETTLEMENT_DEFERRED' || !['SETTLEMENT_RPC_REJECTED', 'SETTLEMENT_TRANSACTION_FAILED'].includes(next))) classified = next
     cause = cause.cause
   }
   return classified
