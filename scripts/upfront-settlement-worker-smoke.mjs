@@ -66,6 +66,14 @@ assert.deepEqual(mismatch, { eligible: 1, settled: 0, alreadySettled: 0, deferre
 const noGas = await runUpfrontSettlementPass({ ...base, isSettled: async () => false, submit: async () => { throw new Error('RELAYER_GAS_UNAVAILABLE') } })
 assert.deepEqual(noGas, { eligible: 1, settled: 0, alreadySettled: 0, deferred: 1, codes: ['RELAYER_GAS_UNAVAILABLE'] })
 
+const privateMessage = 'https://rpc.example/secret signed transaction 0x1234'
+const rpcCause = Object.assign(new Error(privateMessage), { name: 'HttpRequestError' })
+const wrappedRpc = Object.assign(new Error(privateMessage, { cause: rpcCause }), { name: 'TransactionExecutionError' })
+const rpcFailure = await runUpfrontSettlementPass({ ...base, isSettled: async () => false, submit: async () => { throw wrappedRpc } })
+assert.deepEqual(rpcFailure.codes, ['SETTLEMENT_RPC_HTTP_ERROR'])
+assert.ok(!JSON.stringify(rpcFailure).includes(privateMessage))
+const unknownFailure = await runUpfrontSettlementPass({ ...base, isSettled: async () => false, submit: async () => { throw new Error(privateMessage) } })
+assert.deepEqual(unknownFailure.codes, ['SETTLEMENT_DEFERRED'])
 let readWhileDisabled = false
 const disabled = await runUpfrontSettlementPass({ ...base, env: () => ({ ...env, HASHPAYSTREAM_UPFRONT_AUTO_SETTLEMENT_ENABLED: 'false' }), readStore: async () => { readWhileDisabled = true; return store } })
 assert.deepEqual(disabled, { eligible: 0, settled: 0, alreadySettled: 0, deferred: 0, codes: [] })

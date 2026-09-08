@@ -189,7 +189,28 @@ const defaults: UpfrontSettlementWorkerDependencies = {
 
 function errorCode(reason: unknown) {
   const code = reason instanceof Error ? reason.message : 'SETTLEMENT_UNAVAILABLE'
-  return /^[A-Z0-9_]{3,80}$/.test(code) ? code : 'SETTLEMENT_DEFERRED'
+  if (/^[A-Z0-9_]{3,80}$/.test(code)) return code
+  // Fixed classifications only; never expose RPC messages or signed calldata.
+  const classifications: Record<string, string> = {
+    InsufficientFundsError: 'RELAYER_GAS_UNAVAILABLE',
+    NonceTooLowError: 'SETTLEMENT_NONCE_TOO_LOW',
+    NonceTooHighError: 'SETTLEMENT_NONCE_TOO_HIGH',
+    TransactionUnderpricedError: 'SETTLEMENT_UNDERPRICED',
+    FeeCapTooLowError: 'SETTLEMENT_FEE_CAP_TOO_LOW',
+    EstimateGasExecutionError: 'SETTLEMENT_GAS_ESTIMATE_FAILED',
+    ContractFunctionRevertedError: 'SETTLEMENT_CONTRACT_REVERTED',
+    HttpRequestError: 'SETTLEMENT_RPC_HTTP_ERROR',
+    TimeoutError: 'SETTLEMENT_RPC_TIMEOUT',
+    TransactionExecutionError: 'SETTLEMENT_TRANSACTION_FAILED',
+    RpcRequestError: 'SETTLEMENT_RPC_REJECTED',
+  }
+  let classified = 'SETTLEMENT_DEFERRED'
+  let cause: unknown = reason
+  for (let depth = 0; depth < 8 && cause instanceof Error; depth += 1) {
+    classified = classifications[cause.name] ?? classified
+    cause = cause.cause
+  }
+  return classified
 }
 
 export async function runUpfrontSettlementPass(overrides: Partial<UpfrontSettlementWorkerDependencies> = {}): Promise<SettlementPassResult> {
