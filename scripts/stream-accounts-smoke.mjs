@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { encodeFunctionData } from 'viem'
+import { encodeFunctionData, encodeEventTopics, encodeAbiParameters, parseAbi, parseAbiParameters } from 'viem'
 import { createStreamAccountsHandler } from '../api/stream-accounts.ts'
 
 const ownerWallet = '0x1111111111111111111111111111111111111111'
@@ -20,6 +20,8 @@ async function call(handler, { method = 'GET', token = 'owner', body, query = {}
   return response
 }
 
+const transferLog = {address:usdc,topics:encodeEventTopics({abi:parseAbi(['event Transfer(address indexed from,address indexed to,uint256 value)']),eventName:'Transfer',args:{from:ownerWallet,to:recipientWallet}}),data:encodeAbiParameters(parseAbiParameters('uint256'),[1250000n])}
+let transferLogs=[transferLog]
 let store
 const identities = {
   owner: { email: 'owner@example.com', emails: ['owner@example.com'], wallets: [ownerWallet] },
@@ -32,7 +34,7 @@ const handler = createStreamAccountsHandler({
   identity: async req => identities[req.headers.authorization.replace('Bearer ', '')],
   transaction: async hash => {
     assert.equal(hash, txHash)
-    return { from: ownerWallet, to: usdc, input: transferInput, success: true }
+    return { logs:transferLogs, success:true, createdAt:'2026-08-25T11:59:00.000Z' }
   },
   circleWallets: async token => token === 'circle-owner'
     ? [{ id: 'wallet-owner', address: ownerWallet, blockchain: 'ARC-TESTNET', accountType: 'SCA', state: 'LIVE' }]
@@ -81,3 +83,16 @@ const invalid = await call(handler, { method: 'POST', body: { action: 'resolve_p
 assert.equal(invalid.statusCode, 400)
 
 console.log('HashPayStream account, Pocket ID, and confirmed transfer checks passed.')
+
+identities.attacker={email:'attacker@example.com',emails:['attacker@example.com'],wallets:[]}
+await call(handler,{token:'attacker'})
+const attackerAccount=Object.values(store.accounts).find(a=>a.email==='attacker@example.com')
+attackerAccount.walletAddress='0x3333333333333333333333333333333333333333'
+assert.equal((await call(handler,{method:'POST',token:'attacker',body:{action:'record_transfer',txHash}})).statusCode,404)
+assert.equal(recorded.body.transfer.createdAt,'2026-08-25T11:59:00.000Z')
+delete store.transfers[txHash.toLowerCase()]
+for(const logs of [[],[{...transferLog,address:recipientWallet}],[transferLog,transferLog]]){
+ transferLogs=logs
+ assert.equal((await call(handler,{method:'POST',body:{action:'record_transfer',txHash}})).statusCode,409)
+}
+console.log('Smart-account event history, chain timestamps, ambiguous logs and transfer replay ownership passed.')

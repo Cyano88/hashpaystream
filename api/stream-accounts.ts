@@ -1,7 +1,7 @@
 import { createHmac, randomUUID } from 'node:crypto'
 import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
-import { createPublicClient, decodeFunctionData, getAddress, http, isAddress } from 'viem'
+import { createPublicClient, getAddress, http, isAddress, parseAbi, parseEventLogs, type TransactionReceipt } from 'viem'
 import { hasRenderDurableStore, mutateDurableJson, readDurableJson } from './durable-store.js'
 import { listCircleArcWallets } from './circle-wallet.js'
 
@@ -10,11 +10,7 @@ const ARC_USDC = getAddress('0x3600000000000000000000000000000000000000')
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const HASH = /^0x[a-fA-F0-9]{64}$/
 const POCKET_ID = /^\d{6,12}$/
-const transferAbi = [{
-  type: 'function', name: 'transfer', stateMutability: 'nonpayable',
-  inputs: [{ name: 'to', type: 'address' }, { name: 'value', type: 'uint256' }],
-  outputs: [{ name: '', type: 'bool' }],
-}] as const
+const transferAbi = parseAbi(['event Transfer(address indexed from,address indexed to,uint256 value)'])
 
 type Account = { accountKey: string; email: string; displayName: string; pocketId: string; walletAddress?: string; createdAt: string; updatedAt: string }
 type Transfer = {
@@ -28,7 +24,7 @@ type Dependencies = {
   read: (key: string) => Promise<Store | undefined>
   mutate: (key: string, update: (current: Store | undefined) => Store | Promise<Store>) => Promise<Store>
   identity: (req: Request, env: NodeJS.ProcessEnv) => Promise<Identity>
-  transaction: (hash: `0x${string}`, rpcUrl: string) => Promise<{ from: string; to: string | null; input: `0x${string}`; success: boolean }>
+  transaction: (hash: `0x${string}`, rpcUrl: string) => Promise<{ logs: TransactionReceipt['logs']; success: boolean; createdAt: string }>
   circleWallets: typeof listCircleArcWallets
   env: () => NodeJS.ProcessEnv; now: () => Date; id: () => string
 }
@@ -90,8 +86,11 @@ function ensureAccount(store: Store, identity: Identity, secret: string, now: st
 }
 async function readTransaction(hash: `0x${string}`, rpcUrl: string) {
   const client = createPublicClient({ transport: http(rpcUrl) })
-  const [transaction, receipt] = await Promise.all([client.getTransaction({ hash }), client.getTransactionReceipt({ hash })])
-  return { from: transaction.from, to: transaction.to, input: transaction.input, success: receipt.status === 'success' }
+  if (await client.getChainId() !== 5042002) throw Error('Arc network mismatch.')
+  const receipt = await client.getTransactionReceipt({ hash })
+  const [block, head] = await Promise.all([client.getBlock({ blockNumber: receipt.blockNumber }), client.getBlockNumber()])
+  if (head < receipt.blockNumber + 1n || block.hash !== receipt.blockHash || receipt.transactionHash.toLowerCase() !== hash.toLowerCase()) throw Error('Arc transfer is still confirming.')
+  return { logs: receipt.logs, success: receipt.status === 'success', createdAt: new Date(Number(block.timestamp) * 1000).toISOString() }
 }
 
 const defaults: Dependencies = {
@@ -167,17 +166,20 @@ export function createStreamAccountsHandler(overrides: Partial<Dependencies> = {
         const txHash = clean(body.txHash, 66) as `0x${string}`
         if (!HASH.test(txHash)) fail('Transfer hash is invalid.', 400)
         if (!account.walletAddress) fail('Set up your Arc wallet before sending.', 409)
-        if (stored.transfers[txHash.toLowerCase()]) return res.json({ ok: true, transfer: stored.transfers[txHash.toLowerCase()] })
-        let chain: { from: string; to: string | null; input: `0x${string}`; success: boolean }
+        const existing = stored.transfers[txHash.toLowerCase()]
+        if (existing) {
+          if (existing.fromAccountKey !== account.accountKey && existing.toAccountKey !== account.accountKey) fail('Transfer not found.', 404)
+          return res.json({ ok: true, transfer: existing })
+        }
+        let chain: Awaited<ReturnType<Dependencies['transaction']>>
         try { chain = await dependencies.transaction(txHash, config.rpcUrl) } catch { fail('The Arc transfer is still confirming. Refresh Activity shortly.', 409) }
-        if (!chain.success || !chain.to || getAddress(chain.to) !== ARC_USDC || getAddress(chain.from) !== getAddress(account.walletAddress)) fail('The confirmed transaction does not match this HashPayStream wallet.', 409)
-        let decoded
-        try { decoded = decodeFunctionData({ abi: transferAbi, data: chain.input }) } catch { fail('The confirmed transaction is not an Arc USDC transfer.', 409) }
-        if (decoded.functionName !== 'transfer') fail('The confirmed transaction is not an Arc USDC transfer.', 409)
-        const [to, amount] = decoded.args
+        if (!chain.success) fail('The Arc transfer did not succeed.', 409)
+        const transfers = parseEventLogs({ abi: transferAbi, logs: chain.logs.filter(log => getAddress(log.address) === ARC_USDC) }).filter(event => getAddress(event.args.from) === getAddress(account.walletAddress!))
+        if (transfers.length !== 1) fail('The confirmed USDC transfer does not match this wallet.', 409)
+        const { to, value: amount } = transfers[0].args
         if (amount <= 0n) fail('The transfer amount is invalid.', 409)
         const recipient = Object.values(stored.accounts).find(item => item.walletAddress && getAddress(item.walletAddress) === getAddress(to))
-        const transfer: Transfer = { id: dependencies.id(), txHash, fromAccountKey: account.accountKey, toAccountKey: recipient?.accountKey, fromPocketId: account.pocketId, toPocketId: recipient?.pocketId, fromAddress: getAddress(account.walletAddress), toAddress: getAddress(to), amountUsdcUnits: amount.toString(), createdAt: dependencies.now().toISOString() }
+        const transfer: Transfer = { id: dependencies.id(), txHash, fromAccountKey: account.accountKey, toAccountKey: recipient?.accountKey, fromPocketId: account.pocketId, toPocketId: recipient?.pocketId, fromAddress: getAddress(account.walletAddress), toAddress: getAddress(to), amountUsdcUnits: amount.toString(), createdAt: chain.createdAt }
         await dependencies.mutate(config.storeKey, current => { const next = safeStore(current); next.transfers[txHash.toLowerCase()] ??= transfer; return next })
         return res.status(201).json({ ok: true, transfer })
       }

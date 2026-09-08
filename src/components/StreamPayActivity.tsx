@@ -1,6 +1,7 @@
 import { ArrowDownLeftIcon, ArrowUpRightIcon, BanknotesIcon, CheckBadgeIcon, CheckCircleIcon, ClockIcon, XCircleIcon } from '@heroicons/react/24/outline'
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { formatUsdc, useAgreements } from '../lib/useAgreements'
+import { pendingArcActivity, removeArcActivity } from '../lib/arcTransferActivity'
 import { useStreamAccount } from '../lib/streamAccount'
 import { useServiceRequests } from '../lib/serviceRequests'
 import { buildStreamNotices } from '../lib/streamNotifications'
@@ -30,13 +31,26 @@ export default function StreamPayActivity() {
   const requests = useServiceRequests()
   const [showAll, setShowAll] = useState(false)
   useEffect(() => {
-    const pending = window.localStorage.getItem('hashpaystream.pendingArcTransfer')
-    if (!authenticated || !pending) return
-    void account.recordTransfer(pending).then(() => {
-      window.localStorage.removeItem('hashpaystream.pendingArcTransfer')
-      return account.refresh()
-    }).catch(() => undefined)
-  }, [authenticated, account.recordTransfer, account.refresh])
+    const owner = account.profile?.walletAddress
+    if (!authenticated || !owner) return
+    let active = true
+    void (async () => {
+      try {
+        const legacy = window.localStorage.getItem('hashpaystream.pendingArcTransfer')
+        const pending = [...new Set([...pendingArcActivity(owner), ...(legacy ? [legacy] : [])])]
+        for (const hash of pending) {
+          if (!active) return
+          try {
+            await account.recordTransfer(hash)
+            removeArcActivity(owner, hash)
+            if (legacy === hash) window.localStorage.removeItem('hashpaystream.pendingArcTransfer')
+          } catch { /* Keep this reference for its owner to retry. */ }
+        }
+        if (active && pending.length) await account.refresh()
+      } catch { /* Optional local activity cache cannot prevent Activity loading. */ }
+    })()
+    return () => { active = false }
+  }, [authenticated, account.profile?.walletAddress, account.recordTransfer, account.refresh])
   const requestNotices = useMemo(() => buildStreamNotices([], requests.requests), [requests.requests])
   const activity = useMemo(() => {
     const agreementRows = agreements.flatMap(agreement => [

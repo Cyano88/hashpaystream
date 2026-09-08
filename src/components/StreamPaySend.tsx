@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowLeftIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
-import { getAddress, isAddress, parseUnits } from 'viem'
+import { getAddress, isAddress, parseUnits, zeroAddress } from 'viem'
 import { Link } from '../lib/router'
+import { queueArcActivity, removeArcActivity } from '../lib/arcTransferActivity'
+import { readPendingTransfer } from '../lib/walletTransfer'
 import { useCircleWallet } from '../lib/circleWallet'
 import { useStreamAccount } from '../lib/streamAccount'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
@@ -12,6 +14,11 @@ import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
 type Mode = 'pocket' | 'address'
 
 export default function StreamPaySend() {
+  const { user } = usePrivy()
+  return <SendForm key={user?.id ?? 'signed-out'} />
+}
+
+function SendForm() {
   const { authenticated } = usePrivy()
   const account = useStreamAccount()
   const wallet = useCircleWallet()
@@ -23,20 +30,29 @@ export default function StreamPaySend() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [hash, setHash] = useState('')
+  const resolving = useRef(0)
+  const submitting = useRef(false)
+  const scope = wallet.address ? { chainId: 5042002, owner: getAddress(wallet.address), asset: getAddress('0x3600000000000000000000000000000000000000') } : undefined
+  let pending = false
+  try { pending = Boolean(scope && readPendingTransfer(scope)) } catch { pending = true }
   const homeTo = useStreamPayPath('/home')
   if (!authenticated)
     return <AgreementSignInLanding />
 
   async function resolve() {
+    const sequence = ++resolving.current
+    setAddress('')
     setError('')
     setResolvedName('')
     try {
       if (!/^\d{6,12}$/.test(pocketId))
         throw new Error('Enter a 6 to 12 digit Pocket ID.')
       const recipient = await account.resolvePocketId(pocketId)
+      if (sequence !== resolving.current) return
       setAddress(recipient.walletAddress)
       setResolvedName(recipient.displayName)
     } catch (reason) {
+      if (sequence !== resolving.current) return
       setAddress('')
       setError(
         reason instanceof Error ? reason.message : 'Pocket ID was not found.',
@@ -45,26 +61,31 @@ export default function StreamPaySend() {
   }
 
   async function send() {
+    if (submitting.current) return
+    submitting.current = true
     setBusy(true)
     setError('')
     setHash('')
     try {
-      const recipient = address.trim()
-      if (!isAddress(recipient))
+      const saved = scope ? readPendingTransfer(scope) : undefined
+      const recipient = saved?.recipient ?? address.trim()
+      const sendAmount = saved ? (BigInt(saved.units) / 1000000n).toString() + '.' + (BigInt(saved.units) % 1000000n).toString().padStart(6, '0') : amount
+      if (!/^\d+(?:\.\d{1,6})?$/.test(sendAmount)) throw new Error('Enter a valid USDC amount with up to 6 decimals.')
+      if (!isAddress(recipient) || getAddress(recipient) === zeroAddress)
         throw new Error(
           mode === 'pocket'
             ? 'Verify the Pocket ID first.'
             : 'Enter a valid Arc wallet address.',
         )
-      const units = parseUnits(amount, 6)
+      const units = parseUnits(sendAmount, 6)
       if (units <= 0n) throw new Error('Enter an amount greater than zero.')
       if (!wallet.session) throw new Error('Your Circle wallet is not ready.')
-      const txHash = await wallet.sendUsdc(getAddress(recipient), amount)
+      const txHash = await wallet.sendUsdc(getAddress(recipient), sendAmount)
       setHash(txHash)
-      window.localStorage.setItem('hashpaystream.pendingArcTransfer', txHash)
+      try { queueArcActivity(wallet.address, txHash) } catch { /* Optional local activity retry cache. */ }
       try {
         await account.recordTransfer(txHash)
-        window.localStorage.removeItem('hashpaystream.pendingArcTransfer')
+        removeArcActivity(wallet.address, txHash)
       } catch {
         /* Activity retries this confirmed hash */
       }
@@ -75,6 +96,7 @@ export default function StreamPaySend() {
           : 'Arc USDC could not be sent.',
       )
     } finally {
+      submitting.current = false
       setBusy(false)
     }
   }
@@ -134,6 +156,7 @@ export default function StreamPaySend() {
               key={value}
               type="button"
               onClick={() => {
+                ++resolving.current
                 setMode(value)
                 setAddress('')
                 setResolvedName('')
@@ -155,6 +178,7 @@ export default function StreamPaySend() {
                 inputMode="numeric"
                 value={pocketId}
                 onChange={(event) => {
+                  ++resolving.current
                   setPocketId(
                     event.target.value.replace(/\D/g, '').slice(0, 12),
                   )
@@ -227,7 +251,7 @@ export default function StreamPaySend() {
         )}
         <button
           type="button"
-          disabled={busy || !amount || !address}
+          disabled={busy || (!pending && (!amount || !address))}
           onClick={() => void send()}
           className="w-full rounded-full bg-gray-950 px-5 py-4 text-sm font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950"
         >

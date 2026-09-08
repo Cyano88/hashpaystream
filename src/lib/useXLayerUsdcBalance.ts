@@ -64,38 +64,41 @@ export function useXLayerUsdcBalance() {
       && account.address.toLowerCase() === candidate.address.toLowerCase(),
   ) ? candidate : undefined
   const address = wallet ? getAddress(wallet.address) : undefined
-  const [balanceState, setBalanceState] = useState<{ scope?: string; units?: bigint }>(() => ({ scope, units: readCachedBalance(scope, address) }))
-  const units = balanceState.scope === scope ? balanceState.units : readCachedBalance(scope, address)
+  const [balanceState, setBalanceState] = useState<{ scope?: string; address?: string; units?: bigint }>(() => ({ scope, address, units: readCachedBalance(scope, address) }))
+  const units = balanceState.scope === scope && balanceState.address === address ? balanceState.units : readCachedBalance(scope, address)
   const [error, setError] = useState('')
   const mounted = useRef(true)
-  const activeScope = useRef(scope)
-  activeScope.current = scope
+  const snapshotScope = `${scope ?? ''}:${address ?? ''}`
+  const activeScope = useRef(snapshotScope)
+  activeScope.current = snapshotScope
+  const sequence = useRef(0)
 
   const refresh = useCallback(async () => {
+    const request = ++sequence.current
     if (!scope) { if (mounted.current) { setBalanceState({ scope: undefined, units: undefined }); setError('') }; return }
-    if (!address) { if (mounted.current && activeScope.current === scope) { setBalanceState({ scope, units: readCachedBalance(scope) }); setError('') }; return }
+    if (!address) { if (mounted.current && activeScope.current === snapshotScope && sequence.current === request) { setBalanceState({ scope, address, units: readCachedBalance(scope) }); setError('') }; return }
     try {
       const client = createPublicClient({ chain: upfrontXLayerChain, transport: http() })
       const next = await client.readContract({ address: XLAYER_USDC_ADDRESS, abi: ERC20_ABI, functionName: 'balanceOf', args: [address] })
-      if (mounted.current && activeScope.current === scope) {
+      if (mounted.current && activeScope.current === snapshotScope && sequence.current === request) {
         writeCachedBalance(scope, address, next)
-        setBalanceState({ scope, units: next })
+        setBalanceState({ scope, address, units: next })
         setError('')
       }
     } catch {
-      if (mounted.current && activeScope.current === scope) setError('X Layer balance is temporarily unavailable.')
+      if (mounted.current && activeScope.current === snapshotScope && sequence.current === request) setError('X Layer balance is temporarily unavailable.')
     }
-  }, [address, scope])
+  }, [address, scope, snapshotScope])
 
   useEffect(() => {
     mounted.current = true
     const cached = readCachedBalance(scope, address)
-    setBalanceState({ scope, units: cached })
+    setBalanceState({ scope, address, units: cached })
     void refresh()
     const timer = window.setInterval(() => void refresh(), 20_000)
     const onFocus = () => void refresh()
     window.addEventListener('focus', onFocus)
-    return () => { mounted.current = false; window.clearInterval(timer); window.removeEventListener('focus', onFocus) }
+    return () => { mounted.current = false; ++sequence.current; window.clearInterval(timer); window.removeEventListener('focus', onFocus) }
   }, [address, refresh, scope])
 
   return {

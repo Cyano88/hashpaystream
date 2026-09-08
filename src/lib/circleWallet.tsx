@@ -3,6 +3,8 @@ import { usePrivy } from '@privy-io/react-auth'
 import { Capacitor } from '@capacitor/core'
 import type { W3SSdk as CircleSdk } from '@circle-fin/w3s-pw-web-sdk'
 import { formatUnits, getAddress, parseUnits, type Address, type Hex } from 'viem'
+import { arcPublicClient } from './arcWallet'
+import { runCircleTransfer } from './walletTransfer'
 import { clearPersistedCircleSession, readPersistedCircleSession, writePersistedCircleSession } from './circleSession'
 import { fetchWithTimeout } from './fetchWithTimeout'
 
@@ -103,6 +105,11 @@ async function getCircleDeviceId(sdk: CircleSdk) {
 }
 
 export function CircleWalletProvider({ children }: { children: ReactNode }) {
+  const { authenticated, user } = usePrivy()
+  return <CircleWalletSession key={authenticated ? `${user?.id ?? 'pending'}:${user?.email?.address ?? ''}` : 'signed-out'}>{children}</CircleWalletSession>
+}
+
+function CircleWalletSession({ children }: { children: ReactNode }) {
   const { ready, authenticated, user, getAccessToken } = usePrivy()
   const email = user?.email?.address?.trim().toLowerCase() ?? ''
   const [state, setState] = useState<WalletState>('idle')
@@ -117,19 +124,26 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
   const connecting = useRef<Promise<void> | null>(null)
   const forceEmailVerification = useRef(false)
   const activeEmail = useRef('')
+  const scope = authenticated && user?.id ? user.id : ''
+  const requestScope = useRef(scope)
+  requestScope.current = scope
+  useEffect(() => () => { requestScope.current = ''; activeEmail.current = '' }, [])
   const balanceReadyRef = useRef(Boolean(cachedBalance))
   const balanceRefresh = useRef<Promise<void> | null>(null)
 
   const request = useCallback(async (payload: Record<string, unknown>) => {
+    if (!scope || requestScope.current !== scope) throw new Error('Your wallet account changed. Reopen Pocket to continue.')
     const token = await getAccessToken()
+    if (requestScope.current !== scope) throw new Error('Your wallet account changed. Reopen Pocket to continue.')
     if (!token) throw new Error('Sign in again to open your Circle wallet.')
     const response = await fetchWithTimeout(runtimeUrl('/api/hashpaystream/v1/circle-wallet'), {
       method: 'POST', cache: 'no-store', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(payload),
     })
     const data = await response.json().catch(() => ({})) as Record<string, unknown> & { error?: string }
+    if (requestScope.current !== scope) throw new Error('Your wallet account changed. Reopen Pocket to continue.')
     if (!response.ok || data.ok === false) throw new CircleRequestError(data.error || 'Circle wallet request failed.', response.status)
     return data
-  }, [getAccessToken])
+  }, [getAccessToken, scope])
 
   const execute = useCallback((sdk: CircleSdk, challengeId: string) => new Promise<Record<string, unknown>>((resolve, reject) => {
     sdk.execute(challengeId, (failure, result) => {
@@ -339,23 +353,24 @@ export function CircleWalletProvider({ children }: { children: ReactNode }) {
     const sdk = new W3SSdk({ appSettings: { appId: APP_ID } })
     sdk.setThemeColor(CIRCLE_LIGHT_THEME)
     sdk.setAuthentication({ userToken: session.userToken, encryptionKey: session.encryptionKey })
-    const prepared = await request({ action: 'send_usdc', userToken: session.userToken, walletId: session.wallet.id, walletAddress: session.wallet.address, recipient, amountUnits: parseUnits(amount, 6).toString() })
-    const challengeId = find(prepared, ['challengeId'])
-    if (!challengeId) throw new Error('Circle did not return a payment challenge.')
-    const result = await execute(sdk, challengeId)
-    let hash = find(result, ['txHash', 'transactionHash'])
-    const transactionId = find(result, ['transactionId']) || find(prepared, ['transactionId', 'id'])
-    for (let attempt = 0; !hash && transactionId && attempt < 40; attempt += 1) {
-      await new Promise(resolve => window.setTimeout(resolve, 2_500))
-      const transaction = await request({ action: 'get_transaction', userToken: session.userToken, transactionId })
-      hash = find(transaction, ['txHash', 'transactionHash'])
-      const status = find(transaction, ['state', 'status']).toUpperCase()
-      if (status.includes('FAILED') || status.includes('CANCEL')) throw new Error('Circle wallet transfer did not complete.')
-    }
-    if (!/^0x[a-fA-F0-9]{64}$/.test(hash)) throw new Error('Circle approved the transfer, but its transaction hash is not available yet.')
-    await refreshBalance()
-    return hash as Hex
-  }, [execute, refreshBalance, request, session])
+    const transferScope = { chainId: 5042002, owner: session.wallet.address, asset: getAddress('0x3600000000000000000000000000000000000000') }
+    const validHash = (value: string) => /^0x[a-fA-F0-9]{64}$/.test(value) ? value as Hex : undefined
+    const hash = await runCircleTransfer(transferScope, { recipient, units: parseUnits(amount || '0', 6).toString() }, {
+      prepare: async (intent, idempotencyKey) => {
+        const prepared = await request({ action: 'send_usdc', userToken: session.userToken, walletId: session.wallet.id, walletAddress: session.wallet.address, recipient: intent.recipient, amountUnits: intent.units, idempotencyKey })
+        return { challengeId: find(prepared, ['challengeId']), transactionId: find(prepared, ['transactionId']) || undefined }
+      },
+      authorize: async challengeId => { if (requestScope.current !== scope) throw new Error('Your wallet account changed. Reopen Pocket to continue.'); const result = await execute(sdk, challengeId); return { hash: validHash(find(result, ['txHash', 'transactionHash'])), transactionId: find(result, ['transactionId']) || undefined } },
+      lookup: async transactionId => {
+        const transaction = await request({ action: 'get_transaction', userToken: session.userToken, transactionId })
+        const status = find(transaction, ['state', 'status']).toUpperCase()
+        return { hash: validHash(find(transaction, ['txHash', 'transactionHash'])), failed: ['FAILED', 'CANCELLED', 'CANCELED'].includes(status) }
+      },
+      wait: (hash, replace) => arcPublicClient.waitForTransactionReceipt({ hash, timeout: 60_000, confirmations: 2, onReplaced: ({reason,transaction}) => replace(transaction.hash, reason) }),
+    })
+    await refreshBalance().catch(() => undefined)
+    return hash
+  }, [execute, refreshBalance, request, session, scope])
 
   const executeChallenge = useCallback(async (challengeId: string) => {
     if (!session) throw new Error('Open your Circle wallet first.')

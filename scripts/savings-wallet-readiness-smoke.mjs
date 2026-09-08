@@ -10,8 +10,10 @@ const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.
 const address='0xA16D33E7B36099F0EF82048fb78b25754Bf49931'
 const signer={address,walletClientType:'privy',getEthereumProvider:async()=>({})}
 let auth={ready:true,authenticated:true,user:{id:'owner',linkedAccounts:[{type:'wallet',chainType:'ethereum',walletClientType:'privy',address}]}},connected={ready:false,wallets:[signer]}
+let deferred=false
+const reads=[]
 const context={exports:{},...React,getAddress,isAddress,formatUnits,upfrontXLayerChain:{id:196},usePrivy:()=>auth,useWallets:()=>connected,
- createPublicClient:()=>({readContract:async()=>100000n}),http:()=>({}),window:{localStorage:{getItem:()=>null,setItem(){},removeItem(){}},setInterval:()=>1,clearInterval(){},addEventListener(){},removeEventListener(){}}}
+ createPublicClient:()=>({readContract:async()=>deferred ? new Promise(resolve=>reads.push(resolve)) : 100000n}),http:()=>({}),window:{localStorage:{getItem:()=>null,setItem(){},removeItem(){}},setInterval:()=>1,clearInterval(){},addEventListener(){},removeEventListener(){}}}
 vm.runInNewContext(compiled,context)
 let state,root
 function Probe(){state=context.exports.useXLayerUsdcBalance();return null}
@@ -36,3 +38,14 @@ assert.equal(state.wallet,undefined,'Multiple embedded signers must fail closed'
 assert.equal(state.ready,false)
 await act(async()=>root.unmount())
 console.log('Savings embedded signer readiness and account isolation checks passed.')
+
+connected={ready:true,wallets:[signer]}
+await mount()
+deferred=true
+let first,second
+await act(async()=>{first=state.refresh();second=state.refresh()})
+await act(async()=>{reads[1](200000n);await second})
+await act(async()=>{reads[0](100000n);await first})
+assert.equal(state.units,200000n,'An older RPC balance must not overwrite a newer response')
+await act(async()=>root.unmount())
+console.log('X Layer balance refreshes reject out-of-order RPC responses.')

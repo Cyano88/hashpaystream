@@ -186,6 +186,8 @@ export function createCircleWalletHandler(overrides: { env?: () => NodeJS.Proces
         return res.json({ ok: true, ...challenge })
       }
       if (action === 'send_usdc') {
+        const suppliedKey = clean(body.idempotencyKey, 80)
+        if (suppliedKey && !UUID.test(suppliedKey)) fail('Payment retry key is invalid.', 400)
         const walletId = clean(body.walletId, 256)
         const walletAddress = clean(body.walletAddress, 42)
         const recipient = clean(body.recipient, 42)
@@ -194,7 +196,7 @@ export function createCircleWalletHandler(overrides: { env?: () => NodeJS.Proces
         const wallet = await readOwnedWallet(userToken, walletId, walletAddress, env)
         const transfer = encodeFunctionData({ abi: transferAbi, functionName: 'transfer', args: [getAddress(recipient), BigInt(amountUnits)] })
         const callData = encodeFunctionData({ abi: batchAbi, functionName: 'executeBatch', args: [[{ target: ARC_USDC, value: 0n, data: transfer }]] })
-        const data = await circleJson<Record<string, unknown>>(env, '/v1/w3s/user/transactions/contractExecution', { method: 'POST', userToken, body: { idempotencyKey: crypto.randomUUID(), walletId: wallet.id, feeLevel: 'HIGH', refId: 'hashpaystream-arc-send', contractAddress: getAddress(wallet.address), callData } })
+        const data = await circleJson<Record<string, unknown>>(env, '/v1/w3s/user/transactions/contractExecution', { method: 'POST', userToken, body: { idempotencyKey: suppliedKey || crypto.randomUUID(), walletId: wallet.id, feeLevel: 'HIGH', refId: 'hashpaystream-arc-send', contractAddress: getAddress(wallet.address), callData } })
         return res.json({ ok: true, ...data })
       }
       if (action === 'get_transaction') {

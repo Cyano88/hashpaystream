@@ -76,7 +76,7 @@ try {
   assert.equal(cachedBalance.statusCode, 200)
   assert.equal(cachedBalance.body.balanceUsdcUnits, '65992064')
   assert.equal(cachedBalance.body.stale, true)
-  const send = await call(handler, { action: 'send_usdc', userToken: 'user-token', walletId: wallet.id, walletAddress: wallet.address, recipient, amountUnits: '1250000' })
+  const send = await call(handler, { action: 'send_usdc', userToken: 'user-token', walletId: wallet.id, walletAddress: wallet.address, recipient, amountUnits: '1250000', idempotencyKey: transactionId })
   assert.equal(send.body.challengeId, challengeId)
   const contractCall = calls.find(item => item.path.endsWith('/contractExecution'))
   assert.equal(contractCall.body.walletId, wallet.id)

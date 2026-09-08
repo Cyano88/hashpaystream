@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowLeftIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
 import { createPublicClient, createWalletClient, custom, formatEther, getAddress, http, isAddress, parseUnits, zeroAddress, type Hex } from 'viem'
+import { readPendingTransfer, runWalletTransfer } from '../lib/walletTransfer'
 import { Link } from '../lib/router'
 import { upfrontXLayerChain } from '../lib/upfrontChains'
 import { XLAYER_USDC_ADDRESS, useXLayerUsdcBalance } from '../lib/useXLayerUsdcBalance'
@@ -14,7 +15,9 @@ const ERC20_ABI = [{
   inputs: [{ name: 'recipient', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [{ type: 'bool' }],
 }] as const
 
-export default function StreamPayXLayerSend() {
+export default function StreamPayXLayerSend() { const { user } = usePrivy(); return <SendForm key={user?.id ?? 'signed-out'} /> }
+
+function SendForm() {
   const { authenticated } = usePrivy()
   const wallet = useXLayerUsdcBalance()
   const [recipient, setRecipient] = useState('')
@@ -22,14 +25,26 @@ export default function StreamPayXLayerSend() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [hash, setHash] = useState<Hex>()
+  const submitting = useRef(false)
+  const scope = wallet.address ? { chainId: upfrontXLayerChain.id, owner: wallet.address, asset: XLAYER_USDC_ADDRESS } : undefined
+  let pending = false
+  try { pending = Boolean(scope && readPendingTransfer(scope)) } catch { pending = true }
   const moveTo = useStreamPayPath('/move')
   const homeTo = useStreamPayPath('/home')
 
   if (!authenticated) return <AgreementSignInLanding />
 
   async function send() {
+    if (submitting.current) return
+    submitting.current = true
     setBusy(true); setError('')
     try {
+      if (!scope) throw new Error('Your X Layer wallet is not ready.')
+      const client = createPublicClient({ chain: upfrontXLayerChain, transport: http() })
+      const wait = (hash: Hex, replace: (hash: Hex, reason: string) => void) => client.waitForTransactionReceipt({ hash, timeout: 60_000, confirmations: 2, onReplaced: ({reason,transaction}) => replace(transaction.hash, reason) })
+      const saved = readPendingTransfer(scope)
+      if (saved) { setHash(await runWalletTransfer(scope, saved, async () => { throw new Error('Recovery cannot resubmit.') }, wait)); await wallet.refresh(); return }
+      if (!/^\d+(?:\.\d{1,6})?$/.test(amount)) throw new Error('Enter a valid USDC amount.')
       if (!wallet.wallet || !wallet.address) throw new Error('Your X Layer wallet is not ready.')
       if (!isAddress(recipient) || getAddress(recipient) === zeroAddress) throw new Error('Enter a valid X Layer wallet address.')
       const units = parseUnits(amount, 6)
@@ -45,14 +60,12 @@ export default function StreamPayXLayerSend() {
       ])
       const requiredGas = gas * gasPrice
       if (gasBalance < requiredGas) throw new Error(`You need about ${formatEther(requiredGas)} OKB for X Layer gas.`)
-      const transactionHash = await walletClient.writeContract(simulation.request)
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: transactionHash })
-      if (receipt.status !== 'success') throw new Error('The X Layer transfer reverted.')
+      const transactionHash = await runWalletTransfer(scope, { recipient: getAddress(recipient), units: units.toString() }, () => walletClient.writeContract(simulation.request), wait)
       setHash(transactionHash)
       await wallet.refresh()
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'X Layer USDC could not be sent.')
-    } finally { setBusy(false) }
+    } finally { submitting.current = false; setBusy(false) }
   }
 
   if (hash) return <section className="flex min-h-[70vh] w-full max-w-md flex-col items-center justify-center py-8 text-center">
@@ -70,7 +83,7 @@ export default function StreamPayXLayerSend() {
       <label className="block"><span className="text-[11px] font-bold text-gray-500">Recipient X Layer address</span><input value={recipient} onChange={event => { setRecipient(event.target.value.trim()); setError('') }} placeholder="0x…" className="mt-2 w-full rounded-2xl border border-gray-200 px-4 py-3.5 font-mono text-xs outline-none focus:border-emerald-400 dark:border-white/10 dark:bg-white/[0.04]" /></label>
       <label className="block"><span className="flex items-center justify-between text-[11px] font-bold text-gray-500"><span>Amount</span><button type="button" onClick={() => setAmount(wallet.balance)} className="text-emerald-600">Max</button></span><span className="mt-2 flex items-center rounded-2xl border border-gray-200 px-4 dark:border-white/10"><input inputMode="decimal" value={amount} onChange={event => { const next = event.target.value.replace(/[^\d.]/g, ''); if (/^\d*(?:\.\d{0,6})?$/.test(next)) setAmount(next); setError('') }} placeholder="0.00" className="min-w-0 flex-1 bg-transparent py-4 text-base font-bold outline-none" /><b className="text-xs text-gray-400">USDC</b></span></label>
       {(error || wallet.error) && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700 dark:bg-red-400/10 dark:text-red-200">{error || wallet.error}</p>}
-      <button type="button" disabled={busy || !amount || !isAddress(recipient) || getAddress(recipient) === zeroAddress || !wallet.balanceReady} onClick={() => void send()} className="w-full rounded-full bg-gray-950 px-5 py-4 text-sm font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950">{busy ? 'Confirming on X Layer…' : 'Review and send'}</button>
+      <button type="button" disabled={busy || (!pending && (!amount || !isAddress(recipient) || getAddress(recipient) === zeroAddress || !wallet.balanceReady))} onClick={() => void send()} className="w-full rounded-full bg-gray-950 px-5 py-4 text-sm font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950">{busy ? 'Confirming on X Layer…' : 'Review and send'}</button>
       <p className="text-center text-[10px] leading-4 text-gray-400">You approve the transfer from your HashPayStream wallet. X Layer requires a small OKB gas balance.</p>
     </div>
   </section>
