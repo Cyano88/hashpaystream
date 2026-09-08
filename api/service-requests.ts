@@ -27,7 +27,7 @@ type ServiceRequest = {
   id: string; customerAccountKey: string; providerAccountKey: string; providerLabel: string
   status: RequestStatus; activeVersion: number; terms: Terms[]; events: Event[]
   providerAcceptedVersion?: number; customerAcceptedVersion?: number
-  agreementId?: string; payerReviewPath?: string; createdAt: string; updatedAt: string
+  agreementCreationStarted?: boolean; agreementId?: string; payerReviewPath?: string; createdAt: string; updatedAt: string
 }
 type RequestStore = { schema: 1; requests: Record<string, ServiceRequest>; idempotency: Record<string, string> }
 type Account = { accountKey: string; email: string; displayName: string; pocketId: string; walletAddress?: string }
@@ -190,7 +190,7 @@ function config(env: NodeJS.ProcessEnv) {
 }
 function publicRequest(item: ServiceRequest, viewer: string, earlyPaySettlement?: EarlyPaySettlement) {
   const role: Role = item.customerAccountKey === viewer ? 'customer' : 'provider'
-  return { id: item.id, role, direction: role === 'customer' ? 'sent' : 'received', counterparty: role === 'customer' ? item.providerLabel : 'Customer', status: item.status, activeVersion: item.activeVersion, terms: item.terms, events: item.events, agreementId: item.agreementId ?? '', payerReviewPath: role === 'customer' ? item.payerReviewPath ?? '' : '', ...(earlyPaySettlement ? { earlyPaySettlement } : {}), createdAt: item.createdAt, updatedAt: item.updatedAt }
+  return { id: item.id, role, direction: role === 'customer' ? 'sent' : 'received', counterparty: role === 'customer' ? item.providerLabel : 'Customer', status: item.status, acceptancePending: Boolean(item.customerAcceptedVersion && !item.agreementId), activeVersion: item.activeVersion, terms: item.terms, events: item.events, agreementId: item.agreementId ?? '', payerReviewPath: role === 'customer' ? item.payerReviewPath ?? '' : '', ...(earlyPaySettlement ? { earlyPaySettlement } : {}), createdAt: item.createdAt, updatedAt: item.updatedAt }
 }
 function parseTerms(body: Record<string, unknown>, proposedBy: Role, version: number, now: string, prior?: Terms): Terms {
   const title = clean(body.title ?? prior?.title, 140)
@@ -356,6 +356,7 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
         if (!item || (item.customerAccountKey !== viewer && item.providerAccountKey !== viewer)) fail('Request not found.', 404)
         const role: Role = item.customerAccountKey === viewer ? 'customer' : 'provider'
         if (item.agreementId || !['sent', 'countered', 'provider_accepted'].includes(item.status)) fail('This request can no longer be changed.', 409)
+        if (item.customerAcceptedVersion && action !== 'customer_accept') fail('Agreement creation is pending. Continue acceptance to recover its result.', 409)
         const version = Number(body.version)
         if (!Number.isInteger(version) || version !== item.activeVersion) fail('These terms changed. Review the latest version.', 409)
         const updated = { ...item, terms: [...item.terms], events: [...item.events], updatedAt: now }
@@ -384,7 +385,7 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
       })
       if (action === 'customer_accept' && !result.agreementId) {
         const rollbackAcceptance = async () => {
-          await dependencies.mutateRequests(cfg.requestStore, current => { const next = safeStore(current); const item = next.requests[result.id]; if (item && !item.agreementId) { item.status = 'provider_accepted'; item.customerAcceptedVersion = undefined; item.events = item.events.filter(event => event.type !== 'request.customer_accept'); item.updatedAt = now } return next })
+          await dependencies.mutateRequests(cfg.requestStore, current => { const next = safeStore(current); const item = next.requests[result.id]; if (item && !item.agreementId && !item.agreementCreationStarted) { item.status = 'provider_accepted'; item.customerAcceptedVersion = undefined; item.events = item.events.filter(event => event.type !== 'request.customer_accept'); item.updatedAt = now } return next })
         }
         try {
           const terms = result.terms.find(item => item.version === result.activeVersion)!
@@ -402,6 +403,12 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
             const registered = await dependencies.registerRecipient(cfg.base, apiKey, registrySecret, recipient, result.providerAccountKey, dependencies.now())
             if (registered.status < 200 || registered.status >= 300 || registered.body.ok !== true) fail(clean(registered.body.error, 300) || 'The service provider wallet could not be verified for Direct payment.', registered.status >= 400 && registered.status < 600 ? registered.status : 502)
           }
+          await dependencies.mutateRequests(cfg.requestStore, current => {
+            const next = safeStore(current); const item = next.requests[result.id]
+            if (!item || item.activeVersion !== terms.version || item.customerAcceptedVersion !== terms.version || !['provider_accepted', 'awaiting_funding'].includes(item.status)) fail('These terms changed. Review the latest version.', 409)
+            item.agreementCreationStarted = true
+            return next
+          })
           const created = await dependencies.upstream(cfg.base, apiKey, { template: 'fixed_unlock', title: terms.title, description: terms.description, amount: terms.amount, payerEmail: identity.email, recipient, durationSeconds: terms.durationSeconds, cancellationWindowSeconds: terms.cancellationWindowSeconds, externalId: `hps-request-${result.id.slice(-24)}`, resourceId: `request:${result.id}` }, `hps-request:${result.id}:${terms.version}`)
           if (created.status < 200 || created.status >= 300 || created.body.ok !== true) fail(clean(created.body.error, 300) || 'The protected agreement could not be created.', created.status >= 400 && created.status < 600 ? created.status : 502)
           const agreement = created.body.agreement && typeof created.body.agreement === 'object' ? created.body.agreement as Record<string, unknown> : {}
@@ -410,7 +417,7 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
           const ownershipKey = upfront ? cfg.upfrontStore : cfg.humanStore
           const providerOwner = createHmac('sha256', cfg.secret).update(`hashpaystream.service-request-owner\0${result.providerAccountKey}`).digest('hex')
           await dependencies.mutateOwnership(ownershipKey, current => { const next = safeOwnership(current); next.agreements[agreementId] = { agreementId, ownerHash: providerOwner, ownerAccountKey: result.providerAccountKey, payerHash: payerHash(cfg.secret, identity.email), payerReviewPath, source: upfront ? 'upfront' : 'human', serviceRequestId: result.id, createdAt: now, updatedAt: now }; return next })
-          await dependencies.mutateRequests(cfg.requestStore, current => { const next = safeStore(current); const item = next.requests[result.id]; if (!item?.agreementId) { item.agreementId = agreementId; item.payerReviewPath = payerReviewPath; item.status = 'awaiting_funding'; if (!item.events.some(event => event.type === 'request.customer_accept' && event.version === item.activeVersion)) item.events.push({ id: `${item.id}:${item.events.length + 1}`, type: 'request.customer_accept', actor: 'customer', createdAt: now, version: item.activeVersion }); item.updatedAt = now } result = item; return next })
+          await dependencies.mutateRequests(cfg.requestStore, current => { const next = safeStore(current); const item = next.requests[result.id]; if (!item?.agreementId) { item.agreementId = agreementId; item.payerReviewPath = payerReviewPath; item.status = 'awaiting_funding'; if (!item.events.some(event => event.type === 'request.customer_accept' && event.version === item.activeVersion)) item.events.push({ id: `${item.id}:${item.events.length + 1}`, type: 'request.customer_accept', actor: 'customer', createdAt: now, version: item.activeVersion }); item.updatedAt = dependencies.now().toISOString() } result = item; return next })
         } catch (error) {
           await rollbackAcceptance()
           throw error

@@ -163,7 +163,7 @@ const failedAcceptance = await call('POST', {
 assert.equal(failedAcceptance.statusCode, 409)
 assert.equal(
   requests.requests[offer.body.request.id].customerAcceptedVersion,
-  undefined,
+  2, // Once creation was attempted, preserve the accepted version for idempotent recovery.
 )
 assert.equal(
   requests.requests[offer.body.request.id].events.some(

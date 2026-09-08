@@ -13,6 +13,8 @@ let ownershipStore
 let upstreamBody
 let registeredRecipient
 let eventStore
+let upstreamPause
+let upstreamFailure = false
 const handler = createServiceRequestsHandler({
   hasStore: () => true,
   env: () => ({ HASHPAYSTREAM_APP_OWNERSHIP_SECRET: secret, HASHPAYSTREAM_DIRECT_RECIPIENT_REGISTRY_SECRET: 'd'.repeat(48), HASHPAYSTREAM_ARC_API_KEY: `hpl_test_${'a'.repeat(40)}` }),
@@ -25,7 +27,7 @@ const handler = createServiceRequestsHandler({
   readAccounts: async () => ({ schema: 1, accounts: { [key(provider.email)]: { accountKey: key(provider.email), email: provider.email, displayName: 'Provider', pocketId: '1234567890', walletAddress: '0x1111111111111111111111111111111111111111' } } }),
   mutateOwnership: async (_key, update) => (ownershipStore = await update(ownershipStore)),
   registerRecipient: async (_base, _apiKey, _secret, recipient, accountReference) => { registeredRecipient = { recipient, accountReference }; return { status: 201, body: { ok: true } } },
-  upstream: async (_base, _apiKey, body) => { upstreamBody = body; return { status: 201, body: { ok: true, agreement: { id: 'agr_1234567890abcdef' }, payerReviewPath: '/agreements/agr_1234567890abcdef#access=private' } } },
+  upstream: async (_base, _apiKey, body) => { upstreamBody = body; if (upstreamPause) await upstreamPause(); if (upstreamFailure) throw Error('connection lost'); return { status: 201, body: { ok: true, agreement: { id: 'agr_1234567890abcdef' }, payerReviewPath: '/agreements/agr_1234567890abcdef#access=private' } } },
   now: () => new Date('2026-08-26T12:00:00.000Z'), id: () => 'req_1234567890abcdef',
 })
 function response() { return { statusCode: 200, body: undefined, headers: {}, setHeader(name, value) { this.headers[name] = value; return this }, status(code) { this.statusCode = code; return this }, json(body) { this.body = body; return this } } }
@@ -84,3 +86,23 @@ eventStore = { schema: 1, events: {
 } }
 assert.equal((await call('GET')).body.requests[0].status, 'cancelled')
 console.log('Terminal mutations rejected and cancellation remains final after late activation events.')
+
+// Cancellation cannot erase acceptance while an upstream agreement is being created.
+requestStore.requests[savedRequest.id] = {...structuredClone(savedRequest),status:'provider_accepted',agreementId:undefined,payerReviewPath:undefined,customerAcceptedVersion:undefined,providerAcceptedVersion:1}
+let entered,releaseUpstream
+const started=new Promise(resolve=>entered=resolve)
+upstreamPause=async()=>{entered();await new Promise(resolve=>releaseUpstream=resolve)}
+const accepting=call('POST',{action:'customer_accept',requestId:savedRequest.id,version:1})
+await started
+const cancelling=await call('POST',{action:'customer_cancel',requestId:savedRequest.id,version:1})
+releaseUpstream()
+await accepting
+assert.equal(cancelling.statusCode,409,'Cancellation must not race agreement creation')
+upstreamPause=undefined
+requestStore.requests[savedRequest.id] = {...structuredClone(savedRequest),status:'provider_accepted',agreementId:undefined,payerReviewPath:undefined,customerAcceptedVersion:undefined,providerAcceptedVersion:1}
+upstreamFailure=true
+assert.equal((await call('POST',{action:'customer_accept',requestId:savedRequest.id,version:1})).statusCode,500)
+assert.equal((await call('POST',{action:'customer_cancel',requestId:savedRequest.id,version:1})).statusCode,409,'Unknown upstream result must be reconciled before cancellation')
+upstreamFailure=false
+assert.equal((await call('POST',{action:'customer_accept',requestId:savedRequest.id,version:1})).body.request.status,'awaiting_funding')
+console.log('Agreement creation races and ambiguous upstream recovery remain bound to accepted terms.')

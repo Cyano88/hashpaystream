@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import {
   ArrowLeftIcon,
   BriefcaseIcon,
@@ -112,8 +112,8 @@ export default function StreamPayRequests() {
     return (
       <CreateRequest
         onBack={closeCreate}
-        onCreate={async (payload) => {
-          await inbox.act({ action: 'create', ...payload }, newKey())
+        onCreate={async (payload, key) => {
+          await inbox.act({ action: 'create', ...payload }, key)
           closeCreate()
           setTab('sent')
         }}
@@ -381,7 +381,7 @@ function RequestCard({
             Change terms
           </button>
           <button
-            disabled={busy}
+            disabled={busy || item.acceptancePending}
             onClick={() => void onAction('provider_decline')}
             className="col-span-2 min-h-10 text-xs font-bold text-gray-400"
           >
@@ -396,10 +396,10 @@ function RequestCard({
             onClick={() => void onAction('customer_accept')}
             className="min-h-11 rounded-full bg-gray-950 px-4 text-xs font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950"
           >
-            Accept final terms
+            {item.acceptancePending ? 'Continue acceptance' : 'Accept final terms'}
           </button>
           <button
-            disabled={busy}
+            disabled={busy || item.acceptancePending}
             onClick={() => void onAction('customer_cancel')}
             className="px-3 text-xs font-bold text-gray-400"
           >
@@ -466,7 +466,7 @@ function CreateRequest({
   onCreate,
 }: {
   onBack: () => void
-  onCreate: (payload: Record<string, unknown>) => Promise<void>
+  onCreate: (payload: Record<string, unknown>, key: string) => Promise<void>
 }) {
   const [providerEmail, setProviderEmail] = useState('')
   const [title, setTitle] = useState('')
@@ -476,19 +476,26 @@ function CreateRequest({
   const [cancellation, setCancellation] = useState('900')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const submitting = useRef(false)
+  const submission = useRef<{ fingerprint: string; key: string }>()
   async function submit(event: FormEvent) {
     event.preventDefault()
+    if (submitting.current) return
+    submitting.current = true
     setBusy(true)
     setError('')
     try {
-      await onCreate({
+      const payload = {
         providerEmail,
         title,
         description,
         amount,
         durationSeconds: Number(duration),
         cancellationWindowSeconds: Number(cancellation),
-      })
+      }
+      const fingerprint = JSON.stringify(payload)
+      if (submission.current?.fingerprint !== fingerprint) submission.current = { fingerprint, key: newKey() }
+      await onCreate(payload, submission.current.key)
     } catch (reason) {
       setError(
         reason instanceof Error
@@ -496,6 +503,7 @@ function CreateRequest({
           : 'The request could not be created.',
       )
     } finally {
+      submitting.current = false
       setBusy(false)
     }
   }
