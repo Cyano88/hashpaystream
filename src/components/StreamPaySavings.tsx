@@ -6,6 +6,7 @@ import { useSavingsVault } from '../lib/useSavingsVault'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
 import SavingsDepositSheet from './savings/SavingsDepositSheet'
+import SavingsReceipts from './savings/SavingsReceipts'
 import SavingsPlanCard from './savings/SavingsPlanCard'
 import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
 
@@ -61,6 +62,7 @@ export default function StreamPaySavings() {
         {savings.plans.filter(plan => plan.remaining > 0n).map(plan => <SavingsPlanCard key={plan.id} plan={plan} savings={savings} />)}
         {savings.plans.every(plan => plan.remaining === 0n) && <div className='stream-empty py-9'><CalendarDaysIcon className='mx-auto h-7 w-7 text-zinc-400' /><h2 className='mt-3 text-sm font-black'>No active savings plan</h2><p className='mx-auto mt-1.5 max-w-xs text-xs leading-5 text-zinc-500'>Your weekly or monthly plans will appear here.</p></div>}
       </div>
+      <SavingsReceipts key={`${savings.address}:${savings.vaultAddress}`} savings={savings} />
       {depositOpen && <SavingsDepositSheet savings={savings} onClose={() => navigate(savingsTo, { replace: true })} />}
     </>}
   </section>

@@ -1,5 +1,7 @@
 import type { EarlyPaySettlement } from './serviceRequests'
 export type PaylinkReceipt = {
+  savingsAction?: 'createPlan' | 'withdraw' | 'completeEmergencyExit'
+  savingsRows?: UnifiedReceiptRow[]
   type?: string
   split?: EarlyPaySettlement
   submittedWorkUrl?: string
@@ -44,10 +46,10 @@ export type UnifiedReceiptView = {
 
 const ARC_TESTNET_EXPLORER_ORIGIN = 'https://testnet.arcscan.app'
 
-export function arcTransactionUrl(receipt?: Pick<PaylinkReceipt, 'txHash'>) {
+export function arcTransactionUrl(receipt?: Pick<PaylinkReceipt, 'txHash' | 'chain'>) {
   const transactionHash = receipt?.txHash?.trim() ?? ''
   return /^0x[a-fA-F0-9]{64}$/.test(transactionHash)
-    ? `${ARC_TESTNET_EXPLORER_ORIGIN}/tx/${transactionHash}`
+    ? `${receipt?.chain === 'X Layer' ? 'https://www.oklink.com/xlayer' : ARC_TESTNET_EXPLORER_ORIGIN}/tx/${transactionHash}`
     : ''
 }
 
@@ -97,6 +99,7 @@ function splitRows(receipt: PaylinkReceipt): UnifiedReceiptRow[] {
   ]
 }
 function rows(receipt: PaylinkReceipt): UnifiedReceiptRow[] {
+  if (receipt.type === 'savings') return receipt.savingsRows || []
   if (receipt.type === 'funding') return receipt.fundingRows || []
   return [
     { label: 'Agreement', value: receipt.narration || receipt.title || '-' },
@@ -115,7 +118,7 @@ export function paymentReceiptView(receipt: PaylinkReceipt): UnifiedReceiptView 
   const state = receipt.fundingStatus === 'refunded' ? 'reversed' : receipt.fundingStatus === 'funded' || receipt.fundingStatus === 'released' ? 'pending' : reversed || ['refunded', 'reversed'].includes(receipt.status.trim().toLowerCase()) ? 'reversed' : ['pending', 'processing', 'settling', 'submitted', 'verification pending'].includes(receipt.status.trim().toLowerCase()) ? 'pending' : 'successful'
   return {
     state,
-    statusLabel: receipt.fundingStatus ? ({funded:'Funds protected',released:'Early payment sent',settled:'Payment completed',refunded:'Funding returned'}[receipt.fundingStatus]) : state === 'pending' ? 'Payment pending' : state === 'reversed' ? 'Payment returned' : 'Payment completed',
+    statusLabel: receipt.savingsAction ? (receipt.savingsAction === 'createPlan' ? 'Savings deposited' : 'Savings withdrawn') : receipt.fundingStatus ? ({funded:'Funds protected',released:'Early payment sent',settled:'Payment completed',refunded:'Funding returned'}[receipt.fundingStatus]) : state === 'pending' ? 'Payment pending' : state === 'reversed' ? 'Payment returned' : 'Payment completed',
     badge: receipt.fundingStatus ? ({funded:'Funds protected',released:'Early payment sent',settled:'Payment completed',refunded:'Funding returned'}[receipt.fundingStatus]) : reversed ? 'USDC returned' : receipt.agreementStatus === 'completed' ? 'Completed' : 'Confirmed',
     amount: `${amount(receipt.amount)} ${receipt.asset || 'USDC'}`,
     timestamp: timestamp(receipt.createdAt),
@@ -129,11 +132,11 @@ export function paymentReceiptBrand() {
 }
 
 export function paymentReceiptFileName(receipt?: PaylinkReceipt) {
-  return `hashpaystream-agreement-receipt-${receipt?.receiptId.slice(0, 10) || 'receipt'}.pdf`
+  return `${receipt?.type === 'savings' ? 'hashpaystream-savings-receipt-' : 'hashpaystream-agreement-receipt-'}${receipt?.receiptId.slice(0, 10) || 'receipt'}.pdf`
 }
 
 export function paymentReceiptImageFileName(receipt?: PaylinkReceipt) {
-  return `hashpaystream-agreement-receipt-${receipt?.receiptId.slice(0, 10) || 'receipt'}.jpg`
+  return `${receipt?.type === 'savings' ? 'hashpaystream-savings-receipt-' : 'hashpaystream-agreement-receipt-'}${receipt?.receiptId.slice(0, 10) || 'receipt'}.jpg`
 }
 
 // One light document layout supplies both external formats, independent of app theme.

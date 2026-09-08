@@ -57,3 +57,28 @@ assert.equal(readSavingsTransaction(scope),undefined,'A confirmed fee replacemen
 await assert.rejects(runSavingsTransaction(scope,intent,send,async(_hash,onReplacement)=>{onReplacement({hash:replacementHash,reason:'cancelled'});return {...receipt([]),transactionHash:replacementHash,to:scope.owner}}),/wallet replaced/)
 assert.equal(readSavingsTransaction(scope),undefined,'Confirmed wallet cancellation must not strand the original hash')
 console.log('Savings fee replacement and confirmed cancellation recovery checks passed.')
+
+const { savingsPaymentReceipt } = await import('../src/lib/savingsReceipt.ts')
+const { paymentReceiptView, arcTransactionUrl } = await import('../src/lib/paymentReceiptPdf.ts')
+const { readSavingsReceiptReferences } = await import('../src/lib/savingsTransaction.ts')
+const blockHash = '0x' + 'f'.repeat(64)
+const chainScope = { ...scope, chainId: 196 }
+const chainReceipt = { ...receipt(), blockHash }
+const block = { hash: blockHash, timestamp: 1788857663n }
+const exported = savingsPaymentReceipt(chainScope, {hash,intent}, chainReceipt, block)
+assert.equal(exported.amount,'0.1')
+assert.equal(exported.createdAt,1788857663000)
+assert.equal(exported.eventId,planId)
+assert.equal(paymentReceiptView(exported).statusLabel,'Savings deposited')
+assert.ok(arcTransactionUrl(exported).startsWith('https://www.oklink.com/xlayer/tx/'))
+assert.ok(arcTransactionUrl({txHash:hash}).startsWith('https://testnet.arcscan.app/tx/'))
+assert.throws(()=>savingsPaymentReceipt(chainScope,{hash,intent},chainReceipt,{...block,hash:'0x00'}))
+assert.throws(()=>savingsPaymentReceipt({...chainScope,chainId:1},{hash,intent},chainReceipt,block))
+assert.throws(()=>savingsPaymentReceipt(chainScope,{hash,intent:{...intent,amount:'500000'}},chainReceipt,block))
+const withdrawnExport = savingsPaymentReceipt(chainScope,{hash,intent:withdrawal},{...receipt([withdrawn(),transfer(100000n,false)]),blockHash},block)
+assert.equal(paymentReceiptView(withdrawnExport).statusLabel,'Savings withdrawn')
+assert.equal(withdrawnExport.amount,'0.1')
+assert.equal(readSavingsReceiptReferences({...scope,owner:scope.asset}).length,0)
+assert.ok(readSavingsReceiptReferences(scope).length > 0)
+assert.equal(new Set(readSavingsReceiptReferences(scope).map(item=>item.hash)).size,readSavingsReceiptReferences(scope).length)
+console.log('Savings export amounts, timestamps, plan identity, network links and scoped receipt references passed.')

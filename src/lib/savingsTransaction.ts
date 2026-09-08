@@ -12,7 +12,7 @@ export type SavingsIntent = {
 export type SavingsTransactionScope = { chainId: number; owner: Address; vault: Address; asset: Address }
 export type PendingSavingsTransaction = { hash: Hex; intent: SavingsIntent; superseded?: boolean }
 export type SavingsReplacementHandler = (replacement: { hash: Hex; reason: 'repriced' | 'cancelled' | 'replaced' }) => void
-const events = parseAbi([
+export const savingsReceiptEvents = parseAbi([
   'event Approval(address indexed owner, address indexed spender, uint256 value)',
   'event Transfer(address indexed from, address indexed to, uint256 value)',
   'event PlanCreated(bytes32 indexed planId, address indexed owner, uint256 amount, uint256 releaseAmount, uint48 firstReleaseAt, uint32 interval)',
@@ -24,6 +24,14 @@ const events = parseAbi([
 const memory = new Map<string, PendingSavingsTransaction>()
 const locks = new Set<string>()
 const key = (scope: SavingsTransactionScope) => `hashpaystream:savings-transaction:${scope.chainId}:${scope.owner.toLowerCase()}:${scope.vault.toLowerCase()}:${scope.asset.toLowerCase()}`
+
+export function readSavingsReceiptReferences(scope: SavingsTransactionScope): PendingSavingsTransaction[] {
+  const raw = window.localStorage.getItem(`${key(scope)}:receipts`)
+  if (!raw) return []
+  const entries = JSON.parse(raw)
+  if (!Array.isArray(entries)) throw new Error('Savings receipt references could not be loaded.')
+  return entries.filter(value => /^0x[0-9a-fA-F]{64}$/.test(value?.hash) && ['createPlan', 'withdraw', 'completeEmergencyExit'].includes(value?.intent?.action)).slice(0, 100)
+}
 
 export function readSavingsTransaction(scope: SavingsTransactionScope): PendingSavingsTransaction | undefined {
   const id = key(scope)
@@ -41,12 +49,12 @@ export function verifySavingsReceipt(scope: SavingsTransactionScope, pending: Pe
   if (receipt.transactionHash.toLowerCase() !== pending.hash.toLowerCase() || receipt.status !== 'success'
     || getAddress(receipt.from) !== getAddress(scope.owner)
     || !receipt.to || getAddress(receipt.to) !== getAddress(intent.action === 'approve' ? scope.asset : scope.vault)) throw new Error('Savings receipt does not match the submitted transaction.')
-  const tokenLogs = parseEventLogs({ abi: events, logs: receipt.logs.filter(log => getAddress(log.address) === getAddress(scope.asset)) })
+  const tokenLogs = parseEventLogs({ abi: savingsReceiptEvents, logs: receipt.logs.filter(log => getAddress(log.address) === getAddress(scope.asset)) })
   if (intent.action === 'approve') {
     if (!tokenLogs.some(event => event.eventName === 'Approval' && getAddress(event.args.owner) === getAddress(scope.owner) && getAddress(event.args.spender) === getAddress(scope.vault) && event.args.value === BigInt(intent.amount!))) throw new Error('Savings allowance confirmation mismatch.')
     return
   }
-  const logs = parseEventLogs({ abi: events, logs: receipt.logs.filter(log => getAddress(log.address) === getAddress(scope.vault)) })
+  const logs = parseEventLogs({ abi: savingsReceiptEvents, logs: receipt.logs.filter(log => getAddress(log.address) === getAddress(scope.vault)) })
   const eventName = { createPlan: 'PlanCreated', withdraw: 'SavingsWithdrawn', requestEmergencyExit: 'EmergencyExitRequested', cancelEmergencyExit: 'EmergencyExitCancelled', completeEmergencyExit: 'EmergencyExitCompleted' }[intent.action]
   const matched = logs.some(event => {
     if (event.eventName !== eventName || !('owner' in event.args) || getAddress(event.args.owner) !== getAddress(scope.owner)) return false
@@ -97,6 +105,10 @@ export async function runSavingsTransaction(scope: SavingsTransactionScope, inte
       throw new SavingsTransactionError('Savings transaction reverted. No savings funds moved.')
     }
     verifySavingsReceipt(scope, pending, receipt)
+    if (['createPlan', 'withdraw', 'completeEmergencyExit'].includes(pending.intent.action)) {
+      const references = readSavingsReceiptReferences(scope).filter(item => item.hash.toLowerCase() !== pending!.hash.toLowerCase())
+      window.localStorage.setItem(`${id}:receipts`, JSON.stringify([pending, ...references].slice(0, 100)))
+    }
     window.localStorage.removeItem(id); memory.delete(id)
     return pending.intent
   } catch (reason) {
