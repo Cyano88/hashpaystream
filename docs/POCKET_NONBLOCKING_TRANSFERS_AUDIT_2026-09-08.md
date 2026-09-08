@@ -21,9 +21,24 @@ Version 1.0.23 used one device-local pending transfer per wallet and asset. Retu
 - Legacy Circle approvals without the new unique reference may need an open authenticated wallet session to discover their hash. Once the hash is known, server confirmation continues independently.
 - Unfinished Circle approval remains resumable in Activity; it never auto-signs. Provider-verified failure releases its reservation.
 - At most 20 unresolved intents per account; the worker processes up to three oldest records concurrently per pass. Existing terminal Activity history is retained.
-- No new live transfer was authorized or submitted for this audit. Synthetic failure tests and read-only provider verification establish behavior; they do not replace a future live send check.
+- Live follow-up below supersedes the original synthetic-only evidence.
 - Public savings deposits and early-pay launch containment remain unchanged.
 
 ## Validation
 
 Focused tests cover independent sends, duplicate taps, per-payment locks, stable keys, legacy migration, status-outbox replay, account switching, atomic reservations, worker restart, unique Circle reference discovery, exact chain receipt matching and provider failure. Full application smoke, TypeScript, release build and Android verification are required before release.
+
+## Live follow-up
+
+Two authorized Arc Testnet transfers (0.01 and 0.02 test USDC) were submitted between the signed-in user's verified wallets. The second intent was created at 18:15:29 UTC while the first remained Processing. Distinct canonical receipts verified exact token, source, destination and amounts. Aggregate source debit and destination credit were both 30,000 atomic units; Activity displayed both successful payments without duplicate entries.
+
+- 0.01 receipt: `0xb67d2eb04839e9a5b6e1d8a9066ceea4724dbe0f58778238f862851b94b215e7`.
+- 0.02 receipt: `0x4507098e0782ae1d5f1ffd1d1e6856f4869c4870b426e5b1579ce1404ff6a79b`.
+
+The app was navigated to about:blank at 18:16:36.721 UTC and reopened at 18:18:01.121 UTC. The second payment was mined but remained Processing in the initial durable response. Live Circle list responses omitted refId, while individual transaction details included the exact server-bound reference. The original mock incorrectly assumed list responses included it.
+
+The worker now reads missing references from individual transaction details, with five candidates per page, preserving exact identity/source/reference matching and canonical receipt verification. Regression checks reproduce missing list references and reject wrong detail references and sources. The corrected inspector discovered and verified both real receipts from hashless intents using only the service API key, without a user session or another payment. TypeScript and focused durable/worker tests passed.
+
+The original closed-page check failed and is not represented as a pass. Browser-session recovery subsequently completed both durable rows. An additional fresh end-to-end closed-page payment after deployment is not claimed; no third transfer was made. This correction changes backend code only and applies to the installed Android client through the shared service.
+
+Provider reference: https://developers.circle.com/api-reference/wallets/developer-controlled-wallets/get-transaction

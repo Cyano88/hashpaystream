@@ -20,14 +20,22 @@ export async function inspectPocketTransfer(input: PocketTransfer): Promise<Part
   const row = { ...input }
   const patch: Partial<PocketTransfer> = {}
   if (!row.hash && row.circlePrepared && row.circleWalletId && !row.legacy) {
-    const query = new URLSearchParams({ walletIds: row.circleWalletId, from: new Date(Date.parse(row.createdAt) - 60000).toISOString(), pageSize: '50' })
+    const query = new URLSearchParams({ walletIds: row.circleWalletId, from: new Date(Date.parse(row.createdAt) - 60000).toISOString(), pageSize: '5' })
     if (row.circlePageAfter) query.set('pageAfter', row.circlePageAfter)
     const data = await circleJson(process.env, '/v1/w3s/transactions?' + query)
     const transactions = (data.transactions ?? []) as { id: string; refId?: string; walletId?: string; sourceAddress?: string; state?: string; txHash?: string }[]
-    const matches = transactions.filter(transaction => transaction.refId === 'hashpaystream-pocket:' + row.id && transaction.walletId === row.circleWalletId && transaction.sourceAddress?.toLowerCase() === row.owner.toLowerCase())
+    // Circle's live list response can omit refId; only transaction details
+    // establish the server-bound intent. Five candidates bound each worker pass.
+    const candidates = await Promise.all(transactions.map(async transaction => {
+      if (transaction.refId || transaction.walletId !== row.circleWalletId || transaction.sourceAddress?.toLowerCase() !== row.owner.toLowerCase()) return transaction
+      const detail = await circleJson(process.env, '/v1/w3s/transactions/' + encodeURIComponent(transaction.id))
+      const resolved = detail.transaction as typeof transaction | undefined
+      return resolved?.id === transaction.id ? resolved : transaction
+    }))
+    const matches = candidates.filter(transaction => transaction.refId === 'hashpaystream-pocket:' + row.id && transaction.walletId === row.circleWalletId && transaction.sourceAddress?.toLowerCase() === row.owner.toLowerCase())
     if (matches.length > 1) return { status: 'needs_review' }
     const transaction = matches[0]
-    if (!transaction) return { circlePageAfter: transactions.length === 50 ? transactions[transactions.length - 1].id : undefined }
+    if (!transaction) return { circlePageAfter: transactions.length === 5 ? transactions[transactions.length - 1].id : undefined }
     patch.transactionId = transaction.id
     if (transaction.txHash && /^0x[0-9a-f]{64}$/i.test(transaction.txHash)) { row.hash = transaction.txHash as Hex; patch.hash = row.hash; patch.status = 'processing' }
     else if (['FAILED', 'CANCELLED', 'DENIED'].includes(transaction.state ?? '')) return { ...patch, status: 'failed' }
