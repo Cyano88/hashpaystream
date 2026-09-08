@@ -1,0 +1,104 @@
+{
+  "contractName": "PersonalSavingsVault",
+  "chainId": 196,
+  "address": "0x9D2ca9763503C99ac2F788B7743B8aE6840d6A06",
+  "asset": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
+  "deployer": "0xAeAEA86026c820934EFfC356B94bC3092efA9eb6",
+  "deployment": {
+    "kind": "deploy",
+    "hash": "0x97991cc3a6ceb4b7318931ec0f0ffbf8c2473a4ce2dc946cbe82c7b32ad487e1",
+    "nonce": 8,
+    "maximumGasCostWei": "23371501168575",
+    "gasAllocationWei": "0",
+    "status": "success",
+    "createdAt": "2026-09-08T07:17:40.548Z",
+    "blockNumber": "70082826",
+    "gasCostWei": "19299740964987"
+  },
+  "sourceSha256": "7db6493214742554fa18b252dcf53e4307987f1ec8232bb2879722b9d2b5d186",
+  "dependencyLockSha256": "64ab78c1c104bab2818425f57fffe7117e310f9d9f580f761d07ad668c565124",
+  "runtimeKeccak256": "0xcc814d75241152ba65692df57991d97c21d379cf85d3ac9c190886769e0f20d1",
+  "sourceVerification": {
+    "provider": "Sourcify",
+    "isJobCompleted": true,
+    "verificationId": "13f93344-c823-43b5-ba2f-96b0c2e812c0",
+    "jobStartTime": "2026-09-08T07:20:16Z",
+    "jobFinishTime": "2026-09-08T07:20:19Z",
+    "compilationTime": "2402",
+    "contract": {
+      "match": "exact_match",
+      "creationMatch": "exact_match",
+      "runtimeMatch": "exact_match",
+      "chainId": "196",
+      "address": "0x9D2ca9763503C99ac2F788B7743B8aE6840d6A06",
+      "verifiedAt": "2026-09-08T07:20:22Z",
+      "matchId": "47284705"
+    },
+    "link": "https://repo.sourcify.dev/196/0x9D2ca9763503C99ac2F788B7743B8aE6840d6A06"
+  },
+  "publicDepositsEnabled": false,
+  "canaryStatus": "awaiting-48-hour-emergency-exit",
+  "canary": {
+    "id": "0xb43c7f6842f09cc404a6f5f4df73e861ffbffcc8f86bef82e5408c97e2bf489b",
+    "owner": "0xA16D33E7B36099F0EF82048fb78b25754Bf49931",
+    "depositUnits": "100000",
+    "releaseUnits": "100000",
+    "interval": 604800,
+    "firstReleaseAt": 1789457663,
+    "emergencyExitAt": 1789025749,
+    "depositTransaction": "0x75bd04a102edbd6aea92accdb1fd0cc2cd6d509760002361f692f16c8e56d489",
+    "remainingUnits": "100000",
+    "withdrawableUnits": "0",
+    "totalManagedUnits": "100000",
+    "vaultTokenBalanceUnits": "100000",
+    "verifiedBlock": "70083936",
+    "exitRequestTransaction": "0x5966c408bf189a15abbc9eb9c873cb41961d18860e0f39105a2c500ee6a0d023"
+  },
+  "gasCapWei": "100000000000000",
+  "actualGasSpentWei": "26655341332767",
+  "transactions": [
+    {
+      "kind": "deploy",
+      "hash": "0x97991cc3a6ceb4b7318931ec0f0ffbf8c2473a4ce2dc946cbe82c7b32ad487e1",
+      "nonce": 8,
+      "maximumGasCostWei": "23371501168575",
+      "gasAllocationWei": "0",
+      "status": "success",
+      "createdAt": "2026-09-08T07:17:40.548Z",
+      "blockNumber": "70082826",
+      "gasCostWei": "19299740964987"
+    },
+    {
+      "kind": "canary-gas-allocation",
+      "hash": "0x975bc3635c6c61890cadf4d8d805fad043e185d900c6dbebc58f7e1b7b08b053",
+      "nonce": 9,
+      "maximumGasCostWei": "504000025200",
+      "gasAllocationWei": "10000000000000",
+      "status": "success",
+      "createdAt": "2026-09-08T07:18:45.529Z",
+      "blockNumber": "70082891",
+      "gasCostWei": "420000021000"
+    },
+    {
+      "kind": "canary-deposit",
+      "hash": "0x75bd04a102edbd6aea92accdb1fd0cc2cd6d509760002361f692f16c8e56d489",
+      "status": "success",
+      "blockNumber": "70083827",
+      "gasCostWei": "5116760255838"
+    },
+    {
+      "kind": "canary-exit-request",
+      "hash": "0x5966c408bf189a15abbc9eb9c873cb41961d18860e0f39105a2c500ee6a0d023",
+      "status": "success",
+      "blockNumber": "70083913",
+      "gasCostWei": "710100035505"
+    },
+    {
+      "kind": "canary-usdc-approval",
+      "hash": "0xada6930130dc121c1334ea534a829b0bb209c79052486845df80830e8fab5ebd",
+      "status": "success",
+      "blockNumber": "70083820",
+      "gasCostWei": "1108740055437"
+    }
+  ]
+}

@@ -55,7 +55,14 @@ export function useXLayerUsdcBalance() {
     () => wallets.filter(wallet => wallet.walletClientType === 'privy' || wallet.walletClientType === 'privy-v2'),
     [wallets],
   )
-  const wallet = embedded.length === 1 && isAddress(embedded[0].address) ? embedded[0] : undefined
+  // A connected embedded signer can be usable while the SDK waits for disabled
+  // external connectors. Bind it to the current authenticated account first.
+  const candidate = embedded.length === 1 && isAddress(embedded[0].address) ? embedded[0] : undefined
+  const wallet = authReady && authenticated && candidate && user?.linkedAccounts.some(account =>
+    account.type === 'wallet' && account.chainType === 'ethereum'
+      && (account.walletClientType === 'privy' || account.walletClientType === 'privy-v2')
+      && account.address.toLowerCase() === candidate.address.toLowerCase(),
+  ) ? candidate : undefined
   const address = wallet ? getAddress(wallet.address) : undefined
   const [balanceState, setBalanceState] = useState<{ scope?: string; units?: bigint }>(() => ({ scope, units: readCachedBalance(scope, address) }))
   const units = balanceState.scope === scope ? balanceState.units : readCachedBalance(scope, address)
@@ -92,7 +99,7 @@ export function useXLayerUsdcBalance() {
   }, [address, refresh, scope])
 
   return {
-    ready: authReady && walletsReady,
+    ready: authReady && authenticated && (walletsReady || Boolean(wallet)),
     wallet,
     address,
     units,

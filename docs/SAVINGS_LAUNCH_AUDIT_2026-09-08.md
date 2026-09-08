@@ -44,3 +44,27 @@ At 2026-09-08T07:10:34Z, X Layer block 70082396:
 - No transaction was signed or broadcast. App savings configuration remains disabled.
 
 Proposed next execution scope, pending user approval: deploy the matched personal savings vault using the candidate deployer; cap aggregate savings deployment/canary gas at 0.0001 OKB and the canary principal at 0.10 USDC. Verify runtime/source, keep public deposits disabled, create a minimal weekly plan, verify exact transfers and accounting, then test the real 48-hour emergency exit. The earlier aggregate 0.20 USDC test allowance is exhausted and cannot fund this canary without fresh approval. Local tests cover scheduled releases; a live normal release requires the actual 7-day schedule.
+
+## Approved deployment and real canary result
+
+The user approved deployment, 0.10 USDC principal and an aggregate 0.0001 OKB gas cap. This supersedes the pending-approval wording above.
+
+- Deployed PersonalSavingsVault at `0x9D2ca9763503C99ac2F788B7743B8aE6840d6A06`, transaction `0x97991cc3a6ceb4b7318931ec0f0ffbf8c2473a4ce2dc946cbe82c7b32ad487e1`, block 70082826.
+- Live runtime matches the reviewed compiler output with the native-USDC immutable inserted. All constants verified.
+- Sourcify independently reports exact creation and runtime matches: https://repo.sourcify.dev/196/0x9D2ca9763503C99ac2F788B7743B8aE6840d6A06 . Official explorer UI verification was not separately established.
+- The original frozen review manifest remains unchanged. Current deployment evidence is in `contracts/deployments/personal-savings-mainnet.json`.
+- The actual UI canary exposed a readiness bug: the authenticated embedded wallet was present, but SDK global readiness also waited on external connectors. The corrected hook requires a unique connected embedded signer linked to the current authenticated account. Regression tests cover disabled connector readiness, account switching, signed-out sessions and ambiguous wallets.
+- The configured production build passed and was served only inside the existing private Playwright session using local asset routing. Neither the public frontend nor Android has received the new local fixes.
+- Public savings configuration was independently fetched and remains vaultAddress null, depositsEnabled false, status in_review. The session-only config override used the verified vault for the canary; it now also disables new deposits while retaining existing-plan reads.
+- Exactly 0.10 USDC was approved and deposited through the UI. The PlanCreated event, native-USDC transfer, remaining balance, totalManaged and actual token balance all agree. The UI shows one plan and zero available for withdrawal.
+- Deposit transaction: `0x75bd04a102edbd6aea92accdb1fd0cc2cd6d509760002361f692f16c8e56d489`.
+- Plan: `0xb43c7f6842f09cc404a6f5f4df73e861ffbffcc8f86bef82e5408c97e2bf489b`.
+- Emergency request transaction: `0x5966c408bf189a15abbc9eb9c873cb41961d18860e0f39105a2c500ee6a0d023`.
+- Emergency exit becomes executable at **2026-09-10 07:35:49 UTC / 08:35:49 Africa/Lagos**. The timestamp is exactly 48 hours after the request block. Current early normal-withdrawal and early emergency-exit simulations reject as expected. These simulations broadcast nothing.
+- Gas spent across deployment, gas-funding transfer, exact approval, deposit and exit request: **0.000026655341332767 OKB**. A separate 0.00001 OKB allocation was transferred to the canary wallet for gas; it is not an additional transaction fee and unspent allocation remains there.
+
+### Resume after the real deadline
+
+Do not create another plan or cancel/restart this emergency request. The approved 0.10 USDC canary principal is already locked in the vault. Recheck chain timestamp, source/runtime, owner, remaining amount and aggregate gas budget. Use the existing owner wallet to execute completeEmergencyExit for the recorded plan once mature. Verify a successful receipt, exact 0.10 USDC return to that owner, remaining == 0, totalManaged == 0 and the UI update. Public launch remains disabled until the real exit and remaining launch checks pass.
+
+Ignored local operator helpers and evidence are under `output/playwright/savings-*`. The JSON deployment record above provides the durable public chain facts. Local test wallet uses the existing `trade-seller-release` browser session; the repaired frontend and paused canary configuration are session-only overrides. Three transient browser RPC 403 responses were observed during transactions; reads and receipts subsequently recovered. This canary does not establish uninterrupted RPC availability or completed end-to-end withdrawal/receipt coverage.
