@@ -1,0 +1,12 @@
+{
+  "status": "undeployed-review-candidate",
+  "compiler": "0.8.24",
+  "optimizerRuns": 200,
+  "viaIR": true,
+  "files": {
+    "src/TradeEscrow.sol": "fc8eb5d1bf406aa3fe3e2b2b2de0afda77ac0e623d33f30e434aacfbd7ccab6f",
+    "src/TradeEscrowFactory.sol": "95acfbe17363d772dd6d8a03e5bc19b17b5a439c94838d5c6a42c7a31a12d00b",
+    "src/test/ShortTransferUSDC.sol": "66aecfa6026daed5fc4dc5c51d2363aae698b10fbfc85676fb1f09858937edef",
+    "test/TradeEscrow.test.ts": "cec1c3d0fcdb28d7ed9e630634a1726dee4daed72f510c830ace28f64beb68b2"
+  }
+}

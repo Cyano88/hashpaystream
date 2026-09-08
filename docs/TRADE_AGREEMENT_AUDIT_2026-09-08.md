@@ -40,3 +40,7 @@ Before enabling money movement, audit the upstream contract/source and live conf
 Real isolated local PostgreSQL/HTTP tests cover participant and role isolation, exact retry identity, frozen description/photos, concurrent buyers, stale listing revisions, offer expiry, blocked cancellation and payment containment. Existing enquiry and listing regression suites are also run. Mobile browser preview uses synthetic offers only; no real user conversation or offer is created.
 
 Validation result: existing listing and enquiry suites, new real PostgreSQL agreement cases, TypeScript and production build passed. A 390px browser preview passed seller proposal and buyer acceptance with the existing confirmation sheet, no horizontal overflow and no payment CTA; light and dark screenshots were inspected. Changes are local and have not been deployed or packaged into Android.
+
+## Escrow contract follow-up
+
+Source audit found that the existing Arc escrow enforces operator release, not a buyer-controlled dispute freeze or inspection clock. A separate local TradeEscrow / TradeEscrowFactory review candidate now implements those on-chain states without changing the reviewed service or savings contracts. See contracts/audits/TRADE_ESCROW_CANDIDATE_REVIEW.md for trust assumptions, test evidence and unresolved integration gates. The offer UI and checkout remain unconnected to this candidate; public Trade payments remain unavailable.

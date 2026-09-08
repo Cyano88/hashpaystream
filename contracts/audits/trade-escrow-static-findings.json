@@ -1,0 +1,59 @@
+{
+  "success": true,
+  "findings": [
+    {
+      "check": "reentrancy-balance",
+      "impact": "High",
+      "confidence": "Medium",
+      "description": "Reentrancy in TradeEscrow.fund(bytes32) (src/TradeEscrow.sol#92-102):\n\tExternal call allowing reentrancy:\n\t- token.safeTransferFrom(msg.sender,address(this),amount) (src/TradeEscrow.sol#99)\n\tBalance read before the call:\n\t- beforeBalance = token.balanceOf(address(this)) (src/TradeEscrow.sol#98)\n\tPossible stale balance used after the call in a condition:\n\t- token.balanceOf(address(this)) - beforeBalance != amount (src/TradeEscrow.sol#100)\n\t\t- stale variable `beforeBalance`\n"
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "TradeEscrow.openDispute(bytes32) (src/TradeEscrow.sol#139-153) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- state == State.Inspecting && block.timestamp >= inspectUntil (src/TradeEscrow.sol#144)\n\t- block.timestamp < deliveryBy (src/TradeEscrow.sol#148)\n"
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "TradeEscrow.releaseAfterInspection() (src/TradeEscrow.sol#124-128) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- block.timestamp < inspectUntil (src/TradeEscrow.sol#126)\n"
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "TradeEscrow.constructor(TradeEscrow.Terms) (src/TradeEscrow.sol#64-78) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- t.fundBy <= block.timestamp || t.fundBy > block.timestamp + 604800 || t.dispatchWindow < 86400 || t.dispatchWindow > 2592000 || t.deliveryWindow < 86400 || t.deliveryWindow > 5184000 || (t.inspectionWindow != 86400 && t.inspectionWindow != 172800 && t.inspectionWindow != 259200) (src/TradeEscrow.sol#66)\n"
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "TradeEscrow.acceptTerms(bytes32) (src/TradeEscrow.sol#79-85) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- block.timestamp >= fundBy (src/TradeEscrow.sol#81)\n"
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "TradeEscrow.refundUndispatched() (src/TradeEscrow.sol#129-133) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- block.timestamp < dispatchBy (src/TradeEscrow.sol#131)\n"
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "TradeEscrow.fund(bytes32) (src/TradeEscrow.sol#92-102) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- block.timestamp >= fundBy (src/TradeEscrow.sol#94)\n"
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "TradeEscrow.markDispatched(bytes32) (src/TradeEscrow.sol#104-112) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- block.timestamp >= dispatchBy (src/TradeEscrow.sol#106)\n"
+    },
+    {
+      "check": "pragma",
+      "impact": "Informational",
+      "confidence": "High",
+      "description": "2 different versions of Solidity are used:\n\t- Version constraint ^0.8.20 is used by:\n\t\t-^0.8.20 (node_modules/@openzeppelin/contracts/interfaces/draft-IERC6093.sol#3)\n\t\t-^0.8.20 (node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol#4)\n\t\t-^0.8.20 (node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol#4)\n\t\t-^0.8.20 (node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol#4)\n\t\t-^0.8.20 (node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol#4)\n\t\t-^0.8.20 (node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol#4)\n\t\t-^0.8.20 (node_modules/@openzeppelin/contracts/utils/Address.sol#4)\n\t\t-^0.8.20 (node_modules/@openzeppelin/contracts/utils/Context.sol#4)\n\t\t-^0.8.20 (node_modules/@openzeppelin/contracts/utils/ReentrancyGuard.sol#4)\n\t- Version constraint ^0.8.24 is used by:\n\t\t-^0.8.24 (src/TradeEscrow.sol#2)\n\t\t-^0.8.24 (src/TradeEscrowFactory.sol#2)\n\t\t-^0.8.24 (src/test/MockUSDC.sol#2)\n\t\t-^0.8.24 (src/test/ShortTransferUSDC.sol#2)\n"
+    }
+  ]
+}
