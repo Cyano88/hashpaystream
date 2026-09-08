@@ -44,3 +44,9 @@ Validation result: existing listing and enquiry suites, new real PostgreSQL agre
 ## Escrow contract follow-up
 
 Source audit found that the existing Arc escrow enforces operator release, not a buyer-controlled dispute freeze or inspection clock. A separate local TradeEscrow / TradeEscrowFactory review candidate now implements those on-chain states without changing the reviewed service or savings contracts. See contracts/audits/TRADE_ESCROW_CANDIDATE_REVIEW.md for trust assumptions, test evidence and unresolved integration gates. The offer UI and checkout remain unconnected to this candidate; public Trade payments remain unavailable.
+
+## Follow-up: consent and binding
+
+New offers now carry trade-escrow-v1 and an explicit delivery window. The offer and buyer confirmation sheet disclose inspection expiry release and arbitration limits. Policy-less proposals cannot be accepted; legacy accepted offers require replacement before any future escrow preparation. The internal binding helper rejects fiat-to-USDC assumptions and ties the full preserved listing to the accepted terms and settlement identities. It is not a funding route; deployment verification, wallet ownership checks, atomic funding reservations and the actual checkout adapter remain to be implemented.
+
+Mutual agreement can now settle a disputed candidate escrow without waiting for an arbitrator, with nonce-bound terms and counterparty-only acceptance. Disagreements still require an available arbitrator. No production deployment, Android packaging or contract deployment was performed.

@@ -340,6 +340,8 @@ try {
     handover: "Pickup",
     location: "Test area",
     dispatchDays: 3,
+    deliveryDays: 7,
+    escrowPolicyVersion: "trade-escrow-v1",
     inspectionHours: 48,
     returns:
       "Return within 3 days for undisclosed damage; seller pays return delivery.",
@@ -465,6 +467,16 @@ try {
         deliveryFee: "1",
       }),
     (e) => e.status === 400,
+  );
+  const legacyOfferId = randomUUID();
+  await store.offer(owner("seller"), buying, legacyOfferId, "propose", terms);
+  await pool.query(
+    "update hashpaystream_trade_offers set terms=terms - 'escrowPolicyVersion' where id=$1",
+    [legacyOfferId],
+  );
+  await assert.rejects(
+    () => store.offer(owner("buyer"), buying, legacyOfferId, "accept"),
+    (e) => e.status === 409 && e.message.includes("current escrow policy"),
   );
   const apiOffers = await call("offers?threadId=" + buying, "buyer");
   assert.equal(apiOffers.status, 200);

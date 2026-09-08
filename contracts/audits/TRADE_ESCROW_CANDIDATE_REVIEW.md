@@ -20,8 +20,8 @@ For pickup, markDispatched represents a handover appointment, not proof of colle
 
 - Arbitration is trusted. An unavailable arbitrator can leave disputed funds locked; no arbitrary timeout winner has been invented. Recommend an operated HashPayStream dispute process backed by a multisig, subject to the user's selection, documented response targets and key-recovery procedure. This candidate is not production-ready without that policy.
 - Return terms and evidence are handled through arbitration and seller refunds. There is no autonomous return-shipment state or carrier verification.
-- The current off-chain Trade offers do not yet obtain consent to automatic inspection expiry release or arbitration trust. They cannot be funded through this candidate as-is. A new terms version and explicit bilateral consent are required.
-- A delivery window is a new explicit term. It must be shown and accepted; it cannot be silently inferred from the existing dispatch deadline.
+- New local offers use trade-escrow-v1 and disclose the inspection release rule, arbitration trust and delivery deadline. Acceptance rejects older policy-less proposals. Existing accepted terms cannot be silently upgraded. Final wallet signing still must show and bind the actual arbitrator, token, chain, factory, amount and deadline.
+- The delivery window is now an explicit offer field. It is separate from the dispatch deadline.
 - A reviewed adapter must bind the accepted offer, complete snapshot digest, buyer/seller verified wallets, factory, code identity, token, chain, amount, quote expiry and arbitrator. The existing two-decimal agreement currencies do not authorize a fiat-to-USDC conversion.
 - Global item exclusivity still needs the server listing lock and a durable funding reservation. The factory prevents duplication only within its own address for the same seller/buyer/offer; it cannot prevent a seller listing the item under another identity or offer.
 - No platform fee is implemented. Existing split/early-pay economics are not imported into Trade.
@@ -30,7 +30,7 @@ For pickup, markDispatched represents a handover appointment, not proof of colle
 
 ## Validation
 
-Local Hardhat: 13 candidate tests and 55 total contract tests pass. Cases include exact funding/terms and role checks, replay prevention, donations, funding expiry, dispatch deadline boundary, buyer-only receipt, inspection timing, dispute freeze, arbitration authorization and split accounting, silent-buyer escalation, voluntary refund, duplicate factory creation and invalid configuration. Existing service/savings suites pass unchanged.
+Local Hardhat: 16 candidate tests and 58 total contract tests pass. Cases include exact funding/terms and role checks, replay prevention, donations, funding expiry, dispatch deadline boundary, buyer-only receipt, inspection timing, dispute freeze, arbitration authorization and split accounting, silent-buyer escalation, voluntary refund, duplicate factory creation and invalid configuration. Existing service/savings suites pass unchanged.
 
 This is an implementation review candidate, not an external security audit. Additional contract-wallet, fuzz/invariant and independent security review is required before any deployment.
 
@@ -41,3 +41,11 @@ Slither completed successfully after the funding-source clarification. Nine find
 The balance check intentionally compares the actual incoming token delta. fund is nonReentrant, is buyer-only, transitions state before calling the token and rejects any short transfer atomically. The callback and short-transfer regressions pass. Retain the high-severity finding for independent review rather than suppressing it. Deadlines intentionally use block timestamps with daily-scale windows; exact boundary tests cover dispatch and inspection expiry. Compiler configuration pins Solidity 0.8.24, compatible with imported OpenZeppelin ^0.8.20 pragmas.
 
 Sanitized detector output is in trade-escrow-static-findings.json. The earlier arbitrary-from warning was removed by expressing the funding source as msg.sender under onlyBuyer, without changing the authorization boundary.
+
+## Follow-up audit and integration preparation
+
+Mutual settlement is now available while Disputed. Either participant proposes an exact buyer allocation and evidence hash. Only the other participant can accept, supplying the current nonce, allocation and evidence. Replacement and withdrawal invalidate stale approvals. Settlement transitions terminal before transfers; competing arbitration, refund and mutual-settlement calls cannot pay twice. This helps cooperative parties recover without an arbitrator; it does not solve an unresolved disagreement with an unavailable arbitrator.
+
+api/trade-escrow-binding.ts prepares a deterministic domain-separated terms commitment from a server-loaded accepted offer, full frozen snapshot (including photos), listing revision, buyer/seller/arbiter wallets, factory, chain, fixed native USDC asset, exact amount and funding deadline. It rejects unsupported networks, role collisions, legacy policy versions, missing snapshots and fiat conversion assumptions. The helper does not authenticate callers, query deployments, reserve funding, expose a payment endpoint or authorize money movement; the future authenticated adapter must perform those steps. Its fundingEnabled result remains false.
+
+Validation: 58 full contract tests, real PostgreSQL enquiry/offer regressions, focused binding tests and TypeScript pass. Mobile preview verified seller proposal, the updated buyer consent sheet, accepted terms and no horizontal overflow. No real offers or transactions were created. A clean compiler-artifact rebuild removed duplicated historic Slither results; the current candidate retains the same nine findings described above, with no added detector class. Public checkout and Android remain unchanged.

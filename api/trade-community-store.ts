@@ -246,6 +246,14 @@ export function createTradeCommunityStore(pool: pg.Pool) {
         )
           fail("This offer changed. Refresh before continuing.", 409);
         if (action === "accept") {
+          try {
+            validateTradeTerms(existing.terms);
+          } catch {
+            fail(
+              "These terms need a new offer with the current escrow policy.",
+              409,
+            );
+          }
           if (Number(existing.expires_at) <= Date.now())
             fail("This offer expired. Ask the seller for new terms.", 409);
           if (

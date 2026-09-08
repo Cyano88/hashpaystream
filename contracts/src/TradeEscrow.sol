@@ -40,6 +40,13 @@ contract TradeEscrow is ReentrancyGuard {
     uint256 public inspectUntil;
     bytes32 public dispatchEvidence;
     bytes32 public disputeEvidence;
+    uint256 public settlementNonce;
+    uint256 public proposedBuyerAmount;
+    address public settlementProposer;
+    bytes32 public settlementEvidence;
+    event SettlementProposed(uint256 indexed nonce,address indexed proposer,uint256 buyerAmount,bytes32 evidence);
+    event SettlementWithdrawn(uint256 indexed nonce);
+    event MutualSettlementAccepted(uint256 indexed nonce,address indexed accepter);
     error InvalidTerms();
     error Unauthorized();
     error InvalidState();
@@ -150,6 +157,32 @@ contract TradeEscrow is ReentrancyGuard {
         state=State.Disputed;
         disputeEvidence=evidence;
         emit Disputed(offerId,msg.sender,evidence);
+    }
+    /// @notice An agreed resolution does not depend on arbitrator availability.
+    function proposeSettlement(uint256 buyerAmount,bytes32 evidence) external {
+        if (msg.sender!=buyer && msg.sender!=seller) revert Unauthorized();
+        if (state!=State.Disputed) revert InvalidState();
+        if (buyerAmount>amount) revert InvalidTerms();
+        if (evidence==bytes32(0)) revert InvalidEvidence();
+        settlementNonce++;
+        settlementProposer=msg.sender;
+        proposedBuyerAmount=buyerAmount;
+        settlementEvidence=evidence;
+        emit SettlementProposed(settlementNonce,msg.sender,buyerAmount,evidence);
+    }
+    function withdrawSettlement(uint256 expectedNonce) external {
+        if (msg.sender!=settlementProposer) revert Unauthorized();
+        if (state!=State.Disputed) revert InvalidState();
+        if (expectedNonce!=settlementNonce) revert InvalidTerms();
+        settlementProposer=address(0);
+        emit SettlementWithdrawn(expectedNonce);
+    }
+    function acceptSettlement(uint256 expectedNonce,uint256 expectedBuyerAmount,bytes32 expectedEvidence) external nonReentrant {
+        if ((msg.sender!=buyer && msg.sender!=seller) || msg.sender==settlementProposer) revert Unauthorized();
+        if (state!=State.Disputed || settlementProposer==address(0)) revert InvalidState();
+        if (expectedNonce!=settlementNonce || expectedBuyerAmount!=proposedBuyerAmount || expectedEvidence!=settlementEvidence) revert InvalidTerms();
+        emit MutualSettlementAccepted(expectedNonce,msg.sender);
+        _settle(proposedBuyerAmount,State.Resolved,settlementEvidence);
     }
     function resolveDispute(uint256 buyerAmount,bytes32 evidence) external nonReentrant {
         if (msg.sender!=arbiter) revert Unauthorized();

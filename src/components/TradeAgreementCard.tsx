@@ -19,6 +19,8 @@ const initial: TradeTerms = {
   handover: "Pickup",
   location: "",
   dispatchDays: 3,
+  deliveryDays: 7,
+  escrowPolicyVersion: "trade-escrow-v1",
   inspectionHours: 48,
   returns: "",
   carrier: "",
@@ -101,7 +103,7 @@ export default function TradeAgreementCard({
               : "Cancel agreed terms?",
           description:
             action === "accept"
-              ? "These exact item and handover terms will be saved for both of you. Payment is not available yet. No money will move."
+              ? `After you confirm receipt, the ${offer?.terms.inspectionHours}-hour inspection period starts. Payment then becomes releasable unless a dispute is confirmed on-chain before the deadline. Disputes require mutual agreement or arbitration and may keep funds locked. Payment is not available yet; no money moves now.`
               : "No payment has been collected. The item can be agreed with another buyer.",
           action: action === "accept" ? "Accept terms" : "Cancel terms",
         });
@@ -204,6 +206,9 @@ export default function TradeAgreementCard({
             {latest.terms.handover} in {latest.terms.location}. Handover within{" "}
             {latest.terms.dispatchDays} days after confirmed payment.
             Inspection: {latest.terms.inspectionHours} hours after receipt.
+            {latest.terms.deliveryDays
+              ? ` Delivery or handover is due within ${latest.terms.deliveryDays} days after dispatch or the pickup appointment is recorded.`
+              : ""}
           </p>
           {latest.terms.carrier && (
             <p className="text-xs">
@@ -219,12 +224,26 @@ export default function TradeAgreementCard({
               Offer expires {new Date(latest.expiresAt).toLocaleString()}.
             </p>
           )}
+          {latest.terms.escrowPolicyVersion === "trade-escrow-v1" ? (
+            <p className="text-xs text-gray-500">
+              Confirming receipt starts inspection. After{" "}
+              {latest.terms.inspectionHours} hours, payment becomes releasable
+              unless a dispute was confirmed on-chain before the deadline.
+              Disputes require mutual agreement or arbitration and may keep
+              funds locked. The arbitrator is shown before funding.
+            </p>
+          ) : (
+            <p className="text-xs text-gray-500">
+              These older terms need a new offer before escrow funding.
+            </p>
+          )}
           <p className="text-xs text-gray-500">
             Payment is not available for Trade yet. Accepted terms do not mean
             the item is paid for.
           </p>
           <div className="flex flex-wrap gap-3">
             {latest.status === "proposed" &&
+              latest.terms.escrowPolicyVersion === "trade-escrow-v1" &&
               !seller &&
               !thread.blocked &&
               thread.listingStatus === "active" && (
@@ -276,7 +295,12 @@ export default function TradeAgreementCard({
             className={button}
             disabled={busy}
             onClick={() => {
-              if (latest) setTerms(latest.terms);
+              if (latest)
+                setTerms({
+                  ...initial,
+                  ...latest.terms,
+                  escrowPolicyVersion: "trade-escrow-v1",
+                });
               setEditing(true);
             }}
           >
@@ -375,6 +399,19 @@ export default function TradeAgreementCard({
               onChange={(e) => change("dispatchDays", Number(e.target.value))}
             />
           </label>
+          <label className="block text-xs font-bold">
+            Days allowed for delivery or handover
+            <input
+              className={field}
+              type="number"
+              min={1}
+              max={60}
+              required
+              value={terms.deliveryDays}
+              disabled={busy}
+              onChange={(e) => change("deliveryDays", Number(e.target.value))}
+            />
+          </label>
           <StreamSelect
             label="Inspection after receipt"
             value={String(terms.inspectionHours)}
@@ -399,6 +436,12 @@ export default function TradeAgreementCard({
               onChange={(e) => change("returns", e.target.value)}
             />
           </label>
+          <p className="text-xs text-gray-500">
+            Confirming receipt starts inspection. Payment becomes releasable
+            when inspection ends unless a dispute is confirmed on-chain first.
+            Disputes require mutual agreement or the arbitrator shown before
+            funding; unresolved disputes may keep funds locked.
+          </p>
           <p className="text-xs text-gray-500">
             The current listing description and photos will be preserved with
             this offer. Update the listing first if its condition has changed.

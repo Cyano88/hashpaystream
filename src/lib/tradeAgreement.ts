@@ -5,6 +5,8 @@ export type TradeTerms = {
   handover: "Pickup" | "Delivery";
   location: string;
   dispatchDays: number;
+  deliveryDays: number;
+  escrowPolicyVersion: "trade-escrow-v1";
   inspectionHours: number;
   returns: string;
   carrier: string;
@@ -56,6 +58,13 @@ export function validateTradeTerms(value: unknown): TradeTerms {
     throw Error("Enter an item price greater than zero.");
   tradeUnits(t.deliveryFee);
   if (
+    t.escrowPolicyVersion !== "trade-escrow-v1" ||
+    !Number.isInteger(t.deliveryDays) ||
+    t.deliveryDays < 1 ||
+    t.deliveryDays > 60
+  )
+    throw Error("Review the current escrow policy and delivery deadline.");
+  if (
     !["NGN", "USD", "USDC"].includes(t.currency) ||
     !["Pickup", "Delivery"].includes(t.handover)
   )
@@ -89,6 +98,8 @@ export function validateTradeTerms(value: unknown): TradeTerms {
     handover: t.handover,
     location: t.location.trim(),
     dispatchDays: t.dispatchDays,
+    deliveryDays: t.deliveryDays,
+    escrowPolicyVersion: t.escrowPolicyVersion,
     inspectionHours: t.inspectionHours,
     returns: t.returns.trim(),
     carrier: t.handover === "Delivery" ? t.carrier.trim() : "",

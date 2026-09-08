@@ -269,4 +269,61 @@ describe("TradeEscrow review candidate", () => {
     expect(await c.token.balanceOf(await c.escrow.getAddress())).eq(0n);
     expect(await c.token.balanceOf(c.buyer.address)).eq(20000000n);
   });
+  it("allows mutually agreed dispute settlement without an arbiter signature", async () => {
+    const c = await fixture();
+    await c.dispatch();
+    await c.escrow.openDispute(c.evidence);
+    await c.escrow.proposeSettlement(3000000n, c.evidence);
+    await expect(
+      c.escrow.acceptSettlement(1, 3000000n, c.evidence),
+    ).revertedWithCustomError(c.escrow, "Unauthorized");
+    await c.escrow.connect(c.seller).acceptSettlement(1, 3000000n, c.evidence);
+    expect(await c.token.balanceOf(c.buyer.address)).eq(13000000n);
+    expect(await c.token.balanceOf(c.seller.address)).eq(7000000n);
+    await expect(
+      c.escrow.connect(c.arbiter).resolveDispute(0, c.evidence),
+    ).revertedWithCustomError(c.escrow, "InvalidState");
+  });
+  it("rejects stale, changed and withdrawn settlement proposals", async () => {
+    const c = await fixture();
+    await c.dispatch();
+    await c.escrow.openDispute(c.evidence);
+    await c.escrow.proposeSettlement(3000000n, c.evidence);
+    await c.escrow.proposeSettlement(2000000n, c.hash);
+    await expect(
+      c.escrow.connect(c.seller).acceptSettlement(1, 3000000n, c.evidence),
+    ).revertedWithCustomError(c.escrow, "InvalidTerms");
+    await expect(
+      c.escrow.connect(c.seller).acceptSettlement(2, 3000000n, c.hash),
+    ).revertedWithCustomError(c.escrow, "InvalidTerms");
+    await expect(
+      c.escrow.connect(c.seller).withdrawSettlement(2),
+    ).revertedWithCustomError(c.escrow, "Unauthorized");
+    await c.escrow.withdrawSettlement(2);
+    await expect(
+      c.escrow.connect(c.seller).acceptSettlement(2, 2000000n, c.hash),
+    ).revertedWithCustomError(c.escrow, "InvalidState");
+    expect(await c.token.balanceOf(await c.escrow.getAddress())).eq(
+      c.terms.amount,
+    );
+  });
+  it("keeps mutual settlement participant-only and dispute-only", async () => {
+    const c = await fixture();
+    await c.dispatch();
+    await expect(
+      c.escrow.proposeSettlement(0, c.evidence),
+    ).revertedWithCustomError(c.escrow, "InvalidState");
+    await c.escrow.openDispute(c.evidence);
+    await expect(
+      c.escrow.connect(c.outsider).proposeSettlement(0, c.evidence),
+    ).revertedWithCustomError(c.escrow, "Unauthorized");
+    await expect(
+      c.escrow.proposeSettlement(c.terms.amount + 1n, c.evidence),
+    ).revertedWithCustomError(c.escrow, "InvalidTerms");
+    await c.escrow
+      .connect(c.seller)
+      .proposeSettlement(c.terms.amount, c.evidence);
+    await c.escrow.acceptSettlement(1, c.terms.amount, c.evidence);
+    expect(await c.token.balanceOf(c.buyer.address)).eq(20000000n);
+  });
 });
