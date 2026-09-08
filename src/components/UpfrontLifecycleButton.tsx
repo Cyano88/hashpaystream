@@ -1,8 +1,10 @@
+import { REFUND_POSITION_ABI, refundEligibility } from '../lib/upfrontRefund'
 import { upfrontProtocol } from '../lib/upfrontProtocol'
 import { useEffect, useRef, useState } from 'react'
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import {
   createPublicClient,
+  parseAbi,
   createWalletClient,
   custom,
   formatEther,
@@ -108,6 +110,64 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
   const embedded = wallets.filter(wallet => wallet.walletClientType === 'privy' || wallet.walletClientType === 'privy-v2')
   const signer = embedded.length === 1 ? embedded[0] : undefined
   const busy = Boolean(stage)
+  const [refundState, setRefundState] = useState<ReturnType<typeof refundEligibility> | null>(null)
+  const [refundReadFailed, setRefundReadFailed] = useState(false)
+  const [refundRefresh, setRefundRefresh] = useState(0)
+  async function readRefundWindow() {
+    if (!signer || !isAddress(ESCROW)) throw new Error('The funding wallet is still connecting.')
+    const client = createPublicClient({ chain: upfrontXLayerChain, transport: http(undefined, { timeout: 15000, retryCount: 1 }) })
+    const block = await client.getBlock()
+    const position = await client.readContract({ address: getAddress(ESCROW), abi: REFUND_POSITION_ABI, functionName: 'positions', args: [opportunity.positionId], blockNumber: block.number })
+    return refundEligibility(position, getAddress(signer.address), block.timestamp)
+  }
+  useEffect(() => {
+    setRefundState(null)
+    setRefundReadFailed(false)
+    if (opportunity.positionStatus !== 'funded' || !signer) return
+    let cancelled = false
+    let checking = false
+    const check = async () => {
+      if (checking) return
+      checking = true
+      try {
+        const value = await readRefundWindow()
+        if (!cancelled) { setRefundState(value); setRefundReadFailed(false) }
+      } catch { if (!cancelled) { setRefundState(null); setRefundReadFailed(true) } }
+      finally { checking = false }
+    }
+    void check()
+    const timer = window.setInterval(() => void check(), 30000)
+    window.addEventListener('focus', check)
+    return () => { cancelled = true; window.clearInterval(timer); window.removeEventListener('focus', check) }
+  }, [opportunity.positionId, opportunity.positionStatus, signer?.address, refundRefresh])
+
+  async function refund() {
+    if (actionPending.current) return
+    actionPending.current = true
+    setStage('Checking refund...'); setError(''); setSuccess('')
+    let submitted = false
+    try {
+      const current = await readRefundWindow()
+      setRefundState(current)
+      if (!current.ready || !signer) throw new Error('Refund is not available.')
+      const account = getAddress(signer.address)
+      await signer.switchChain(upfrontXLayerChain.id)
+      const client = createPublicClient({ chain: upfrontXLayerChain, transport: http() })
+      const wallet = createWalletClient({ account, chain: upfrontXLayerChain, transport: custom(await signer.getEthereumProvider()) })
+      const abi = parseAbi(['function refundAdvance(bytes32 positionId)'])
+      const simulation = await client.simulateContract({ account, address: getAddress(ESCROW), abi, functionName: 'refundAdvance', args: [opportunity.positionId] })
+      setStage('Confirm refund...')
+      const hash = await wallet.writeContract(simulation.request)
+      submitted = true
+      setStage('Confirming refund...')
+      const receipt = await client.waitForTransactionReceipt({ hash, confirmations: 2 })
+      if (receipt.status !== 'success') throw new Error('Refund reverted.')
+      setSuccess('Advance returned to your funding wallet.')
+      await Promise.resolve(onUpdated()).catch(() => undefined)
+    } catch (reason) {
+      setError(lifecycleError(reason, submitted ? 'Refund confirmation is pending. Refresh the position before trying again.' : 'Refund is unavailable. Check the deadline and funding wallet, then try again.'))
+    } finally { actionPending.current = false; setStage(''); setRefundRefresh(value => value + 1) }
+  }
 
   useEffect(() => {
     if (opportunity.positionStatus !== 'released') return
@@ -254,18 +314,23 @@ export default function UpfrontLifecycleButton({ opportunity, onUpdated }: { opp
   const settlementFinalizing = repaymentState === 'ready' && settlementReadyObservedAt !== null
   if (opportunity.positionStatus === 'released' && !retryVisible) return <div className="mt-3 rounded-xl bg-gray-50 px-4 py-3 dark:bg-white/[0.04]">
     <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
-      {repaymentState === 'waiting' ? 'Waiting for delivery approval' : settlementFinalizing ? 'Finalizing payment automatically…' : repaymentState === 'unavailable' ? 'Payment status is temporarily unavailable' : 'Checking delivery status…'}
+      {repaymentState === 'waiting' ? 'Waiting for delivery approval' : settlementFinalizing ? 'Finalizing payment automaticallyâ€¦' : repaymentState === 'unavailable' ? 'Payment status is temporarily unavailable' : 'Checking delivery statusâ€¦'}
     </p>
     <p className="mt-1 text-[11px] leading-5 text-gray-500">
       {repaymentState === 'waiting' ? 'The service provider must submit the work, then the customer approves the protected payment.' : settlementFinalizing ? 'HashPayStream is retrying in the background. No action is needed.' : 'HashPayStream will keep checking automatically.'}
     </p>
     {repaymentState === 'unavailable' && <button type="button" onClick={() => setRepaymentState('checking')} className="mt-2 text-[11px] font-bold text-gray-500 underline underline-offset-2">Check again</button>}
   </div>
-  const label = opportunity.positionStatus === 'funded' ? 'Send early payment' : 'Retry settlement'
+  const isFunded = opportunity.positionStatus === 'funded'
+  const canRelease = Boolean(refundState?.funded && refundState.isFunder && !refundState.ready)
+  const label = isFunded ? refundState?.ready ? 'Refund advance' : 'Send early payment' : 'Retry settlement'
   return <div className="mt-3">
-    <button type="button" disabled={busy} onClick={() => void (opportunity.positionStatus === 'funded' ? release() : claim())} className="stream-primary w-full">
+    <button type="button" disabled={busy || (isFunded && !canRelease && !refundState?.ready)} onClick={() => void (isFunded ? refundState?.ready ? refund() : release() : claim())} className="stream-primary w-full">
       {stage || label}
     </button>
+    {isFunded && refundState?.funded && refundState.isFunder && !refundState.ready && <p className="mt-2 text-[11px] leading-5 text-gray-500">If the advance is not sent, you can refund it after {new Date(Number(refundState.deadline) * 1000).toLocaleString()}.</p>}
+    {isFunded && refundState && !refundState.isFunder && <p className="mt-2 text-[11px] text-gray-500">Connect the original funding wallet to manage this advance.</p>}
+    {isFunded && refundReadFailed && <button type="button" className="mt-2 text-[11px] text-gray-500 underline" onClick={() => setRefundRefresh(value => value + 1)}>Check refund availability again</button>}
     {opportunity.positionStatus === 'released' && <p className="mt-2 text-[11px] leading-5 text-gray-500">Automatic settlement is still running. Retry only after the 30-minute recovery window.</p>}
     {success && <p className="mt-2 text-[11px] leading-5 text-emerald-700 dark:text-emerald-300">{success}</p>}
     {error && <p role="alert" className="mt-2 text-[11px] leading-5 text-rose-700 dark:text-rose-300">{error}</p>}
