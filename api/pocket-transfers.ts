@@ -6,7 +6,7 @@ import { recordVerifiedPocketTransfer, verifiedIdentity } from './stream-account
 import { circleJson, listCircleArcWallets } from './circle-wallet.js'
 import { verifyTransfer } from '../src/lib/walletTransfer.js'
 
-export type PocketTransfer = { id: string; actor: string; chainId: number; owner: `0x${string}`; asset: `0x${string}`; recipient: `0x${string}`; units: string; status: 'awaiting_approval' | 'processing' | 'successful' | 'failed' | 'needs_review'; createdAt: string; updatedAt: string; hash?: Hex; challengeId?: string; transactionId?: string; circlePrepared?: boolean; activityRecorded?: boolean; confirmedAt?: string; circleWalletId?: string; circlePageAfter?: string }
+export type PocketTransfer = { id: string; actor: string; chainId: number; owner: `0x${string}`; asset: `0x${string}`; recipient: `0x${string}`; units: string; status: 'awaiting_approval' | 'processing' | 'successful' | 'failed' | 'needs_review'; createdAt: string; updatedAt: string; hash?: Hex; challengeId?: string; transactionId?: string; circlePrepared?: boolean; activityRecorded?: boolean; confirmedAt?: string; circleWalletId?: string; circlePageAfter?: string; legacy?: boolean }
 type Store = { records: PocketTransfer[] }
 const KEY = 'hashpaystream:pocket-transfers:v1'
 const assets: Record<number, `0x${string}`> = { 5042002: '0x3600000000000000000000000000000000000000', 196: '0xB6CEceAB302E2E4948951eE7843FC24E92933061' }
@@ -19,7 +19,7 @@ function client(chainId: number) {
 export async function inspectPocketTransfer(input: PocketTransfer): Promise<Partial<PocketTransfer>> {
   const row = { ...input }
   const patch: Partial<PocketTransfer> = {}
-  if (!row.hash && row.circlePrepared && row.circleWalletId) {
+  if (!row.hash && row.circlePrepared && row.circleWalletId && !row.legacy) {
     const query = new URLSearchParams({ walletIds: row.circleWalletId, from: new Date(Date.parse(row.createdAt) - 60000).toISOString(), pageSize: '50' })
     if (row.circlePageAfter) query.set('pageAfter', row.circlePageAfter)
     const data = await circleJson(process.env, '/v1/w3s/transactions?' + query)
@@ -61,6 +61,12 @@ export function availablePocketUnits(records: PocketTransfer[], chainId: number,
   return units > reserved ? units - reserved : 0n
 }
 const defaults = { recordActivity: recordVerifiedPocketTransfer, identity: verifiedIdentity, circleWallets: listCircleArcWallets, balance, inspect: inspectPocketTransfer, read: () => readDurableJson<Store>(KEY), mutate: (fn: (current: Store | undefined) => Promise<Store> | Store) => mutateDurableJson<Store>(KEY, fn) }
+export async function pocketCircleReference(email: string, id: string) {
+  const actor = createHash('sha256').update(email.toLowerCase()).digest('hex')
+  const row = (await defaults.read())?.records.find(item => item.actor === actor && item.id === id)
+  return row && !row.legacy ? 'hashpaystream-pocket:' + id : 'hashpaystream-arc-send'
+}
+
 // Called only by the owned-wallet preparation API, before exposing approval.
 export async function attachPocketCircleChallenge(email: string, id: string, owner: string, recipient: string, units: string, challengeId: string, circleWalletId: string) {
   const actor = createHash('sha256').update(email.toLowerCase()).digest('hex')
@@ -106,6 +112,7 @@ export function createPocketTransfersHandler(overrides: Partial<typeof defaults>
           const now = new Date().toISOString()
           output = { id, actor, chainId, owner, asset: assets[chainId], recipient: getAddress(body.recipient), units: body.units, status: 'awaiting_approval', createdAt: now, updatedAt: now }
           if (body.action === 'import') {
+            output.legacy = true
             if (body.hash && /^0x[0-9a-f]{64}$/i.test(body.hash)) output.hash = body.hash
             if (body.challengeId && /^[0-9a-f-]{36}$/i.test(body.challengeId)) output.challengeId = body.challengeId
             if (body.transactionId && /^[0-9a-f-]{36}$/i.test(body.transactionId)) output.transactionId = body.transactionId
@@ -165,7 +172,7 @@ export function createPocketTransfersHandler(overrides: Partial<typeof defaults>
 export async function reconcilePocketTransfers(overrides: Partial<typeof defaults> = {}) {
   const deps = { ...defaults, ...overrides }
   const records = (await deps.read())?.records ?? []
-  const candidates = records.filter(row => (row.hash || (row.circlePrepared && row.circleWalletId)) && (active(row) || (row.status === 'successful' && row.chainId === 5042002 && !row.activityRecorded))).sort((a, b) => a.updatedAt.localeCompare(b.updatedAt)).slice(0, 3)
+  const candidates = records.filter(row => (row.hash || (row.circlePrepared && row.circleWalletId && !row.legacy)) && (active(row) || (row.status === 'successful' && row.chainId === 5042002 && !row.activityRecorded))).sort((a, b) => a.updatedAt.localeCompare(b.updatedAt)).slice(0, 3)
   await Promise.all(candidates.map(async row => {
     const patch: Partial<PocketTransfer> = active(row) ? await deps.inspect(row).catch(() => ({})) : {}
     if ((patch.status ?? row.status) === 'successful' && row.chainId === 5042002 && !row.activityRecorded) {

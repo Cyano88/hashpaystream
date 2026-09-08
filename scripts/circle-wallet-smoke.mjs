@@ -85,6 +85,7 @@ try {
   const transaction = await call(handler, { action: 'get_transaction', userToken: 'user-token', transactionId })
   assert.equal(transaction.body.transaction.txHash, `0x${'ab'.repeat(32)}`)
   assert.ok(calls.every(item => item.init.headers.authorization === 'Bearer TEST_API_KEY'))
+  assert.equal(calls.filter(call=>call.path==='/v1/w3s/user/transactions/contractExecution').at(-1).body.refId,'hashpaystream-arc-send','An older client retry retains the original request reference')
   console.log('Circle Arc OTP, wallet ownership, transfer challenge, and transaction checks passed.')
 } finally {
   globalThis.fetch = originalFetch
