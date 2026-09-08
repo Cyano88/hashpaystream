@@ -1,3 +1,4 @@
+import { readSavingsTransaction } from './savingsTransaction'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { createPublicClient, getAddress, http, isAddress, zeroAddress, type Address, type Hex } from 'viem'
@@ -223,6 +224,11 @@ export function useSavingsVault() {
     return () => { sequence.current += 1; window.clearInterval(timer); window.removeEventListener('focus', onFocus) }
   }, [refresh])
 
+  let hasPendingTransaction = false
+  if (wallet.address && config.vaultAddress) {
+    try { hasPendingTransaction = Boolean(readSavingsTransaction({ chainId: upfrontXLayerChain.id, owner: wallet.address, vault: config.vaultAddress, asset: XLAYER_USDC_ADDRESS })) }
+    catch { hasPendingTransaction = true }
+  }
   const totals = useMemo(() => plans.reduce((sum, plan) => ({ saved: sum.saved + plan.remaining, available: sum.available + plan.withdrawable }), { saved: 0n, available: 0n }), [plans])
   const nextRelease = useMemo(() => plans.map(plan => nextSavingsRelease(plan)).filter(Boolean).sort((a, b) => a - b)[0] ?? 0, [plans])
   return {
@@ -233,6 +239,7 @@ export function useSavingsVault() {
     vaultVerified,
     plans,
     savingsReady: ready,
+    hasPendingTransaction,
     savingsError: error,
     savedUnits: totals.saved,
     withdrawableUnits: totals.available,

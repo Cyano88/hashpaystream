@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CheckIcon } from '@heroicons/react/24/outline'
-import { createPublicClient, createWalletClient, custom, formatEther, getAddress, http, parseEventLogs, parseUnits } from 'viem'
+import { createPublicClient, createWalletClient, custom, formatEther, http, parseUnits } from 'viem'
 import { upfrontXLayerChain } from '../../lib/upfrontChains'
 import { formatUsdcBalance } from '../../lib/useAgreements'
 import { MONTHLY_SECONDS, SAVINGS_VAULT_ABI, WEEKLY_SECONDS, type useSavingsVault } from '../../lib/useSavingsVault'
 import { XLAYER_USDC_ADDRESS } from '../../lib/useXLayerUsdcBalance'
+import { SavingsTransactionError, readSavingsTransaction, runSavingsTransaction, type SavingsReplacementHandler } from '../../lib/savingsTransaction'
 import { savingsPlanPreview } from '../../lib/savingsSchedule'
 
 const ERC20_ABI = [
@@ -16,6 +17,7 @@ type SavingsState = ReturnType<typeof useSavingsVault>
 class SavingsUiError extends Error {}
 
 function actionError(reason: unknown) {
+  if (reason instanceof SavingsTransactionError) return reason.message
   const message = reason instanceof Error ? reason.message : String(reason ?? '')
   const code = typeof reason === 'object' && reason !== null && 'code' in reason ? String((reason as { code?: unknown }).code ?? '') : ''
   if (code === '4001' || ['user rejected', 'user denied', 'request rejected'].some(value => message.toLowerCase().includes(value))) return 'Transaction cancelled. No funds moved.'
@@ -33,9 +35,10 @@ export default function SavingsDepositSheet({ savings, onClose }: { savings: Sav
   const [cadence, setCadence] = useState<'weekly' | 'monthly'>('weekly')
   const [stage, setStage] = useState('')
   const [error, setError] = useState('')
-  const [complete, setComplete] = useState(false)
+  const [complete, setComplete] = useState<'plan' | 'transaction' | false>(false)
   const actionPending = useRef(false)
   const sheet = useRef<HTMLElement>(null)
+  const hasPending = savings.hasPendingTransaction
   const interval = cadence === 'weekly' ? WEEKLY_SECONDS : MONTHLY_SECONDS
   const preview = useMemo(() => {
     try {
@@ -66,17 +69,26 @@ export default function SavingsDepositSheet({ savings, onClose }: { savings: Sav
   async function createPlan() {
     if (actionPending.current) return
     actionPending.current = true
-    setStage('Preparing your plan...'); setError('')
-    let transactionConfirmed = false
+    setStage('Checking your plan...'); setError('')
     try {
-      if (!savings.wallet || !savings.address || !savings.vaultAddress) throw new SavingsUiError('Your X Layer wallet is not ready.')
+      if (!savings.address || !savings.vaultAddress) throw new SavingsUiError('Your X Layer wallet is not ready.')
+      const scope = { chainId: upfrontXLayerChain.id, owner: savings.address, vault: savings.vaultAddress, asset: XLAYER_USDC_ADDRESS }
+      const client = createPublicClient({ chain: upfrontXLayerChain, transport: http() })
+      const wait = (hash: `0x${string}`, onReplacement: SavingsReplacementHandler) => client.waitForTransactionReceipt({ hash, timeout: 60_000, confirmations: 2, onReplaced: ({ reason, transaction }) => onReplacement({ hash: transaction.hash, reason }) })
+      const pending = readSavingsTransaction(scope)
+      if (pending) {
+        const confirmed = await runSavingsTransaction(scope, pending.intent, async () => { throw new Error('Recovery cannot submit a transaction.') }, wait)
+        setComplete(confirmed.action === 'createPlan' ? 'plan' : 'transaction')
+        await Promise.allSettled([savings.refresh(), savings.refreshSavings()])
+        return
+      }
+      if (!savings.wallet) throw new SavingsUiError('Your X Layer wallet is not ready.')
       if (!savings.depositsEnabled) throw new SavingsUiError('New savings plans are currently paused.')
       if (!/^\d+(?:\.\d{1,6})?$/.test(amount) || !/^\d+(?:\.\d{1,6})?$/.test(releaseAmount)) throw new SavingsUiError('Enter a valid USDC amount.')
       const units = parseUnits(amount, 6)
       const releaseUnits = parseUnits(releaseAmount, 6)
       if (units <= 0n || releaseUnits <= 0n || releaseUnits > units) throw new SavingsUiError('The release amount must be greater than zero and no more than the amount saved.')
       if (savings.units === undefined || units > savings.units) throw new SavingsUiError('Your X Layer USDC balance is too low.')
-      const client = createPublicClient({ chain: upfrontXLayerChain, transport: http() })
       const gasPrice = await client.getGasPrice()
       const gasBalance = await client.getBalance({ address: savings.address })
       const gasReserve = gasPrice * 350_000n
@@ -86,34 +98,25 @@ export default function SavingsDepositSheet({ savings, onClose }: { savings: Sav
       const allowance = await client.readContract({ address: XLAYER_USDC_ADDRESS, abi: ERC20_ABI, functionName: 'allowance', args: [savings.address, savings.vaultAddress] })
       if (allowance < units) {
         setStage('Confirm deposit · 1 of 2')
-        const approval = await client.simulateContract({ account: savings.address, address: XLAYER_USDC_ADDRESS, abi: ERC20_ABI, functionName: 'approve', args: [savings.vaultAddress, units] })
-        const hash = await walletClient.writeContract(approval.request)
-        const receipt = await client.waitForTransactionReceipt({ hash })
-        if (receipt.status !== 'success') throw new Error('USDC approval reverted.')
+        const approved = await runSavingsTransaction(scope, { action: 'approve', amount: String(units) }, async () => {
+          const approval = await client.simulateContract({ account: scope.owner, address: scope.asset, abi: ERC20_ABI, functionName: 'approve', args: [scope.vault, units] })
+          return walletClient.writeContract(approval.request)
+        }, wait)
+        if (approved.action !== 'approve') { setComplete('transaction'); return }
       }
       setStage('Create plan · 2 of 2')
-      const plan = await client.simulateContract({ account: savings.address, address: savings.vaultAddress, abi: SAVINGS_VAULT_ABI, functionName: 'createPlan', args: [units, interval, releaseUnits] })
-      const hash = await walletClient.writeContract(plan.request)
-      const receipt = await client.waitForTransactionReceipt({ hash })
-      if (receipt.status !== 'success') throw new Error('Savings transaction reverted.')
-      transactionConfirmed = true
-      const created = parseEventLogs({ abi: SAVINGS_VAULT_ABI, logs: receipt.logs.filter(log => getAddress(log.address) === getAddress(savings.vaultAddress!)), eventName: 'PlanCreated' })
-        .find(event => event.args.owner && getAddress(event.args.owner) === savings.address)
-      if (!created || created.args.amount !== units || created.args.releaseAmount !== releaseUnits || created.args.interval !== interval) {
-        throw new Error('Savings confirmation did not match the reviewed plan.')
-      }
-      await Promise.all([savings.refresh(), savings.refreshSavings()])
-      setComplete(true); setStage('')
+      const confirmed = await runSavingsTransaction(scope, { action: 'createPlan', amount: String(units), releaseAmount: String(releaseUnits), interval }, async () => {
+        const plan = await client.simulateContract({ account: scope.owner, address: scope.vault, abi: SAVINGS_VAULT_ABI, functionName: 'createPlan', args: [units, interval, releaseUnits] })
+        return walletClient.writeContract(plan.request)
+      }, wait)
+      setComplete(confirmed.action === 'createPlan' ? 'plan' : 'transaction')
+      await Promise.allSettled([savings.refresh(), savings.refreshSavings()])
     } catch (reason) {
-      setStage('')
-      if (transactionConfirmed) {
-        await Promise.allSettled([savings.refresh(), savings.refreshSavings()])
-        setError('Your transaction confirmed, but the plan update could not be verified. Check your savings before trying again.')
-      } else {
-        setError(reason instanceof SavingsUiError ? reason.message : actionError(reason))
-      }
+      setError(reason instanceof SavingsUiError ? reason.message : actionError(reason))
     } finally {
       actionPending.current = false
+      setStage('')
+      void savings.refreshSavings()
     }
   }
 
@@ -123,8 +126,8 @@ export default function SavingsDepositSheet({ savings, onClose }: { savings: Sav
       <span className='mx-auto block h-1 w-10 rounded-full bg-zinc-300 dark:bg-white/20' />
       {complete ? <div className='py-10 text-center'>
         <span className='mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500 dark:text-emerald-400'><CheckIcon className='h-7 w-7' /></span>
-        <h2 id='savings-sheet-title' className='mt-5 text-xl font-black'>Savings plan created</h2>
-        <p className='mt-2 text-xs leading-5 text-zinc-500 dark:text-white/50'>Your first release becomes available after {cadence === 'weekly' ? '7 days' : '30 days'}.</p>
+        <h2 id='savings-sheet-title' className='mt-5 text-xl font-black'>{complete === 'plan' ? 'Savings plan created' : 'Savings transaction confirmed'}</h2>
+        <p className='mt-2 text-xs leading-5 text-zinc-500 dark:text-white/50'>Your transaction is verified. Check your plan for its current balance and release schedule.</p>
         <button type='button' onClick={onClose} className='stream-primary mt-7 w-full'>Done</button>
       </div> : <>
         <div className='mt-5 flex items-start justify-between gap-4'><div><h2 id='savings-sheet-title' className='text-lg font-black'>Create savings plan</h2><p className='mt-1 text-[11px] text-zinc-500 dark:text-white/45'>USDC · X Layer</p></div><img src='/brand/usdc-token.svg' alt='USDC' className='h-10 w-10 object-contain' /></div>
@@ -140,7 +143,7 @@ export default function SavingsDepositSheet({ savings, onClose }: { savings: Sav
         {preview && preview.finalReleaseAmount !== parseUnits(releaseAmount, 6) && <p className='mt-2 text-center text-[10px] text-zinc-400 dark:text-white/35'>Final release: {formatUsdcBalance(preview.finalReleaseAmount)}</p>}
         <div className='mt-5 rounded-2xl bg-zinc-200/60 px-4 py-3 text-[11px] leading-5 text-zinc-500 dark:bg-white/[0.045] dark:text-white/45'>Withdraw each release when available. No interest is earned. Emergency access to your remaining savings takes 48 hours.</div>
         {error && <p role='alert' className='mt-4 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700 dark:bg-red-400/10 dark:text-red-200'>{error}</p>}
-        <button type='button' disabled={Boolean(stage) || !preview || !savings.depositsEnabled} onClick={() => void createPlan()} className='mt-5 w-full rounded-full bg-emerald-500 px-5 py-4 text-sm font-black text-emerald-950 disabled:opacity-35'>{stage || 'Create savings plan'}</button>
+        <button type='button' disabled={Boolean(stage) || (!hasPending && (!preview || !savings.depositsEnabled))} onClick={() => void createPlan()} className='mt-5 w-full rounded-full bg-emerald-500 px-5 py-4 text-sm font-black text-emerald-950 disabled:opacity-35'>{stage || (hasPending ? 'Check transaction' : 'Create savings plan')}</button>
         <p className='mt-3 text-center text-[10px] leading-4 text-zinc-400 dark:text-white/35'>Your wallet may ask you to approve USDC once. HashPayStream cannot withdraw it.</p>
       </>}
     </section>

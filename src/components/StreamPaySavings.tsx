@@ -48,8 +48,8 @@ export default function StreamPaySavings() {
     </section>
 
     {!savings.configured ? <LaunchBoundary unavailable={Boolean(savings.configError)} /> : <>
-      {savings.depositsEnabled ? <button type='button' onClick={() => navigate(createPlanTo)} className='mt-5 flex w-full items-center justify-between rounded-2xl bg-emerald-500 px-5 py-4 text-left text-emerald-950 shadow-[0_12px_30px_rgba(16,185,129,0.2)] transition active:scale-[0.99]'>
-        <span><span className='block text-sm font-black'>Create savings plan</span><span className='mt-0.5 block text-[11px] font-semibold opacity-70'>Choose how much to release and when</span></span><ChevronRightIcon className='h-5 w-5' />
+      {savings.depositsEnabled || savings.hasPendingTransaction ? <button type='button' onClick={() => navigate(createPlanTo)} className='mt-5 flex w-full items-center justify-between rounded-2xl bg-emerald-500 px-5 py-4 text-left text-emerald-950 shadow-[0_12px_30px_rgba(16,185,129,0.2)] transition active:scale-[0.99]'>
+        <span><span className='block text-sm font-black'>{savings.hasPendingTransaction ? 'Check savings transaction' : 'Create savings plan'}</span><span className='mt-0.5 block text-[11px] font-semibold opacity-70'>{savings.hasPendingTransaction ? 'Verify your previous wallet transaction' : 'Choose how much to release and when'}</span></span><ChevronRightIcon className='h-5 w-5' />
       </button> : <div className='mt-5 rounded-2xl border border-amber-300/40 bg-amber-50 px-4 py-3 dark:border-amber-300/15 dark:bg-amber-300/[0.06]'>
         <p className='text-xs font-black text-amber-900 dark:text-amber-100'>New plans are paused</p>
         <p className='mt-1 text-[11px] leading-5 text-amber-800/70 dark:text-amber-100/55'>Existing plans and withdrawals remain available. No new USDC can enter through HashPayStream.</p>

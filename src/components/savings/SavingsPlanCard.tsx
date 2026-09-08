@@ -1,8 +1,11 @@
 import { useRef, useState } from 'react'
-import { createPublicClient, createWalletClient, custom, getAddress, http, parseEventLogs, type Hex } from 'viem'
+import { createPublicClient, createWalletClient, custom, http } from 'viem'
 import { upfrontXLayerChain } from '../../lib/upfrontChains'
 import { formatUsdcBalance } from '../../lib/useAgreements'
 import { nextSavingsRelease, SAVINGS_VAULT_ABI, WEEKLY_SECONDS, type SavingsPlan, type useSavingsVault } from '../../lib/useSavingsVault'
+
+import { XLAYER_USDC_ADDRESS } from '../../lib/useXLayerUsdcBalance'
+import { SavingsTransactionError, readSavingsTransaction, runSavingsTransaction, type SavingsIntent } from '../../lib/savingsTransaction'
 
 type SavingsState = ReturnType<typeof useSavingsVault>
 
@@ -15,6 +18,7 @@ function shortDate(value: number) {
 }
 
 function safeError(reason: unknown) {
+  if (reason instanceof SavingsTransactionError) return reason.message
   const message = reason instanceof Error ? reason.message : String(reason ?? '')
   const code = typeof reason === 'object' && reason !== null && 'code' in reason ? String((reason as { code?: unknown }).code ?? '') : ''
   if (code === '4001' || message.toLowerCase().includes('user rejected')) return 'Transaction cancelled. No funds moved.'
@@ -32,50 +36,30 @@ export default function SavingsPlanCard({ plan, savings }: { plan: SavingsPlan; 
     if (actionPending.current) return
     actionPending.current = true
     setStage(action); setError('')
-    let transactionConfirmed = false
     try {
-      if (!savings.wallet || !savings.address || !savings.vaultAddress) throw new Error('Your X Layer wallet is not ready.')
-      await savings.wallet.switchChain(upfrontXLayerChain.id)
+      if (!savings.address || !savings.vaultAddress) throw new Error('Your X Layer wallet is not ready.')
+      const scope = { chainId: upfrontXLayerChain.id, owner: savings.address, vault: savings.vaultAddress, asset: XLAYER_USDC_ADDRESS }
       const client = createPublicClient({ chain: upfrontXLayerChain, transport: http() })
-      const walletClient = createWalletClient({ account: savings.address, chain: upfrontXLayerChain, transport: custom(await savings.wallet.getEthereumProvider()) })
-      let hash: Hex
-      if (action === 'withdraw') {
-        const simulation = await client.simulateContract({ account: savings.address, address: savings.vaultAddress, abi: SAVINGS_VAULT_ABI, functionName: 'withdraw', args: [plan.id, plan.withdrawable] })
-        hash = await walletClient.writeContract(simulation.request)
-      } else if (action === 'requestEmergencyExit') {
-        const simulation = await client.simulateContract({ account: savings.address, address: savings.vaultAddress, abi: SAVINGS_VAULT_ABI, functionName: 'requestEmergencyExit', args: [plan.id] })
-        hash = await walletClient.writeContract(simulation.request)
-      } else if (action === 'cancelEmergencyExit') {
-        const simulation = await client.simulateContract({ account: savings.address, address: savings.vaultAddress, abi: SAVINGS_VAULT_ABI, functionName: 'cancelEmergencyExit', args: [plan.id] })
-        hash = await walletClient.writeContract(simulation.request)
-      } else {
-        const simulation = await client.simulateContract({ account: savings.address, address: savings.vaultAddress, abi: SAVINGS_VAULT_ABI, functionName: 'completeEmergencyExit', args: [plan.id] })
-        hash = await walletClient.writeContract(simulation.request)
-      }
-      const receipt = await client.waitForTransactionReceipt({ hash })
-      if (receipt.status !== 'success') throw new Error('Savings transaction reverted.')
-      transactionConfirmed = true
-      const eventName = action === 'withdraw'
-        ? 'SavingsWithdrawn'
-        : action === 'requestEmergencyExit'
-          ? 'EmergencyExitRequested'
-          : action === 'cancelEmergencyExit'
-            ? 'EmergencyExitCancelled'
-            : 'EmergencyExitCompleted'
-      const confirmed = parseEventLogs({ abi: SAVINGS_VAULT_ABI, logs: receipt.logs.filter(log => getAddress(log.address) === getAddress(savings.vaultAddress!)), eventName })
-        .some(event => event.args.planId === plan.id && event.args.owner && getAddress(event.args.owner) === savings.address)
-      if (!confirmed) throw new Error('Savings confirmation did not match this plan.')
-      await Promise.all([savings.refresh(), savings.refreshSavings()])
+      const intent: SavingsIntent = { action, planId: plan.id, ...(['withdraw', 'completeEmergencyExit'].includes(action) ? { amount: String(action === 'withdraw' ? plan.withdrawable : plan.remaining) } : {}) }
+      const prior = readSavingsTransaction(scope)
+      await runSavingsTransaction(scope, prior?.intent ?? intent, async () => {
+        if (!savings.wallet) throw new Error('Your X Layer wallet is not ready.')
+        await savings.wallet.switchChain(upfrontXLayerChain.id)
+        const walletClient = createWalletClient({ account: scope.owner, chain: upfrontXLayerChain, transport: custom(await savings.wallet.getEthereumProvider()) })
+        if (action === 'withdraw') {
+          const simulation = await client.simulateContract({ account: scope.owner, address: scope.vault, abi: SAVINGS_VAULT_ABI, functionName: 'withdraw', args: [plan.id, plan.withdrawable] })
+          return walletClient.writeContract(simulation.request)
+        }
+        const simulation = await client.simulateContract({ account: scope.owner, address: scope.vault, abi: SAVINGS_VAULT_ABI, functionName: action, args: [plan.id] })
+        return walletClient.writeContract(simulation.request)
+      }, (hash, onReplacement) => client.waitForTransactionReceipt({ hash, timeout: 60_000, confirmations: 2, onReplaced: ({ reason, transaction }) => onReplacement({ hash: transaction.hash, reason }) }))
+      await Promise.allSettled([savings.refresh(), savings.refreshSavings()])
     } catch (reason) {
-      if (transactionConfirmed) {
-        await Promise.allSettled([savings.refresh(), savings.refreshSavings()])
-        setError('Your transaction confirmed, but the plan update could not be verified. Check your savings before trying again.')
-      } else {
-        setError(safeError(reason))
-      }
+      setError(safeError(reason))
     } finally {
       actionPending.current = false
       setStage('')
+      void savings.refreshSavings()
     }
   }
 
@@ -86,8 +70,8 @@ export default function SavingsPlanCard({ plan, savings }: { plan: SavingsPlan; 
       <div><p className='text-[10px] font-bold text-zinc-400'>Available now</p><p className='mt-1 text-xs font-black'>{formatUsdcBalance(plan.withdrawable)}</p></div>
       <div><p className='text-[10px] font-bold text-zinc-400'>Next release</p><p className='mt-1 text-xs font-black'>{nextRelease ? shortDate(nextRelease) : 'Complete'}</p></div>
     </div>
-    {plan.withdrawable > 0n && <button type='button' disabled={Boolean(stage)} onClick={() => void act('withdraw')} className='mt-3 w-full rounded-full bg-emerald-500 px-4 py-3 text-xs font-black text-emerald-950 disabled:opacity-40'>{stage === 'withdraw' ? 'Withdrawing...' : `Withdraw ${formatUsdcBalance(plan.withdrawable)}`}</button>}
-    {plan.emergencyExitAt === 0 ? <button type='button' disabled={Boolean(stage)} onClick={() => void act('requestEmergencyExit')} className='mt-3 w-full rounded-full px-4 py-2 text-[11px] font-bold text-zinc-400 transition active:bg-zinc-100 disabled:opacity-40 dark:active:bg-white/[0.04]'>{stage === 'requestEmergencyExit' ? 'Requesting early access...' : 'Need all savings early?'}</button> : emergencyReady ? <button type='button' disabled={Boolean(stage)} onClick={() => void act('completeEmergencyExit')} className='mt-3 w-full rounded-full border border-amber-400/30 px-4 py-3 text-xs font-black text-amber-600 disabled:opacity-40'>{stage === 'completeEmergencyExit' ? 'Withdrawing...' : 'Withdraw all savings'}</button> : <div className='mt-3 flex items-center justify-between gap-3 rounded-2xl bg-amber-50 px-3 py-2.5 text-[10px] text-amber-700 dark:bg-amber-400/[0.07] dark:text-amber-400'><span>Available {dateTime(plan.emergencyExitAt)}</span><button type='button' disabled={Boolean(stage)} onClick={() => void act('cancelEmergencyExit')} className='font-black'>{stage === 'cancelEmergencyExit' ? 'Cancelling...' : 'Cancel request'}</button></div>}
+    {plan.withdrawable > 0n && <button type='button' disabled={Boolean(stage) || savings.hasPendingTransaction} onClick={() => void act('withdraw')} className='mt-3 w-full rounded-full bg-emerald-500 px-4 py-3 text-xs font-black text-emerald-950 disabled:opacity-40'>{stage === 'withdraw' ? 'Withdrawing...' : `Withdraw ${formatUsdcBalance(plan.withdrawable)}`}</button>}
+    {plan.emergencyExitAt === 0 ? <button type='button' disabled={Boolean(stage) || savings.hasPendingTransaction} onClick={() => void act('requestEmergencyExit')} className='mt-3 w-full rounded-full px-4 py-2 text-[11px] font-bold text-zinc-400 transition active:bg-zinc-100 disabled:opacity-40 dark:active:bg-white/[0.04]'>{stage === 'requestEmergencyExit' ? 'Requesting early access...' : 'Need all savings early?'}</button> : emergencyReady ? <button type='button' disabled={Boolean(stage) || savings.hasPendingTransaction} onClick={() => void act('completeEmergencyExit')} className='mt-3 w-full rounded-full border border-amber-400/30 px-4 py-3 text-xs font-black text-amber-600 disabled:opacity-40'>{stage === 'completeEmergencyExit' ? 'Withdrawing...' : 'Withdraw all savings'}</button> : <div className='mt-3 flex items-center justify-between gap-3 rounded-2xl bg-amber-50 px-3 py-2.5 text-[10px] text-amber-700 dark:bg-amber-400/[0.07] dark:text-amber-400'><span>Available {dateTime(plan.emergencyExitAt)}</span><button type='button' disabled={Boolean(stage) || savings.hasPendingTransaction} onClick={() => void act('cancelEmergencyExit')} className='font-black'>{stage === 'cancelEmergencyExit' ? 'Cancelling...' : 'Cancel request'}</button></div>}
     {error && <p role='alert' className='mt-3 rounded-xl bg-red-50 px-3 py-2 text-[10px] font-semibold text-red-700 dark:bg-red-400/10 dark:text-red-200'>{error}</p>}
   </article>
 }
