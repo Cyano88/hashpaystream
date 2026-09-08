@@ -132,13 +132,17 @@ export type SavingsPlan = {
 export function useSavingsVault() {
   const wallet = useXLayerUsdcBalance()
   const config = useSavingsRuntimeConfig()
-  const [plans, setPlans] = useState<SavingsPlan[]>([])
+  const [storedPlans, setPlans] = useState<SavingsPlan[]>([])
+  const [loadedScope, setLoadedScope] = useState('')
   const [ready, setReady] = useState(false)
-  const [vaultVerified, setVaultVerified] = useState(false)
+  const [storedVaultVerified, setVaultVerified] = useState(false)
   const [error, setError] = useState('')
   const [walletCheckTimedOut, setWalletCheckTimedOut] = useState(false)
   const sequence = useRef(0)
   const activeScope = useRef('')
+  const scope = `${wallet.address?.toLowerCase() ?? ''}:${config.vaultAddress?.toLowerCase() ?? ''}`
+  const plans = loadedScope === scope ? storedPlans : []
+  const vaultVerified = storedVaultVerified && loadedScope === scope && wallet.ready && Boolean(wallet.address)
 
   useEffect(() => {
     if (wallet.ready) {
@@ -205,7 +209,7 @@ export function useSavingsVault() {
         }))
         next.push(...batch)
       }
-      if (request === sequence.current) { setPlans(next); setVaultVerified(true); setReady(true); setError('') }
+      if (request === sequence.current) { setPlans(next); setLoadedScope(scope); setVaultVerified(true); setReady(true); setError('') }
     } catch {
       if (request === sequence.current) { setVaultVerified(false); setReady(true); setError('Savings plans are temporarily unavailable.') }
     }
