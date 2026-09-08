@@ -3,10 +3,11 @@ import { usePrivy } from '@privy-io/react-auth'
 import { Capacitor } from '@capacitor/core'
 import type { W3SSdk as CircleSdk } from '@circle-fin/w3s-pw-web-sdk'
 import { formatUnits, getAddress, parseUnits, type Address, type Hex } from 'viem'
-import { arcPublicClient } from './arcWallet'
-import { runCircleTransfer } from './walletTransfer'
 import { clearPersistedCircleSession, readPersistedCircleSession, writePersistedCircleSession } from './circleSession'
+import { withPaymentSubmission } from './walletTransfer'
 import { fetchWithTimeout } from './fetchWithTimeout'
+
+export type TransferReferences = { hash?: Hex; challengeId?: string; transactionId?: string; accepted?: boolean }
 
 type CircleWallet = { id: string; address: Address; blockchain: string; accountType?: string; state?: string }
 type CircleSession = { userToken: string; encryptionKey: string; refreshToken?: string; deviceId: string; wallet: CircleWallet }
@@ -14,7 +15,7 @@ type WalletState = 'idle' | 'connecting' | 'ready' | 'error'
 type ConnectionStage = 'restoring' | 'verifying'
 type CircleWalletContextValue = {
   state: WalletState; stage: ConnectionStage; error: string; session?: CircleSession; address: string; balance: string; balanceReady: boolean; balanceError: string; loadingBalance: boolean
-  reconnect: () => Promise<void>; reauthorize: () => Promise<void>; refreshBalance: () => Promise<void>; sendUsdc: (recipient: Address, amount: string) => Promise<Hex>
+  reconnect: () => Promise<void>; reauthorize: () => Promise<void>; refreshBalance: () => Promise<void>; sendUsdc: (recipient: Address, amount: string, options: { id: string; challengeId?: string; onPrepared: (value: TransferReferences) => Promise<void> }) => Promise<TransferReferences>; lookupTransfer: (value: TransferReferences) => Promise<TransferReferences>
   executeChallenge: (challengeId: string) => Promise<{ transactionHash: string }>
 }
 
@@ -347,30 +348,34 @@ function CircleWalletSession({ children }: { children: ReactNode }) {
     }
   }, [refreshBalance, state])
 
-  const sendUsdc = useCallback(async (recipient: Address, amount: string) => {
+  const lookupTransfer = useCallback(async (value: TransferReferences): Promise<TransferReferences> => {
+    if (!session) return value
+    let transactionId = value.transactionId
+    if (!transactionId && value.challengeId) {
+      const challenge = await request({ action: 'get_challenge', userToken: session.userToken, challengeId: value.challengeId })
+      transactionId = find(challenge, ['transactionId']) || (Array.isArray((challenge.challenge as { correlationIds?: unknown[] })?.correlationIds) ? String((challenge.challenge as { correlationIds: unknown[] }).correlationIds[0] ?? '') : '') || undefined
+    }
+    if (!transactionId) return value
+    const transaction = await request({ action: 'get_transaction', userToken: session.userToken, transactionId })
+    const hash = find(transaction, ['txHash', 'transactionHash'])
+    return { ...value, transactionId, ...(/^0x[a-fA-F0-9]{64}$/.test(hash) ? { hash: hash as Hex } : {}) }
+  }, [request, session])
+
+  const sendUsdc = useCallback(async (recipient: Address, amount: string, options: { id: string; challengeId?: string; onPrepared: (value: TransferReferences) => Promise<void> }) => withPaymentSubmission(options.id, async () => {
     if (!session) throw new Error('Open your Circle wallet first.')
     const { W3SSdk } = await import('@circle-fin/w3s-pw-web-sdk')
     const sdk = new W3SSdk({ appSettings: { appId: APP_ID } })
     sdk.setThemeColor(CIRCLE_LIGHT_THEME)
     sdk.setAuthentication({ userToken: session.userToken, encryptionKey: session.encryptionKey })
-    const transferScope = { chainId: 5042002, owner: session.wallet.address, asset: getAddress('0x3600000000000000000000000000000000000000') }
-    const validHash = (value: string) => /^0x[a-fA-F0-9]{64}$/.test(value) ? value as Hex : undefined
-    const hash = await runCircleTransfer(transferScope, { recipient, units: parseUnits(amount || '0', 6).toString() }, {
-      prepare: async (intent, idempotencyKey) => {
-        const prepared = await request({ action: 'send_usdc', userToken: session.userToken, walletId: session.wallet.id, walletAddress: session.wallet.address, recipient: intent.recipient, amountUnits: intent.units, idempotencyKey })
-        return { challengeId: find(prepared, ['challengeId']), transactionId: find(prepared, ['transactionId']) || undefined }
-      },
-      authorize: async challengeId => { if (requestScope.current !== scope) throw new Error('Your wallet account changed. Reopen Pocket to continue.'); const result = await execute(sdk, challengeId); return { hash: validHash(find(result, ['txHash', 'transactionHash'])), transactionId: find(result, ['transactionId']) || undefined } },
-      lookup: async transactionId => {
-        const transaction = await request({ action: 'get_transaction', userToken: session.userToken, transactionId })
-        const status = find(transaction, ['state', 'status']).toUpperCase()
-        return { hash: validHash(find(transaction, ['txHash', 'transactionHash'])), failed: ['FAILED', 'CANCELLED', 'CANCELED'].includes(status) }
-      },
-      wait: (hash, replace) => arcPublicClient.waitForTransactionReceipt({ hash, timeout: 60_000, confirmations: 2, onReplaced: ({reason,transaction}) => replace(transaction.hash, reason) }),
-    })
-    await refreshBalance().catch(() => undefined)
-    return hash
-  }, [execute, refreshBalance, request, session, scope])
+    const prepared = options.challengeId ? { challengeId: options.challengeId } : await request({ action: 'send_usdc', userToken: session.userToken, walletId: session.wallet.id, walletAddress: session.wallet.address, recipient, amountUnits: parseUnits(amount, 6).toString(), idempotencyKey: options.id })
+    const references = { challengeId: find(prepared, ['challengeId']), transactionId: find(prepared, ['transactionId']) || undefined }
+    if (!references.challengeId) throw Error('Payment approval is unavailable. Resume this payment from Activity.')
+    await options.onPrepared(references)
+    if (requestScope.current !== scope) throw new Error('Your wallet account changed. Reopen Pocket to continue.')
+    const result = await execute(sdk, references.challengeId)
+    const hash = find(result, ['txHash', 'transactionHash'])
+    return { ...references, accepted: true, transactionId: find(result, ['transactionId']) || references.transactionId, ...(/^0x[a-fA-F0-9]{64}$/.test(hash) ? { hash: hash as Hex } : {}) }
+  }), [execute, request, session, scope])
 
   const executeChallenge = useCallback(async (challengeId: string) => {
     if (!session) throw new Error('Open your Circle wallet first.')
@@ -383,7 +388,7 @@ function CircleWalletSession({ children }: { children: ReactNode }) {
     return { transactionHash: find(result, ['txHash', 'transactionHash']) }
   }, [execute, session])
 
-  const value = useMemo(() => ({ state, stage, error, session, address: session?.wallet.address ?? '', balance, balanceReady, balanceError, loadingBalance, reconnect, reauthorize, refreshBalance, sendUsdc, executeChallenge }), [balance, balanceError, balanceReady, error, executeChallenge, loadingBalance, reauthorize, reconnect, refreshBalance, sendUsdc, session, stage, state])
+  const value = useMemo(() => ({ state, stage, error, session, address: session?.wallet.address ?? '', balance, balanceReady, balanceError, loadingBalance, reconnect, reauthorize, refreshBalance, sendUsdc, lookupTransfer, executeChallenge }), [balance, balanceError, balanceReady, error, executeChallenge, loadingBalance, reauthorize, reconnect, refreshBalance, sendUsdc, lookupTransfer, session, stage, state])
   return <Context.Provider value={value}>{children}</Context.Provider>
 }
 

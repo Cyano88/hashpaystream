@@ -33,7 +33,7 @@ function clean(value: unknown, maximum: number) { return String(value ?? '').rep
 function fail(message: string, status: number): never { throw Object.assign(new Error(message), { status }) }
 function bearer(req: Pick<Request, 'headers'>) { return String(req.headers.authorization ?? '').match(/^Bearer\s+(.+)$/i)?.[1]?.trim() ?? '' }
 
-async function verifiedIdentity(req: Request, env: NodeJS.ProcessEnv): Promise<Identity> {
+export async function verifiedIdentity(req: Request, env: NodeJS.ProcessEnv): Promise<Identity> {
   const appId = clean(env.PRIVY_APP_ID ?? env.VITE_PRIVY_APP_ID, 180)
   const appSecret = clean(env.PRIVY_APP_SECRET, 300)
   const token = bearer(req)
@@ -189,6 +189,24 @@ export function createStreamAccountsHandler(overrides: Partial<Dependencies> = {
       return res.status(status).json({ ok: false, error: status >= 500 ? 'HashPayStream accounts are temporarily unavailable.' : (error as Error).message })
     }
   }
+}
+
+// Internal worker entry point. Caller must verify the exact canonical receipt first.
+export async function recordVerifiedPocketTransfer(input: { owner: string; recipient: string; units: string; hash?: `0x${string}`; createdAt: string }) {
+  if (!input.hash) return false
+  const config = configuration(process.env)
+  let recorded = false
+  await mutateDurableJson<Store>(config.storeKey, current => {
+    const store = safeStore(current)
+    if (store.transfers[input.hash!.toLowerCase()]) { recorded = true; return store }
+    const sender = Object.values(store.accounts).find(item => item.walletAddress?.toLowerCase() === input.owner.toLowerCase())
+    if (!sender) return store
+    const recipient = Object.values(store.accounts).find(item => item.walletAddress?.toLowerCase() === input.recipient.toLowerCase())
+    store.transfers[input.hash!.toLowerCase()] = { id: `txa_${randomUUID()}`, txHash: input.hash!, fromAccountKey: sender.accountKey, toAccountKey: recipient?.accountKey, fromPocketId: sender.pocketId, toPocketId: recipient?.pocketId, fromAddress: getAddress(input.owner), toAddress: getAddress(input.recipient), amountUsdcUnits: input.units, createdAt: input.createdAt }
+    recorded = true
+    return store
+  })
+  return recorded
 }
 
 export default createStreamAccountsHandler()

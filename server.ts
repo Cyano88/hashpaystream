@@ -21,6 +21,7 @@ import upfrontOpportunities from './api/upfront-opportunities.js'
 import fundingPartners from './api/funding-partners.js'
 import streamAccounts from './api/stream-accounts.js'
 import circleWallet from './api/circle-wallet.js'
+import pocketTransfers, { startPocketTransferWorker } from './api/pocket-transfers.js'
 import customerRequests from './api/customer-requests.js'
 import serviceRequests from './api/service-requests.js'
 import { createTradeRouter } from './api/trade-listings.js'
@@ -140,6 +141,7 @@ app.all('/api/hashpaystream/v1/savings/config', (_req, res) => {
   res.setHeader('Allow', 'GET')
   return res.status(405).json({ ok: false, error: 'Method not allowed.' })
 })
+app.all('/api/hashpaystream/v1/pocket-transfers', rateLimit({ name: 'pocket-transfers', windowMs: 60_000, max: 60 }), pocketTransfers)
 app.post('/api/hashpaystream/v1/circle-wallet', rateLimit({ name: 'circle-wallet', windowMs: 60_000, max: 30 }), circleWallet)
 app.all('/api/hashpaystream/v1/circle-wallet', (_req, res) => {
   res.setHeader('Allow', 'POST')
@@ -206,12 +208,13 @@ app.get('*', (_req, res) => {
   return res.sendFile(path.join(root, 'dist', 'index.html'))
 })
 
+const stopPocketTransfers = startPocketTransferWorker()
 const server = app.listen(port, () => console.log(`HashPayStream running on port ${port}`))
 server.once('listening', () => settlementRuntime.start())
 const shutdown = createHashPayStreamShutdown({
   server,
   onDraining: () => { draining = true },
-  drain: () => settlementRuntime.stop(),
+  drain: async () => { await Promise.all([settlementRuntime.stop(), stopPocketTransfers()]) },
   schedule: setTimeout,
   cancel: clearTimeout,
   exit: code => process.exit(code),

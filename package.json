@@ -22,7 +22,7 @@
     "test:upfront-reviews": "node --import tsx scripts/upfront-reviews-smoke.mjs",
     "test:funding-partners": "node --import tsx scripts/funding-partners-smoke.mjs",
     "test:stream-accounts": "node --import tsx scripts/stream-accounts-smoke.mjs",
-    "test:pocket-transfer": "node --import tsx scripts/wallet-transfer-smoke.mjs && node scripts/pocket-send-ui-smoke.mjs",
+    "test:pocket-transfer": "node --import tsx scripts/wallet-transfer-smoke.mjs && node scripts/pocket-send-ui-smoke.mjs && node --import tsx scripts/pocket-transfers-smoke.mjs && node --import tsx scripts/pocket-transfer-recovery-smoke.mjs && node --import tsx scripts/pocket-background-circle-smoke.mjs",
     "test:circle-wallet": "node --import tsx scripts/circle-session-smoke.mjs && node --import tsx scripts/circle-wallet-smoke.mjs && node --import tsx scripts/circle-router-control-smoke.mjs",
     "test:customer-requests": "node --import tsx scripts/customer-requests-smoke.mjs",
     "test:request-isolation": "node scripts/request-isolation-smoke.mjs && node scripts/request-compose-smoke.mjs",

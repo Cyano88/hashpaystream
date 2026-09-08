@@ -1,4 +1,5 @@
 import crypto from 'node:crypto'
+import { attachPocketCircleChallenge } from './pocket-transfers.js'
 import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
 import { createPublicClient, encodeFunctionData, fallback, getAddress, http, isAddress, parseAbi } from 'viem'
@@ -54,8 +55,9 @@ function circleApiKey(env: NodeJS.ProcessEnv) {
   return key
 }
 
-async function circleJson<T extends Record<string, unknown>>(env: NodeJS.ProcessEnv, path: string, init: { method?: string; userToken?: string; body?: Record<string, unknown> } = {}) {
+export async function circleJson<T extends Record<string, unknown>>(env: NodeJS.ProcessEnv, path: string, init: { method?: string; userToken?: string; body?: Record<string, unknown> } = {}) {
   const response = await fetch(`${clean(env.CIRCLE_BASE_URL ?? 'https://api.circle.com', 300).replace(/\/+$/, '').replace(/\/v1(?:\/w3s)?$/i, '')}${path}`, {
+    signal: AbortSignal.timeout(15000),
     method: init.method ?? 'GET',
     headers: {
       accept: 'application/json',
@@ -104,11 +106,12 @@ export async function readArcUsdcBalance(walletAddress: string, env: NodeJS.Proc
   }
 }
 
-export function createCircleWalletHandler(overrides: { env?: () => NodeJS.ProcessEnv; identity?: typeof verifiedEmail; balance?: typeof readArcUsdcBalance; routerControl?: typeof readArcRouterControl } = {}) {
+export function createCircleWalletHandler(overrides: { env?: () => NodeJS.ProcessEnv; identity?: typeof verifiedEmail; balance?: typeof readArcUsdcBalance; routerControl?: typeof readArcRouterControl; attachChallenge?: typeof attachPocketCircleChallenge } = {}) {
   const environment = overrides.env ?? (() => process.env)
   const identity = overrides.identity ?? verifiedEmail
   const balance = overrides.balance ?? readArcUsdcBalance
   const routerControl = overrides.routerControl ?? readArcRouterControl
+  const attachChallenge = overrides.attachChallenge ?? attachPocketCircleChallenge
   const balanceCache = new Map<string, { units: bigint; observedAt: number }>()
   return async function circleWallet(req: Request, res: Response) {
     res.setHeader('Cache-Control', 'no-store')
@@ -196,7 +199,14 @@ export function createCircleWalletHandler(overrides: { env?: () => NodeJS.Proces
         const wallet = await readOwnedWallet(userToken, walletId, walletAddress, env)
         const transfer = encodeFunctionData({ abi: transferAbi, functionName: 'transfer', args: [getAddress(recipient), BigInt(amountUnits)] })
         const callData = encodeFunctionData({ abi: batchAbi, functionName: 'executeBatch', args: [[{ target: ARC_USDC, value: 0n, data: transfer }]] })
-        const data = await circleJson<Record<string, unknown>>(env, '/v1/w3s/user/transactions/contractExecution', { method: 'POST', userToken, body: { idempotencyKey: suppliedKey || crypto.randomUUID(), walletId: wallet.id, feeLevel: 'HIGH', refId: 'hashpaystream-arc-send', contractAddress: getAddress(wallet.address), callData } })
+        const data = await circleJson<Record<string, unknown>>(env, '/v1/w3s/user/transactions/contractExecution', { method: 'POST', userToken, body: { idempotencyKey: suppliedKey || crypto.randomUUID(), walletId: wallet.id, feeLevel: 'HIGH', refId: suppliedKey ? 'hashpaystream-pocket:' + suppliedKey : 'hashpaystream-arc-send', contractAddress: getAddress(wallet.address), callData } })
+        if (suppliedKey && typeof data.challengeId === 'string') await attachChallenge(email, suppliedKey, wallet.address, recipient, amountUnits, data.challengeId, wallet.id)
+        return res.json({ ok: true, ...data })
+      }
+      if (action === 'get_challenge') {
+        const challengeId = clean(body.challengeId, 80)
+        if (!userToken || !UUID.test(challengeId)) fail('Circle approval reference is invalid.', 400)
+        const data = await circleJson<Record<string, unknown>>(env, `/v1/w3s/user/challenges/${encodeURIComponent(challengeId)}`, { userToken })
         return res.json({ ok: true, ...data })
       }
       if (action === 'get_transaction') {

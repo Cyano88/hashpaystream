@@ -11,6 +11,7 @@ import '@fontsource/plus-jakarta-sans/800.css'
 import './index.css'
 import App from './App'
 import { ThemeProvider } from './lib/ThemeContext'
+import { PocketTransfersProvider } from './lib/pocketTransfers'
 import { CircleWalletProvider } from './lib/circleWallet'
 import { arcTestnet, upfrontXLayerChain } from './lib/upfrontChains'
 import { initializeNativeApp } from './lib/nativeApp'
@@ -69,7 +70,7 @@ function Providers() {
       privacyPolicyUrl: privacyUrl,
     },
   }
-  return <PrivyProvider appId={appId} config={config}><CircleWalletProvider><App /></CircleWalletProvider></PrivyProvider>
+  return <PrivyProvider appId={appId} config={config}><CircleWalletProvider><PocketTransfersProvider><App /></PocketTransfersProvider></CircleWalletProvider></PrivyProvider>
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

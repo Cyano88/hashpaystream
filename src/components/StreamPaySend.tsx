@@ -1,10 +1,9 @@
 import { useRef, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowLeftIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
-import { getAddress, isAddress, parseUnits, zeroAddress } from 'viem'
+import { formatUnits, getAddress, isAddress, parseUnits, zeroAddress } from 'viem'
 import { Link } from '../lib/router'
-import { queueArcActivity, removeArcActivity } from '../lib/arcTransferActivity'
-import { readPendingTransfer } from '../lib/walletTransfer'
+import { usePocketTransfers } from '../lib/pocketTransfers'
 import { useCircleWallet } from '../lib/circleWallet'
 import { useStreamAccount } from '../lib/streamAccount'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
@@ -22,6 +21,7 @@ function SendForm() {
   const { authenticated } = usePrivy()
   const account = useStreamAccount()
   const wallet = useCircleWallet()
+  const transfers = usePocketTransfers()
   const [mode, setMode] = useState<Mode>('pocket')
   const [pocketId, setPocketId] = useState('')
   const [address, setAddress] = useState('')
@@ -29,12 +29,11 @@ function SendForm() {
   const [amount, setAmount] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [hash, setHash] = useState('')
+  const [notice, setNotice] = useState('')
   const resolving = useRef(0)
   const submitting = useRef(false)
   const scope = wallet.address ? { chainId: 5042002, owner: getAddress(wallet.address), asset: getAddress('0x3600000000000000000000000000000000000000') } : undefined
-  let pending = false
-  try { pending = Boolean(scope && readPendingTransfer(scope)) } catch { pending = true }
+  const available = scope ? transfers.available(scope, parseUnits(wallet.balance || '0', 6)) : 0n
   const homeTo = useStreamPayPath('/home')
   if (!authenticated)
     return <AgreementSignInLanding />
@@ -65,11 +64,10 @@ function SendForm() {
     submitting.current = true
     setBusy(true)
     setError('')
-    setHash('')
+    setNotice('')
     try {
-      const saved = scope ? readPendingTransfer(scope) : undefined
-      const recipient = saved?.recipient ?? address.trim()
-      const sendAmount = saved ? (BigInt(saved.units) / 1000000n).toString() + '.' + (BigInt(saved.units) % 1000000n).toString().padStart(6, '0') : amount
+      const recipient = address.trim()
+      const sendAmount = amount
       if (!/^\d+(?:\.\d{1,6})?$/.test(sendAmount)) throw new Error('Enter a valid USDC amount with up to 6 decimals.')
       if (!isAddress(recipient) || getAddress(recipient) === zeroAddress)
         throw new Error(
@@ -80,15 +78,18 @@ function SendForm() {
       const units = parseUnits(sendAmount, 6)
       if (units <= 0n) throw new Error('Enter an amount greater than zero.')
       if (!wallet.session) throw new Error('Your Circle wallet is not ready.')
-      const txHash = await wallet.sendUsdc(getAddress(recipient), sendAmount)
-      setHash(txHash)
-      try { queueArcActivity(wallet.address, txHash) } catch { /* Optional local activity retry cache. */ }
-      try {
-        await account.recordTransfer(txHash)
-        removeArcActivity(wallet.address, txHash)
-      } catch {
-        /* Activity retries this confirmed hash */
+      if (!scope || !transfers.ready) throw Error('Wait for your pending payments to load.')
+      const operation = await transfers.begin(scope, { recipient: getAddress(recipient), units: units.toString() })
+      if (operation.transfer.status !== 'awaiting_approval' || operation.transfer.hash || operation.transfer.challengeId) {
+        operation.releaseDraft()
+        setNotice('This payment is already in Activity. You can start another transfer.')
+      } else {
+        const result = await wallet.sendUsdc(getAddress(recipient), sendAmount, { id: operation.transfer.id, onPrepared: async value => { await transfers.track(operation.transfer.id, value) } })
+        operation.releaseDraft()
+        setNotice('Transfer processing. Follow its progress in Activity.')
+        try { await transfers.track(operation.transfer.id, result) } catch { /* Durable local outbox retries references, never the payment. */ }
       }
+      setAmount(''); setAddress(''); setPocketId(''); setResolvedName('')
     } catch (reason) {
       setError(
         reason instanceof Error
@@ -100,33 +101,6 @@ function SendForm() {
       setBusy(false)
     }
   }
-
-  if (hash)
-    return (
-      <section className="flex min-h-[70vh] w-full max-w-md flex-col items-center justify-center py-8 text-center">
-        <CheckCircleIcon className="h-14 w-14 text-emerald-500" />
-        <h1 className="mt-5 text-2xl font-extrabold tracking-tight text-gray-950 dark:text-white">
-          USDC sent
-        </h1>
-        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-          Your Arc transfer is confirmed.
-        </p>
-        <a
-          href={`https://testnet.arcscan.app/tx/${hash}`}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-5 text-xs font-bold text-blue-600"
-        >
-          View on Arcscan
-        </a>
-        <Link
-          to={homeTo}
-          className="mt-6 w-full rounded-full bg-gray-950 px-5 py-3.5 text-sm font-bold text-white dark:bg-white dark:text-gray-950"
-        >
-          Done
-        </Link>
-      </section>
-    )
 
   return (
     <section className="stream-screen w-full max-w-md py-5 sm:py-8">
@@ -147,7 +121,7 @@ function SendForm() {
           <span className="text-sm font-black tabular-nums">
             {!wallet.balanceReady
               ? 'Checking…'
-              : formatUsdcBalance(parseUnits(wallet.balance || '0', 6))}
+              : formatUsdcBalance(available)}
           </span>
         </div>
         <div className="grid grid-cols-2 gap-1 rounded-full bg-gray-100 p-1 dark:bg-white/[0.06]">
@@ -222,7 +196,7 @@ function SendForm() {
             <span>Amount</span>
             <button
               type="button"
-              onClick={() => setAmount(wallet.balance)}
+              onClick={() => setAmount(formatUnits(available, 6))}
               className="text-blue-600"
             >
               Max
@@ -241,17 +215,18 @@ function SendForm() {
             <b className="text-xs text-gray-400">USDC</b>
           </span>
         </label>
-        {(error || account.error) && (
+        {notice && <p role="status" className="text-xs font-semibold text-blue-600">{notice} <Link to={homeTo.replace('/home', '/activity')} className="underline">Activity</Link></p>}
+        {(error || account.error || transfers.error) && (
           <p
             role="alert"
             className="rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700 dark:bg-red-400/10 dark:text-red-200"
           >
-            {error || account.error}
+            {error || account.error || transfers.error}
           </p>
         )}
         <button
           type="button"
-          disabled={busy || (!pending && (!amount || !address))}
+          disabled={busy || !transfers.ready || !amount || !address}
           onClick={() => void send()}
           className="w-full rounded-full bg-gray-950 px-5 py-4 text-sm font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950"
         >

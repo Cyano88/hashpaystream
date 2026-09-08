@@ -46,7 +46,7 @@ try {
   assert.equal(publicFallbackBalance, 65_992_064n)
   assert.equal(rpcHosts.at(-1), 'rpc.testnet.arc.network')
   assert.ok(rpcHosts.slice(0, -1).every(host => host === 'unavailable.example'))
-  const handler = createCircleWalletHandler({ env: () => ({ CIRCLE_TEST_API_KEY: 'TEST_API_KEY' }), identity: async () => 'member@example.com', balance: async address => {
+  const handler = createCircleWalletHandler({ attachChallenge: async () => {}, env: () => ({ CIRCLE_TEST_API_KEY: 'TEST_API_KEY' }), identity: async () => 'member@example.com', balance: async address => {
     assert.equal(address, wallet.address)
     balanceReads += 1
     if (balanceReads > 1) throw new Error('temporary rpc failure')
