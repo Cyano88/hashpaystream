@@ -107,6 +107,41 @@ export function createTradeCommunityRouter(
     max: 40,
   });
   router.get(
+    "/funding-reservation",
+    secure(async (req, res, viewer) =>
+      res.json({
+        ok: true,
+        paymentsEnabled: false,
+        reservation: await deps
+          .store()
+          .fundingReservation(
+            viewer,
+            id(req.query.threadId),
+            id(req.query.offerId),
+          ),
+      }),
+    ),
+  );
+  router.post(
+    "/funding-reservation",
+    writes,
+    parse,
+    secure(async (req, res, viewer) =>
+      res.json({
+        ok: true,
+        paymentsEnabled: false,
+        reservation: await deps
+          .store()
+          .fundingReservation(
+            viewer,
+            id(req.body?.threadId),
+            id(req.body?.offerId),
+            true,
+          ),
+      }),
+    ),
+  );
+  router.get(
     "/offers",
     secure(async (req, res, viewer) =>
       res.json({

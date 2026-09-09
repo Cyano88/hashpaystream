@@ -5,10 +5,24 @@ import {
   tradeFailure as fail,
 } from "./trade-store.js";
 
+import {
+  prepareTradeEscrowBinding,
+  type TradeBindingInput,
+} from "./trade-escrow-binding.js";
+
 import { validateTradeTerms } from "../src/lib/tradeAgreement.js";
 
 type Client = pg.PoolClient;
-export function createTradeCommunityStore(pool: pg.Pool) {
+// Server-only adapter: must verify both participant wallets and an approved deployment.
+// No production adapter is installed; HTTP input never supplies these values.
+export type TradeFundingContext = (participants: {
+  buyer: string;
+  seller: string;
+}) => Promise<Omit<TradeBindingInput, "offer" | "now">>;
+export function createTradeCommunityStore(
+  pool: pg.Pool,
+  fundingContext?: TradeFundingContext,
+) {
   let schema: Promise<void> | undefined;
   const listings = createPostgresTradeStore(pool);
   async function ready() {
@@ -42,6 +56,10 @@ export function createTradeCommunityStore(pool: pg.Pool) {
           created_at bigint not null, expires_at bigint not null, decided_at bigint);
         create unique index if not exists trade_one_accepted_item on hashpaystream_trade_offers(listing_id) where status='accepted';
         create index if not exists trade_offers_thread on hashpaystream_trade_offers(thread_id,created_at);
+        create table if not exists hashpaystream_trade_funding_reservations (
+          id uuid primary key, offer_id uuid not null unique references hashpaystream_trade_offers(id),
+          listing_id uuid not null unique references hashpaystream_trade_listings(id),
+          binding jsonb not null, created_at bigint not null);
         create index if not exists trade_reports_open on hashpaystream_trade_reports(status,created_at);
       `);
     })().catch((error) => {
@@ -112,7 +130,93 @@ export function createTradeCommunityStore(pool: pg.Pool) {
     expiresAt: Number(r.expires_at),
     decidedAt: r.decided_at ? Number(r.decided_at) : undefined,
   });
+  const publicReservation = (row: any) =>
+    row
+      ? {
+          id: row.id,
+          offerId: row.offer_id,
+          binding: row.binding,
+          createdAt: Number(row.created_at),
+          paymentsEnabled: false,
+        }
+      : null;
   return {
+    async fundingReservation(
+      viewer: string,
+      threadId: string,
+      offerId: string,
+      create = false,
+    ) {
+      return transaction(async (client) => {
+        const t = await thread(client, threadId, viewer);
+        await pairLock(client, t.buyer, t.seller);
+        const listing = (
+          await client.query(
+            "select * from hashpaystream_trade_listings where id=$1 for update",
+            [t.listing_id],
+          )
+        ).rows[0];
+        const offer = (
+          await client.query(
+            "select * from hashpaystream_trade_offers where id=$1 and thread_id=$2 for update",
+            [offerId, threadId],
+          )
+        ).rows[0];
+        if (!offer) fail("Offer not found.", 404);
+        if (create && viewer !== t.buyer)
+          fail("Only the buyer can reserve checkout.", 403);
+        const existing = (
+          await client.query(
+            "select * from hashpaystream_trade_funding_reservations where offer_id=$1",
+            [offerId],
+          )
+        ).rows[0];
+        // Recovery never re-quotes, creates a second attempt, or disappears after a block.
+        if (existing || !create) return publicReservation(existing);
+        if (!fundingContext) fail("Trade checkout is not configured.", 503);
+        if (
+          offer.status !== "accepted" ||
+          listing.status !== "active" ||
+          listing.revision !== offer.listing_revision
+        )
+          fail(
+            "Accepted terms or listing changed. Checkout is unavailable.",
+            409,
+          );
+        if ((await blocks(client, t.buyer, t.seller)).blocked)
+          fail("This agreement is unavailable between these accounts.", 403);
+        const context = await fundingContext({
+          buyer: t.buyer,
+          seller: t.seller,
+        });
+        let binding;
+        try {
+          binding = prepareTradeEscrowBinding({
+            ...context,
+            now: Math.floor(Date.now() / 1000),
+            offer: {
+              id: offer.id,
+              status: offer.status,
+              listingRevision: offer.listing_revision,
+              terms: offer.terms,
+              snapshot: offer.snapshot,
+            },
+          });
+        } catch (error) {
+          fail((error as Error).message, 409);
+        }
+        const serialized = JSON.parse(
+          JSON.stringify(binding, (_key, value) =>
+            typeof value === "bigint" ? value.toString() : value,
+          ),
+        );
+        const result = await client.query(
+          "insert into hashpaystream_trade_funding_reservations(id,offer_id,listing_id,binding,created_at) values($1,$2,$3,$4,$5) returning *",
+          [randomUUID(), offerId, t.listing_id, serialized, Date.now()],
+        );
+        return publicReservation(result.rows[0]);
+      });
+    },
     async offers(viewer: string, id: string) {
       return transaction(async (client) => {
         await thread(client, id, viewer);
@@ -273,11 +377,24 @@ export function createTradeCommunityStore(pool: pg.Pool) {
           )
             fail("This item already has accepted terms.", 409);
         }
+        if (
+          action === "cancel" &&
+          (
+            await client.query(
+              "select id from hashpaystream_trade_funding_reservations where offer_id=$1",
+              [offerId],
+            )
+          ).rowCount
+        )
+          fail(
+            "Checkout is reserved. Payment reconciliation is required before cancellation.",
+            409,
+          );
         const result = await client.query(
           "update hashpaystream_trade_offers set status=$2,decided_at=$3 where id=$1 returning *",
           [offerId, target, Date.now()],
         );
-        // No payment is possible in this layer. Cancellation never represents a refund.
+        // Only offers without a funding reservation can cancel here; this is never a refund.
         await client.query(
           "update hashpaystream_trade_threads set updated_at=$2 where id=$1",
           [threadId, Date.now()],
