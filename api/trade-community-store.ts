@@ -162,6 +162,43 @@ export function createTradeCommunityStore(
         }
       : null;
   return {
+    async checkoutStatus(viewer: string, threadId: string, offerId: string) {
+      return transaction(async (client) => {
+        const t = await thread(client, threadId, viewer);
+        // One SQL snapshot keeps wallet readiness and reservation visibility consistent.
+        const row = (
+          await client.query(
+            `select o.status,
+          (select row_to_json(w) from hashpaystream_trade_settlement_wallets w where w.offer_id=o.id and w.actor=$3) as wallet,
+          exists(select 1 from hashpaystream_trade_settlement_wallets w where w.offer_id=o.id and w.actor=$4) as buyer_ready,
+          exists(select 1 from hashpaystream_trade_settlement_wallets w where w.offer_id=o.id and w.actor=$5) as seller_ready,
+          (select json_build_object('id',r.id,'createdAt',r.created_at) from hashpaystream_trade_funding_reservations r where r.offer_id=o.id) as reservation
+          from hashpaystream_trade_offers o where o.id=$1 and o.thread_id=$2`,
+            [offerId, threadId, viewer, t.buyer, t.seller],
+          )
+        ).rows[0];
+        if (!row) fail("Offer not found.", 404);
+        return {
+          offerStatus: row.status,
+          paymentsEnabled: false,
+          buyerReady: row.buyer_ready,
+          sellerReady: row.seller_ready,
+          wallet: row.wallet
+            ? {
+                walletId: row.wallet.wallet_id,
+                address: row.wallet.address,
+                chainId: row.wallet.chain_id,
+              }
+            : null,
+          reservation: row.reservation
+            ? {
+                id: row.reservation.id,
+                createdAt: Number(row.reservation.createdAt),
+              }
+            : null,
+        };
+      });
+    },
     async settlementWallet(
       viewer: string,
       threadId: string,

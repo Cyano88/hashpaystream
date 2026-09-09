@@ -550,6 +550,16 @@ try {
     503,
   );
   assert.equal((await call(query)).body.reservation, null);
+  const checkoutQuery =
+    "checkout?threadId=" + checkoutThread + "&offerId=" + checkoutOffer;
+  assert.equal((await call(checkoutQuery, "")).status, 401);
+  assert.equal((await call(checkoutQuery, "intruder")).status, 404);
+  const emptyCheckout = (await call(checkoutQuery)).body;
+  assert.equal(emptyCheckout.wallet, null);
+  assert.equal(emptyCheckout.buyerReady, false);
+  assert.equal(emptyCheckout.sellerReady, false);
+  assert.equal(emptyCheckout.reservation, null);
+  assert.equal(emptyCheckout.paymentsEnabled, false);
   let prepared = 0;
   const context = async ({ buyer, seller }) => {
     assert.equal(buyer, owner("buyer"));
@@ -626,6 +636,15 @@ try {
     ).body.wallet.address,
     walletFixtures.seller.address,
   );
+  const buyerCheckout = (await call(checkoutQuery)).body;
+  assert.equal(buyerCheckout.buyerReady, true);
+  assert.equal(buyerCheckout.sellerReady, true);
+  assert.equal(buyerCheckout.wallet.walletId, walletFixtures.buyer.walletId);
+  assert.equal(
+    JSON.stringify(buyerCheckout).includes(walletFixtures.seller.walletId),
+    false,
+  );
+  assert.equal(JSON.stringify(buyerCheckout).includes(owner("seller")), false);
   const persistedWallets = (
     await pool.query("select * from hashpaystream_trade_settlement_wallets")
   ).rows;
@@ -650,6 +669,10 @@ try {
   assert.equal(JSON.stringify(reserved).includes("photos"), false);
   // Process restart and adapter outage must preserve recovery.
   activeStore = createTradeCommunityStore(pool);
+  const reservedCheckout = (await call(checkoutQuery)).body;
+  assert.equal(reservedCheckout.reservation.id, reserved.id);
+  assert.equal(reservedCheckout.paymentsEnabled, false);
+  assert.equal("binding" in reservedCheckout.reservation, false);
   await store.block(owner("buyer"), checkoutThread, true);
   await listings.save({ ...checkoutItem, status: "removed" }, 1);
   assert.deepEqual((await call(query, "seller")).body.reservation, reserved);

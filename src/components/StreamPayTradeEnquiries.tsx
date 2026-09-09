@@ -1,3 +1,4 @@
+import { useCircleWallet } from "../lib/circleWallet";
 import TradeAgreementCard from "./TradeAgreementCard";
 import { useStreamConfirm } from "./ui/StreamConfirmSheet";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -338,6 +339,7 @@ function TradeConversation({
   getAccessToken,
   onBack,
 }: { threadId: string; onBack: () => void } & Access) {
+  const checkoutWallet = useCircleWallet();
   const { confirm, confirmation } = useStreamConfirm();
   const { alive, request } = useAccess(getAccessToken),
     [thread, setThread] = useState<TradeThread>(),
@@ -513,6 +515,7 @@ function TradeConversation({
         <TradeAgreementCard
           key={threadId}
           thread={thread}
+          checkoutWallet={checkoutWallet}
           getAccessToken={getAccessToken}
         />
       )}

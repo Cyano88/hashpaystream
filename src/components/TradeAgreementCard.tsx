@@ -1,3 +1,4 @@
+import TradeCheckout, { type TradeCheckoutWallet } from "./TradeCheckout";
 import { useEffect, useRef, useState } from "react";
 import { communityRequest, type TradeThread } from "../lib/tradeCommunity";
 import {
@@ -28,10 +29,13 @@ const initial: TradeTerms = {
 export default function TradeAgreementCard({
   thread,
   getAccessToken,
+  checkoutWallet,
 }: {
   thread: TradeThread;
+  checkoutWallet?: TradeCheckoutWallet;
   getAccessToken: () => Promise<string | null>;
 }) {
+  const [checkoutCanCancel, setCheckoutCanCancel] = useState(false);
   const [offers, setOffers] = useState<TradeOffer[]>([]),
     [editing, setEditing] = useState(false),
     [terms, setTerms] = useState<TradeTerms>(() => ({
@@ -95,6 +99,20 @@ export default function TradeAgreementCard({
           pending.current = { id: crypto.randomUUID(), body };
         id = pending.current.id;
       }
+      if (action === "cancel") {
+        const token = await getAccessToken();
+        if (!alive.current) return;
+        const checkout = await communityRequest(
+          "checkout?threadId=" + thread.id + "&offerId=" + id,
+          token,
+        );
+        if (checkout.reservation)
+          throw Error(
+            "Checkout is reserved. Refresh checkout to recover its status.",
+          );
+        if (checkout.offerStatus !== "accepted")
+          throw Error("These terms changed. Refresh before continuing.");
+      }
       if (action === "accept" || action === "cancel") {
         const yes = await confirm({
           title:
@@ -104,7 +122,7 @@ export default function TradeAgreementCard({
           description:
             action === "accept"
               ? `After you confirm receipt, the ${offer?.terms.inspectionHours}-hour inspection period starts. Payment then becomes releasable unless a dispute is confirmed on-chain before the deadline. Disputes require mutual agreement or arbitration and may keep funds locked. Payment is not available yet; no money moves now.`
-              : "No payment has been collected. The item can be agreed with another buyer.",
+              : "This cancels the accepted terms and makes the item available for another agreement. Cancellation is blocked if checkout becomes reserved.",
           action: action === "accept" ? "Accept terms" : "Cancel terms",
         });
         if (!yes) return;
@@ -237,10 +255,20 @@ export default function TradeAgreementCard({
               These older terms need a new offer before escrow funding.
             </p>
           )}
-          <p className="text-xs text-gray-500">
-            Payment is not available for Trade yet. Accepted terms do not mean
-            the item is paid for.
-          </p>
+          {latest.status === "accepted" ? (
+            <TradeCheckout
+              key={thread.id + ":" + latest.id}
+              thread={thread}
+              offer={latest}
+              wallet={checkoutWallet}
+              getAccessToken={getAccessToken}
+              onCancelAvailability={setCheckoutCanCancel}
+            />
+          ) : (
+            <p className="text-xs text-gray-500">
+              Accepted terms do not mean the item is paid for.
+            </p>
+          )}
           <div className="flex flex-wrap gap-3">
             {latest.status === "proposed" &&
               latest.terms.escrowPolicyVersion === "trade-escrow-v1" &&
@@ -268,8 +296,8 @@ export default function TradeAgreementCard({
             )}
             {latest.status === "accepted" && (
               <button
-                disabled={busy}
-                className="min-h-11 text-xs font-bold"
+                disabled={busy || !checkoutCanCancel}
+                className="min-h-11 text-xs font-bold disabled:opacity-40"
                 onClick={() => void act("cancel", latest)}
               >
                 Cancel terms

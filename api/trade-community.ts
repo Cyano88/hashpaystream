@@ -110,6 +110,21 @@ export function createTradeCommunityRouter(
     max: 40,
   });
   router.get(
+    "/checkout",
+    secure(async (req, res, viewer) =>
+      res.json({
+        ok: true,
+        ...(await deps
+          .store()
+          .checkoutStatus(
+            viewer,
+            id(req.query.threadId),
+            id(req.query.offerId),
+          )),
+      }),
+    ),
+  );
+  router.get(
     "/settlement-wallet",
     secure(async (req, res, viewer) =>
       res.json({
