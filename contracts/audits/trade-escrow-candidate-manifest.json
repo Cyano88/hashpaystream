@@ -9,6 +9,8 @@
     "src/test/ShortTransferUSDC.sol": "66aecfa6026daed5fc4dc5c51d2363aae698b10fbfc85676fb1f09858937edef",
     "test/TradeEscrow.test.ts": "8b359c68717afb900081e2991dabd79bb0d10f0ef28bfeaf072ab00879c1f037",
     "src/test/TradeTestWallet.sol": "60e04e8a932e3a7bca7a9c34f1dd65961d284adc0d673702450d84ae9a5d814f",
-    "test/TradeEscrowPreflight.test.ts": "1dc572ae12aa0faed009a0102dd9f5ee59aa78fbbdc3e652eff7e563eade6905"
+    "test/TradeEscrowPreflight.test.ts": "1dc572ae12aa0faed009a0102dd9f5ee59aa78fbbdc3e652eff7e563eade6905",
+    "src/test/PolicyUSDC.sol": "290140097f7820e7fe055150464964a69c056180956ea065a9e204e96dcfa7b5",
+    "test/TradeEscrowAudit.test.ts": "b23f5739eb3d7d20f09c344852ac127dd4df23d306b0325e6024112e8c5bcc3e"
   }
 }
