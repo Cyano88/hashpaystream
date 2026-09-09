@@ -1,3 +1,4 @@
+import { verifyTradeCircleWallet } from "./trade-wallet-verification.js";
 import express, { type Request, type Response } from "express";
 import { createHmac } from "node:crypto";
 import { PrivyClient } from "@privy-io/node";
@@ -54,6 +55,7 @@ export function createTradeCommunityRouter(
   overrides: Partial<{
     env: () => NodeJS.ProcessEnv;
     identity: typeof verifiedTradeIdentity;
+    wallet: typeof verifyTradeCircleWallet;
     admin: typeof isAdmin;
     store: () => ReturnType<typeof createTradeCommunityStore>;
   }> = {},
@@ -61,6 +63,7 @@ export function createTradeCommunityRouter(
   const deps = {
     env: () => process.env,
     identity: verifiedTradeIdentity,
+    wallet: verifyTradeCircleWallet,
     admin: isAdmin,
     store: () =>
       (configured ??= createTradeCommunityStore(configuredTradePool())),
@@ -106,6 +109,44 @@ export function createTradeCommunityRouter(
     windowMs: 60000,
     max: 40,
   });
+  router.get(
+    "/settlement-wallet",
+    secure(async (req, res, viewer) =>
+      res.json({
+        ok: true,
+        paymentsEnabled: false,
+        wallet: await deps
+          .store()
+          .settlementWallet(
+            viewer,
+            id(req.query.threadId),
+            id(req.query.offerId),
+          ),
+      }),
+    ),
+  );
+  router.post(
+    "/settlement-wallet",
+    writes,
+    parse,
+    secure(async (req, res, viewer) => {
+      const threadId = id(req.body?.threadId),
+        offerId = id(req.body?.offerId);
+      // Check participation before making provider calls; recheck state inside the write transaction.
+      await deps.store().settlementWallet(viewer, threadId, offerId);
+      const verified = await deps.wallet(
+        { walletId: req.body?.walletId, userToken: req.body?.userToken },
+        deps.env(),
+      );
+      res.json({
+        ok: true,
+        paymentsEnabled: false,
+        wallet: await deps
+          .store()
+          .settlementWallet(viewer, threadId, offerId, verified),
+      });
+    }),
+  );
   router.get(
     "/funding-reservation",
     secure(async (req, res, viewer) =>

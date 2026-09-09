@@ -1,3 +1,4 @@
+import { verifyTradeCircleWallet } from "../api/trade-wallet-verification.ts";
 import assert from "node:assert/strict";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import pg from "pg";
@@ -35,6 +36,39 @@ const identity = async (req) => {
     throw Object.assign(Error("Invalid session"), { status: 401 });
   return user;
 };
+const walletFixtures = {
+  buyer: {
+    walletId: randomUUID(),
+    address: "0x2222222222222222222222222222222222222222",
+    chainId: 5042002,
+  },
+  seller: {
+    walletId: randomUUID(),
+    address: "0x3333333333333333333333333333333333333333",
+    chainId: 5042002,
+  },
+};
+let walletReads = 0;
+const walletVerifier = (input, env) =>
+  verifyTradeCircleWallet(input, env, async (_env, path, init) => {
+    walletReads++;
+    const selected = walletFixtures[init.userToken];
+    if (!selected)
+      throw Object.assign(Error("Synthetic expired session"), { status: 401 });
+    if (path === "/v1/w3s/user")
+      return { id: init.userToken, status: "ENABLED" };
+    return {
+      wallet: {
+        id: selected.walletId,
+        address: selected.address,
+        userId: init.userToken,
+        custodyType: "ENDUSER",
+        accountType: "SCA",
+        state: "LIVE",
+        blockchain: "ARC-TESTNET",
+      },
+    };
+  });
 let activeStore = store;
 const app = express();
 app.use(
@@ -42,6 +76,7 @@ app.use(
   createTradeCommunityRouter({
     env: () => env,
     identity,
+    wallet: walletVerifier,
     admin: async (user) => user === "admin",
     store: () => activeStore,
   }),
@@ -530,6 +565,72 @@ try {
     };
   };
   activeStore = createTradeCommunityStore(pool, context);
+  assert.equal(
+    (await call("funding-reservation", "buyer", request)).status,
+    409,
+  );
+  const walletRequest = {
+    ...request,
+    walletId: walletFixtures.buyer.walletId,
+    userToken: "buyer",
+    address: "client-spoof",
+    chainId: 196,
+  };
+  assert.equal(
+    (await call("settlement-wallet", "intruder", walletRequest)).status,
+    404,
+  );
+  assert.equal(walletReads, 0, "Nonparticipant must not trigger Circle calls");
+  const linked = await call("settlement-wallet", "buyer", walletRequest);
+  assert.equal(linked.status, 200);
+  assert.equal(linked.body.wallet.address, walletFixtures.buyer.address);
+  assert.equal(linked.body.wallet.chainId, 5042002);
+  assert.deepEqual(
+    (await call("settlement-wallet", "buyer", walletRequest)).body.wallet,
+    linked.body.wallet,
+  );
+  assert.equal(
+    (await call("settlement-wallet", "seller", walletRequest)).status,
+    409,
+    "Same wallet cannot be both parties",
+  );
+  assert.equal(
+    (
+      await call("settlement-wallet", "buyer", {
+        ...request,
+        walletId: walletFixtures.seller.walletId,
+        userToken: "seller",
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (
+      await call("settlement-wallet", "seller", {
+        ...request,
+        walletId: walletFixtures.seller.walletId,
+        userToken: "seller",
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await call(
+        "settlement-wallet?threadId=" +
+          checkoutThread +
+          "&offerId=" +
+          checkoutOffer,
+        "seller",
+      )
+    ).body.wallet.address,
+    walletFixtures.seller.address,
+  );
+  const persistedWallets = (
+    await pool.query("select * from hashpaystream_trade_settlement_wallets")
+  ).rows;
+  assert.equal(persistedWallets.length, 2);
+  assert.equal(JSON.stringify(persistedWallets).includes("userToken"), false);
   const attempts = await Promise.all(
     Array.from({ length: 3 }, () =>
       call("funding-reservation", "buyer", request),
@@ -583,6 +684,18 @@ try {
     currency: "USDC",
   });
   await store.offer(owner("buyer"), racingThread, racingOffer, "accept");
+  await store.settlementWallet(
+    owner("buyer"),
+    racingThread,
+    racingOffer,
+    walletFixtures.buyer,
+  );
+  await store.settlementWallet(
+    owner("seller"),
+    racingThread,
+    racingOffer,
+    walletFixtures.seller,
+  );
   const unavailable = createTradeCommunityStore(pool, async () => {
     throw Error("Synthetic verification outage");
   });
@@ -614,6 +727,7 @@ try {
   assert.equal(
     cancelRace.find((x) => x.status === "rejected").reason.status,
     409,
+    String(cancelRace.find((x) => x.status === "rejected").reason),
   );
   const raceReservation = await store.fundingReservation(
     owner("buyer"),

@@ -65,6 +65,7 @@
     "test:trade-backend": "node --import tsx scripts/trade-backend-smoke.mjs",
     "test:trade-escrow-preflight": "npm --prefix contracts test -- --network hardhat test/TradeEscrowPreflight.test.ts && node --import tsx scripts/trade-escrow-preflight-smoke.mjs",
     "test:trade-escrow-binding": "node --import tsx scripts/trade-escrow-binding-smoke.mjs",
+    "test:trade-wallet": "node --import tsx scripts/trade-wallet-verification-smoke.mjs",
     "test:trade-community": "node --import tsx scripts/trade-community-smoke.mjs",
     "test:trade-cache": "node --import tsx scripts/trade-cache-smoke.mjs",
     "android:add": "node scripts/android-build-config-check.mjs && npm run build && cap add android",

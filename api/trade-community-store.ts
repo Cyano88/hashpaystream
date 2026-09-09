@@ -1,3 +1,4 @@
+import type { TradeSettlementWallet } from "./trade-wallet-verification.js";
 import { randomUUID } from "node:crypto";
 import type pg from "pg";
 import {
@@ -13,12 +14,13 @@ import {
 import { validateTradeTerms } from "../src/lib/tradeAgreement.js";
 
 type Client = pg.PoolClient;
-// Server-only adapter: must verify both participant wallets and an approved deployment.
+// Server-only, read-only adapter: must verify an approved deployment.
+// It must never issue challenges or transactions; database deadlock retries can call it again.
 // No production adapter is installed; HTTP input never supplies these values.
 export type TradeFundingContext = (participants: {
   buyer: string;
   seller: string;
-}) => Promise<Omit<TradeBindingInput, "offer" | "now">>;
+}) => Promise<Omit<TradeBindingInput, "offer" | "now" | "buyer" | "seller">>;
 export function createTradeCommunityStore(
   pool: pg.Pool,
   fundingContext?: TradeFundingContext,
@@ -56,6 +58,10 @@ export function createTradeCommunityStore(
           created_at bigint not null, expires_at bigint not null, decided_at bigint);
         create unique index if not exists trade_one_accepted_item on hashpaystream_trade_offers(listing_id) where status='accepted';
         create index if not exists trade_offers_thread on hashpaystream_trade_offers(thread_id,created_at);
+        create table if not exists hashpaystream_trade_settlement_wallets (
+          offer_id uuid not null references hashpaystream_trade_offers(id), actor text not null,
+          wallet_id uuid not null, address text not null, chain_id integer not null check(chain_id=5042002),
+          verified_at bigint not null, primary key(offer_id,actor), unique(offer_id,address));
         create table if not exists hashpaystream_trade_funding_reservations (
           id uuid primary key, offer_id uuid not null unique references hashpaystream_trade_offers(id),
           listing_id uuid not null unique references hashpaystream_trade_listings(id),
@@ -68,7 +74,22 @@ export function createTradeCommunityStore(
     });
     await schema;
   }
-  async function transaction<T>(fn: (client: Client) => Promise<T>) {
+  async function transaction<T>(
+    fn: (client: Client) => Promise<T>,
+  ): Promise<T> {
+    // PostgreSQL guarantees deadlock victims are aborted. Retry only that explicit
+    // outcome, never connection loss or an ambiguous commit. Callbacks are DB-only
+    // or read-only verification; no provider payment submission belongs here.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await transactionAttempt(fn);
+      } catch (error) {
+        if ((error as { code?: string }).code !== "40P01" || attempt >= 2)
+          throw error;
+      }
+    }
+  }
+  async function transactionAttempt<T>(fn: (client: Client) => Promise<T>) {
     await ready();
     const client = await pool.connect();
     try {
@@ -141,6 +162,95 @@ export function createTradeCommunityStore(
         }
       : null;
   return {
+    async settlementWallet(
+      viewer: string,
+      threadId: string,
+      offerId: string,
+      verified?: TradeSettlementWallet,
+    ) {
+      return transaction(async (client) => {
+        const t = await thread(client, threadId, viewer);
+        await pairLock(client, t.buyer, t.seller);
+        const listing = (
+          await client.query(
+            "select * from hashpaystream_trade_listings where id=$1 for update",
+            [t.listing_id],
+          )
+        ).rows[0];
+        const offer = (
+          await client.query(
+            "select * from hashpaystream_trade_offers where id=$1 and thread_id=$2 for update",
+            [offerId, threadId],
+          )
+        ).rows[0];
+        if (!offer) fail("Offer not found.", 404);
+        const existing = (
+          await client.query(
+            "select * from hashpaystream_trade_settlement_wallets where offer_id=$1 and actor=$2",
+            [offerId, viewer],
+          )
+        ).rows[0];
+        const project = (r: any) =>
+          r
+            ? {
+                walletId: r.wallet_id,
+                address: r.address,
+                chainId: r.chain_id,
+                verifiedAt: Number(r.verified_at),
+              }
+            : null;
+        if (!verified) return project(existing);
+        if (existing) {
+          if (
+            existing.wallet_id !== verified.walletId ||
+            existing.address !== verified.address.toLowerCase() ||
+            existing.chain_id !== verified.chainId
+          )
+            fail(
+              "Settlement wallet is fixed for these terms. Create a new offer to change it.",
+              409,
+            );
+          return project(existing);
+        }
+        if (
+          offer.status !== "accepted" ||
+          listing.status !== "active" ||
+          listing.revision !== offer.listing_revision ||
+          (await blocks(client, t.buyer, t.seller)).blocked
+        )
+          fail("This agreement is unavailable for wallet selection.", 409);
+        if (
+          (
+            await client.query(
+              "select id from hashpaystream_trade_funding_reservations where offer_id=$1",
+              [offerId],
+            )
+          ).rowCount
+        )
+          fail("Checkout is already reserved.", 409);
+        if (
+          (
+            await client.query(
+              "select actor from hashpaystream_trade_settlement_wallets where offer_id=$1 and address=$2",
+              [offerId, verified.address.toLowerCase()],
+            )
+          ).rowCount
+        )
+          fail("Buyer and seller must select different wallets.", 409);
+        const result = await client.query(
+          "insert into hashpaystream_trade_settlement_wallets(offer_id,actor,wallet_id,address,chain_id,verified_at) values($1,$2,$3,$4,$5,$6) returning *",
+          [
+            offerId,
+            viewer,
+            verified.walletId,
+            verified.address.toLowerCase(),
+            verified.chainId,
+            Date.now(),
+          ],
+        );
+        return project(result.rows[0]);
+      });
+    },
     async fundingReservation(
       viewer: string,
       threadId: string,
@@ -185,14 +295,34 @@ export function createTradeCommunityStore(
           );
         if ((await blocks(client, t.buyer, t.seller)).blocked)
           fail("This agreement is unavailable between these accounts.", 403);
+        const wallets = (
+          await client.query(
+            "select * from hashpaystream_trade_settlement_wallets where offer_id=$1",
+            [offerId],
+          )
+        ).rows;
+        const buyerWallet = wallets.find((w) => w.actor === t.buyer),
+          sellerWallet = wallets.find((w) => w.actor === t.seller);
+        if (!buyerWallet || !sellerWallet)
+          fail(
+            "Both participants must select a verified settlement wallet.",
+            409,
+          );
         const context = await fundingContext({
           buyer: t.buyer,
           seller: t.seller,
         });
+        if (
+          context.chainId !== buyerWallet.chain_id ||
+          context.chainId !== sellerWallet.chain_id
+        )
+          fail("Settlement wallet network does not match the deployment.", 409);
         let binding;
         try {
           binding = prepareTradeEscrowBinding({
             ...context,
+            buyer: buyerWallet.address,
+            seller: sellerWallet.address,
             now: Math.floor(Date.now() / 1000),
             offer: {
               id: offer.id,
