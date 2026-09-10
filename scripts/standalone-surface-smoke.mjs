@@ -143,7 +143,7 @@ const upfrontReviewsApi = read('api/upfront-reviews.ts')
 const upfrontReviewPanel = read('src/components/admin/UpfrontReviewPanel.tsx')
 const payoutWallet = read('src/components/ProviderPayoutWallet.tsx')
 const appEntry = read('src/main.tsx')
-assert.match(appEntry, /supportedChains: \[upfrontXLayerChain, arcTestnet\]/)
+assert.match(appEntry, /supportedChains: .*VITE_HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED.*xLayerTestnet/)
 assert.match(upfrontPage, /ProviderPayoutWallet/)
 assert.doesNotMatch(upfrontPage, /placeholder="0x/)
 assert.match(payoutWallet, /walletCheckTimedOut/)
@@ -752,6 +752,7 @@ const browserSource = sourceFiles('src')
 assert.doesNotMatch(browserSource, /ArrowPathIcon[^\n]*animate-spin|animate-spin[^\n]*ArrowPathIcon/)
 for (const forbidden of [
   'PRIVY_APP_SECRET',
+  'HASHPAYSTREAM_STOCK_RISK_SIGNER_KEY',
   'HASHPAYSTREAM_ARC_API_KEY',
   'HASHPAYSTREAM_ARC_WEBHOOK_SECRET',
   'HASHPAYSTREAM_APP_OWNERSHIP_SECRET',
@@ -766,7 +767,7 @@ for (const forbidden of [
   assert.equal(browserSource.includes(forbidden), false, `Browser source contains forbidden server secret name: ${forbidden}`)
 }
 const viteNames = [...browserSource.matchAll(/VITE_[A-Z0-9_]+/g)].map(match => match[0])
-assert.deepEqual([...new Set(viteNames)].sort(), ['VITE_CIRCLE_USER_WALLET_APP_ID', 'VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET', 'VITE_HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED', 'VITE_HASHPAYSTREAM_SAVINGS_VAULT_ADDRESS', 'VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS', 'VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID', 'VITE_HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS', 'VITE_HASHPAYSTREAM_UPFRONT_ESCROW_VERSION', 'VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED', 'VITE_HASH_PAYLINK_BASE_URL', 'VITE_PRIVY_APP_ID'])
+assert.deepEqual([...new Set(viteNames)].sort(), ['VITE_CIRCLE_USER_WALLET_APP_ID', 'VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET', 'VITE_HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED', 'VITE_HASHPAYSTREAM_SAVINGS_VAULT_ADDRESS', 'VITE_HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED', 'VITE_HASHPAYSTREAM_STOCK_ESCROW_ADDRESS', 'VITE_HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS', 'VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID', 'VITE_HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS', 'VITE_HASHPAYSTREAM_UPFRONT_ESCROW_VERSION', 'VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED', 'VITE_HASH_PAYLINK_BASE_URL', 'VITE_PRIVY_APP_ID'])
 assert.doesNotMatch(browserSource, /from ['"]lucide-react['"]/)
 assert.match(browserSource, /from ['"]@heroicons\/react\/24\/outline['"]/)
 assert.doesNotMatch(browserSource, /hashpaylink\.com\/docs\/(terms|privacy)/)

@@ -64,3 +64,39 @@ Warnings accompany eligible assets; they do not override an asset restriction. A
 ## Exact next implementation step
 
 Build the authenticated same-chain earnings and quote adapter against the new escrow on a local/test network: verified employer funding/approval, funder inventory and signed offers, risk attestation generation, worker acceptance and confirmed event reconciliation. Wire its response into the existing FundingPartnerPicker stock prop and its publish action into the current funding desk. First pin the supported token metadata, pricing source, fee ceiling and risk policy; do not fabricate production defaults to make the UI appear live.
+
+
+## Authenticated adapter checkpoint (next local build)
+
+Implemented in the same isolated feature worktree after eba004d:
+
+- Authenticated API at /api/hashpaystream/v1/stock-early-pay. Privy access tokens are verified server-side; an email and exactly one embedded Ethereum wallet are required. Every actor must also belong to the explicit pilot participant list.
+- Employer registration verifies the on-chain funding wallet. Approval preparation is restricted to that employer; only the employer wallet can perform the actual contract approval. Worker requests bind the authenticated account to the on-chain worker and already approved, funded earnings.
+- Approved funder profiles bind the verified email ownership key and wallet to an on-chain funder allowlist. Preparation, publication and worker acceptance recheck current eligibility, available USDC, token inventory, fees and fresh pricing.
+- The server pins chain ID, deployed escrow runtime hash, USDC, asset decimals, fee ceiling and risk age. Risk signatures remain server-side and bind the exact offer hash and on-chain policy version. No production default asset, price source, volatility limit or fee ceiling is supplied.
+- Existing early-pay and funding routes select the new components only when the build flag is explicitly enabled. Funders can deposit and withdraw unused inventory, review exact token and USDC terms, sign/publish, and claim repayment. Workers select approved earnings, use the existing funder selector, explicitly consent and sign acceptance.
+- Browser acceptance recomputes and checks the exact displayed quote before simulating and sending. Pending submissions are stored by account, wallet, chain and escrow; uncertain submissions require verification before another acceptance. Recovery with an unknown transaction hash clears only after a confirmed claim exists.
+- Receipt reconciliation checks successful canonical confirmed transactions, escrow emitter, offer hash, participants and exact economics. Completed funding counts require both delivery and repayment receipts plus an explicit independent-participation review. Reorged evidence is excluded.
+
+Configuration:
+- Browser: VITE_HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED (default false), VITE_HASHPAYSTREAM_STOCK_ESCROW_ADDRESS.
+- Server: HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED (default false), HASHPAYSTREAM_STOCK_CONFIG (JSON), HASHPAYSTREAM_STOCK_RISK_SIGNER_KEY; existing Privy authentication, ownership secret and durable database configuration remain required.
+- JSON requires chainId, escrow, usdc, asset, assetSymbol, assetDecimals, rpcUrl, runtimeHash, riskUrl, maxFeeBps, maxRiskAge, quoteTtlSeconds, confirmations, participantIds and policy. The policy requires maxVolatilityBps, maxPriceAgeSeconds, maxQuoteDeviationBps and minExecutableLiquidityUsdcUnits. reviewedEarningsIds is optional and defaults to no credited history.
+- Only localhost chain 31337 in a non-production process or X Layer testnet 1952 with HTTPS endpoints is accepted. Mainnet 196 is explicitly rejected. Flags alone cannot enable a mainnet stock flow.
+
+Validation:
+- npm run test:stock-integration deploys synthetic contracts to a temporary loopback Hardhat node, generates ephemeral test accounts, and exercises the actual HTTP handler, RPC adapter, funder EIP-712 signature and server risk signature through on-chain acceptance and settlement.
+- Verified employer/worker/funder isolation; fee cap and volatility/trading gates; publication revalidation; exact stock delivery; fixed USDC reservation and repayment; receipt confirmations; unknown-hash recovery; duplicate receipt idempotency; reviewed completion counts; reorganisation invalidation; runtime-code pinning; and mainnet rejection.
+- The local scenario is 100 USDC principal, 1% fee, 2 synthetic TESTx tokens, and 101 USDC paid to the funder at maturity. Its 3% ceiling is a test fixture, not a product decision.
+- Stock policy, selector, worker checkout, funder quote-review interaction, and standalone route/browser-secret tests passed.
+- Node 22 TypeScript validation and the Vite production build passed; existing dependency annotation and bundle-size warnings remain.
+- No external-chain deployment, real-token transaction, production configuration change or push was performed.
+
+Remaining before supervised public testing:
+1. Finish employer-facing funding/approval onboarding and remaining-earnings withdrawal in the same minimal UI. This checkpoint exercises those contract operations through the local harness and provides authenticated employer registration/approval preparation, but does not yet expose a complete employer browser journey.
+2. Choose an actually supported test asset and reviewed risk adapter. The present interface consumes a configured trusted pricing/eligibility endpoint; it does not implement a real issuer or market-data provider. Per-participant issuer eligibility, jurisdiction rules and market-hours behaviour need verified integration before public participation.
+3. Rehearse real Privy sign-in, wallet switching and signing on the pinned X Layer test deployment. Local tests inject synthetic authenticated identities; they do not prove live Privy credentials or a deployed browser session.
+4. Add automatic settlement/event ingestion and complete failure recovery. Current reconciliation is invoked by the participant UI; missing receipt hashes and confirmed reverted worker submissions can require manual verification. Funder settlement is contract-idempotent but its browser does not yet persist an interrupted settlement hash.
+5. Review and harden the contract and signing operations before enabling real assets. Approved earnings are irrevocable; the pilot UI must explain this clearly before employer approval. Assets, fee ceiling, risk policy and operational controls remain unset for production.
+
+Next implementation: complete the employer browser journey and reconciliation/recovery gaps, then perform a pinned X Layer testnet rehearsal. Keep the stock flags disabled until that rehearsal has explicit configuration and passes.

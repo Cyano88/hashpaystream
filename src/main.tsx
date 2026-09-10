@@ -13,7 +13,7 @@ import App from './App'
 import { ThemeProvider } from './lib/ThemeContext'
 import { PocketTransfersProvider } from './lib/pocketTransfers'
 import { CircleWalletProvider } from './lib/circleWallet'
-import { arcTestnet, upfrontXLayerChain } from './lib/upfrontChains'
+import { arcTestnet, upfrontXLayerChain, xLayerTestnet } from './lib/upfrontChains'
 import { initializeNativeApp } from './lib/nativeApp'
 import { installNativeApiTransport } from './lib/nativeApiTransport'
 
@@ -48,7 +48,7 @@ function Providers() {
   }
   const config: PrivyClientConfig = {
     loginMethods: ['email'],
-    supportedChains: [upfrontXLayerChain, arcTestnet],
+    supportedChains: import.meta.env.VITE_HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED === 'true' && upfrontXLayerChain.id !== xLayerTestnet.id ? [upfrontXLayerChain, arcTestnet, xLayerTestnet] : [upfrontXLayerChain, arcTestnet],
     allowOAuthInEmbeddedBrowsers: true,
     embeddedWallets: {
       ethereum: { createOnLogin: 'off' },

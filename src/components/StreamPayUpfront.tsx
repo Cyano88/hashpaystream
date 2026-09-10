@@ -1,3 +1,5 @@
+import { stockEarlyPayEnabled } from '../lib/stockEarlyPayClient'
+import StockWorkerFunding from './StockWorkerFunding'
 import { useEffect, useState, type FormEvent } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowLeftIcon, BanknotesIcon, CheckBadgeIcon } from '@heroicons/react/24/outline'
@@ -49,7 +51,7 @@ function decimalUsdc(units?: string) {
   return `${padded.slice(0, -6)}.${padded.slice(-6)}`.replace(/0+$/, '').replace(/\.$/, '')
 }
 
-export default function StreamPayUpfront() {
+function LegacyStreamPayUpfront() {
   const { ready, authenticated, getAccessToken } = usePrivy()
   const { search } = useLocation()
   const requestedAgreementId = new URLSearchParams(search).get('agreementId') || ''
@@ -250,3 +252,5 @@ function AssessmentResult({ assessment, review, reviewing, onSubmitReview }: { a
 function Result({ label, value }: { label: string; value: string }) {
   return <div className="rounded-xl bg-gray-50 p-3 dark:bg-white/[0.04]"><p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">{label}</p><p className="mt-1 truncate text-xs font-semibold capitalize text-gray-950 dark:text-white">{value}</p></div>
 }
+
+export default function StreamPayUpfront(){ return stockEarlyPayEnabled ? <StockWorkerFunding/> : <LegacyStreamPayUpfront/> }
