@@ -79,7 +79,8 @@
     "test:savings-wallet-readiness": "node scripts/savings-wallet-readiness-smoke.mjs",
     "test:savings-plan-isolation": "node scripts/savings-plan-isolation-smoke.mjs",
     "test:savings-transaction": "node --import tsx scripts/savings-transaction-smoke.mjs",
-    "test:savings-recovery-ui": "node scripts/savings-recovery-ui-smoke.mjs"
+    "test:savings-recovery-ui": "node scripts/savings-recovery-ui-smoke.mjs",
+    "test:stock-offers": "node --import tsx scripts/stock-funding-offers-smoke.mjs && node --import tsx scripts/funding-offer-selector-smoke.mjs && node --import tsx scripts/stock-funding-checkout-smoke.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.5.1",
