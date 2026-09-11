@@ -59,10 +59,50 @@ export async function recoverStockPayment(api:StockApiCall,storage:Pick<Storage,
  const pending=JSON.parse(text) as PendingStockPayment
  if(!/^0x[a-fA-F0-9]{64}$/.test(pending.offerId))throw Error('Pending payment needs manual verification.')
  if(pending.txHash){
+  const status=await api<{status:string}>({action:'submission_status',offerId:pending.offerId,txHash:pending.txHash})
+  if(status.status==='reverted'){storage.removeItem(key);throw Error('The stock payment reverted. You can review another offer.')}
+  if(status.status!=='confirmed')throw Error('Wait for transaction confirmation.')
   await api({action:'receipt',offerId:pending.offerId,txHash:pending.txHash})
   storage.removeItem(key);return
  }
  const data=await api<{position:{funder:string}}>({action:'position',offerId:pending.offerId})
  if(!/^0x0{40}$/i.test(data.position.funder)) {storage.removeItem(key);return}
  throw Error('The wallet submission is not yet verified. Check wallet activity before trying again.')
+}
+
+export async function settleStockPayment(input:{
+ api:StockApiCall;wallet:StockBrowserWallet;config:StockClientConfig;expectedEscrow:string;
+ offerId:Hex;storage:Pick<Storage,'getItem'|'setItem'|'removeItem'>;storageKey:string
+}) {
+ const {api,storage,storageKey,offerId,config}=input
+ const raw=storage.getItem(storageKey)
+ if(raw){
+  const pending=JSON.parse(raw) as {offerId:Hex;txHash?:Hex}
+  if(pending.offerId!==offerId)throw Error('Check the earlier repayment before continuing.')
+  if(pending.txHash){
+   const status=await api<{status:string}>({action:'submission_status',offerId,txHash:pending.txHash})
+   if(status.status==='reverted'){storage.removeItem(storageKey);throw Error('Repayment transaction reverted. You can retry.')}
+   if(status.status!=='confirmed')throw Error('Wait for repayment confirmation.')
+   await api({action:'receipt',offerId,txHash:pending.txHash})
+   storage.removeItem(storageKey);return
+  }
+  const result=await api<{position:{settled:boolean}}>({action:'position',offerId})
+  if(!result.position.settled)throw Error('Repayment submission is not verified. Check wallet activity before trying again.')
+  storage.removeItem(storageKey);return
+ }
+ const {position}=await api<{position:{settled:boolean}}>({action:'position',offerId})
+ if(position.settled)return
+ const {publicClient,walletClient,account}=await stockWalletClients(input.wallet,config,input.expectedEscrow)
+ const simulated=await publicClient.simulateContract({account,address:config.escrow,abi:STOCK_ESCROW_ABI,functionName:'settle',args:[offerId]})
+ storage.setItem(storageKey,JSON.stringify({offerId}))
+ try{
+  const txHash=await walletClient.writeContract(simulated.request)
+  storage.setItem(storageKey,JSON.stringify({offerId,txHash}))
+  await publicClient.waitForTransactionReceipt({hash:txHash,confirmations:config.confirmations,timeout:60_000})
+  await settleStockPayment(input)
+ }catch(error){
+  let e:unknown=error
+  for(let i=0;i<8&&e&&typeof e==='object';i++){if((e as {code?:number}).code===4001){storage.removeItem(storageKey);break}e=(e as {cause?:unknown}).cause}
+  throw error
+ }
 }

@@ -49,8 +49,8 @@ export async function createStockChain(c: StockConfig) {
  return {
   client,now,blockNumber:block.number,version,paused,
   assertOpen() { if (paused || !assetAllowed || getAddress(signer)!==c.riskSigner) fail('New stock payments are currently unavailable.') },
-  async earnings(id:Hex) {
-   const e=await client.readContract({...common,functionName:'earnings',args:[id]})
+  async earnings(id:Hex,confirmed=false) {
+   const e=await client.readContract({...common,blockNumber:confirmed?(block.number>=BigInt(c.confirmations-1)?block.number-BigInt(c.confirmations-1):0n):block.number,functionName:'earnings',args:[id]})
    if (/^0x0{40}$/i.test(e[0])) fail('Funded earnings were not found.',404)
    return {id,employer:getAddress(e[0]),worker:getAddress(e[1]),available:e[2].toString(),payAt:e[3],approved:e[4]}
   },
@@ -73,6 +73,13 @@ export async function createStockChain(c: StockConfig) {
    if (risk.validUntil<=now) fail('Risk approval expired.')
    const signature=await privateKeyToAccount(c.riskKey).signTypedData({domain,types:STOCK_RISK_TYPES,primaryType:'RiskApproval',message:{...risk,policyVersion:version}})
    return {risk,riskSignature:signature}
+  },
+  async checkedTransaction(txHash:Hex,sender:Address,data?:Hex) {
+   const [transaction,receipt]=await Promise.all([client.getTransaction({hash:txHash}),client.getTransactionReceipt({hash:txHash})])
+   if(receipt.blockNumber>block.number||block.number-receipt.blockNumber+1n<BigInt(c.confirmations))fail('Wait for transaction confirmation.')
+   if((await client.getBlock({blockNumber:receipt.blockNumber})).hash!==receipt.blockHash)fail('Transaction is not on the canonical chain.')
+   if(getAddress(transaction.from)!==getAddress(sender)||!transaction.to||getAddress(transaction.to)!==c.escrow||(data&&transaction.input.toLowerCase()!==data.toLowerCase()))fail('Transaction does not match this wallet action.',403)
+   return {transaction,receipt}
   },
   async canonical(proof:StockReceiptProof) {
    const number=BigInt(proof.blockNumber)

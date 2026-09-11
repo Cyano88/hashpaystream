@@ -1,3 +1,4 @@
+import { performStockEarnings, recoverStockEarnings, stockEarningsPendingKey } from '../src/lib/stockEarningsClient.ts'
 import assert from 'node:assert/strict'
 import {spawn} from 'node:child_process'
 import {readFileSync} from 'node:fs'
@@ -10,7 +11,7 @@ import {createStockEarlyPayHandler} from '../api/stock-early-pay.ts'
 import {readStockConfig,publicStockConfig} from '../api/stock-early-pay-config.ts'
 import {fundingPartnerAccountKey} from '../api/funding-partners.ts'
 import {STOCK_ESCROW_ABI,STOCK_OFFER_TYPES,stockDomain,stockOfferMessage} from '../src/lib/stockEarlyPayProtocol.ts'
-import {validateStockAcceptance,recoverStockPayment} from '../src/lib/stockEarlyPayClient.ts'
+import {validateStockAcceptance,recoverStockPayment,settleStockPayment} from '../src/lib/stockEarlyPayClient.ts'
 
 // Synthetic accounts, synthetic tokens, loopback RPC only. Never load deployment credentials.
 const port=18547, rpcUrl='http://127.0.0.1:'+port
@@ -80,8 +81,46 @@ try{
  await api('outsider',{action:'register_earnings',earningsId}, {},403)
  await api('employer',{action:'register_earnings',earningsId,title:'Synthetic earned pay'}, {},201)
  await api('worker',{action:'request_stock',earningsId,principal:'100000000'}, {},409)
- await api('employer',{action:'approval',earningsId})
+
+ await mine()
+ await api('worker',{action:'earnings_action',operation:'approveEarnings',earningsId,acceptedIrrevocable:true},{},404)
+ await api('employer',{action:'earnings_action',operation:'approveEarnings',earningsId},{},400)
+ const approval=await api('employer',{action:'earnings_action',operation:'approveEarnings',earningsId,acceptedIrrevocable:true})
+ assert.ok(approval.data.startsWith('0x'))
+
  await send(accounts.employer,escrow,STOCK_ESCROW_ABI,'approveEarnings',[earningsId])
+
+ // Exercise the actual browser client against a synthetic unlocked local account.
+ await client.request({method:'hardhat_impersonateAccount',params:[accounts.employer.address]})
+ const browserWallet={address:accounts.employer.address,switchChain:async id=>assert.equal(id,31337),getEthereumProvider:async()=>({
+  request:async({method,params})=>{const result=await client.request({method,params});if(method==='eth_sendTransaction')await mine();return result}
+ })}
+ const records=new Map(),storage={getItem:k=>records.get(k)??null,setItem:(k,v)=>records.set(k,v),removeItem:k=>records.delete(k)}
+ const employerApi=body=>api('employer',body)
+ const key=stockEarningsPendingKey('employer',config,accounts.employer.address)
+ const draftInput={action:'prepare_funding',salt:'0x'+randomBytes(32).toString('hex'),worker:accounts.worker.address,amount:'50000000',payAt,title:'Second synthetic earnings'}
+ const {draft}=await api('employer',draftInput,{},201)
+ assert.equal((await api('employer',draftInput,{},201)).draft.id,draft.id,'duplicate preparation resumes one draft')
+ await api('employer',{...draftInput,amount:'49000000'},{},409)
+ assert.equal((await api('outsider',undefined,{view:'employer'})).drafts.length,0)
+ await api('outsider',{action:'earnings_action',operation:'fundEarnings',earningsId:draft.id},{},404)
+ await send(admin,usdc,tokenArtifact.abi,'mint',[accounts.employer.address,50000000n])
+ const operation={api:employerApi,wallet:browserWallet,config,expectedEscrow:escrow,operation:'fundEarnings',earningsId:draft.id,draft,storage,storageKey:key}
+ await performStockEarnings(operation)
+ assert.equal(records.size,0)
+ const employerView=await api('employer',undefined,{view:'employer'})
+ const funded=employerView.earnings.find(e=>e.id===draft.id)
+ assert.equal(funded.available,'50000000');assert.equal(funded.approved,false)
+ await api('employer',{action:'earnings_action',operation:'approveEarnings',earningsId:draft.id},{},400)
+ await api('worker',{action:'earnings_action',operation:'approveEarnings',earningsId:draft.id,acceptedIrrevocable:true},{},404)
+ await assert.rejects(()=>performStockEarnings({...operation,operation:'approveEarnings',earnings:funded,acceptedIrrevocable:false}))
+ // Unknown hash recovery relies on confirmed state, and never sends again.
+ records.set(key,JSON.stringify({operation:'fundEarnings',earningsId:draft.id}))
+ await recoverStockEarnings(employerApi,storage,key);assert.equal(records.size,0)
+ await performStockEarnings({...operation,operation:'cancelUnapprovedEarnings',earnings:funded})
+ assert.equal((await api('employer',undefined,{view:'employer'})).earnings.find(e=>e.id===draft.id).available,'0')
+ assert.equal(await client.readContract({address:usdc,abi:tokenArtifact.abi,functionName:'balanceOf',args:[accounts.employer.address]}),50000000n)
+
  const {request}=await api('worker',{action:'request_stock',earningsId,principal:'100000000'}, {},201)
  await api('outsider',undefined,{view:'offers',requestId:request.id},404)
  await api('funder',{action:'prepare_offer',requestId:request.id,feeBps:301},{},400)
@@ -114,13 +153,38 @@ try{
  assert.equal(await client.readContract({address:asset,abi:tokenArtifact.abi,functionName:'balanceOf',args:[accounts.worker.address]}),2000000n)
  await api('worker',{action:'acceptance',offerId:prepared.offerId,acceptedRisk:true},{},409)
  await api('outsider',{action:'receipt',offerId:prepared.offerId,txHash:tx},{},404)
+
+ // A confirmed revert may clear recovery; an unrelated transaction must not.
+ await client.request({method:'evm_setAutomine',params:[false]})
+ let revertedHash
+ try{
+  revertedHash=await wallet(accounts.worker).writeContract({address:escrow,abi:STOCK_ESCROW_ABI,functionName:'acceptOffer',args:[stockOfferMessage(accepted.offer),accepted.funderSignature,{...accepted.risk,policyVersion:BigInt(accepted.risk.policyVersion)},accepted.riskSignature],gas:1000000n})
+  await mine();await mine()
+ }finally{await client.request({method:'evm_setAutomine',params:[true]})}
+ assert.equal((await api('worker',{action:'submission_status',offerId:prepared.offerId,txHash:revertedHash})).status,'reverted')
+ const failed=new Map([['pending',JSON.stringify({offerId:prepared.offerId,txHash:revertedHash,stage:'submitted'})]])
+ await assert.rejects(()=>recoverStockPayment(body=>api('worker',body),{getItem:k=>failed.get(k),removeItem:k=>failed.delete(k)},'pending'),/reverted/)
+ assert.equal(failed.size,0)
+ await api('funder',{action:'submission_status',offerId:prepared.offerId,txHash:revertedHash},{},403)
+
  const memory=new Map([['pending',JSON.stringify({offerId:prepared.offerId,stage:'submitting'})]])
  await recoverStockPayment(body=>api('worker',body),{getItem:k=>memory.get(k),removeItem:k=>memory.delete(k)},'pending')
  assert.equal(memory.has('pending'),false)
  await client.request({method:'evm_setNextBlockTimestamp',params:[payAt]});await mine()
- const repaid=await send(accounts.outsider,escrow,STOCK_ESCROW_ABI,'settle',[prepared.offerId]);await mine()
+
+ const due=(await api('employer',undefined,{view:'employer'})).earnings.find(e=>e.id===earningsId)
+ await performStockEarnings({api:employerApi,wallet:browserWallet,config,expectedEscrow:escrow,operation:'releaseEarnings',earningsId,earnings:due,storage,storageKey:key})
+ assert.equal(await client.readContract({address:usdc,abi:tokenArtifact.abi,functionName:'balanceOf',args:[accounts.worker.address]}),399000000n)
+
+ const repaid=await send(accounts.funder,escrow,STOCK_ESCROW_ABI,'settle',[prepared.offerId]);await mine()
  await api('funder',{action:'receipt',offerId:prepared.offerId,txHash:repaid})
  await api('funder',{action:'receipt',offerId:prepared.offerId,txHash:repaid})
+
+ const settlementStorage=new Map([['settlement',JSON.stringify({offerId:prepared.offerId,txHash:repaid})]])
+ await settleStockPayment({api:body=>api('funder',body),wallet:{address:accounts.funder.address,switchChain:async()=>{throw Error('Recovery must not switch or broadcast')}},
+  config,expectedEscrow:escrow,offerId:prepared.offerId,storage:{getItem:k=>settlementStorage.get(k),setItem:(k,v)=>settlementStorage.set(k,v),removeItem:k=>settlementStorage.delete(k)},storageKey:'settlement'})
+ assert.equal(settlementStorage.size,0)
+
  const unreviewed=await api('worker',undefined,{view:'offers',requestId:request.id});assert.deepEqual(unreviewed.verifiedCompletedFundingCounts,{})
  raw.reviewedEarningsIds=[earningsId];env.HASHPAYSTREAM_STOCK_CONFIG=JSON.stringify(raw)
  const reviewed=await api('worker',undefined,{view:'offers',requestId:request.id});assert.equal(reviewed.verifiedCompletedFundingCounts['profile-funder'],1)

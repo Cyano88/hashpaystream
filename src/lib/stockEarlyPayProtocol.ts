@@ -1,5 +1,8 @@
-import { parseAbi, type Address, type Hex } from 'viem'
+import { encodeAbiParameters, keccak256, parseAbi, type Address, type Hex } from 'viem'
 export const STOCK_PROTOCOL_VERSION = 1
+export function stockEarningsId(employer:Address,salt:Hex) { return keccak256(encodeAbiParameters([{type:'address'},{type:'bytes32'}],[employer,salt])) }
+export type StockFundingDraft = { id:Hex; salt:Hex; employer:Address; worker:Address; amount:string; payAt:number; title:string; employerId:string }
+export type StockEarningsAction = 'fundEarnings'|'approveEarnings'|'cancelUnapprovedEarnings'|'releaseEarnings'
 export const STOCK_OFFER_TYPES = { StockOffer: [
   { name: 'earningsId', type: 'bytes32' }, { name: 'funder', type: 'address' }, { name: 'asset', type: 'address' },
   { name: 'tokenAmount', type: 'uint256' }, { name: 'principal', type: 'uint256' }, { name: 'feeBps', type: 'uint16' },
@@ -30,6 +33,7 @@ export const STOCK_ESCROW_ABI = parseAbi([
  'function usedOffers(bytes32) view returns (bool)',
  'function fundEarnings(bytes32 salt,address worker,uint256 amount,uint48 payAt) returns (bytes32)',
  'function approveEarnings(bytes32 id)',
+ 'function cancelUnapprovedEarnings(bytes32 id)',
  'function depositStock(address asset,uint256 amount)',
  'function withdrawStock(address asset,uint256 amount)',
  'function cancelOffer(Offer offer)',

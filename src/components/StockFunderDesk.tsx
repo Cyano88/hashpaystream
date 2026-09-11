@@ -3,7 +3,7 @@ import { usePrivy } from '@privy-io/react-auth'
 import { formatUnits, parseUnits, getAddress, type Hex } from 'viem'
 import StockFunderOfferTerms from './StockFunderOfferTerms'
 import { useStockPaymentSession, EXPECTED_STOCK_ESCROW } from '../lib/useStockPaymentSession'
-import { stockWalletClients } from '../lib/stockEarlyPayClient'
+import { stockWalletClients, settleStockPayment } from '../lib/stockEarlyPayClient'
 import { STOCK_ESCROW_ABI, STOCK_TOKEN_ABI, STOCK_OFFER_TYPES, stockDomain, stockOfferMessage, type StockClientConfig, type StockOfferWire } from '../lib/stockEarlyPayProtocol'
 type Prepared={config:StockClientConfig;offerId:Hex;offer:StockOfferWire}
 type Desk={config:StockClientConfig;paused:boolean;inventory:string;requests:Array<{id:string;title:string;principal:string;payAt:number}>;offers:Array<{id:Hex;requestId:string;offer:StockOfferWire;published:boolean}>}
@@ -60,13 +60,10 @@ function FunderContent(){
  }
  async function settle(id:Hex){
   if(!data)return
-  const {position}=await api<{position:{settled:boolean;payAt:number}}>({action:'position',offerId:id})
-  if(position.settled){setMessage('This repayment is already recorded.');return}
-  const {walletClient,publicClient,account}=await stockWalletClients(wallet(),data.config,EXPECTED_STOCK_ESCROW)
-  const simulation=await publicClient.simulateContract({account,address:data.config.escrow,abi:STOCK_ESCROW_ABI,functionName:'settle',args:[id]})
-  const txHash=await walletClient.writeContract(simulation.request)
-  await publicClient.waitForTransactionReceipt({hash:txHash,confirmations:data.config.confirmations,timeout:60_000})
-  await api({action:'receipt',offerId:id,txHash});setMessage('Repayment confirmed.')
+  const w=wallet()
+  await settleStockPayment({api,wallet:w,config:data.config,expectedEscrow:EXPECTED_STOCK_ESCROW,offerId:id,storage:localStorage,
+   storageKey:'hashpaystream:stock-settlement:'+userId+':'+data.config.chainId+':'+data.config.escrow.toLowerCase()+':'+w.address.toLowerCase()+':'+id})
+  setMessage('Repayment confirmed on chain.')
  }
  return <section className="stream-screen w-full max-w-md space-y-4 py-5 sm:py-8"><h1 className="text-xl font-black">Funding</h1><p className="text-[11px] text-gray-500">Stock-payment test pilot</p>
  {data&&<><div className="stream-card space-y-3 p-4"><p className="text-xs">Available: {formatUnits(BigInt(data.inventory),data.config.assetDecimals)} {data.config.assetSymbol}</p><input aria-label="Stock token amount" inputMode="decimal" value={deposit} onChange={e=>setDeposit(e.target.value)} className="w-full rounded-xl border p-3 text-xs dark:bg-zinc-900"/><button type="button" disabled={busy} onClick={()=>void run(()=>inventory())} className="text-xs font-bold">Deposit / check pending deposit</button><button type="button" disabled={busy} onClick={()=>void run(()=>inventory('withdrawStock'))} className="ml-3 text-xs font-bold">Withdraw / check withdrawal</button></div>

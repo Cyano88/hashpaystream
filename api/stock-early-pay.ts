@@ -1,19 +1,19 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
-import { getAddress, isAddress, hashTypedData, type Address, type Hex } from 'viem'
+import { getAddress, isAddress, hashTypedData, encodeFunctionData, decodeFunctionData, type Address, type Hex } from 'viem'
 import { readDurableJson, mutateDurableJson, hasRenderDurableStore } from './durable-store.js'
 import { fundingPartnerAccountKey, type FundingPartnerStore } from './funding-partners.js'
 import { readStockConfig, publicStockConfig, stockFailure as fail, type StockConfig } from './stock-early-pay-config.js'
 import { createStockChain, readStockMarket, stockMarketEvidence, type StockChain, type StockMarketSnapshot, type StockReceiptProof } from './stock-early-pay-chain.js'
-import { STOCK_OFFER_TYPES, stockDomain, stockOfferMessage, type StockOfferWire } from '../src/lib/stockEarlyPayProtocol.js'
+import { STOCK_ESCROW_ABI, stockEarningsId, type StockFundingDraft, type StockEarningsAction, STOCK_OFFER_TYPES, stockDomain, stockOfferMessage, type StockOfferWire } from '../src/lib/stockEarlyPayProtocol.js'
 import { stockOfferUnavailableReason, stockFeeUnits, rankFundingOffers, type StockOffer, type StockEligibilityContext } from '../src/lib/stockFundingOffers.js'
 
 export type StockIdentity = { userId:string; wallet:Address; emails:string[] }
 type RegisteredEarnings = { id:Hex; employerId:string; title:string }
 type StockRequest = { id:string; earningsId:Hex; workerId:string; principal:string }
 type StoredOffer = { id:Hex; requestId:string; funderId:string; funderUserId:string; funderName:string; offer:StockOfferWire; signature?:Hex; delivery?:StockReceiptProof; repayment?:StockReceiptProof }
-export type StockStore = { schema:1; earnings:Record<string,RegisteredEarnings>; requests:Record<string,StockRequest>; offers:Record<string,StoredOffer> }
+export type StockStore = { schema:1; fundingDrafts?:Record<string,StockFundingDraft>; earnings:Record<string,RegisteredEarnings>; requests:Record<string,StockRequest>; offers:Record<string,StoredOffer> }
 export type StockDependencies = {
  env:()=>NodeJS.ProcessEnv; identity:(req:Request,env:NodeJS.ProcessEnv)=>Promise<StockIdentity>;
  hasStore:()=>boolean; read:(key:string)=>Promise<StockStore|undefined>;
@@ -99,6 +99,77 @@ export function createStockEarlyPayHandler(overrides:Partial<StockDependencies>=
     if(await chain.used(record.id))fail('This offer is no longer available.')
     return context
    }
+
+   if(req.method==='POST'&&action==='prepare_funding'){
+    chain.assertOpen()
+    const salt=hex(body.salt),principal=amount(body.amount)
+    if(typeof body.worker!=='string'||!isAddress(body.worker)||/^0x0{40}$/i.test(body.worker))fail('Enter the worker wallet address.',400)
+    const worker=getAddress(body.worker),payAt=Number(body.payAt)
+    if(same(worker,actor.wallet)||same(worker,c.escrow)||!Number.isSafeInteger(payAt)||payAt<=chain.now||payAt>=2**48)fail('Choose a different worker and a future payment date.',400)
+    const title=String(body.title??'').trim().replace(/\s+/g,' ').slice(0,120)
+    if(!title)fail('Enter a title for these earnings.',400)
+    const id=stockEarningsId(actor.wallet,salt)
+    const draft:StockFundingDraft={id,salt,employer:actor.wallet,employerId:actor.userId,worker,amount:principal.toString(),payAt,title}
+    await d.mutate(key,value=>{
+     const next=empty(value);next.fundingDrafts??={}
+     const prior=next.fundingDrafts[id]
+     if(prior&&JSON.stringify(prior)!==JSON.stringify(draft))fail('This funding reference already has different terms.')
+     if(!prior&&Object.keys(next.fundingDrafts).length>=500)fail('The pilot funding limit has been reached.')
+     next.fundingDrafts[id]=draft;return next
+    })
+    return res.status(201).json({ok:true,config:publicStockConfig(c),draft})
+   }
+   if(req.method==='GET'&&action==='employer'){
+    const earnings:Array<Awaited<ReturnType<StockChain['earnings']>>&{title:string}>=[]
+    for(const item of Object.values(store.earnings).filter(e=>e.employerId===actor.userId)){
+     try{const current=await chain.earnings(item.id,true);if(same(current.employer,actor.wallet))earnings.push({...current,title:item.title})}
+     catch(error){if((error as {status?:number}).status!==404)throw error}
+    }
+    const drafts=Object.values(store.fundingDrafts??{}).filter(e=>e.employerId===actor.userId&&same(e.employer,actor.wallet)&&!earnings.some(item=>item.id===e.id))
+    return res.json({ok:true,config:publicStockConfig(c),paused:chain.paused,now:chain.now,earnings,drafts})
+   }
+   if(req.method==='POST'&&(action==='earnings_action'||action==='earnings_status')){
+    const id=hex(body.earningsId),operation=String(body.operation) as StockEarningsAction
+    if(!['fundEarnings','approveEarnings','cancelUnapprovedEarnings','releaseEarnings'].includes(operation))fail('Invalid earnings action.',400)
+    const draft=store.fundingDrafts?.[id],registered=store.earnings[id]
+    let e:Awaited<ReturnType<StockChain['earnings']>>|undefined
+    if(operation==='fundEarnings'){
+     if(!draft||draft.employerId!==actor.userId||!same(draft.employer,actor.wallet))fail('Funding draft was not found.',404)
+     try{e=await chain.earnings(id,true)}catch(error){if((error as {status?:number}).status!==404)throw error}
+     if(e&&(!same(e.employer,draft.employer)||!same(e.worker,draft.worker)||e.payAt!==draft.payAt))fail('Funded earnings do not match the draft.')
+    }else{
+     if(!registered)fail('Earnings were not found.',404)
+     e=await chain.earnings(id,true)
+     const employer=registered.employerId===actor.userId&&same(e.employer,actor.wallet)
+     if(!employer&&!(operation==='releaseEarnings'&&same(e.worker,actor.wallet)))fail('Earnings were not found.',404)
+    }
+    const data=operation==='fundEarnings'
+     ?encodeFunctionData({abi:STOCK_ESCROW_ABI,functionName:'fundEarnings',args:[draft!.salt,draft!.worker,BigInt(draft!.amount),draft!.payAt]})
+     :encodeFunctionData({abi:STOCK_ESCROW_ABI,functionName:operation,args:[id]})
+    if(action==='earnings_status'){
+     if(body.txHash){
+      const checked=await chain.checkedTransaction(hex(body.txHash),actor.wallet,data)
+      if(checked.receipt.status==='reverted')return res.json({ok:true,status:'reverted'})
+     }
+     const complete=operation==='fundEarnings'?Boolean(e):operation==='approveEarnings'?e!.approved:operation==='cancelUnapprovedEarnings'?!e!.approved&&BigInt(e!.available)===0n:e!.approved&&BigInt(e!.available)===0n
+     if(!complete)return res.json({ok:true,status:'pending'})
+     if(operation==='fundEarnings'){
+      await d.mutate(key,value=>{const next=empty(value);if(next.earnings[id]&&next.earnings[id].employerId!==actor.userId)fail('Earnings ownership mismatch.');next.earnings[id]={id,employerId:actor.userId,title:draft!.title};return next})
+     }
+     return res.json({ok:true,status:'confirmed',earnings:e})
+    }
+    if(operation==='fundEarnings'){
+     chain.assertOpen();if(e||draft!.payAt<=chain.now)fail('This funding draft is already funded or expired.')
+    }else if(operation==='approveEarnings'){
+     chain.assertOpen()
+     if(body.acceptedIrrevocable!==true)fail('Confirm that approval permanently assigns these earnings to the worker.',400)
+     if(e!.approved||BigInt(e!.available)===0n||e!.payAt<=chain.now)fail('These earnings cannot be approved.')
+    }else if(operation==='cancelUnapprovedEarnings'){
+     if(e!.approved||BigInt(e!.available)===0n)fail('Only unapproved funds can be returned.')
+    }else if(!e!.approved||e!.payAt>chain.now||BigInt(e!.available)===0n)fail('No remaining earnings are due yet.')
+    return res.json({ok:true,config:publicStockConfig(c),earnings:e,draft,data})
+   }
+
    if(req.method==='GET'&&action==='config')return res.json({ok:true,config:publicStockConfig(c),paused:chain.paused})
    if(req.method==='GET'&&action==='worker'){
     const earnings=[]
@@ -220,13 +291,22 @@ export function createStockEarlyPayHandler(overrides:Partial<StockDependencies>=
     const risk=await chain.signRisk(id,context.evidence!,record.offer.expiresAt)
     return res.json({ok:true,config:publicStockConfig(c),offerId:id,offer:record.offer,funderSignature:record.signature,...risk})
    }
-   if(req.method==='POST'&&(action==='receipt'||action==='position')){
+   if(req.method==='POST'&&(action==='receipt'||action==='position'||action==='submission_status')){
     const id=hex(body.offerId),record=store.offers[id]
     if(!record)fail('Stock payment was not found.',404)
     const request=store.requests[record.requestId],e=await chain.earnings(record.offer.earningsId)
     const worker=request?.workerId===actor.userId&&same(e.worker,actor.wallet)
     const funder=record.funderUserId===actor.userId&&same(record.offer.funder,actor.wallet)
     if(!worker&&!funder)fail('Stock payment was not found.',404)
+    if(action==='submission_status'){
+     const checked=await chain.checkedTransaction(hex(body.txHash),actor.wallet)
+     const call=decodeFunctionData({abi:STOCK_ESCROW_ABI,data:checked.transaction.input})
+     const matches=call.functionName==='acceptOffer'&&worker
+      ?hashTypedData({domain:stockDomain(c.chainId,c.escrow),types:STOCK_OFFER_TYPES,primaryType:'StockOffer',message:call.args[0]})===id
+      :call.functionName==='settle'&&funder&&call.args[0]===id
+     if(!matches)fail('Transaction does not match this stock payment.',403)
+     return res.json({ok:true,status:checked.receipt.status==='reverted'?'reverted':'confirmed'})
+    }
     if(action==='position')return res.json({ok:true,config:publicStockConfig(c),position:await chain.claim(id,true)})
     const result=await chain.receipt(hex(body.txHash),id),event=result.event
     const repayment=BigInt(record.offer.principal)+stockFeeUnits(BigInt(record.offer.principal),record.offer.feeBps,c.maxFeeBps)

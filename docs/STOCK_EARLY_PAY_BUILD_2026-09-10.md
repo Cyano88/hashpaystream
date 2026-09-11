@@ -100,3 +100,28 @@ Remaining before supervised public testing:
 5. Review and harden the contract and signing operations before enabling real assets. Approved earnings are irrevocable; the pilot UI must explain this clearly before employer approval. Assets, fee ceiling, risk policy and operational controls remain unset for production.
 
 Next implementation: complete the employer browser journey and reconciliation/recovery gaps, then perform a pinned X Layer testnet rehearsal. Keep the stock flags disabled until that rehearsal has explicit configuration and passes.
+
+
+## Employer lifecycle checkpoint — 2026-09-11
+
+Resumed from clean commit 8aefc44 in the isolated stock-early-pay worktree.
+
+- Added a compact "Fund worker earnings" section inside the stock early-pay screen. Employer input is saved as a durable draft before wallet activity; repeated preparation with the same reference is idempotent and changed terms are rejected.
+- Funding review shows the worker wallet, exact USDC amount and payment date. Funding, irrevocable approval and return of unapproved funds are separate actions. Approval requires an explicit acknowledgement bound to the displayed worker, amount and date.
+- Employer actions and worker collection of remaining earnings validate the displayed terms, pinned network/escrow/USDC, exact transaction data and on-chain simulation before sending. USDC approval is limited to the funding amount.
+- Added authenticated employer listing, action preparation and confirmed status recovery. Drafts and earnings are scoped to the authenticated employer and wallet; other users cannot approve or cancel them. Remaining-earnings payout is available only for approved due earnings and always pays the contract's worker.
+- Browser pending actions survive reload under account/wallet/network/escrow keys. Known hashes are checked against confirmed canonical receipts, sender, escrow and exact call data. Unknown-hash recovery uses confirmed earnings state and does not automatically broadcast.
+- Confirmed reverted worker acceptance can now clear its pending marker after matching the wallet and offer. Unconfirmed or unrelated transactions cannot clear it. Funder settlement hashes are persisted and can be reconciled after interruption without another broadcast.
+- No contract source changes, external-chain transactions, live configuration changes, deployment or push.
+
+Validation:
+- Node 22 TypeScript and Vite production build passed. Existing dependency and bundle-size warnings remain.
+- Extended HTTP/RPC integration test passed using synthetic local accounts and tokens. It exercises the real employer browser transaction client for funding, cancellation and worker payout, plus approval consent/ownership, durable draft idempotency, confirmed revert recovery and settlement recovery without rebroadcast.
+- Employer UI tests passed for review without payment, irrevocable approval consent, changed-amount consent invalidation and duplicate-click protection.
+- Existing stock policy, selector, worker checkout, funder review and standalone/browser-secret regression checks passed.
+- Playwright mobile review at 390 x 844 verified the employer layout and disabled-until-consent approval. Local fixture only; screenshot output/playwright/stock-employer-mobile.png. Preview's missing favicon was unrelated to app behavior.
+
+Remaining:
+- Automatic settlement scheduling and event ingestion are still not implemented for this escrow. Missing transaction hashes can recover confirmed state, but complete historical receipt discovery still needs an event indexer.
+- Choose and verify the test asset, live risk/issuer eligibility adapter and risk policy, then deploy a pinned X Layer testnet candidate and rehearse real Privy authentication/signing.
+- Keep all stock enable flags false by default. Public or real-asset readiness is not established by these local tests.

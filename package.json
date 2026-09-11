@@ -81,7 +81,8 @@
     "test:savings-transaction": "node --import tsx scripts/savings-transaction-smoke.mjs",
     "test:savings-recovery-ui": "node scripts/savings-recovery-ui-smoke.mjs",
     "test:stock-offers": "node --import tsx scripts/stock-funding-offers-smoke.mjs && node --import tsx scripts/funding-offer-selector-smoke.mjs && node --import tsx scripts/stock-funding-checkout-smoke.mjs && node --import tsx scripts/stock-funder-desk-smoke.mjs",
-    "test:stock-integration": "node --import tsx scripts/stock-early-pay-integration.mjs"
+    "test:stock-integration": "node --import tsx scripts/stock-early-pay-integration.mjs",
+    "test:stock-employer": "node --import tsx scripts/stock-employer-smoke.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.5.1",
