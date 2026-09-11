@@ -125,3 +125,28 @@ Remaining:
 - Automatic settlement scheduling and event ingestion are still not implemented for this escrow. Missing transaction hashes can recover confirmed state, but complete historical receipt discovery still needs an event indexer.
 - Choose and verify the test asset, live risk/issuer eligibility adapter and risk policy, then deploy a pinned X Layer testnet candidate and rehearse real Privy authentication/signing.
 - Keep all stock enable flags false by default. Public or real-asset readiness is not established by these local tests.
+
+
+## Receipt reconciliation checkpoint — 2026-09-12
+
+Resumed from clean commit b56b9ba.
+
+- Delivery and repayment receipts are now discovered automatically on authorised worker offer/status reads and funder desk refresh. No browser transaction hash is required for discovery.
+- The same economic validator checks manually submitted and discovered receipts: escrow event, offer reference, worker/funder, token quantity, USDC principal/fee and repayment date.
+- Each pass scans at most 500 confirmed blocks and verifies at most 128 relevant events. An oversized event batch fails without advancing the cursor. No unconfirmed log is credited.
+- Durable receiptCursor contains the scanned block number/hash and deployment boundary. A changed canonical checkpoint triggers a rescan and removal of prior receipt evidence. Applying a scan uses a cursor comparison inside the store mutation so concurrent writes are preserved and stale scans cannot rewind progress.
+- HASHPAYSTREAM_STOCK_CONFIG now requires deploymentBlock: the actual escrow creation block, checked against historical contract code. Existing pilot configuration must add the correct value; there is no guessed default.
+- Added npm run stock:receipt-worker (or append -- --once) for unattended read-only reconciliation using the existing durable PostgreSQL store. It requires HASHPAYSTREAM_STOCK_RECEIPT_WORKER_ENABLED=true as well as the existing stock pilot configuration. It runs sequentially every 15 seconds, uses a row lock when applying scans, handles termination, and logs only status/counts. It never signs or broadcasts payments.
+- Both worker and stock feature remain disabled by default. No deployment, push, live chain transaction or production setting change.
+
+Validation:
+- Local HTTP/RPC integration passed: missing-hash delivery and repayment discovery, confirmation handling, exact economics, reorg removal, canonical replay discovery, incorrect deployment block rejection, 1,536-block catch-up in bounded passes, and preservation of concurrent writes.
+- Existing employer UI, stock policy/selection/checkout/funder interaction and standalone/browser-secret checks passed.
+- Node 22 TypeScript validation and Vite production build passed; existing dependency warnings remain.
+- The receipt worker rejected startup while disabled.
+- The scanner and merge logic were exercised with synthetic local-chain data and in-memory durable-store substitutes. The new standalone PostgreSQL worker has not yet been rehearsed against a deployed database.
+
+Next:
+- Rehearse the receipt worker against the test database, including restart and shutdown.
+- Implement and test scheduled settlement separately; receipt reconciliation does not send the repayment transaction.
+- Select the test asset and reviewed price/issuer eligibility source, pin the X Layer test deployment and rehearse real Privy wallets. Real-asset/public readiness remains gated.

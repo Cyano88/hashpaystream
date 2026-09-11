@@ -1,3 +1,4 @@
+import { applyStockScan, verifyStockReceipt } from '../api/stock-early-pay-reconciliation.ts'
 import { performStockEarnings, recoverStockEarnings, stockEarningsPendingKey } from '../src/lib/stockEarningsClient.ts'
 import assert from 'node:assert/strict'
 import {spawn} from 'node:child_process'
@@ -38,6 +39,7 @@ try{
  for(const a of [admin,...Object.values(accounts)])await client.request({method:'hardhat_setBalance',params:[a.address,'0x3635c9adc5dea00000']})
  const deploy=async(a,args=[])=>{const hash=await wallet(admin).deployContract({abi:a.abi,bytecode:a.bytecode,args});return (await client.waitForTransactionReceipt({hash})).contractAddress}
  const usdc=await deploy(tokenArtifact),asset=await deploy(tokenArtifact),escrow=await deploy(escrowArtifact,[usdc,admin.address,risk.address,300,120])
+ const deploymentBlock=Number(await client.getBlockNumber({cacheTime:0}))
  // Administrative ABI is deliberately not exposed to the browser.
  await send(admin,escrow,escrowArtifact.abi,'setAssetAllowed',[asset,true])
  await send(admin,escrow,escrowArtifact.abi,'setFunderAllowed',[accounts.funder.address,true])
@@ -57,7 +59,7 @@ try{
   res.end(JSON.stringify({chainId:31337,asset,observedAt:now,eligibleUntil:now+90,unitPriceUsdcUnits:'50000000',volatilityBps:100,executableLiquidityUsdcUnits:'10000000000',tradingAvailable:true,transfersAvailable:true,issuerEligible:true,...marketPatch}))
  })
  await new Promise(r=>marketServer.listen(0,'127.0.0.1',r))
- const raw={chainId:31337,escrow,asset,usdc,rpcUrl,riskUrl:'http://127.0.0.1:'+marketServer.address().port,runtimeHash:keccak256(await client.getCode({address:escrow})),assetSymbol:'TESTx',assetDecimals:6,maxFeeBps:300,maxRiskAge:120,quoteTtlSeconds:60,confirmations:2,participantIds:ids,policy:{maxVolatilityBps:500,maxPriceAgeSeconds:60,maxQuoteDeviationBps:10,minExecutableLiquidityUsdcUnits:'1000000000'},reviewedEarningsIds:[]}
+ const raw={deploymentBlock,chainId:31337,escrow,asset,usdc,rpcUrl,riskUrl:'http://127.0.0.1:'+marketServer.address().port,runtimeHash:keccak256(await client.getCode({address:escrow})),assetSymbol:'TESTx',assetDecimals:6,maxFeeBps:300,maxRiskAge:120,quoteTtlSeconds:60,confirmations:2,participantIds:ids,policy:{maxVolatilityBps:500,maxPriceAgeSeconds:60,maxQuoteDeviationBps:10,minExecutableLiquidityUsdcUnits:'1000000000'},reviewedEarningsIds:[]}
  const env={NODE_ENV:'test',HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED:'true',HASHPAYSTREAM_STOCK_CONFIG:JSON.stringify(raw),HASHPAYSTREAM_STOCK_RISK_SIGNER_KEY:riskKey,HASHPAYSTREAM_APP_OWNERSHIP_SECRET:'synthetic-local-test-ownership-secret-only'}
  const config=readStockConfig(env)
  assert.equal('riskKey' in publicStockConfig(config),false)
@@ -148,6 +150,12 @@ try{
  await assert.rejects(()=>recoverStockPayment(body=>api('worker',body),{getItem:k=>unconfirmed.get(k),removeItem:k=>unconfirmed.delete(k)},'pending'))
  assert.equal(unconfirmed.has('pending'),true)
  await mine()
+
+ const withoutHash=await api('worker',{action:'position',offerId:prepared.offerId})
+ assert.equal(withoutHash.position.repayment,'101000000')
+ assert.equal(state.offers[prepared.offerId].delivery.txHash,tx,'position recovery discovers delivery without a supplied hash')
+ const recoveredDelivery=structuredClone(state.offers[prepared.offerId].delivery)
+
  const delivery=await api('worker',{action:'receipt',offerId:prepared.offerId,txHash:tx})
  assert.equal(delivery.position.repayment,'101000000')
  assert.equal(await client.readContract({address:asset,abi:tokenArtifact.abi,functionName:'balanceOf',args:[accounts.worker.address]}),2000000n)
@@ -177,6 +185,10 @@ try{
  assert.equal(await client.readContract({address:usdc,abi:tokenArtifact.abi,functionName:'balanceOf',args:[accounts.worker.address]}),399000000n)
 
  const repaid=await send(accounts.funder,escrow,STOCK_ESCROW_ABI,'settle',[prepared.offerId]);await mine()
+
+ await api('funder',undefined,{view:'desk'})
+ assert.equal(state.offers[prepared.offerId].repayment.txHash,repaid,'funder refresh discovers repayment without a supplied hash')
+
  await api('funder',{action:'receipt',offerId:prepared.offerId,txHash:repaid})
  await api('funder',{action:'receipt',offerId:prepared.offerId,txHash:repaid})
 
@@ -191,6 +203,35 @@ try{
  assert.equal(await client.readContract({address:usdc,abi:tokenArtifact.abi,functionName:'balanceOf',args:[accounts.funder.address]}),101000000n)
  await client.request({method:'evm_revert',params:[snapshot]})
  const reorganized=await api('worker',undefined,{view:'offers',requestId:request.id});assert.deepEqual(reorganized.verifiedCompletedFundingCounts,{})
+
+ assert.equal(state.offers[prepared.offerId].delivery,undefined,'reorg removes orphaned delivery')
+ assert.equal(state.offers[prepared.offerId].repayment,undefined,'reorg removes orphaned repayment')
+ const replay=await send(accounts.worker,escrow,STOCK_ESCROW_ABI,'acceptOffer',[stockOfferMessage(accepted.offer),accepted.funderSignature,{...accepted.risk,policyVersion:BigInt(accepted.risk.policyVersion)},accepted.riskSignature]);await mine()
+ await api('worker',{action:'position',offerId:prepared.offerId})
+ assert.equal(state.offers[prepared.offerId].delivery.txHash,replay,'replayed canonical delivery is rediscovered')
+ assert.notEqual(state.offers[prepared.offerId].delivery.blockHash,recoveredDelivery.blockHash)
+ env.HASHPAYSTREAM_STOCK_CONFIG=JSON.stringify({...raw,deploymentBlock:deploymentBlock+1})
+ await api('worker',{action:'position',offerId:prepared.offerId},{},503)
+ env.HASHPAYSTREAM_STOCK_CONFIG=JSON.stringify(raw)
+
+
+ const firstCursor=BigInt(state.receiptCursor.blockNumber)
+ await client.request({method:'hardhat_mine',params:['0x600']})
+ for(let i=0;i<4;i++){
+  const previousHeight=BigInt(state.receiptCursor.blockNumber)
+  await api('worker',{action:'position',offerId:prepared.offerId})
+  assert.ok(BigInt(state.receiptCursor.blockNumber)-previousHeight<=500n,'each pass is bounded')
+ }
+ assert.equal(BigInt(state.receiptCursor.blockNumber)-firstCursor,1536n,'repeated passes catch up without gaps')
+ const cursor=structuredClone(state.receiptCursor)
+ const candidate={previous:cursor,reset:false,updates:[],cursor:{...cursor,blockNumber:(BigInt(cursor.blockNumber)+1n).toString()}}
+ const concurrent=structuredClone(state);concurrent.requests.extra={id:'extra',earningsId,workerId:'worker',principal:'1'}
+ const applied=applyStockScan(concurrent,candidate)
+ assert.ok(applied.requests.extra,'concurrent additions survive scan application')
+ assert.equal(applyStockScan(applied,candidate),applied,'stale scan cannot rewind cursor')
+ const fakeReceipt={event:{eventName:'FunderRepaid',args:{offerHash:prepared.offerId,funder:accounts.funder.address,amount:1n}},proof:{}}
+ assert.throws(()=>verifyStockReceipt(state.offers[prepared.offerId],{worker:accounts.worker.address,payAt},fakeReceipt,config),/Repayment does not match/)
+
  env.HASHPAYSTREAM_STOCK_CONFIG=JSON.stringify({...raw,runtimeHash:'0x'+'00'.repeat(32)})
  await api('worker',undefined,{view:'worker'},503)
  console.log('Stock API + local-chain integration passed: ownership, risk gates, signed delivery, fixed repayment, confirmations, recovery, reviewed counts, and deployment pinning.')

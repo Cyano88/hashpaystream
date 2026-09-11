@@ -1,3 +1,4 @@
+import { scanStockReceipts, applyStockScan, verifyStockReceipt, type StockScanCursor } from './stock-early-pay-reconciliation.js'
 import { randomBytes, randomUUID } from 'node:crypto'
 import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
@@ -12,8 +13,8 @@ import { stockOfferUnavailableReason, stockFeeUnits, rankFundingOffers, type Sto
 export type StockIdentity = { userId:string; wallet:Address; emails:string[] }
 type RegisteredEarnings = { id:Hex; employerId:string; title:string }
 type StockRequest = { id:string; earningsId:Hex; workerId:string; principal:string }
-type StoredOffer = { id:Hex; requestId:string; funderId:string; funderUserId:string; funderName:string; offer:StockOfferWire; signature?:Hex; delivery?:StockReceiptProof; repayment?:StockReceiptProof }
-export type StockStore = { schema:1; fundingDrafts?:Record<string,StockFundingDraft>; earnings:Record<string,RegisteredEarnings>; requests:Record<string,StockRequest>; offers:Record<string,StoredOffer> }
+export type StoredOffer = { id:Hex; requestId:string; funderId:string; funderUserId:string; funderName:string; offer:StockOfferWire; signature?:Hex; delivery?:StockReceiptProof; repayment?:StockReceiptProof }
+export type StockStore = { schema:1; receiptCursor?:StockScanCursor; fundingDrafts?:Record<string,StockFundingDraft>; earnings:Record<string,RegisteredEarnings>; requests:Record<string,StockRequest>; offers:Record<string,StoredOffer> }
 export type StockDependencies = {
  env:()=>NodeJS.ProcessEnv; identity:(req:Request,env:NodeJS.ProcessEnv)=>Promise<StockIdentity>;
  hasStore:()=>boolean; read:(key:string)=>Promise<StockStore|undefined>;
@@ -68,12 +69,17 @@ export function createStockEarlyPayHandler(overrides:Partial<StockDependencies>=
    if(!c.participantIds.includes(actor.userId))fail('This account is not eligible for the stock pilot.',403)
    if(!d.hasStore())fail('Stock payment storage is unavailable.',503)
    const chain=await d.chain(c), key=`hashpaystream:stock-early-pay:v1:${c.chainId}:${c.escrow.toLowerCase()}`
-   const store=empty(await d.read(key)), profiles=await d.partners()
+   let store=empty(await d.read(key))
+   const profiles=await d.partners()
    const keys=actor.emails.map(email=>fundingPartnerAccountKey(c.ownershipSecret,email))
    const profile=Object.values(profiles?.applications??{}).find(p=>p.status==='approved'&&keys.includes(p.accountKey)&&p.walletAddress&&same(p.walletAddress,actor.wallet))
    const approvedProfiles=Object.values(profiles?.applications??{}).filter(p=>p.status==='approved'&&p.walletAddress)
    const body=req.body&&typeof req.body==='object'&&!Array.isArray(req.body)?req.body as Record<string,unknown>:{}
    const action=req.method==='GET'?String(req.query.view??'worker'):String(body.action??'')
+   const reconcile=async()=>{
+    const scan=await scanStockReceipts(store,c,chain)
+    if(scan)store=await d.mutate(key,value=>applyStockScan(empty(value),scan))
+   }
    const ownRequest=async(id:string)=>{
     const request=store.requests[id]
     if(!request||request.workerId!==actor.userId)fail('Stock request was not found.',404)
@@ -181,6 +187,7 @@ export function createStockEarlyPayHandler(overrides:Partial<StockDependencies>=
    }
    if(req.method==='GET'&&action==='desk'){
     const {capacity}=await approvedFunder(), requests=[]
+    await reconcile()
     for(const request of Object.values(store.requests)){
      const e=await chain.earnings(request.earningsId)
      if(e.approved&&e.payAt>chain.now&&BigInt(e.available)>=BigInt(request.principal)&&!same(e.worker,actor.wallet)&&!same(e.employer,actor.wallet)){
@@ -258,6 +265,7 @@ export function createStockEarlyPayHandler(overrides:Partial<StockDependencies>=
    }
    if(req.method==='GET'&&action==='offers'){
     const {request,earnings}=await ownRequest(requestId(req.query.requestId))
+    await reconcile()
     const counts:Record<string,number>={}, offers:StockOffer[]=[],contexts:Record<string,StockEligibilityContext>={}
     // Chain-confirmed AND explicitly reviewed history only; never trust a supplied count.
     for(const prior of Object.values(store.offers)){
@@ -307,14 +315,9 @@ export function createStockEarlyPayHandler(overrides:Partial<StockDependencies>=
      if(!matches)fail('Transaction does not match this stock payment.',403)
      return res.json({ok:true,status:checked.receipt.status==='reverted'?'reverted':'confirmed'})
     }
-    if(action==='position')return res.json({ok:true,config:publicStockConfig(c),position:await chain.claim(id,true)})
+    if(action==='position'){await reconcile();return res.json({ok:true,config:publicStockConfig(c),position:await chain.claim(id,true)})}
     const result=await chain.receipt(hex(body.txHash),id),event=result.event
-    const repayment=BigInt(record.offer.principal)+stockFeeUnits(BigInt(record.offer.principal),record.offer.feeBps,c.maxFeeBps)
-    if(event.eventName==='StockDelivered'){
-     const a=event.args
-     if(!same(a.funder,record.offer.funder)||!same(a.worker,e.worker)||a.earningsId!==record.offer.earningsId||!same(a.asset,c.asset)||
-       a.tokenAmount!==BigInt(record.offer.tokenAmount)||a.principal!==BigInt(record.offer.principal)||a.principal+a.fee!==repayment||a.payAt!==e.payAt)fail('Stock delivery does not match the accepted terms.')
-    }else if(event.args.amount!==repayment||!same(event.args.funder,record.offer.funder))fail('Repayment does not match the accepted terms.')
+    verifyStockReceipt(record,e,result,c)
     await d.mutate(key,value=>{const next=empty(value);const item=next.offers[id];if(!item)fail('Stock payment was not found.',404);if(event.eventName==='StockDelivered')item.delivery=result.proof;else item.repayment=result.proof;return next})
     return res.json({ok:true,offerId:id,event:event.eventName,proof:result.proof,position:await chain.claim(id)})
    }

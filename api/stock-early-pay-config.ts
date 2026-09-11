@@ -7,7 +7,7 @@ export function stockFailure(message: string, status = 409): never { throw Objec
 export type StockConfig = StockClientConfig & {
  rpcUrl: string; runtimeHash: Hex; riskKey: Hex; riskSigner: Address; riskUrl: string;
  ownershipSecret: string; participantIds: string[]; reviewedEarningsIds: string[];
- policy: StockRiskPolicy; maxRiskAge: number; quoteTtlSeconds: number
+ deploymentBlock:number; policy: StockRiskPolicy; maxRiskAge: number; quoteTtlSeconds: number
 }
 const integer = (x: unknown, min: number, max: number) => typeof x === 'number' && Number.isSafeInteger(x) && x >= min && x <= max
 const addr = (x: unknown): Address => {
@@ -21,6 +21,7 @@ export function readStockConfig(env: NodeJS.ProcessEnv): StockConfig {
  // This version is deliberately limited to local and X Layer testnet rehearsals.
  if (!raw || ![31337,1952].includes(Number(raw.chainId)) || typeof raw.chainId !== 'number') stockFailure('Stock early pay has not been approved for this network.', 503)
  const chainId = raw.chainId as number
+ if(!integer(raw.deploymentBlock,0,Number.MAX_SAFE_INTEGER))stockFailure('Stock deployment block is required for receipt recovery.',503)
  let rpc: URL, risk: URL
  try { rpc = new URL(String(raw.rpcUrl)); risk = new URL(String(raw.riskUrl)) } catch { stockFailure('Stock endpoints are not configured.',503) }
  const local = (url: URL) => ['localhost','127.0.0.1','[::1]'].includes(url.hostname)
@@ -49,7 +50,7 @@ export function readStockConfig(env: NodeJS.ProcessEnv): StockConfig {
  const asset = addr(raw.asset), usdc = addr(raw.usdc)
  if (asset === usdc) stockFailure('Stock and payment assets must differ.',503)
  return {
-  version:1,chainId,escrow:addr(raw.escrow),asset,usdc,assetSymbol:raw.assetSymbol,assetDecimals:Number(raw.assetDecimals),
+  version:1,chainId,deploymentBlock:Number(raw.deploymentBlock),escrow:addr(raw.escrow),asset,usdc,assetSymbol:raw.assetSymbol,assetDecimals:Number(raw.assetDecimals),
   maxFeeBps:Number(raw.maxFeeBps),maxRiskAge:Number(raw.maxRiskAge),quoteTtlSeconds:Number(raw.quoteTtlSeconds),
   confirmations:Number(raw.confirmations),rpcUrl:rpc.href,riskUrl:risk.href,runtimeHash:raw.runtimeHash as Hex,
   riskKey:key as Hex,riskSigner,ownershipSecret:secret,participantIds,reviewedEarningsIds:reviewed.map(x=>x.toLowerCase()),
