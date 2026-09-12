@@ -86,7 +86,11 @@
     "stock:receipt-worker": "tsx scripts/stock-receipt-worker.ts",
     "stock:settlement-worker": "tsx scripts/stock-settlement-worker.ts",
     "test:stock-postgres": "node --import tsx scripts/stock-early-pay-integration.mjs --postgres",
-    "test:stock-mainnet-fork": "node --import tsx scripts/stock-early-pay-integration.mjs --postgres --mainnet-fork"
+    "test:stock-mainnet-fork": "node --import tsx scripts/stock-early-pay-integration.mjs --postgres --mainnet-fork",
+    "audit:stock-candidate": "node scripts/stock-xlayer-candidate-audit.mjs",
+    "test:stock-wrapper-fork": "node scripts/stock-wrapper-fork.mjs",
+    "stock:deployment-plan": "node scripts/stock-paused-deployment-plan.mjs",
+    "test:stock-scan-bounds": "node --import tsx scripts/stock-scan-bounds-smoke.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.5.1",

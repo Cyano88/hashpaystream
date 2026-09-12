@@ -36,7 +36,9 @@ export async function scanStockReceipts(store:StockStore,c:StockConfig,chain:Sto
  }
  const from=previous&&!reset?BigInt(previous.blockNumber)+1n:BigInt(c.deploymentBlock)
  if(from>confirmed)return undefined
- const to=from+499n<confirmed?from+499n:confirmed
+ // The public X Layer mainnet RPC rejects log ranges above 100 blocks.
+ const span=c.chainId===196?99n:499n
+ const to=from+span<confirmed?from+span:confirmed
  const boundary=await chain.client.getBlock({blockNumber:to})
  const logs=await chain.client.getLogs({address:c.escrow,events:[
   getAbiItem({abi:STOCK_ESCROW_ABI,name:'StockDelivered'}),

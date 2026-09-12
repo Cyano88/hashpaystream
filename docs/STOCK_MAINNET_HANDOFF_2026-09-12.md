@@ -59,3 +59,7 @@ No mainnet transaction, live deployment, production database mutation, push or h
 - Stock policy, selector, checkout, funder desk and employer UI tests passed.
 - Standalone route and browser-secret checks passed after correcting their old testnet expectation.
 - Both worker entry points rejected disabled startup.
+
+## Asset/provider review checkpoint
+
+wSPYx V2 was identified through the issuer API and verified on chain 196. Actual-token local-fork wrapping and escrow inventory tests passed. Mainnet log scanning now respects the observed 100-block RPC limit. See [the asset/provider review](STOCK_ASSET_PROVIDER_REVIEW_2026-09-12.md) and its evidence and blocked paused-deployment packet. Asset eligibility, authenticated pricing/liquidity, implementation review, constructor owner/signers and risk-policy approval remain outstanding. No mainnet transaction was sent.
