@@ -1,4 +1,4 @@
-import {buildStockDexMarket} from '../api/stock-dex-market.ts'
+import {buildStockDexMarket,readStockDexIndicativeQuote} from '../api/stock-dex-market.ts'
 import {readStockPythReference} from '../api/stock-pyth-market-data.ts'
 import {readStockTwelveDataReference} from '../api/stock-twelve-data-market-data.ts'
 import {readStockReference} from '../api/stock-market-data.ts'
@@ -142,6 +142,11 @@ try{
 
  let adapterCalls=0
  const handler=createStockEarlyPayHandler({
+  indicative:async c=>{
+   const observedAt=Number((await client.getBlock()).timestamp)
+   if(actual)return {...await readStockDexIndicativeQuote(c,observedAt),issuerOpen:false,issuerHalted:false}
+   return {status:'indicative',acceptanceAvailable:false,chainId:c.chainId,asset:c.asset,assetSymbol:c.assetSymbol,tokenAmount:(10n**BigInt(c.assetDecimals)).toString(),amountOutUsdcUnits:'50000000',blockNumber:'1',blockHash:'0x'+'11'.repeat(32),observedAt,expiresAt:observedAt+c.policy.maxPriceAgeSeconds,issuerOpen:false,issuerHalted:false}
+  },
   ...(actual?{market:async(c,scope)=>{
    const now=Number((await client.getBlock()).timestamp)
    const reference=twelve?await readStockTwelveDataReference('synthetic',()=>now,c.policy.maxPriceAgeSeconds,stockTwelveDataReferenceFixtures(now)):pyth?await readStockPythReference('synthetic',()=>now,c.policy.maxPriceAgeSeconds,stockPythReferenceFixtures(now)):await readStockReference({key:'synthetic',secret:'synthetic',paper:true},now,c.policy.maxPriceAgeSeconds,stockReferenceFixtures(now))
@@ -169,6 +174,8 @@ try{
  }
  await api('unknown',undefined,{},401)
  state={schema:2};await api('worker',undefined,{view:'worker'},503);state=undefined
+ const weekendStatus=(await api('worker',undefined,{view:'market_status'})).marketStatus
+ assert.equal(weekendStatus.status,'indicative');assert.equal(weekendStatus.acceptanceAvailable,false);assert.equal(weekendStatus.issuerOpen,false);assert.ok(BigInt(weekendStatus.amountOutUsdcUnits)>0n)
  await api('outsider',{action:'register_earnings',earningsId}, {},403)
  await api('employer',{action:'register_earnings',earningsId,title:'Synthetic earned pay'}, {},201)
  await api('worker',{action:'request_stock',earningsId,principal:'100000000'}, {},409)
@@ -342,7 +349,7 @@ try{
  if(actual){assert.ok(adapterCalls>=4);actualResult={schema:1,chainId:31337,sourceChainId:196,sourceBlock:dexPins.blockNumber,actualStock:asset,actualUsdc:usdc,principalUsdcUnits:'100000000',feeUsdcUnits:'1000000',funderRepaidUsdcUnits:'101000000',workerRemainderUsdcUnits:'399000000',stockDeliveredUnits:prepared.offer.tokenAmount,adapterCalls,isolatedPostgres:Boolean(pool),syntheticIndependentPriceAndEligibility:true,mainnetTransaction:false}}
  marketPatch={}
  await client.request({method:'evm_revert',params:[snapshot]})
- if(actual){await client.request({method:'evm_setNextBlockTimestamp',params:[Number((await client.getBlock()).timestamp)+1]});await mine()} // A distinct replacement branch, not an identical block replay.
+ await client.request({method:'evm_setNextBlockTimestamp',params:[Number((await client.getBlock()).timestamp)+1]});await mine() // A distinct replacement branch, not an identical block replay.
  const reorganized=await api('worker',undefined,{view:'offers',requestId:request.id});assert.deepEqual(reorganized.verifiedCompletedFundingCounts,{})
 
  assert.equal(state.offers[prepared.offerId].delivery,undefined,'reorg removes orphaned delivery')

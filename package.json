@@ -107,7 +107,8 @@
     "test:stock-dex-history": "node --import tsx scripts/stock-dex-history-smoke.mjs",
     "test:stock-twelve-data-market": "node --import tsx scripts/stock-twelve-data-market-data-smoke.mjs",
     "test:stock-dex-manipulation": "node --import tsx scripts/stock-dex-manipulation-fork.mjs",
-    "test:stock-twelve-data-repayment": "node --import tsx scripts/stock-early-pay-integration.mjs --postgres --actual-stock --twelve"
+    "test:stock-twelve-data-repayment": "node --import tsx scripts/stock-early-pay-integration.mjs --postgres --actual-stock --twelve",
+    "test:stock-weekend-policy": "node --import tsx scripts/stock-weekend-policy-smoke.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.5.1",

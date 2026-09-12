@@ -1,10 +1,10 @@
 {
   "schema": 1,
   "chainId": 196,
-  "fetchedAt": "2026-09-12T13:47:40.979Z",
-  "blockNumber": 70451779,
-  "blockHash": "0x5ec5ec3e701a9d57030b3bee51dc47d66f8fc4c23aa8eaffee8285f425aba256",
-  "blockTimestamp": 1789220815,
+  "fetchedAt": "2026-09-12T21:32:49.658Z",
+  "blockNumber": 70479703,
+  "blockHash": "0x22ed16290b097d59322076ce0fc94079eabbb395dbf3f9af308315df7e3eb787",
+  "blockTimestamp": 1789248739,
   "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-xlayer-deployments",
   "contracts": {
     "factory": "0x4B2ab38DBF28D31D467aA8993f6c2585981D6804",
@@ -60,18 +60,18 @@
         "token0": "0x4ae46a509F6b1D9056937BA4500cb143933D2dc8",
         "token1": "0xE7E553Cd128F0011777323A0b44a7b96EA1CB540",
         "fee": 500,
-        "liquidity": "306903883857003369",
-        "sqrtPriceX96": "2854927603985856184833560339559124",
-        "tick": 209854,
+        "liquidity": "394089235496556098",
+        "sqrtPriceX96": "2855002444395706887288965750172384",
+        "tick": 209855,
         "observationCardinality": 256,
         "runtimeHash": "0xeb3fc03ecc34ecaa139b680481d169faaeff3f5d497a02d4d8662a8693b87b2f",
         "history": {
-          "meanTick30m": 209854,
-          "meanTick5m": 209854,
+          "meanTick30m": 209855,
+          "meanTick5m": 209855,
           "tickCumulatives": [
-            "835041975325",
-            "835356757589",
-            "835419713789"
+            "840901867329",
+            "841216649829",
+            "841279606329"
           ]
         }
       },
@@ -83,17 +83,17 @@
         "token1": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
         "fee": 100,
         "liquidity": "1001809604944896",
-        "sqrtPriceX96": "79228690272328038703891693471",
-        "tick": 0,
+        "sqrtPriceX96": "79227167587865759470355788269",
+        "tick": -1,
         "observationCardinality": 1,
         "runtimeHash": "0x60f8f49072453d1c5d9fa0ccbc2c2277da51d3e0fe0f53f95a774b6bf1609539",
         "history": {
-          "meanTick30m": 0,
-          "meanTick5m": 0,
+          "meanTick30m": -1,
+          "meanTick5m": -1,
           "tickCumulatives": [
-            "3380977",
-            "3380977",
-            "3380977"
+            "3364705",
+            "3363205",
+            "3362905"
           ]
         }
       }
@@ -116,52 +116,52 @@
   "quotes": [
     {
       "amountIn": "10000000000000000",
-      "amountOutUsdcUnits": "7696861",
-      "spotOutputUsdcUnits": "7701489",
+      "amountOutUsdcUnits": "7696163",
+      "spotOutputUsdcUnits": "7700789",
       "feeAndImpactBps": 6,
-      "gasEstimate": "204308"
+      "gasEstimate": "195014"
     },
     {
       "amountIn": "100000000000000000",
-      "amountOutUsdcUnits": "76967991",
-      "spotOutputUsdcUnits": "77014899",
+      "amountOutUsdcUnits": "76961152",
+      "spotOutputUsdcUnits": "77007901",
       "feeAndImpactBps": 6,
-      "gasEstimate": "203268"
+      "gasEstimate": "195014"
     },
     {
       "amountIn": "130000000000000000",
-      "amountOutUsdcUnits": "100058116",
-      "spotOutputUsdcUnits": "100119368",
+      "amountOutUsdcUnits": "100049284",
+      "spotOutputUsdcUnits": "100110271",
       "feeAndImpactBps": 6,
-      "gasEstimate": "203268"
+      "gasEstimate": "195014"
     },
     {
       "amountIn": "1000000000000000000",
-      "amountOutUsdcUnits": "769616795",
-      "spotOutputUsdcUnits": "770148996",
+      "amountOutUsdcUnits": "769562254",
+      "spotOutputUsdcUnits": "770079018",
       "feeAndImpactBps": 6,
-      "gasEstimate": "204262"
+      "gasEstimate": "204679"
     },
     {
       "amountIn": "2000000000000000000",
-      "amountOutUsdcUnits": "1539093323",
-      "spotOutputUsdcUnits": "1540297992",
+      "amountOutUsdcUnits": "1539015016",
+      "spotOutputUsdcUnits": "1540158037",
       "feeAndImpactBps": 7,
-      "gasEstimate": "204276"
+      "gasEstimate": "204699"
     },
     {
       "amountIn": "10000000000000000000",
-      "amountOutUsdcUnits": "7689861457",
-      "spotOutputUsdcUnits": "7701489963",
-      "feeAndImpactBps": 15,
-      "gasEstimate": "272567"
+      "amountOutUsdcUnits": "7690698768",
+      "spotOutputUsdcUnits": "7700790189",
+      "feeAndImpactBps": 13,
+      "gasEstimate": "234888"
     },
     {
       "amountIn": "100000000000000000000",
-      "amountOutUsdcUnits": "76270364622",
-      "spotOutputUsdcUnits": "77014899639",
-      "feeAndImpactBps": 96,
-      "gasEstimate": "322656"
+      "amountOutUsdcUnits": "76415139793",
+      "spotOutputUsdcUnits": "77007901896",
+      "feeAndImpactBps": 76,
+      "gasEstimate": "373549"
     }
   ],
   "testAmountIn": "130000000000000000",
@@ -178,12 +178,13 @@
   "scannedStablePools": [
     {
       "quoteToken": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
+      "requestedFee": 100,
       "address": "0x0000000000000000000000000000000000000000",
-      "exists": false,
-      "requestedFee": 100
+      "exists": false
     },
     {
       "quoteToken": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
+      "requestedFee": 500,
       "address": "0x0f74eE629eE186dc49fC9F78bb5d5856C0ca8231",
       "exists": true,
       "active": false,
@@ -195,69 +196,68 @@
       "tick": 0,
       "observationCardinality": 0,
       "runtimeHash": "0x3530ef4edb7f923c39e0aaea723e0a5ee0c496b39d544041f078c2361784b196",
-      "history": null,
-      "requestedFee": 500
+      "history": null
     },
     {
       "quoteToken": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
+      "requestedFee": 3000,
       "address": "0x0000000000000000000000000000000000000000",
-      "exists": false,
-      "requestedFee": 3000
+      "exists": false
     },
     {
       "quoteToken": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
+      "requestedFee": 10000,
       "address": "0x0000000000000000000000000000000000000000",
-      "exists": false,
-      "requestedFee": 10000
+      "exists": false
     },
     {
       "quoteToken": "0x4ae46a509F6b1D9056937BA4500cb143933D2dc8",
+      "requestedFee": 100,
       "address": "0x0000000000000000000000000000000000000000",
-      "exists": false,
-      "requestedFee": 100
+      "exists": false
     },
     {
       "quoteToken": "0x4ae46a509F6b1D9056937BA4500cb143933D2dc8",
+      "requestedFee": 500,
       "address": "0x07c40850D14064D20eB0AfDEf9574675392f2c11",
       "exists": true,
       "active": true,
       "token0": "0x4ae46a509F6b1D9056937BA4500cb143933D2dc8",
       "token1": "0xE7E553Cd128F0011777323A0b44a7b96EA1CB540",
       "fee": 500,
-      "liquidity": "306903883857003369",
-      "sqrtPriceX96": "2854927603985856184833560339559124",
-      "tick": 209854,
+      "liquidity": "394089235496556098",
+      "sqrtPriceX96": "2855002444395706887288965750172384",
+      "tick": 209855,
       "observationCardinality": 256,
       "runtimeHash": "0xeb3fc03ecc34ecaa139b680481d169faaeff3f5d497a02d4d8662a8693b87b2f",
       "history": {
-        "meanTick30m": 209854,
-        "meanTick5m": 209854,
+        "meanTick30m": 209855,
+        "meanTick5m": 209855,
         "tickCumulatives": [
-          "835041975325",
-          "835356757589",
-          "835419713789"
+          "840901867329",
+          "841216649829",
+          "841279606329"
         ]
-      },
-      "requestedFee": 500
+      }
     },
     {
       "quoteToken": "0x4ae46a509F6b1D9056937BA4500cb143933D2dc8",
+      "requestedFee": 3000,
       "address": "0x0000000000000000000000000000000000000000",
-      "exists": false,
-      "requestedFee": 3000
+      "exists": false
     },
     {
       "quoteToken": "0x4ae46a509F6b1D9056937BA4500cb143933D2dc8",
+      "requestedFee": 10000,
       "address": "0x0000000000000000000000000000000000000000",
-      "exists": false,
-      "requestedFee": 10000
+      "exists": false
     }
   ],
   "historyDiagnostics": {
-    "twap5mUsdgPerStock": 770.2154770194743,
-    "twap30mUsdgPerStock": 770.2154770194743,
-    "note": "Floating point diagnostics only. Same-pool TWAP is not independent and does not measure manipulation cost.",
-    "spotUsdgUnitsPerStock": "770138736"
+    "spotUsdgUnitsPerStock": "770098360",
+    "twap5mUsdgPerStock": 770.1384631731569,
+    "twap30mUsdgPerStock": 770.1384631731569,
+    "note": "Floating point diagnostics only. Same-pool TWAP is not independent and does not measure manipulation cost."
   },
   "weekendPolicyApproved": false,
   "manipulationResistanceVerified": false,

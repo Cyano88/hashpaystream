@@ -32,3 +32,11 @@ The separate manipulation rehearsal rejects DEX-only valuation. A sustained 244-
 4. Configure real participant and corporate-action decisions, approve pilot limits, complete security review, select the owner multisig and distinct risk and settlement signers, and finalize the paused deployment packet.
 
 No mainnet transaction, deployment, production database mutation, hosting change or provider purchase occurred.
+
+## Weekend launch policy implementation
+
+The authenticated `market_status` read now returns a verified one-wSPYx X Layer execution snapshot marked `indicative` and `acceptanceAvailable: false`. Worker and funder screens label it as an on-chain snapshot. When the issuer reports the US session closed, funders cannot review or publish a new offer. Existing repayment controls remain available.
+
+Every offer preparation, publication, listing and acceptance path still calls the full independent-reference adapter. A weekend DEX snapshot never becomes risk evidence and cannot be signed into an acceptance. The existing integration also verifies that a due fixed-USDC repayment and worker remainder release complete while market evidence is unavailable and new positions are paused.
+
+A fresh read-only X Layer audit at block 70479703 returned 769.562254 USDC for 1 wSPYx and 100.049284 USDC for 0.13 wSPYx. The route remained wSPYx to USDG to USDC. This proves current weekend quote availability at one block, not a reserved execution or fair stock value. Evidence: `evidence/stock-token-market-audit.json`.

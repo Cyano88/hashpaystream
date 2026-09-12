@@ -12,7 +12,8 @@ import { stockJson,stockFresh,stockBps,stockTimestamp,readStockReference,type St
 const abi=parseAbi(['function decimals() view returns(uint8)','function asset() view returns(address)','function convertToAssets(uint256) view returns(uint256)','function getPool(address,address,uint24) view returns(address)','function token0() view returns(address)','function token1() view returns(address)','function factory() view returns(address)','function fee() view returns(uint24)','function liquidity() view returns(uint128)','function slot0() view returns(uint160,int24,uint16,uint16,uint16,uint8,bool)','function observe(uint32[]) view returns(int56[],uint160[])','function quoteExactInput(bytes,uint256) returns(uint256,uint160[],uint32[],uint256)'])
 const addr=(s:string)=>getAddress(s),unit=10n**18n
 export type StockDexProof={tokenAmount:string;amountOutUsdcUnits:string;depthTokenAmount:string;depthOutUsdcUnits:string;blockNumber:string;blockHash:Hex;observedAt:number;expiresAt:number}
-export async function readStockDexQuote(c:StockConfig,scope:StockParticipantScope,reference:StockReference,now:number):Promise<{unitPriceUsdcUnits:string;proof:StockDexProof}>{
+export type StockDexIndicativeQuote={status:'indicative';acceptanceAvailable:false;chainId:number;asset:string;assetSymbol:string;tokenAmount:string;amountOutUsdcUnits:string;blockNumber:string;blockHash:Hex;observedAt:number;expiresAt:number}
+async function verifiedStockDexRoute(c:StockConfig,now:number){
  if(![196,31337].includes(c.chainId)||c.asset!==addr(pins.candidate.wrapper.address)||c.usdc!==addr(pins.candidate.payment.address)||c.assetDecimals!==18)fail('DEX asset configuration does not match the reviewed route.',503)
  const client=createPublicClient({transport:http(c.rpcUrl,{timeout:c.chainId===31337?180000:7000,retryCount:0})})
  const block=await client.getBlock();if(await client.getChainId()!==c.chainId)fail('DEX network mismatch.',503)
@@ -26,8 +27,6 @@ export async function readStockDexQuote(c:StockConfig,scope:StockParticipantScop
  })])
  if(await read(pins.contracts.usdg,'decimals')!==6||addr(await read(c.asset,'asset'))!==addr(pins.candidate.underlying.address))fail('Wrapper or intermediate asset changed.',503)
  const conversion:bigint=await read(c.asset,'convertToAssets',[unit]);if(conversion<=0n)fail('Wrapper conversion unavailable.',503)
- const price=conversion*reference.spyUsdE8*1000000n/(unit*reference.usdcUsdE8)
- if(price<=0n)fail('Wrapped reference price is invalid.',503)
  await Promise.all(pins.route.pools.map(async p=>{
   await checkCode(p.address,p.runtimeHash)
   const [factory,token0,token1,fee,liquidity,slot]=await Promise.all([read(p.address,'factory'),read(p.address,'token0'),read(p.address,'token1'),read(p.address,'fee'),read(p.address,'liquidity'),read(p.address,'slot0')])
@@ -37,10 +36,22 @@ export async function readStockDexQuote(c:StockConfig,scope:StockParticipantScop
  }))
  const path=encodePacked(['address','uint24','address','uint24','address'],[c.asset,500,addr(pins.contracts.usdg),100,c.usdc])
  if(path!==pins.route.path)fail('DEX path mismatch.',503)
+ const quote=async(n:bigint)=>{const {result}=await client.simulateContract({address:addr(pins.contracts.quoter),abi,functionName:'quoteExactInput',args:[path,n],blockNumber:block.number});return result[0] as bigint}
+ return {client,block,conversion,quote}
+}
+export async function readStockDexIndicativeQuote(c:StockConfig,now=Math.floor(Date.now()/1000)):Promise<StockDexIndicativeQuote>{
+ const {client,block,quote}=await verifiedStockDexRoute(c,now)
+ const out=await quote(unit);if(out<=0n)fail('Indicative DEX quote is unavailable.',503)
+ if((await client.getBlock({blockNumber:block.number})).hash!==block.hash)fail('DEX quote block changed.',503)
+ return {status:'indicative',acceptanceAvailable:false,chainId:c.chainId,asset:c.asset,assetSymbol:c.assetSymbol,tokenAmount:unit.toString(),amountOutUsdcUnits:out.toString(),blockNumber:block.number.toString(),blockHash:block.hash,observedAt:Number(block.timestamp),expiresAt:Number(block.timestamp)+c.policy.maxPriceAgeSeconds}
+}
+export async function readStockDexQuote(c:StockConfig,scope:StockParticipantScope,reference:StockReference,now:number):Promise<{unitPriceUsdcUnits:string;proof:StockDexProof}>{
+ const {client,block,conversion,quote}=await verifiedStockDexRoute(c,now)
+ const price=conversion*reference.spyUsdE8*1000000n/(unit*reference.usdcUsdE8)
+ if(price<=0n)fail('Wrapped reference price is invalid.',503)
  const principal=BigInt(scope.principalUsdcUnits),amount=scope.tokenAmount?BigInt(scope.tokenAmount):principal*unit/price
  if(amount<=0n)fail('Token amount is invalid.',409)
  const depthTarget=BigInt(c.policy.minExecutableLiquidityUsdcUnits),depthAmount=(depthTarget*10100n*unit+price*10000n-1n)/(price*10000n)
- const quote=async(n:bigint)=>{const {result}=await client.simulateContract({address:addr(pins.contracts.quoter),abi,functionName:'quoteExactInput',args:[path,n],blockNumber:block.number});return result[0]}
  const [out,depth]=await Promise.all([quote(amount),quote(depthAmount)])
  for(const [input,output] of [[amount,out],[depthAmount,depth]]){
   const fair=input*price/unit;if(output<=0n||fair<=0n||stockBps(output-fair,fair)>c.policy.maxQuoteDeviationBps)fail('DEX exit differs too far from the independent price.',409)

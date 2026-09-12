@@ -7,7 +7,7 @@ import { getAddress, isAddress, hashTypedData, encodeFunctionData, decodeFunctio
 import { readDurableJson, mutateDurableJson, hasRenderDurableStore } from './durable-store.js'
 import { fundingPartnerAccountKey, type FundingPartnerStore } from './funding-partners.js'
 import { readStockConfig, publicStockConfig, stockFailure as fail, type StockConfig } from './stock-early-pay-config.js'
-import { createStockChain, readStockMarket, stockMarketEvidence, type StockChain, type StockMarketSnapshot, type StockReceiptProof } from './stock-early-pay-chain.js'
+import { createStockChain, readStockMarket, readStockIndicativeMarket, stockMarketEvidence, type StockChain, type StockMarketSnapshot, type StockIndicativeMarket, type StockReceiptProof } from './stock-early-pay-chain.js'
 import { STOCK_ESCROW_ABI, stockEarningsId, type StockFundingDraft, type StockEarningsAction, STOCK_OFFER_TYPES, stockDomain, stockOfferMessage, type StockOfferWire } from '../src/lib/stockEarlyPayProtocol.js'
 import { stockOfferUnavailableReason, stockFeeUnits, rankFundingOffers, type StockOffer, type StockEligibilityContext } from '../src/lib/stockFundingOffers.js'
 
@@ -21,7 +21,8 @@ export type StockDependencies = {
  hasStore:()=>boolean; read:(key:string)=>Promise<StockStore|undefined>;
  mutate:(key:string,fn:(store:StockStore|undefined)=>StockStore)=>Promise<StockStore>;
  partners:()=>Promise<FundingPartnerStore|undefined>; chain:(c:StockConfig)=>Promise<StockChain>;
- market:(c:StockConfig,scope:StockParticipantScope)=>Promise<StockMarketSnapshot>
+ market:(c:StockConfig,scope:StockParticipantScope)=>Promise<StockMarketSnapshot>;
+ indicative:(c:StockConfig)=>Promise<StockIndicativeMarket>
 }
 function empty(value?:StockStore):StockStore {
  if(value&&value.schema!==1)fail('Stock payment storage requires review.',503)
@@ -53,7 +54,7 @@ const defaults:StockDependencies={
  read:key=>readDurableJson<StockStore>(key),
  mutate:(key,fn)=>mutateDurableJson<StockStore>(key,fn),
  partners:()=>readDurableJson<FundingPartnerStore>(process.env.HASHPAYSTREAM_FUNDING_PARTNER_STORE_KEY?.trim()||'hashpaystream:funding-partners:v1'),
- chain:createStockChain,market:readStockMarket,
+ chain:createStockChain,market:readStockMarket,indicative:readStockIndicativeMarket,
 }
 function publicOffer(record:StoredOffer,c:StockConfig):StockOffer {
  const o=record.offer
@@ -77,6 +78,10 @@ export function createStockEarlyPayHandler(overrides:Partial<StockDependencies>=
    const approvedProfiles=Object.values(profiles?.applications??{}).filter(p=>p.status==='approved'&&p.walletAddress)
    const body=req.body&&typeof req.body==='object'&&!Array.isArray(req.body)?req.body as Record<string,unknown>:{}
    const action=req.method==='GET'?String(req.query.view??'worker'):String(body.action??'')
+   if(req.method==='GET'&&action==='market_status'){
+    try{return res.json({ok:true,marketStatus:await d.indicative(c)})}
+    catch{return res.json({ok:true,marketStatus:{status:'unavailable',acceptanceAvailable:false}})}
+   }
    const reconcile=async()=>{
     const scan=await scanStockReceipts(store,c,chain)
     if(scan)store=await d.mutate(key,value=>applyStockScan(empty(value),scan))

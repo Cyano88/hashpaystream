@@ -2,6 +2,8 @@
 
 > Current pricing decision: Twelve Data is the lower-cost independent-reference candidate; Pyth is excluded from the launch path. X Layer remains the executable quote/depth source, not the sole valuation source. The local manipulation rehearsal demonstrated why. Mainnet remains disabled.
 
+> Weekend policy: show a timestamped X Layer execution snapshot as indicative only. New offer review, publication and acceptance remain blocked until regular-session independent pricing and all risk checks pass. Existing fixed-USDC repayments continue without a stock-price dependency.
+
 ## Authoritative network correction
 
 X Layer mainnet (196) is the deployment target. Earlier testnet recommendations in STOCK_EARLY_PAY_BUILD_2026-09-10.md are superseded. Arc savings is separate.

@@ -9,14 +9,15 @@ import { useStockPaymentSession, EXPECTED_STOCK_ESCROW } from '../lib/useStockPa
 import { confirmStockPayment, recoverStockPayment, stockPendingKey } from '../lib/stockEarlyPayClient'
 import type { StockClientConfig } from '../lib/stockEarlyPayProtocol'
 import type { StockOffer, StockEligibilityContext } from '../lib/stockFundingOffers'
+import StockMarketStatus, { type StockMarketStatusValue } from './StockMarketStatus'
 type RequestInfo={id:string;principal:string}
 type Earnings=EarningsView&{request:RequestInfo|null}
 type Offers={config:StockClientConfig;offers:StockOffer[];contexts:Record<string,StockEligibilityContext>;verifiedCompletedFundingCounts:Record<string,number>;positions:Array<{id:Hex;repayment:string;settled:boolean}>}
 function WorkerContent(){
  const {api,wallet,userId}=useStockPaymentSession()
  const [walletAddress,setWalletAddress]=useState(''),[employerOpen,setEmployerOpen]=useState(false),[config,setConfig]=useState<StockClientConfig>()
- const [earnings,setEarnings]=useState<Earnings[]>([]),[selected,setSelected]=useState(''),[amount,setAmount]=useState(''),[offers,setOffers]=useState<Offers>(),[request,setRequest]=useState<RequestInfo>(),[error,setError]=useState(''),[busy,setBusy]=useState(false),[pending,setPending]=useState(false)
- const load=useCallback(async()=>{const data=await api<{earnings:Earnings[];config:StockClientConfig}> (undefined,{view:'worker'});setEarnings(data.earnings);setConfig(data.config)},[api])
+ const [earnings,setEarnings]=useState<Earnings[]>([]),[selected,setSelected]=useState(''),[amount,setAmount]=useState(''),[offers,setOffers]=useState<Offers>(),[request,setRequest]=useState<RequestInfo>(),[marketStatus,setMarketStatus]=useState<StockMarketStatusValue>(),[error,setError]=useState(''),[busy,setBusy]=useState(false),[pending,setPending]=useState(false)
+ const load=useCallback(async()=>{const [data,status]=await Promise.all([api<{earnings:Earnings[];config:StockClientConfig}>(undefined,{view:'worker'}),api<{marketStatus:StockMarketStatusValue}>(undefined,{view:'market_status'}).catch(()=>undefined)]);setEarnings(data.earnings);setConfig(data.config);setMarketStatus(status?.marketStatus)},[api])
  useEffect(()=>{void load().catch(e=>setError(e.message))},[load])
  const refresh=useCallback(async()=>{if(!request)return;setOffers(await api<Offers>(undefined,{view:'offers',requestId:request.id}))},[api,request])
  useEffect(()=>{void refresh().catch(e=>setError(e.message));if(!request)return;const timer=window.setInterval(()=>void refresh().catch(()=>{}),15000);return()=>window.clearInterval(timer)},[refresh,request])
@@ -34,6 +35,7 @@ function WorkerContent(){
  }
  return <section className="stream-screen w-full max-w-md space-y-4 py-5 sm:py-8">
   <h1 className="text-xl font-black">Get paid early</h1><p className="text-[11px] text-gray-500">Stock-payment test pilot. Only approved earnings funded on this network are eligible.</p>
+  <StockMarketStatus value={marketStatus}/>
   <ProviderPayoutWallet value={walletAddress} onChange={setWalletAddress} />
   <details className="stream-card p-4" onToggle={e=>setEmployerOpen(e.currentTarget.open)}><summary className="cursor-pointer text-xs font-bold">Fund worker earnings</summary>{employerOpen&&<StockEmployerFunding/>}</details>
   {!request&&<div className="stream-card space-y-3 p-4">

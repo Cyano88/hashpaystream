@@ -1,5 +1,5 @@
 import { stockJson } from './stock-market-data.js'
-import { readProductionStockMarket, type StockDexProof } from './stock-dex-market.js'
+import { readProductionStockMarket, readStockDexIndicativeQuote, type StockDexProof, type StockDexIndicativeQuote } from './stock-dex-market.js'
 import type { StockParticipantScope, StockParticipantClearance } from './stock-participant-clearance.js'
 import { createPublicClient, http, keccak256, getAddress, decodeEventLog, type Hex, type Address } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -14,6 +14,13 @@ export type StockMarketSnapshot = {
  volatilityBps: number; executableLiquidityUsdcUnits: string; tradingAvailable: boolean; transfersAvailable: boolean; issuerEligible: boolean
 }
 export type StockReceiptProof = { txHash: Hex; blockNumber: string; blockHash: Hex }
+export type StockIndicativeMarket = StockDexIndicativeQuote & {issuerOpen:boolean;issuerHalted:false}
+export async function readStockIndicativeMarket(c:StockConfig):Promise<StockIndicativeMarket>{
+ if(c.marketAdapter!=='xlayer-dex-v1')fail('Indicative X Layer pricing is unavailable.',503)
+ const [quote,issuer]=await Promise.all([readStockDexIndicativeQuote(c),stockJson('https://api.backed.fi/api/v2/public/assets/SPYx')])
+ if(typeof issuer?.trading?.openNow!=='boolean'||issuer.isTradingHalted!==false||issuer.trading?.isTradingHalted!==false)fail('Issuer market availability is unknown.',503)
+ return {...quote,issuerOpen:issuer.trading.openNow,issuerHalted:false}
+}
 export async function readStockMarket(c: StockConfig, scope:StockParticipantScope): Promise<StockMarketSnapshot> {
  if(c.marketAdapter==='xlayer-dex-v1'&&!c.riskAuthorization)fail('Stock review authentication is missing.',503)
  const result = await stockJson(c.riskUrl,c.riskAuthorization?{authorization:'Bearer '+c.riskAuthorization}:{},fetch,scope) as StockMarketSnapshot

@@ -5,14 +5,15 @@ import StockFunderOfferTerms from './StockFunderOfferTerms'
 import { useStockPaymentSession, EXPECTED_STOCK_ESCROW } from '../lib/useStockPaymentSession'
 import { stockWalletClients, settleStockPayment } from '../lib/stockEarlyPayClient'
 import { STOCK_ESCROW_ABI, STOCK_TOKEN_ABI, STOCK_OFFER_TYPES, stockDomain, stockOfferMessage, type StockClientConfig, type StockOfferWire } from '../lib/stockEarlyPayProtocol'
+import StockMarketStatus, { type StockMarketStatusValue } from './StockMarketStatus'
 type Prepared={config:StockClientConfig;offerId:Hex;offer:StockOfferWire}
 type Desk={config:StockClientConfig;paused:boolean;inventory:string;requests:Array<{id:string;title:string;principal:string;payAt:number}>;offers:Array<{id:Hex;requestId:string;offer:StockOfferWire;published:boolean}>}
 function FunderContent(){
- const {api,wallet,userId}=useStockPaymentSession(),[data,setData]=useState<Desk>(),[requestId,setRequestId]=useState(''),[fee,setFee]=useState(''),[risk,setRisk]=useState(false),[deposit,setDeposit]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('')
+ const {api,wallet,userId}=useStockPaymentSession(),[data,setData]=useState<Desk>(),[requestId,setRequestId]=useState(''),[fee,setFee]=useState(''),[risk,setRisk]=useState(false),[deposit,setDeposit]=useState(''),[marketStatus,setMarketStatus]=useState<StockMarketStatusValue>(),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('')
  const guard=useRef(false)
  const [prepared,setPrepared]=useState<Prepared>()
  useEffect(()=>{setPrepared(undefined);setRisk(false)},[requestId,fee])
- const load=useCallback(async()=>setData(await api<Desk>(undefined,{view:'desk'})),[api])
+ const load=useCallback(async()=>{const [desk,status]=await Promise.all([api<Desk>(undefined,{view:'desk'}),api<{marketStatus:StockMarketStatusValue}>(undefined,{view:'market_status'}).catch(()=>undefined)]);setData(desk);setMarketStatus(status?.marketStatus)},[api])
  useEffect(()=>{void load().catch(e=>setError(e.message))},[load])
  const request=data?.requests.find(r=>r.id===requestId)
  async function run(action:()=>Promise<void>){if(guard.current)return;guard.current=true;setBusy(true);setError('');try{await action();await load()}catch(e){setError(e instanceof Error?e.message:'This action could not be verified.')}finally{guard.current=false;setBusy(false)}}
@@ -65,13 +66,15 @@ function FunderContent(){
    storageKey:'hashpaystream:stock-settlement:'+userId+':'+data.config.chainId+':'+data.config.escrow.toLowerCase()+':'+w.address.toLowerCase()+':'+id})
   setMessage('Repayment confirmed on chain.')
  }
- return <section className="stream-screen w-full max-w-md space-y-4 py-5 sm:py-8"><h1 className="text-xl font-black">Funding</h1><p className="text-[11px] text-gray-500">Stock-payment test pilot</p>
+ return <section className="stream-screen w-full max-w-md space-y-4 py-5 sm:py-8">
+ <h1 className="text-xl font-black">Funding</h1><p className="text-[11px] text-gray-500">Stock-payment test pilot</p>
+ <StockMarketStatus value={marketStatus}/>
  {data&&<><div className="stream-card space-y-3 p-4"><p className="text-xs">Available: {formatUnits(BigInt(data.inventory),data.config.assetDecimals)} {data.config.assetSymbol}</p><input aria-label="Stock token amount" inputMode="decimal" value={deposit} onChange={e=>setDeposit(e.target.value)} className="w-full rounded-xl border p-3 text-xs dark:bg-zinc-900"/><button type="button" disabled={busy} onClick={()=>void run(()=>inventory())} className="text-xs font-bold">Deposit / check pending deposit</button><button type="button" disabled={busy} onClick={()=>void run(()=>inventory('withdrawStock'))} className="ml-3 text-xs font-bold">Withdraw / check withdrawal</button></div>
  <div className="stream-card space-y-3 p-4"><select aria-label="Eligible earnings request" value={requestId} disabled={busy||data.paused} onChange={e=>{setRequestId(e.target.value);setRisk(false)}} className="w-full rounded-xl border p-3 text-xs dark:bg-zinc-900"><option value="">Choose eligible earnings</option>{data.requests.map(r=><option key={r.id} value={r.id}>{r.title} · {formatUnits(BigInt(r.principal),6)} USDC</option>)}</select>
- <StockFunderOfferTerms feePercent={fee} maxFeeBps={data.config.maxFeeBps} acceptedRisk={risk} onFeeChange={setFee} onRiskChange={setRisk} disabled={busy||data.paused}/>
- <button type="button" disabled={busy||data.paused||!request} onClick={()=>void run(review)} className="text-xs font-bold">Review current quote</button>
+ <StockFunderOfferTerms feePercent={fee} maxFeeBps={data.config.maxFeeBps} acceptedRisk={risk} onFeeChange={setFee} onRiskChange={setRisk} disabled={busy||data.paused||marketStatus?.issuerOpen===false}/>
+ <button type="button" disabled={busy||data.paused||!request||marketStatus?.issuerOpen===false} onClick={()=>void run(review)} className="text-xs font-bold">Review current quote</button>
  {prepared&&<p className="text-xs">You send {formatUnits(BigInt(prepared.offer.tokenAmount),data.config.assetDecimals)} {data.config.assetSymbol}. You receive {formatUnits(BigInt(prepared.offer.principal)+BigInt(prepared.offer.principal)*BigInt(prepared.offer.feeBps)/10000n,6)} USDC on {new Date(prepared.offer.payAt*1000).toLocaleDateString()}. Quote expires {new Date(prepared.offer.expiresAt*1000).toLocaleTimeString()}.</p>}
- <button type="button" disabled={busy||data.paused||!request||!risk||!prepared} onClick={()=>void run(publish)} className="w-full rounded-full bg-emerald-500 p-3 text-xs font-black text-emerald-950 disabled:opacity-40">Publish offer</button></div>
+ <button type="button" disabled={busy||data.paused||!request||!risk||!prepared||marketStatus?.issuerOpen===false} onClick={()=>void run(publish)} className="w-full rounded-full bg-emerald-500 p-3 text-xs font-black text-emerald-950 disabled:opacity-40">Publish offer</button></div>
  {data.offers.filter(o=>o.published).map(o=><div className="stream-card p-4 text-xs" key={o.id}><p>{formatUnits(BigInt(o.offer.principal),6)} USDC · {o.offer.feeBps/100}% fee</p><button type="button" disabled={busy} onClick={()=>void run(()=>settle(o.id))} className="mt-2 font-bold">Check / claim repayment</button></div>)}</>}
  {message&&<p role="status" className="text-xs text-gray-500">{message}</p>}{error&&<p role="alert" className="text-xs text-rose-600">{error}</p>}
  <button type="button" disabled={busy} onClick={()=>void run(load)} className="text-xs font-bold">Refresh</button></section>
