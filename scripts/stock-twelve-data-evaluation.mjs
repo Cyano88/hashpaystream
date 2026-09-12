@@ -11,19 +11,21 @@ export async function evaluateTwelveData(env=process.env,fetcher=fetch,clock=()=
  const get=async(path,params)=>{report.requests++;const body=await stockJson('https://api.twelvedata.com/'+path+'?'+new URLSearchParams(params),{Authorization:'apikey '+key},fetcher);if(body?.status==='error')throw Error('PROVIDER_REJECTED');return body}
  const check=async(name,fn)=>{try{report.checks[name]=await fn()}catch{report.checks[name]={status:'NOT_VERIFIED',reason:'Source unavailable, incomplete or outside evaluation limits'};report.blockers.push(name+' did not pass')}}
  await check('spyQuote',async()=>{
-  const q=await get('quote',{symbol:'SPY',country:'United States',type:'ETF',prepost:'false'})
-  if(q.symbol!=='SPY'||q.currency!=='USD'||q.type!=='ETF'||q.mic_code!=='ARCX')throw Error('IDENTITY')
+  const q=await get('quote',{symbol:'SPY',country:'United States',type:'ETF',interval:'1min',prepost:'false'})
+  if(q.symbol!=='SPY'||q.currency!=='USD'||q.mic_code!=='ARCX')throw Error('IDENTITY')
   stockDecimal(q.close);stockDecimal(q.previous_close)
-  const now=clock();stockFresh(q.timestamp,now,15)
+  if(q.is_market_open===false){report.blockers.push('SPY market closed; regular-session freshness not verified.');return {status:'MARKET_CLOSED',accessVerified:true,symbol:q.symbol,mic:q.mic_code,barTimestamp:q.timestamp,reportedLastQuoteAt:Number.isSafeInteger(q.last_quote_at)?q.last_quote_at:null,timestampSemanticsVerified:false}}
+  const now=clock();stockFresh(q.last_quote_at,now,15)
   if(q.is_market_open!==true||q.is_extended_hours===true)throw Error('CLOSED')
-  return {status:'OBSERVED',symbol:q.symbol,mic:q.mic_code,reportedTimestamp:q.timestamp,ageSeconds:now-q.timestamp,timestampSemanticsVerified:false}
+  return {status:'OBSERVED',symbol:q.symbol,mic:q.mic_code,barTimestamp:q.timestamp,reportedLastQuoteAt:q.last_quote_at,ageSeconds:now-q.last_quote_at,timestampSemanticsVerified:false}
  })
  await check('usdcQuote',async()=>{
-  const q=await get('quote',{symbol:'USDC/USD'})
-  if(q.symbol!=='USDC/USD'||q.currency!=='USD'||q.type!=='Digital Currency')throw Error('IDENTITY')
-  stockFresh(q.timestamp,clock(),15)
+  const q=await get('quote',{symbol:'USDC/USD',interval:'1min'})
+  if(q.symbol!=='USDC/USD')throw Error('IDENTITY')
+  let fresh=false;try{stockFresh(q.last_quote_at,clock(),15);fresh=true}catch{}
+  if(!fresh)report.blockers.push('USDC source time is missing, stale or future-dated.')
   if(stockBps(stockDecimal(q.close)-100000000n,100000000n)>50)throw Error('DEPEG')
-  return {status:'OBSERVED',symbol:q.symbol,reportedTimestamp:q.timestamp,timestampSemanticsVerified:false}
+  return {status:fresh?'OBSERVED':'STALE_OR_MISSING_SOURCE_TIME',accessVerified:true,symbol:q.symbol,barTimestamp:q.timestamp,reportedLastQuoteAt:Number.isSafeInteger(q.last_quote_at)?q.last_quote_at:null,timestampSemanticsVerified:false,venueIdentityVerified:false}
  })
  await check('currentSessionMinutes',async()=>{
   const now=clock(),date=stockNyDate(now),open=stockSessionTime(date,'09:30'),completed=Math.floor(now/60)*60

@@ -1,17 +1,40 @@
 {
   "schema": 1,
-  "checkedAt": "2026-09-12T12:17:20.000Z",
+  "checkedAt": "2026-09-12T12:30:24.000Z",
   "provider": "twelve-data",
   "internalEvaluationOnly": true,
   "productionReady": false,
   "providerSwitched": false,
-  "requests": 0,
+  "requests": 2,
   "checks": {
-    "access": {
-      "status": "NOT_CONFIGURED"
+    "spyQuote": {
+      "status": "MARKET_CLOSED",
+      "accessVerified": true,
+      "symbol": "SPY",
+      "mic": "ARCX",
+      "barTimestamp": 1789156740,
+      "reportedLastQuoteAt": 1789156740,
+      "timestampSemanticsVerified": false
+    },
+    "usdcQuote": {
+      "status": "STALE_OR_MISSING_SOURCE_TIME",
+      "accessVerified": true,
+      "symbol": "USDC/USD",
+      "barTimestamp": 1789216140,
+      "reportedLastQuoteAt": 1789216200,
+      "timestampSemanticsVerified": false,
+      "venueIdentityVerified": false
+    },
+    "currentSessionMinutes": {
+      "status": "NOT_VERIFIED",
+      "reason": "Source unavailable, incomplete or outside evaluation limits"
     }
   },
   "blockers": [
-    "Configure HASHPAYSTREAM_TWELVE_DATA_KEY server-side to run live evaluation."
+    "SPY market closed; regular-session freshness not verified.",
+    "USDC source time is missing, stale or future-dated.",
+    "currentSessionMinutes did not pass",
+    "Source timestamp semantics, holiday/early-close calendar, previous-session history and corporate-action handling require separate verification.",
+    "Customer-facing derived valuation rights, exact data entitlement and total price remain unconfirmed."
   ]
 }
