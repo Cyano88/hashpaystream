@@ -63,6 +63,7 @@
     "db:migrate:financial-core": "node --import tsx scripts/migrate-financial-core.mjs",
     "test:trade-preview": "node --import tsx scripts/trade-preview-smoke.mjs",
     "test:trade-backend": "node --import tsx scripts/trade-backend-smoke.mjs",
+    "test:trade-postgres": "node scripts/trade-postgres-harness.mjs",
     "test:trade-escrow-preflight": "npm --prefix contracts test -- --network hardhat test/TradeEscrowPreflight.test.ts && node --import tsx scripts/trade-escrow-preflight-smoke.mjs",
     "test:trade-escrow-binding": "node --import tsx scripts/trade-escrow-binding-smoke.mjs",
     "test:trade-wallet": "node --import tsx scripts/trade-wallet-verification-smoke.mjs",
