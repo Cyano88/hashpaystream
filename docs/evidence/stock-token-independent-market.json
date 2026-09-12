@@ -1,0 +1,7 @@
+{
+  "checkedAt": "2026-09-12T13:46:55.911Z",
+  "source": "https://api.kraken.com/0/public/AssetPairs?aclass_base=tokenized_asset&assetVersion=1",
+  "livePricesVerified": false,
+  "errorName": "TypeError",
+  "causeCode": "UND_ERR_CONNECT_TIMEOUT"
+}

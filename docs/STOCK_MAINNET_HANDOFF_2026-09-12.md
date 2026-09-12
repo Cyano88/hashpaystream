@@ -79,3 +79,7 @@ The [decentralized exit review](STOCK_DECENTRALIZED_EXIT_REVIEW_2026-09-12.md) s
 ## Production adapter implementation checkpoint
 
 The opt-in DEX adapter now combines exact-amount/depth quotes with independent timestamped stock and USDC references, regular-session checks and authenticated review evidence. See [the adapter handoff](STOCK_DEX_ADAPTER_2026-09-12.md) for configuration, tests and remaining live-access verification. Provider inputs in the local repayment rehearsal are synthetic; no mainnet activation or issuer account is implied.
+
+## Crypto-aligned pricing audit
+
+See [token-market audit](STOCK_TOKEN_MARKET_AUDIT_2026-09-12.md). Weekend executable exit was observed at block 70451779, but a second independent price source and manipulation resistance remain unverified. No weekend policy or mainnet gate was enabled.
