@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "checkedAt": "2026-09-12T12:17:20.000Z",
+  "provider": "twelve-data",
+  "internalEvaluationOnly": true,
+  "productionReady": false,
+  "providerSwitched": false,
+  "requests": 0,
+  "checks": {
+    "access": {
+      "status": "NOT_CONFIGURED"
+    }
+  },
+  "blockers": [
+    "Configure HASHPAYSTREAM_TWELVE_DATA_KEY server-side to run live evaluation."
+  ]
+}

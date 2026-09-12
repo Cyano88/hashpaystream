@@ -47,3 +47,11 @@ The scope question is necessary because internal backend processing does not by 
 ## Verification
 
 Reviewed current primary documentation and existing adapter requirements. Documentation changes only; no runtime provider switch and no new tests required. Previous Pyth local-fork tests remain historical evidence, not live validation of any replacement provider.
+
+## Internal evaluation runner
+
+Added npm run audit:stock-twelve-data. It reads HASHPAYSTREAM_TWELVE_DATA_KEY from the current process, uses the documented Authorization header, and makes at most three requests with no retry loop. Never place the key in a frontend VITE variable or commit it. It checks exact SPY ETF/ARCX/USD identity, reported quote age, USDC/USD deviation and complete minute bars in the regular-session window. OBSERVED means the candidate response passed these limited checks; it does not certify timestamp semantics, exchange calendar, commercial rights or production readiness. Nothing is connected to the risk signer or production pricing path.
+
+The smoke test passes with synthetic responses, including stale prices, incorrect MIC, depeg and missing/duplicate/invalid bars. The attempted live run made zero requests because no key was configured. Boolean-only checks found no recognized Twelve Data key in the current process or .env/.env.local in this worktree and the production checkout; hosting secrets were not inspected. Evidence: evidence/stock-twelve-data-evaluation.json.
+
+Next required input: create a free Twelve Data account, obtain the API key from its dashboard, and configure HASHPAYSTREAM_TWELVE_DATA_KEY privately in the runner's process. Then rerun during the regular US market session, at least six minutes after opening. Saturday cannot establish regular-session freshness. Official account/API instructions: https://twelvedata.com/docs . No subscription purchase or provider switch is required for this internal evaluation.
