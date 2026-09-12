@@ -25,10 +25,10 @@ const plan={
   confirmations:null,
   note:'Principal, tenor, per-worker caps, session and corporate-action checks require implementation; not enforced by current config merely by appearing here.'
  },
- requiredBeforeDeployment:[...evidence.blockers,'Approve constructor fee ceiling and risk age before immutable deployment',
+ requiredBeforeDeployment:[...evidence.blockers.filter(item=>item!=='Authenticated pricing and executable liquidity not verified'),'Production pricing adapter and independent timestamped reference not verified','Approve constructor fee ceiling and risk age before immutable deployment',
   'Provide reviewed owner/multisig and distinct risk/settlement signer addresses','Review compiler artifact against current source and complete security review'],
  requiredBeforeUnpause:['Pin deployed runtime and creation block','Implement participant-bound eligibility and verified unit-aware pricing',
-  'Implement and test pilot caps and corporate-action blackout','Verify provider account network and executable exit liquidity',
+  'Implement and test pilot caps and corporate-action blackout','Verify production DEX quote integration and current executable exit liquidity; issuer account only if using issuer RFQ',
   'Rehearse actual stock delivery and fixed USDC repayment with approved participants','Review implementation-upgrade monitoring and incident pause','Enable mainnet API/worker only through reviewed release'],
  broadcast:false
 }

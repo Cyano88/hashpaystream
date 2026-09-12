@@ -91,7 +91,9 @@
     "test:stock-wrapper-fork": "node scripts/stock-wrapper-fork.mjs",
     "stock:deployment-plan": "node scripts/stock-paused-deployment-plan.mjs",
     "test:stock-scan-bounds": "node --import tsx scripts/stock-scan-bounds-smoke.mjs",
-    "test:stock-participants": "node --import tsx scripts/stock-participant-clearance-smoke.mjs"
+    "test:stock-participants": "node --import tsx scripts/stock-participant-clearance-smoke.mjs",
+    "audit:stock-dex-exit": "node scripts/stock-dex-exit-audit.mjs",
+    "test:stock-dex-exit": "node scripts/stock-wrapper-fork.mjs --dex-exit"
   },
   "dependencies": {
     "@capacitor/android": "8.5.1",

@@ -79,7 +79,7 @@ Reproduction:
 - npm run test:stock-wrapper-fork : rehearse the actual candidate on localhost from the saved block.
 - npm run stock:deployment-plan : regenerate the blocked review packet; never broadcasts.
 
-The mainnet feature and automated sender remain disabled. The next external dependency is issuer/integration-account approval and provider access; the next code dependency is participant-bound, unit-aware risk evidence.
+The mainnet feature and automated sender remain disabled. Issuer-account approval is not a technical prerequisite for the direct DEX route. The next code dependency is a production adapter combining executable DEX quotes, an independent timestamped price reference and participant-bound risk evidence. See the decentralized exit review below.
 
 ## RPC compatibility
 
@@ -90,3 +90,7 @@ Read-only eth_getLogs probes against rpc.xlayer.tech rejected both 500-block and
 The real wSPYx V2 fork rehearsal passed at saved block 70421653: proxy/implementation bytecode pins, actual wrapping, paused escrow construction, exact inventory deposit and withdrawal, withdrawal while paused, and donation-resistant conversion. Balances were seeded by impersonation entirely on localhost chain 31337; no real wallet key or mainnet write was used. This does not establish issuer approval, uninterrupted redemption, corporate-action behavior, executable liquidity or full production suitability.
 
 The participant-binding boundary has since been implemented and tested; see [the provider readiness audit](STOCK_PROVIDER_READINESS_AUDIT_2026-09-12.md). Real provider-backed decisions and production adapter authentication are still pending.
+
+## Decentralized route correction
+
+The [decentralized exit review](STOCK_DECENTRALIZED_EXIT_REVIEW_2026-09-12.md) supersedes any implication that a Backed account or CAC approval is a technical dependency for transferring existing wSPYx or using a DEX exit. Issuer RFQ onboarding is an optional integration path. Participant/distribution review remains separate. A real two-hop exit passed on a local X Layer mainnet fork; the production price adapter and independent fair-price reference remain unfinished.

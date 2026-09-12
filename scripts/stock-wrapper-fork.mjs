@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
-import {readFileSync} from 'node:fs'
+import {readFileSync,writeFileSync} from 'node:fs'
 import {spawn} from 'node:child_process'
 import {createServer} from 'node:net'
-import {createPublicClient,createWalletClient,http,defineChain,parseAbi,keccak256} from 'viem'
+import {createPublicClient,createWalletClient,http,defineChain,parseAbi,keccak256,encodeFunctionData} from 'viem'
 import {generatePrivateKey,privateKeyToAccount} from 'viem/accounts'
 
-const evidence=JSON.parse(readFileSync('docs/evidence/stock-xlayer-candidate.json','utf8'))
+const dex=process.argv.includes('--dex-exit')?JSON.parse(readFileSync('docs/evidence/stock-dex-exit.json','utf8')):null
+const evidence=dex?{candidate:dex.candidate,blockNumber:dex.blockNumber,blockHash:dex.blockHash}:JSON.parse(readFileSync('docs/evidence/stock-xlayer-candidate.json','utf8'))
 const port=18549,rpc='http://127.0.0.1:'+port
 // Refuse to run against somebody else's local node.
 const probe=createServer()
@@ -38,7 +39,7 @@ try{
   if(t.implementation)assert.equal(keccak256(await client.getCode({address:t.implementation})),t.implementationRuntimeHash)
  }
  console.log('Candidate runtime and implementation pins match the mainnet fork.')
- const amount=10n**16n
+ const amount=10n**16n,seedAmount=dex?2n*10n**18n:10n**17n
  // Seed only fork balances through local impersonation of the wrapper's custody address.
  // Exercise the real deposit implementation; no mainnet account is controlled or funded.
  for(const address of [account.address,wrapper]){
@@ -46,9 +47,9 @@ try{
   await client.request({method:'hardhat_impersonateAccount',params:[address]})
  }
  const wrapperWallet=createWalletClient({chain:network,transport:http(rpc,{timeout:180000,retryCount:0}),account:wrapper})
- await send(wrapperWallet,underlying,tokenAbi,'transfer',[account.address,10n**17n])
- await send(wallet,underlying,tokenAbi,'approve',[wrapper,10n**17n])
- await send(wallet,wrapper,tokenAbi,'deposit',[10n**17n,account.address])
+ await send(wrapperWallet,underlying,tokenAbi,'transfer',[account.address,seedAmount])
+ await send(wallet,underlying,tokenAbi,'approve',[wrapper,seedAmount])
+ await send(wallet,wrapper,tokenAbi,'deposit',[seedAmount,account.address])
  const initialWrappedBalance=await client.readContract({address:wrapper,abi:tokenAbi,functionName:'balanceOf',args:[account.address]})
  assert.ok(initialWrappedBalance>=amount)
  console.log('Actual wrapper deposit succeeded on local fork.')
@@ -77,4 +78,37 @@ try{
  assert.equal(await client.readContract({address:wrapper,abi:tokenAbi,functionName:'convertToAssets',args:[10n**18n]}),before,'donation cannot change V2 conversion')
  assert.equal(await client.readContract({address:wrapper,abi:tokenAbi,functionName:'balanceOf',args:[account.address]}),balanceBefore)
  console.log('Real wSPYx V2 fork checks passed: pinned code, paused constructor, exact deposit/withdrawal, withdrawals while paused, donation-resistant conversion. Local chain only.')
+
+ if(dex){
+  for(const key of ['factory','quoter','router','usdg']){
+   assert.equal(keccak256(await client.getCode({address:dex.contracts[key]})),dex.contracts.runtimeHashes[key])
+  }
+  for(const p of dex.route.pools)assert.equal(keccak256(await client.getCode({address:p.address})),p.runtimeHash)
+  const quoteAbi=parseAbi(['function quoteExactInput(bytes,uint256) returns(uint256,uint160[],uint32[],uint256)'])
+  const routerAbi=parseAbi([
+   'function exactInput((bytes path,address recipient,uint256 amountIn,uint256 amountOutMinimum) params) payable returns(uint256 amountOut)',
+   'function multicall(uint256 deadline,bytes[] data) payable returns(bytes[] results)'
+  ])
+  const amountIn=BigInt(dex.testAmountIn)
+  const quote=await client.simulateContract({address:dex.contracts.quoter,abi:quoteAbi,functionName:'quoteExactInput',args:[dex.route.path,amountIn]})
+  const expected=quote.result[0],minimum=expected*BigInt(10000-dex.testSlippageBps)/10000n
+  assert.ok(minimum>0n)
+  const startUsdc=await client.readContract({address:dex.route.tokenOut,abi:tokenAbi,functionName:'balanceOf',args:[account.address]})
+  const startStock=await client.readContract({address:wrapper,abi:tokenAbi,functionName:'balanceOf',args:[account.address]})
+  await send(wallet,wrapper,tokenAbi,'approve',[dex.contracts.router,amountIn])
+  const deadline=(await client.getBlock()).timestamp+120n
+  const inner=encodeFunctionData({abi:routerAbi,functionName:'exactInput',args:[{path:dex.route.path,recipient:account.address,amountIn,amountOutMinimum:minimum}]})
+  const impossible=encodeFunctionData({abi:routerAbi,functionName:'exactInput',args:[{path:dex.route.path,recipient:account.address,amountIn,amountOutMinimum:expected+1n}]})
+  await assert.rejects(()=>client.simulateContract({account,address:dex.contracts.router,abi:routerAbi,functionName:'multicall',args:[deadline,[impossible]]}),/Too little received/)
+  await assert.rejects(()=>client.simulateContract({account,address:dex.contracts.router,abi:routerAbi,functionName:'multicall',args:[0n,[inner]]}),/Transaction too old/)
+  // The only write transport is hardcoded loopback chain 31337.
+  await send(wallet,dex.contracts.router,routerAbi,'multicall',[deadline,[inner]])
+  const received=await client.readContract({address:dex.route.tokenOut,abi:tokenAbi,functionName:'balanceOf',args:[account.address]})-startUsdc
+  assert.equal(startStock-await client.readContract({address:wrapper,abi:tokenAbi,functionName:'balanceOf',args:[account.address]}),amountIn)
+  assert.equal(received,expected)
+  const result={schema:1,chainId:31337,sourceChainId:196,sourceBlock:dex.blockNumber,route:dex.route.path,amountIn:amountIn.toString(),quotedUsdcUnits:expected.toString(),receivedUsdcUnits:received.toString(),minimumUsdcUnits:minimum.toString(),deadlineEnforced:true,expiredDeadlineRejected:true,insufficientOutputRejected:true,mainnetTransaction:false}
+  writeFileSync('docs/evidence/stock-dex-exit-fork.json',JSON.stringify(result,null,2)+'\n')
+  console.log('Actual two-hop DEX exit passed on fork: received '+received.toString()+' USDC base units, matching quote; bounded approval, minimum output and deadline.')
+ }
+
 }finally{child.kill()}

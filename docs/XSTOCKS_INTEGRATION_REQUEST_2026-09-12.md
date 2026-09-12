@@ -33,3 +33,7 @@ Internal submission notes:
 - Confirm the reply email, entity details and intended pilot countries before filling required application fields.
 - No credentials, wallet keys, participant identities or private financial records are included.
 - This document has not been sent. No contact form or terms have been submitted.
+
+## Decentralized route correction
+
+The [decentralized exit review](STOCK_DECENTRALIZED_EXIT_REVIEW_2026-09-12.md) supersedes any implication that a Backed account or CAC approval is a technical dependency for transferring existing wSPYx or using a DEX exit. Issuer RFQ onboarding is an optional integration path. Participant/distribution review remains separate. A real two-hop exit passed on a local X Layer mainnet fork; the production price adapter and independent fair-price reference remain unfinished.

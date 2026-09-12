@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "chainId": 31337,
+  "sourceChainId": 196,
+  "sourceBlock": 70423197,
+  "route": "0xe7e553cd128f0011777323a0b44a7b96ea1cb5400001f44ae46a509f6b1d9056937ba4500cb143933d2dc8000064b6ceceab302e2e4948951ee7843fc24e92933061",
+  "amountIn": "130000000000000000",
+  "quotedUsdcUnits": "99986099",
+  "receivedUsdcUnits": "99986099",
+  "minimumUsdcUnits": "99486168",
+  "deadlineEnforced": true,
+  "expiredDeadlineRejected": true,
+  "insufficientOutputRejected": true,
+  "mainnetTransaction": false
+}

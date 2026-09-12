@@ -46,8 +46,8 @@ Submission needs the user's chosen reply contact, entity status and pilot-countr
 
 ## Remaining production work
 
-1. Confirm provider/partner path and jurisdiction responsibilities for this specific model.
-2. Implement the trusted adapter with real eligibility evidence, authenticated pricing and executable liquidity verification.
+1. Review jurisdiction responsibilities for this specific model; a Backed account is optional for the direct DEX route.
+2. Implement the trusted adapter with real eligibility evidence, independent timestamped pricing and executable DEX liquidity verification.
 3. Calibrate and implement approved pilot limits, session/corporate-action handling and token implementation monitoring.
 4. Rehearse the full actual-token flow with approved participants, complete security review, then finalize the paused deployment.
 
@@ -56,3 +56,7 @@ This audit implements the participant-validation boundary; it does not claim to 
 ## Validation
 
 Passed: participant-clearance rejection tests; full synthetic HTTP/RPC payment flow and isolated PostgreSQL workers, including wrong-party/denied-policy checks before preparation and revoked worker eligibility before acceptance; TypeScript validation; existing stock policy, selection, checkout and funder UI tests; standalone route/browser-secret checks. These tests use synthetic eligibility evidence, not provider-issued approval.
+
+## Decentralized route correction
+
+The [decentralized exit review](STOCK_DECENTRALIZED_EXIT_REVIEW_2026-09-12.md) supersedes any implication that a Backed account or CAC approval is a technical dependency for transferring existing wSPYx or using a DEX exit. Issuer RFQ onboarding is an optional integration path. Participant/distribution review remains separate. A real two-hop exit passed on a local X Layer mainnet fork; the production price adapter and independent fair-price reference remain unfinished.
