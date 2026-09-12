@@ -1,3 +1,4 @@
+import {assertStockDexHistory} from './stock-dex-history.js'
 import {readStockPythReference} from './stock-pyth-market-data.js'
 import { createPublicClient,http,parseAbi,keccak256,getAddress,encodePacked,type Hex } from 'viem'
 import pins from '../docs/evidence/stock-dex-exit.json'
@@ -30,7 +31,8 @@ export async function readStockDexQuote(c:StockConfig,scope:StockParticipantScop
   await checkCode(p.address,p.runtimeHash)
   const [factory,token0,token1,fee,liquidity,slot]=await Promise.all([read(p.address,'factory'),read(p.address,'token0'),read(p.address,'token1'),read(p.address,'fee'),read(p.address,'liquidity'),read(p.address,'slot0')])
   if(addr(factory)!==addr(pins.contracts.factory)||addr(token0)!==addr(p.token0)||addr(token1)!==addr(p.token1)||fee!==p.fee||liquidity<=0n||slot[0]<=0n||slot[6]!==true||addr(await read(factory,'getPool',[token0,token1,fee]))!==addr(p.address))fail('DEX pool is unavailable.',503)
-  await read(p.address,'observe',[[1800,300,0]])
+  const [ticks]=await read(p.address,'observe',[[1800,300,0]])
+  assertStockDexHistory(slot[1],ticks,c.policy.maxQuoteDeviationBps)
  }))
  const path=encodePacked(['address','uint24','address','uint24','address'],[c.asset,500,addr(pins.contracts.usdg),100,c.usdc])
  if(path!==pins.route.path)fail('DEX path mismatch.',503)

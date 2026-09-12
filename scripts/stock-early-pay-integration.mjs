@@ -144,7 +144,7 @@ try{
    const review={participantClearance:{...scope,checkedAt:now,expiresAt:now+90,workerEligible:true,funderEligible:true,workerJurisdiction:'NG',funderJurisdiction:'SG',reviewReference:'synthetic-only',...clearancePatch},assetReview:{chainId:c.chainId,asset,policyVersion:scope.policyVersion,checkedAt:now,expiresAt:now+90,corporateActionsClear:true,transfersAvailable:true,reviewReference:'synthetic-only'}}
    const result=await buildStockDexMarket(c,scope,review,reference,now).catch(error=>{if(!error.status)console.error('Local adapter failure:',error.shortMessage??error.message);throw error});
    if(adapterCalls===0){
-    await assert.rejects(()=>buildStockDexMarket({...c,policy:{...c.policy,maxQuoteDeviationBps:0}},scope,review,reference,now),/independent price/)
+    await assert.rejects(()=>buildStockDexMarket(c,scope,review,{...reference,spyUsdE8:reference.spyUsdE8*102n/100n},now),/independent price/)
     const pinSnapshot=await client.request({method:'evm_snapshot',params:[]})
     try{await client.request({method:'hardhat_setCode',params:[dexPins.contracts.quoter,'0x00']});await assert.rejects(()=>buildStockDexMarket(c,scope,review,reference,now),/implementation changed/)}finally{await client.request({method:'evm_revert',params:[pinSnapshot]})}
     console.log('Actual DEX adapter passed amount/depth quotes and rejected independent-price disagreement and changed runtime.')

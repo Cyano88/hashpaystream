@@ -36,3 +36,19 @@ Keep the current regular-session checks until a second economically meaningful t
 Current api/stock-dex-market.ts requests observe history but does not enforce a computed TWAP-divergence limit; the proposed token-market path would need one. Retain the fixed-principal-plus-fee repayment and minimal worker/funder checkout. No worker's deduction should increase because the token price falls.
 
 Validation: live read-only audit completed, audit script syntax check passed, evidence identities and quote amounts inspected. No transaction or full deployment test was needed for this audit-only change. Public wallet delivery remains gated by the existing production release requirements.
+
+## Price-history guard implementation
+
+Added api/stock-dex-history.ts and wired it into both reviewed route pools in readStockDexQuote. The adapter now compares current pool tick against five- and thirty-minute mean ticks and compares those means against each other. It uses the existing maxQuoteDeviationBps ceiling and exact integer ratios for tick-distance comparisons, with bounded exponent work. Mean ticks round down for negative values and handle int56 cumulative wrap. Tick quantization is approximately one basis point; this does not replace the exact executable-output versus independent-price check.
+
+This is an additional movement guard. Quiet stale trading or a sustained attack affecting all three samples can still pass it. A reliable independent source remains mandatory. The thirty-minute comparison can reject legitimate fast price changes too; limit calibration and production approval remain outstanding. API chain 196 and weekend gates remain closed.
+
+Synthetic tests cover upward/downward price shocks, short-window manipulation, sustained spot/history disagreement, threshold boundaries, negative rounding, cumulative wrap and malformed history. The independent-price integration test now changes its synthetic SPY reference by 2% instead of forcing every deviation limit to zero, which could trigger the new earlier guard and obscure the condition being tested.
+
+Kraken's current FAQ explicitly lists SPYx among the assets traded 24/7 on Kraken Pro: https://support.kraken.com/articles/xstocks-faq . It also describes exchange quantity multipliers. An eventual SPYx-to-wSPYx reference must verify the exchange's quote units and multiplier semantics, not blindly apply a wrapper conversion to an assumed underlying share price. Market availability in documentation is not live feed verification.
+
+Public Kraken WebSocket probe failed with ENOTFOUND; Bybit spot metadata probe timed out. The machine's configured DNS resolver timed out for api.kraken.com while a read-only lookup through 1.1.1.1 succeeded. No system DNS settings changed. Evidence: evidence/stock-kraken-websocket-probe.json and evidence/stock-bybit-spot-probe.json. Neither exchange was marked as a verified price source.
+
+The one-off HTTPS request using the independently resolved Kraken address also timed out while connecting. Thus DNS is one observed failure, but correcting resolution alone did not restore connectivity. No successful Kraken HTTP response or live token quote was obtained.
+
+Validation completed: TypeScript, DEX history unit scenarios, existing DEX guard tests, and the full Pyth actual-token local-fork plus isolated PostgreSQL repayment rehearsal passed. The first integration attempt exposed the obsolete zero-limit assertion described above; the corrected independent-price scenario and subsequent full run passed. Provider prices and participant approvals in that rehearsal were synthetic. No live manipulation-cost or independent-source verification is claimed.

@@ -103,7 +103,8 @@
     "test:stock-pyth-repayment": "node --import tsx scripts/stock-early-pay-integration.mjs --postgres --actual-stock --pyth",
     "audit:stock-twelve-data": "node --import tsx scripts/stock-twelve-data-evaluation.mjs",
     "test:stock-twelve-data": "node --import tsx scripts/stock-twelve-data-evaluation-smoke.mjs",
-    "audit:stock-token-market": "node scripts/stock-token-market-audit.mjs"
+    "audit:stock-token-market": "node scripts/stock-token-market-audit.mjs",
+    "test:stock-dex-history": "node --import tsx scripts/stock-dex-history-smoke.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.5.1",
