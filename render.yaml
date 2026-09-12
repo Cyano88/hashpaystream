@@ -96,6 +96,20 @@ services:
         value: "true"
       - key: HASHPAYSTREAM_XLAYER_RPC_URL
         value: https://rpc.xlayer.tech
+      # Stock early pay ships in the shared web/Android bundle, but remains
+      # closed until the reviewed X Layer deployment profile is approved.
+      - key: VITE_HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED
+        value: "false"
+      - key: HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED
+        value: "false"
+      - key: HASHPAYSTREAM_STOCK_RECEIPT_WORKER_ENABLED
+        value: "false"
+      - key: HASHPAYSTREAM_STOCK_SETTLEMENT_WORKER_ENABLED
+        value: "false"
+      - key: HASHPAYSTREAM_TWELVE_DATA_KEY
+        sync: false
+      - key: HASHPAYSTREAM_STOCK_RISK_ADAPTER_TOKEN
+        sync: false
       - key: HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY
         sync: false
       - key: HASHPAYSTREAM_UPFRONT_PROTECTION_SIGNER
