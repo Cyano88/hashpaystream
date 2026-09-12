@@ -7,7 +7,7 @@ export type StockApiCall = <T>(body?:Record<string,unknown>,query?:Record<string
 export type StockBrowserWallet = { address:string; switchChain:(chainId:number)=>Promise<void>; getEthereumProvider:()=>Promise<EIP1193Provider> }
 export type StockAcceptance = { config:StockClientConfig; offerId:Hex; offer:StockOfferWire; funderSignature:Hex; risk:StockRiskWire; riskSignature:Hex }
 export function validateStockClientConfig(c:StockClientConfig, expectedEscrow:string) {
- if(c.version!==1||![31337,1952].includes(c.chainId)||!isAddress(expectedEscrow)||getAddress(c.escrow)!==getAddress(expectedEscrow)||
+ if(c.version!==1||![31337,196].includes(c.chainId)||!isAddress(expectedEscrow)||getAddress(c.escrow)!==getAddress(expectedEscrow)||
     !isAddress(c.usdc)||!isAddress(c.asset)||getAddress(c.asset)===getAddress(c.usdc)||!Number.isInteger(c.maxFeeBps)||c.maxFeeBps<0||c.maxFeeBps>10_000||
     !Number.isInteger(c.confirmations)||c.confirmations<1||c.confirmations>64)throw Error('Stock deployment does not match this app.')
 }
@@ -22,7 +22,7 @@ export async function stockWalletClients(wallet:StockBrowserWallet,c:StockClient
  validateStockClientConfig(c,expectedEscrow)
  await wallet.switchChain(c.chainId)
  const provider=await wallet.getEthereumProvider(),transport=custom(provider)
- const chain=defineChain({id:c.chainId,name:c.chainId===1952?'X Layer Testnet':'Local stock-payment test',nativeCurrency:{name:'Test gas',symbol:c.chainId===1952?'OKB':'ETH',decimals:18},rpcUrls:{default:{http:[]}}})
+ const chain=defineChain({id:c.chainId,name:c.chainId===196?'X Layer':'Local stock-payment test',nativeCurrency:{name:c.chainId===196?'OKB':'Test gas',symbol:c.chainId===196?'OKB':'ETH',decimals:18},rpcUrls:{default:{http:[]}}})
  const publicClient=createPublicClient({chain,transport}),account=getAddress(wallet.address)
  if(await publicClient.getChainId()!==c.chainId)throw Error('Switch to the stock payment network.')
  const walletClient=createWalletClient({chain,transport,account})

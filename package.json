@@ -83,7 +83,10 @@
     "test:stock-offers": "node --import tsx scripts/stock-funding-offers-smoke.mjs && node --import tsx scripts/funding-offer-selector-smoke.mjs && node --import tsx scripts/stock-funding-checkout-smoke.mjs && node --import tsx scripts/stock-funder-desk-smoke.mjs",
     "test:stock-integration": "node --import tsx scripts/stock-early-pay-integration.mjs",
     "test:stock-employer": "node --import tsx scripts/stock-employer-smoke.mjs",
-    "stock:receipt-worker": "tsx scripts/stock-receipt-worker.ts"
+    "stock:receipt-worker": "tsx scripts/stock-receipt-worker.ts",
+    "stock:settlement-worker": "tsx scripts/stock-settlement-worker.ts",
+    "test:stock-postgres": "node --import tsx scripts/stock-early-pay-integration.mjs --postgres",
+    "test:stock-mainnet-fork": "node --import tsx scripts/stock-early-pay-integration.mjs --postgres --mainnet-fork"
   },
   "dependencies": {
     "@capacitor/android": "8.5.1",

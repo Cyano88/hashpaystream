@@ -150,3 +150,7 @@ Next:
 - Rehearse the receipt worker against the test database, including restart and shutdown.
 - Implement and test scheduled settlement separately; receipt reconciliation does not send the repayment transaction.
 - Select the test asset and reviewed price/issuer eligibility source, pin the X Layer test deployment and rehearse real Privy wallets. Real-asset/public readiness remains gated.
+
+## Mainnet correction and scheduled settlement checkpoint - 2026-09-12
+
+The target is X Layer MAINNET (196). Earlier testnet next steps above are superseded. See [the current mainnet handoff](STOCK_MAINNET_HANDOFF_2026-09-12.md) for the scheduled worker, isolated PostgreSQL and mainnet-fork rehearsal, verified deployment discrepancy, and remaining release gates.

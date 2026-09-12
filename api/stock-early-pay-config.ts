@@ -18,8 +18,9 @@ export function readStockConfig(env: NodeJS.ProcessEnv): StockConfig {
  if (env.HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED !== 'true') stockFailure('Stock early pay is not enabled.', 503)
  let raw: Record<string, unknown>
  try { raw = JSON.parse(env.HASHPAYSTREAM_STOCK_CONFIG ?? '') } catch { stockFailure('Stock deployment configuration is incomplete.', 503) }
- // This version is deliberately limited to local and X Layer testnet rehearsals.
- if (!raw || ![31337,1952].includes(Number(raw.chainId)) || typeof raw.chainId !== 'number') stockFailure('Stock early pay has not been approved for this network.', 503)
+ // Deployment target is X Layer mainnet (196). Only local rehearsals are enabled
+ // until a stock escrow, asset and risk policy have been reviewed and pinned.
+ if (!raw || ![31337].includes(Number(raw.chainId)) || typeof raw.chainId !== 'number') stockFailure('Stock early pay has not been approved for this network.', 503)
  const chainId = raw.chainId as number
  if(!integer(raw.deploymentBlock,0,Number.MAX_SAFE_INTEGER))stockFailure('Stock deployment block is required for receipt recovery.',503)
  let rpc: URL, risk: URL

@@ -1,7 +1,12 @@
+import pg from 'pg'
+import {mkdtempSync} from 'node:fs'
+import {tmpdir} from 'node:os'
+import {join} from 'node:path'
+import {runStockSettlementPass} from '../api/stock-settlement-worker.ts'
 import { applyStockScan, verifyStockReceipt } from '../api/stock-early-pay-reconciliation.ts'
 import { performStockEarnings, recoverStockEarnings, stockEarningsPendingKey } from '../src/lib/stockEarningsClient.ts'
 import assert from 'node:assert/strict'
-import {spawn} from 'node:child_process'
+import {spawn,spawnSync} from 'node:child_process'
 import {readFileSync} from 'node:fs'
 import {createServer} from 'node:http'
 import {randomBytes} from 'node:crypto'
@@ -20,8 +25,10 @@ const chain=defineChain({id:31337,name:'Isolated test',nativeCurrency:{name:'Tes
 const client=createPublicClient({chain,transport:http(rpcUrl),pollingInterval:20})
 const ids=['employer','worker','funder','outsider'], accounts=Object.fromEntries(ids.map(id=>[id,privateKeyToAccount(generatePrivateKey())]))
 const admin=privateKeyToAccount(generatePrivateKey()),riskKey=generatePrivateKey(), risk=privateKeyToAccount(riskKey)
-const child=spawn(process.execPath,['node_modules/hardhat/internal/cli/cli.js','node','--hostname','127.0.0.1','--port',String(port)],{cwd:new URL('../contracts/',import.meta.url),env:{...process.env,XLAYER_DEPLOYER_PRIVATE_KEY:'',XLAYER_MAINNET_DEPLOYER_PRIVATE_KEY:'',ARC_DEPLOYER_PRIVATE_KEY:'',DOTENV_CONFIG_PATH:'__no_test_env__'},stdio:'ignore',windowsHide:true})
-let marketServer,apiServer
+const child=spawn(process.execPath,['node_modules/hardhat/internal/cli/cli.js','node','--hostname','127.0.0.1','--port',String(port),...(process.argv.includes('--mainnet-fork')?['--fork','https://rpc.xlayer.tech','--fork-block-number','70404550']:[])],{cwd:new URL('../contracts/',import.meta.url),env:{...process.env,XLAYER_DEPLOYER_PRIVATE_KEY:'',XLAYER_MAINNET_DEPLOYER_PRIVATE_KEY:'',ARC_DEPLOYER_PRIVATE_KEY:'',DOTENV_CONFIG_PATH:'__no_test_env__'},stdio:'ignore',windowsHide:true})
+let marketServer,apiServer,pool,pgDir,databaseUrl
+const pgBin='C:/Program Files/PostgreSQL/17/bin/'
+const settlementKey=generatePrivateKey(),settlement=privateKeyToAccount(settlementKey)
 const wait=ms=>new Promise(r=>setTimeout(r,ms))
 const wallet=account=>createWalletClient({account,chain,transport:http(rpcUrl)})
 const send=async(account,address,abi,functionName,args=[])=>{
@@ -36,7 +43,20 @@ try{
  let ready=false
  for(let i=0;i<100;i++){if(child.exitCode!==null)throw Error('Local test node could not start.');try{ready=await client.getChainId()===31337;if(ready)break}catch{}await wait(100)}
  assert.ok(ready,'local node ready')
- for(const a of [admin,...Object.values(accounts)])await client.request({method:'hardhat_setBalance',params:[a.address,'0x3635c9adc5dea00000']})
+
+ if(process.argv.includes('--mainnet-fork')){
+  const remote=createPublicClient({transport:http('https://rpc.xlayer.tech',{timeout:15000,retryCount:0})})
+  assert.equal(await remote.getChainId(),196)
+  for(const [address,expected] of [
+   ['0xCA4f547527A64a94c9b45306f311D8658d8A3Dbf','0x8541bc97d8b1887c00eb760e882ac9b6a36b2c151139b33864d1ff252bca9887'],
+   ['0x98A45f994E5fb887a950D20BEd60bA83cB00430c','0x313acc541539d7a26a7830110e872fd246b86e23081677510b12e4adb23bfbe3']]){
+   assert.equal(keccak256(await client.getCode({address})),expected,'fork preserves verified mainnet escrow runtime')
+  }
+  console.log('X Layer mainnet fork verified at block 70404550; all writes remain on loopback chain 31337.')
+  await client.request({method:'evm_setNextBlockTimestamp',params:[Math.floor(Date.now()/1000)]});await mine()
+ }
+
+ for(const a of [admin,settlement,...Object.values(accounts)])await client.request({method:'hardhat_setBalance',params:[a.address,'0x3635c9adc5dea00000']})
  const deploy=async(a,args=[])=>{const hash=await wallet(admin).deployContract({abi:a.abi,bytecode:a.bytecode,args});return (await client.waitForTransactionReceipt({hash})).contractAddress}
  const usdc=await deploy(tokenArtifact),asset=await deploy(tokenArtifact),escrow=await deploy(escrowArtifact,[usdc,admin.address,risk.address,300,120])
  const deploymentBlock=Number(await client.getBlockNumber({cacheTime:0}))
@@ -66,6 +86,28 @@ try{
  assert.throws(()=>readStockConfig({...env,HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED:'false'}))
  assert.throws(()=>readStockConfig({...env,HASHPAYSTREAM_STOCK_CONFIG:JSON.stringify({...raw,chainId:196})}))
  let state
+
+ const dbKey='hashpaystream:stock-early-pay:v1:'+config.chainId+':'+escrow.toLowerCase()
+ const saveDb=async()=>pool.query('insert into render_durable_kv(store_key,value) values($1,$2::jsonb) on conflict(store_key) do update set value=excluded.value',[dbKey,JSON.stringify(state)])
+ const loadDb=async()=>{state=(await pool.query('select value from render_durable_kv where store_key=$1',[dbKey])).rows[0].value}
+ if(process.argv.includes('--postgres')){
+  pgDir=mkdtempSync(join(tmpdir(),'hashpaystream-stock-pg-'))
+  const initialized=spawnSync(pgBin+'initdb.exe',['-D',pgDir,'-U','stock_test','-A','trust','--encoding=UTF8','--no-locale'],{windowsHide:true,encoding:'utf8'})
+  assert.equal(initialized.status,0,'isolated PostgreSQL initialization')
+  const started=spawnSync(pgBin+'pg_ctl.exe',['-D',pgDir,'-l',join(pgDir,'server.log'),'-o','-h 127.0.0.1 -p 18548','-w','start'],{windowsHide:true,stdio:'ignore',timeout:30000})
+  assert.equal(started.status,0,'isolated PostgreSQL startup')
+  databaseUrl='postgresql://stock_test@127.0.0.1:18548/postgres'
+  pool=new pg.Pool({connectionString:databaseUrl,max:3})
+  await pool.query('create table render_durable_kv(store_key text primary key,value jsonb not null,updated_at timestamptz not null default now())')
+ }
+ const settlementOptions=()=>({pool,config,privateKey:settlementKey,maxTransactionCostWei:100000000000000000n})
+ const runWorker=async(script,extra={})=>{
+  const processWorker=spawn(process.execPath,['--import','tsx',script,'--once'],{cwd:new URL('../',import.meta.url),env:{...process.env,...env,DATABASE_URL:databaseUrl,POSTGRES_URL:'',HASHPAYSTREAM_STOCK_RECEIPT_WORKER_ENABLED:'true',...extra},windowsHide:true,stdio:['ignore','pipe','pipe']})
+  let output='';processWorker.stdout.on('data',b=>output+=b);processWorker.stderr.on('data',b=>output+=b)
+  const code=await new Promise((resolve,reject)=>{processWorker.once('error',reject);processWorker.once('exit',resolve)})
+  assert.equal(code,0,output)
+ }
+
  const handler=createStockEarlyPayHandler({
   env:()=>env,hasStore:()=>true,read:async()=>state,mutate:async(_key,fn)=>(state=fn(state)),
   identity:async req=>{const id=req.headers.authorization?.replace('Bearer ','');if(!accounts[id])throw Object.assign(Error('Sign in.'),{status:401});return {userId:id,wallet:accounts[id].address,emails:[id+'@example.test']}},
@@ -178,13 +220,50 @@ try{
  const memory=new Map([['pending',JSON.stringify({offerId:prepared.offerId,stage:'submitting'})]])
  await recoverStockPayment(body=>api('worker',body),{getItem:k=>memory.get(k),removeItem:k=>memory.delete(k)},'pending')
  assert.equal(memory.has('pending'),false)
+
+ if(pool){
+  await saveDb()
+  assert.equal((await runStockSettlementPass(settlementOptions())).status,'idle','no settlement before payday')
+  const held=await pool.connect()
+  const lease='stock-settlement:31337:'+settlement.address.toLowerCase()
+  await held.query('select pg_advisory_lock(hashtextextended($1,0))',[lease])
+  try{assert.equal((await runStockSettlementPass(settlementOptions())).status,'busy')}finally{await held.query('select pg_advisory_unlock(hashtextextended($1,0))',[lease]);held.release()}
+  await runWorker('scripts/stock-receipt-worker.ts')
+  await runWorker('scripts/stock-receipt-worker.ts') // process restart, same database
+  await loadDb()
+ }
+
  await client.request({method:'evm_setNextBlockTimestamp',params:[payAt]});await mine()
 
  const due=(await api('employer',undefined,{view:'employer'})).earnings.find(e=>e.id===earningsId)
  await performStockEarnings({api:employerApi,wallet:browserWallet,config,expectedEscrow:escrow,operation:'releaseEarnings',earningsId,earnings:due,storage,storageKey:key})
  assert.equal(await client.readContract({address:usdc,abi:tokenArtifact.abi,functionName:'balanceOf',args:[accounts.worker.address]}),399000000n)
 
- const repaid=await send(accounts.funder,escrow,STOCK_ESCROW_ABI,'settle',[prepared.offerId]);await mine()
+
+ let repaid
+ if(pool){
+  await saveDb()
+  assert.equal((await runStockSettlementPass({...settlementOptions(),maxTransactionCostWei:1n})).status,'gas_budget')
+  await assert.rejects(()=>runStockSettlementPass({...settlementOptions(),config:{...config,chainId:196}}),/not reviewed/)
+  await assert.rejects(()=>runStockSettlementPass({...settlementOptions(),privateKey:riskKey}),/dedicated/)
+  const beforeNonce=await client.getTransactionCount({address:settlement.address})
+  await assert.rejects(()=>runStockSettlementPass({...settlementOptions(),beforeBroadcast:async()=>{throw Error('simulated process exit')}}),/simulated process exit/)
+  assert.equal(await client.getTransactionCount({address:settlement.address}),beforeNonce,'crash occurs before broadcast')
+  const journal=(await pool.query('select value from render_durable_kv where starts_with(store_key,$1)',[dbKey+':settlement:'])).rows
+  assert.equal(journal.length,1,'exactly one durable intent')
+  repaid=journal[0].value.hash
+  await runWorker('scripts/stock-settlement-worker.ts',{HASHPAYSTREAM_STOCK_SETTLEMENT_WORKER_ENABLED:'true',HASHPAYSTREAM_STOCK_SETTLEMENT_KEY:settlementKey,HASHPAYSTREAM_STOCK_SETTLEMENT_MAX_TX_WEI:'100000000000000000'})
+  assert.equal((await client.getTransactionReceipt({hash:repaid})).status,'success','fresh worker recovers persisted bytes')
+  assert.equal((await runStockSettlementPass(settlementOptions())).status,'confirming')
+  await mine()
+  await runWorker('scripts/stock-receipt-worker.ts')
+  await loadDb()
+  assert.equal(state.offers[prepared.offerId].repayment.txHash,repaid)
+  assert.equal((await runStockSettlementPass(settlementOptions())).status,'idle')
+  assert.equal(await client.getTransactionCount({address:settlement.address}),beforeNonce+1,'no duplicate transaction')
+  console.log('Isolated PostgreSQL workers passed: due-date gate, lease exclusion, gas cap, committed intent before crash, process restart, confirmation and receipt persistence.')
+ }else{repaid=await send(accounts.funder,escrow,STOCK_ESCROW_ABI,'settle',[prepared.offerId]);await mine()}
+
 
  await api('funder',undefined,{view:'desk'})
  assert.equal(state.offers[prepared.offerId].repayment.txHash,repaid,'funder refresh discovers repayment without a supplied hash')
@@ -192,7 +271,7 @@ try{
  await api('funder',{action:'receipt',offerId:prepared.offerId,txHash:repaid})
  await api('funder',{action:'receipt',offerId:prepared.offerId,txHash:repaid})
 
- const settlementStorage=new Map([['settlement',JSON.stringify({offerId:prepared.offerId,txHash:repaid})]])
+ const settlementStorage=new Map([['settlement',JSON.stringify({offerId:prepared.offerId,...(pool?{}:{txHash:repaid})})]])
  await settleStockPayment({api:body=>api('funder',body),wallet:{address:accounts.funder.address,switchChain:async()=>{throw Error('Recovery must not switch or broadcast')}},
   config,expectedEscrow:escrow,offerId:prepared.offerId,storage:{getItem:k=>settlementStorage.get(k),setItem:(k,v)=>settlementStorage.set(k,v),removeItem:k=>settlementStorage.delete(k)},storageKey:'settlement'})
  assert.equal(settlementStorage.size,0)
@@ -210,6 +289,15 @@ try{
  await api('worker',{action:'position',offerId:prepared.offerId})
  assert.equal(state.offers[prepared.offerId].delivery.txHash,replay,'replayed canonical delivery is rediscovered')
  assert.notEqual(state.offers[prepared.offerId].delivery.blockHash,recoveredDelivery.blockHash)
+ if(pool){
+  await saveDb()
+  assert.equal((await runStockSettlementPass(settlementOptions())).status,'awaiting_due','reorg cannot trigger an early rebroadcast')
+  const jobKey=dbKey+':settlement:'+prepared.offerId
+  const original=(await pool.query('select value from render_durable_kv where store_key=$1',[jobKey])).rows[0].value
+  await pool.query('update render_durable_kv set value=$2::jsonb where store_key=$1',[jobKey,JSON.stringify({...original,hash:'0x'+'00'.repeat(32)})])
+  await assert.rejects(()=>runStockSettlementPass(settlementOptions()),/journal invalid/)
+  await pool.query('update render_durable_kv set value=$2::jsonb where store_key=$1',[jobKey,JSON.stringify(original)])
+ }
  env.HASHPAYSTREAM_STOCK_CONFIG=JSON.stringify({...raw,deploymentBlock:deploymentBlock+1})
  await api('worker',{action:'position',offerId:prepared.offerId},{},503)
  env.HASHPAYSTREAM_STOCK_CONFIG=JSON.stringify(raw)
@@ -236,5 +324,7 @@ try{
  await api('worker',undefined,{view:'worker'},503)
  console.log('Stock API + local-chain integration passed: ownership, risk gates, signed delivery, fixed repayment, confirmations, recovery, reviewed counts, and deployment pinning.')
 }finally{
+ await pool?.end()
+ if(pgDir)spawnSync(pgBin+'pg_ctl.exe',['-D',pgDir,'-m','immediate','-w','stop'],{windowsHide:true,stdio:'ignore'})
  apiServer?.closeAllConnections();apiServer?.close();marketServer?.closeAllConnections();marketServer?.close();child.kill()
 }
