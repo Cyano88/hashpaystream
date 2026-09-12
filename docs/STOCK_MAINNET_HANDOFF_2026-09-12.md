@@ -1,5 +1,7 @@
 # Stock early pay: mainnet handoff, 12 September 2026
 
+> Affordability audit update: no free production replacement is verified. Twelve Data is the leading lower-cost evaluation candidate; Pyth remains an unactivated technical implementation. See [lower-cost audit](STOCK_LOW_COST_DATA_AUDIT_2026-09-12.md).
+
 > Provider update: Pyth Pro is now the technical default. Earlier Alpaca/Kraken references below describe the previous implementation. See [provider selection](STOCK_PROVIDER_SELECTION_2026-09-12.md). Configure HASHPAYSTREAM_PYTH_PRO_KEY for the selected path; authenticated access and commercial entitlement remain unverified. Mainnet gates remain closed.
 
 ## Authoritative network correction

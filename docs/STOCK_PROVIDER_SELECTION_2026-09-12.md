@@ -1,5 +1,7 @@
 # Stock price provider selection - 12 September 2026
 
+> Affordability audit update: no free production replacement is verified. Twelve Data is the leading lower-cost evaluation candidate; Pyth remains an unactivated technical implementation. See [lower-cost audit](STOCK_LOW_COST_DATA_AUDIT_2026-09-12.md).
+
 ## Decision
 
 Select Pyth Pro as the technical default for xlayer-dex-v1. This is an integration decision, not approval to buy a subscription or activate mainnet. HASHPAYSTREAM_PYTH_PRO_KEY must be configured server-side with SPY and USDC latest-price and history entitlement. There is no silent fallback. The prior Alpaca SIP plus Kraken path remains explicitly selectable for an appropriately entitled deployment.
