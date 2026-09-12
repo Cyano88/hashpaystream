@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "checkedAt": "2026-09-12T11:38:42.619Z",
+  "productionReady": false,
+  "mainnetTransaction": false,
+  "checks": {
+    "issuerAvailability": {
+      "status": "VERIFIED",
+      "openNow": false,
+      "halted": false,
+      "nextChangeAt": "2026-09-14T00:00:00.000Z"
+    },
+    "krakenUsdcUsd": {
+      "status": "FAILED",
+      "reason": "TimeoutError"
+    },
+    "independentStockData": {
+      "status": "NOT_CONFIGURED"
+    },
+    "participantAndAssetReview": {
+      "status": "NOT_VERIFIED",
+      "endpointConfigured": false,
+      "authenticationConfigured": false,
+      "decisionsVerified": false
+    }
+  },
+  "blockers": [
+    "krakenUsdcUsd verification failed",
+    "Issuer currently reports trading closed or halted",
+    "Alpaca data credentials and SIP entitlement are not configured in this process",
+    "Real participant and corporate-action decisions have not been verified; no synthetic scope was sent to a live review service",
+    "Security review, owner/signers and deployment approval remain separate release gates"
+  ]
+}

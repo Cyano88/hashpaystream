@@ -96,7 +96,9 @@
     "test:stock-dex-exit": "node scripts/stock-wrapper-fork.mjs --dex-exit",
     "test:stock-market-data": "node --import tsx scripts/stock-market-data-smoke.mjs",
     "test:stock-actual-repayment": "node --import tsx scripts/stock-early-pay-integration.mjs --postgres --actual-stock",
-    "test:stock-dex-market": "node --import tsx scripts/stock-dex-market-smoke.mjs"
+    "test:stock-dex-market": "node --import tsx scripts/stock-dex-market-smoke.mjs",
+    "audit:stock-providers": "node --import tsx scripts/stock-provider-preflight.mjs",
+    "test:stock-provider-preflight": "node --import tsx scripts/stock-provider-preflight-smoke.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.5.1",

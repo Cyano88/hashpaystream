@@ -1,4 +1,4 @@
-# Production DEX pricing adapter � 12 September 2026
+# Production DEX pricing adapter - 12 September 2026
 
 ## Implemented path
 
@@ -10,12 +10,12 @@ The adapter combines:
 - **Alpaca regular-session clock and calendar**, including holidays, early closes and New York daylight-saving changes. Complete adjusted minute history and the previous trading session's adjusted daily close are required. New offers wait until six complete minutes after opening. Intraday range includes the current daily range; the short-term guard covers the completed five-minute return and the latest quote versus that earlier close.
 - **Kraken USDC/USD** last trade with its source timestamp, explicit pair binding and a 0.5% depeg guard. There is no assumed USD=USDC conversion.
 - **Current wSPYx V2 conversion** and pinned underlying/wrapper implementation code, payment token, intermediate token, pool factory and quote contracts.
-- **Uniswap v3 wSPYx ? USDG ? USDC quotes** for the exact offered amount and a larger depth probe. Both must stay within the configured independent-price deviation limit; the depth output must meet the configured liquidity floor. Pool history availability is checked; pool TWAP is not the independent price.
+- **Uniswap v3 wSPYx -> USDG -> USDC quotes** for the exact offered amount and a larger depth probe. Both must stay within the configured independent-price deviation limit; the depth output must meet the configured liquidity floor. Pool history availability is checked; pool TWAP is not the independent price.
 - **Authenticated participant and asset review**, plus the public issuer's current trading availability. New offers require explicit corporate-action clearance and transfer availability; missing evidence does not imply approval.
 
 The USDC price per whole wrapper is computed with integer arithmetic:
 
-`convertToAssets(1e18) � SPY_USD_E8 � 1e6 / (1e18 � USDC_USD_E8)`
+`convertToAssets(1e18) * SPY_USD_E8 * 1e6 / (1e18 * USDC_USD_E8)`
 
 Preparation derives a token amount from this independent reference. Publication, listing and acceptance send the existing offer's exact `tokenAmount` to the adapter. Participant clearance must echo it exactly when present. This closes the earlier gap where a principal-only quote could stand in for the actual stock amount.
 
@@ -74,3 +74,11 @@ Verify live provider responses and data entitlement during an open regular sessi
 - [Alpaca US market calendar](https://docs.alpaca.markets/us/reference/legacycalendar)
 - [Alpaca US market clock](https://docs.alpaca.markets/us/reference/legacyclock)
 - [Kraken timestamped recent trades](https://docs.kraken.com/api-reference/market-data/get-recent-trades)
+
+## Live connection preflight checkpoint
+
+Run `npm run audit:stock-providers` with server-side configuration already loaded into the process. This is read-only; it emits only redacted status and public timestamps to [the preflight evidence](evidence/stock-provider-preflight.json). It never signs, broadcasts or sends a synthetic participant scope to a real review service. A blocked result exits nonzero.
+
+The current process has no Alpaca key/secret, stock config or review authentication token. No `.env` or `.env.local` was found in this worktree or the checked production checkout. Hosting secrets were not inspected, so this does not establish their global absence. The public issuer endpoint responded successfully and reports trading closed, not halted. Kraken timed out under the adapter's seven-second budget, including the retry outside the sandbox. Independent live SPY pricing, SIP entitlement, review-service authentication and actual participant/corporate-action decisions remain unverified.
+
+The issuer's reported next change is not a regular-US-session opening or permission to enable new offers. The independent clock/calendar must still confirm an open session. Mainnet remains disabled.
