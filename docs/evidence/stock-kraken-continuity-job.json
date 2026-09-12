@@ -1,0 +1,9 @@
+{
+    "id":  "job-daimrunqj5pc73ap7ffg",
+    "serviceId":  "srv-d9opfcad0e5s73c3omag",
+    "planId":  "plan-srv-006",
+    "status":  "succeeded",
+    "createdAt":  "2026-09-12T15:21:30.168989Z",
+    "startedAt":  "2026-09-12T15:21:30Z",
+    "finishedAt":  "2026-09-12T15:23:32Z"
+}

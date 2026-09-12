@@ -60,3 +60,23 @@ An isolated smallest-plan Render job successfully queried Kraken's public tokeni
 Kraken returned tokenized SPYx/USD as online. Best bid was 765.94 USD and best ask 766.02 USD. Latest trade was 766.01 USD, but its source timestamp was 262.525 seconds old at completion. Best bid/ask level timestamps were 262.407/332.407 seconds old. These are historical observations, not current prices. Successful HTTP access does not satisfy the proposed 15-second freshness limit; old resting levels do not alone prove the whole book is stale.
 
 Next: measure ongoing public book/trade updates from the reachable backend. Verify exchange quantity/multiplier semantics against raw SPYx and wSPYx before a same-time X Layer comparison; the older DEX snapshot cannot establish current agreement. Independent USDC conversion, data-use rights and risk-policy approval remain unresolved. Kraken is a reachable candidate, not an approved production reference. Mainnet and weekend gates remain closed.
+## Continuous feed and unit-mapping checkpoint
+
+The second isolated Render job completed successfully on 2026-09-12 at 15:23:32Z. The actual sampling window was approximately 15:22:37-15:23:30Z, with a 95-second script deadline (Render startup is additional). Evidence: evidence/stock-kraken-continuity-job.json, evidence/stock-kraken-continuity.json and evidence/stock-kraken-continuity-summary.json. Both new diagnostic scripts passed syntax checks; the summary was reproduced from the captured response.
+
+Kraken accepted both SPYx/USD WebSocket subscriptions. We received a book snapshot, a trade snapshot and 52 heartbeats, but zero market updates. The book snapshot source timestamp was already 44.151 seconds old at receipt. Six REST samples all returned trade ID 108059, aged 1926-1978 seconds. Zero samples met the proposed 15-second stock freshness limit. Two of six USDC trade samples also exceeded 15 seconds. This finite window establishes neither universal venue inactivity nor continuous availability. Heartbeats and receipt timestamps must never refresh stock prices. Book checksums were captured but not validated; this is a diagnostic recorder, not a production order-book adapter.
+
+Kraken Assets exposes token_multiplier=1.005714560286254, matching the issuer's currentMultiplier. At X Layer blocks 70457520 and 70457573, convertToAssets(1e18) returned 1005714560286254000 underlying units. Thus these three multiplier observations agree. Kraken REST and WebSocket also returned the same last trade ID with different decimal precision. This corroborates feed identity, but does not establish the API price/quantity denomination contract through a corporate action.
+
+The issuer documents rebasing in EVM balanceOf and recommends valuing current wrappers with convertToAssets(shares) multiplied by an independent underlying-token price. Kraken's customer FAQ describes rebased display quantities and underlying raw custody quantities. Do not apply a second multiplier after converting wrapper shares to rebased EVM assets; confirm the exchange API convention before acceptance.
+
+Sources:
+- https://docs.xstocks.fi/developers
+- https://docs.xstocks.fi/developers/wrapped-xstocks
+- https://support.kraken.com/articles/xstocks-faq
+- https://docs.kraken.com/api-reference/market-data/get-asset-info
+- https://docs.kraken.com/exchange/api-reference/spot-websocket-v2/book
+
+Contemporaneous read-only DEX simulations returned 100.077096 and 100.077069 USDC for 0.13 wSPYx. Under the explicitly unverified assumption that Kraken quotes rebased underlying units, the comparison with the old trade and USDC conversion is approximately -9.31 basis points. This is NOT a fresh cross-venue validation: the stock price is stale, final USDC sample is stale, and this lightweight probe did not repeat the production runtime-hash checks. Numerical proximity cannot override those failures.
+
+Decision: do not promote Kraken to the production reference or open weekend offers. Next useful gate is a regular-session shadow run using the existing independent reference candidate and DEX adapter, measuring source freshness, complete volatility history and executable-depth agreement. A separate 24/7 route requires evidence of sustained fresh independent token-market data; weakening freshness merely to pass this sample is not justified. No application deployment, mainnet transaction, production database access or production configuration change occurred.
