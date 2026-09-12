@@ -38,6 +38,12 @@ android {
         }
     }
     buildTypes {
+        debug {
+            applicationIdSuffix ".candidate"
+            versionNameSuffix "-candidate"
+            resValue "string", "app_name", "HashPayStream Candidate"
+            resValue "string", "title_activity_main", "HashPayStream Candidate"
+        }
         release {
             if (releaseSigningConfigured) {
                 signingConfig signingConfigs.release

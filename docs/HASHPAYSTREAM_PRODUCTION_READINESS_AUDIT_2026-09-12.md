@@ -13,6 +13,7 @@ The candidate can be synchronized into the shared web/Capacitor codebase for con
 - Trade binding, runtime preflight, wallet verification, cache, preview, and readiness tests passed.
 - Android readiness, account isolation, native receipt sharing, navigation/back behavior, cleartext blocking, and backup exclusion checks passed.
 - Android release packaging correctly failed closed because all four upload-keystore environment variables are absent.
+- A candidate-local dependency install, Capacitor sync and debug APK build passed. The side-by-side `app.hashpaystream.candidate` package installed and launched on a Pixel 10 Pro without replacing the existing production app. In-place release updates remain gated on the saved upload-key lineage.
 - `npm audit --omit=dev --audit-level=high` reported no high/critical findings and 21 moderate transitive findings. Remediation requires a controlled dependency update; the suggested forced fix includes a breaking Privy change.
 - Trade PostgreSQL-backed backend/community suites pass through a self-contained loopback-only PostgreSQL harness, including publication, isolation, concurrent edits, funding reservation, immutable agreement binding, racing buyers, blocking, moderation, pagination, and payment containment.
 
