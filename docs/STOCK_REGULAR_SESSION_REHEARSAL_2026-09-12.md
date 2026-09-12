@@ -26,7 +26,7 @@ Require observed SPY and USDC quotes plus contiguous completed current-session m
 node --env-file=.env.local --import tsx scripts/stock-provider-preflight.mjs
 ```
 
-The current production adapter implements Pyth Pro or explicitly selected Alpaca SIP. Twelve Data remains evaluation-only. Saving a Twelve Data key does not configure Pyth or switch providers. Missing authenticated access cannot be fixed by waiting for Monday. Do not silently fall back, invent prices or treat the low-cost evaluator as an implemented risk adapter.
+Twelve Data is now the default independent-reference adapter. It reads the server-only key from `HASHPAYSTREAM_TWELVE_DATA_KEY`, pins SPY to ARCX/USD and USDC/USD to Binance, requires fresh source timestamps and complete current-session bars, and fails closed outside the reviewed 2026-2028 NYSE calendar. It has no silent provider or DEX-price fallback.
 
 3. After the reference has actually passed, run a contemporaneous read-only X Layer route audit:
 
@@ -34,19 +34,20 @@ The current production adapter implements Pyth Pro or explicitly selected Alpaca
 node scripts/stock-token-market-audit.mjs
 ```
 
-This refreshes stock-token-market-audit.json, not the pinned stock-dex-exit.json fixture. It checks route/token identities and quotes multiple exit sizes. Independent-reference comparison must use correctly denominated values whose source times satisfy the same freshness window. Sequential command results are not automatically contemporaneous, and the current Twelve Data evaluator does not implement the complete production DEX comparison. That integration remains work after provider verification.
+This refreshes stock-token-market-audit.json, not the pinned stock-dex-exit.json fixture. It checks route/token identities and quotes multiple exit sizes. Run the configured adapter preflight and route audit close together; sequential results are still separate observations and do not prove an atomic production decision.
 
 4. When live-reference integration changes, run the local repayment rehearsal:
 
 ```powershell
-npm.cmd run test:stock-pyth-repayment
+npm.cmd run test:stock-twelve-data-repayment
 ```
 
-This uses a local X Layer fork and isolated local PostgreSQL with synthetic price/participant evidence. Its last verified result was fixed 101 USDC repayment to the funder and 399 USDC remainder to the worker, including restart/reorg recovery. It is not a live-worker or production-price rehearsal. No need to repeat the unchanged long rehearsal merely because the market opens. Any replacement provider needs its own equivalent integration coverage before claiming this test verifies it.
+This uses a local X Layer fork and isolated local PostgreSQL with synthetic Twelve Data and participant evidence. It passed with fixed 101 USDC repayment to the funder and 399 USDC remainder to the worker, including restart/reorg recovery. It is not a live-worker or production-price rehearsal. The Monday step should exercise the read-only live adapter, not repeat this unchanged integration test.
 
 ## Boundaries and next implementation
 
 No background task or automatic run was scheduled. No mainnet transaction, deployment, provider switch or production configuration change occurred. Do not load production database or wallet credentials for these diagnostics.
 
-The next gate is observed regular-session provider freshness/history plus a decision on a usable reference provider. The remaining production work includes adapter completion for the selected accessible provider, real participant/corporate-action evidence, approved limits, owner/multisig and distinct risk signer, security review, and the paused deployment packet. Kraken weekend snapshots did not meet freshness requirements and remain unsuitable for acceptance based on the captured evidence.
-The live configured-adapter preflight was also repeated at 15:39 UTC: Pyth feed metadata verified, issuer closed and not halted, Pyth key absent, participant review endpoint/authentication absent. Evidence: evidence/stock-provider-preflight.json. These are verified local-process configuration results, not an audit of Render environment variables.
+The next gate is observed regular-session Twelve Data freshness/history and contemporaneous X Layer quote evidence. Production still requires data rights and capacity, real participant/corporate-action evidence, approved limits, owner multisig and distinct signers, security review, and the paused deployment packet.
+
+The live configured-adapter preflight was repeated at 21:05 UTC. It reached the issuer and Twelve Data but correctly failed the independent-reference check because the stock session was closed; participant review was also not configured. Evidence: `evidence/stock-provider-preflight.json`. This describes the local process, not Render environment variables.

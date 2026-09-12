@@ -104,7 +104,10 @@
     "audit:stock-twelve-data": "node --import tsx scripts/stock-twelve-data-evaluation.mjs",
     "test:stock-twelve-data": "node --import tsx scripts/stock-twelve-data-evaluation-smoke.mjs",
     "audit:stock-token-market": "node scripts/stock-token-market-audit.mjs",
-    "test:stock-dex-history": "node --import tsx scripts/stock-dex-history-smoke.mjs"
+    "test:stock-dex-history": "node --import tsx scripts/stock-dex-history-smoke.mjs",
+    "test:stock-twelve-data-market": "node --import tsx scripts/stock-twelve-data-market-data-smoke.mjs",
+    "test:stock-dex-manipulation": "node --import tsx scripts/stock-dex-manipulation-fork.mjs",
+    "test:stock-twelve-data-repayment": "node --import tsx scripts/stock-early-pay-integration.mjs --postgres --actual-stock --twelve"
   },
   "dependencies": {
     "@capacitor/android": "8.5.1",

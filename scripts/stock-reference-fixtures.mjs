@@ -25,3 +25,15 @@ export function stockPythReferenceFixtures(now){
   return new Response(JSON.stringify(body))
  }
 }
+
+export function stockTwelveDataReferenceFixtures(now){
+ const date=new Date(now*1000).toISOString().slice(0,10),open=Date.parse(date+'T13:30:00Z')/1000
+ const stamp=t=>new Date(t*1000).toISOString().slice(0,19).replace('T',' ')
+ return async(url,options)=>{
+  if(options.headers.Authorization!=='apikey synthetic')throw Error('Fixture credential mismatch')
+  const u=new URL(url),symbol=u.searchParams.get('symbol');let body
+  if(u.pathname.endsWith('/quote'))body=symbol==='SPY'?{symbol:'SPY',name:'State Street SPDR S&P 500 ETF Trust',exchange:'NYSE',mic_code:'ARCX',currency:'USD',last_quote_at:now,close:'765.22',previous_close:'765.22',is_market_open:true,is_extended_hours:false}:{symbol:'USDC/USD',name:'USD Coin US Dollar',exchange:'Binance',last_quote_at:now,close:'1.00000000',is_market_open:true}
+  else body={status:'ok',meta:{symbol:'SPY',currency:'USD',mic_code:'ARCX',interval:'1min'},values:Array.from({length:(Math.floor(now/60)*60-open)/60},(_,i)=>({datetime:stamp(open+i*60),open:'765.22',high:'766',low:'764',close:'765.22'}))}
+  return new Response(JSON.stringify(body))
+ }
+}

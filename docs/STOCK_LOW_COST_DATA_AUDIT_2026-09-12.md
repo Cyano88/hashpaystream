@@ -1,5 +1,7 @@
 # Lower-cost stock data audit - 12 September 2026
 
+> Implementation update: the user supplied a private trial key after this audit. Twelve Data is now the default fail-closed independent-reference candidate, and its synthetic production-adapter and full repayment rehearsals pass. The Saturday live check verified access and exact quote identities but could not verify an open regular session. Production data rights, request capacity and open-session evidence remain unresolved. Historical statements below describe the earlier evaluation checkpoint.
+
 ## Result
 
 No free, production-ready replacement was verified. Twelve Data is the leading lower-cost evaluation candidate, not an approved runtime replacement. Retain the tested Pyth implementation without purchasing or activating it. The earlier selection was technical; it did not establish affordability. No provider signup, message, payment, authenticated price request, hosting change or mainnet transaction occurred in this audit.

@@ -1,7 +1,8 @@
 import {buildStockDexMarket} from '../api/stock-dex-market.ts'
 import {readStockPythReference} from '../api/stock-pyth-market-data.ts'
+import {readStockTwelveDataReference} from '../api/stock-twelve-data-market-data.ts'
 import {readStockReference} from '../api/stock-market-data.ts'
-import {stockReferenceFixtures,stockPythReferenceFixtures} from './stock-reference-fixtures.mjs'
+import {stockReferenceFixtures,stockPythReferenceFixtures,stockTwelveDataReferenceFixtures} from './stock-reference-fixtures.mjs'
 import {createServer as createNetServer} from 'node:net'
 import pg from 'pg'
 import {mkdtempSync} from 'node:fs'
@@ -26,7 +27,10 @@ import {validateStockAcceptance,recoverStockPayment,settleStockPayment} from '..
 
 // Synthetic accounts and loopback RPC only. --actual-stock uses real token code on a local fork. Never load deployment credentials.
 const pyth=process.argv.includes('--pyth')
+const twelve=process.argv.includes('--twelve')
+if(pyth&&twelve)throw Error('Select one reference fixture')
 if(pyth&&!process.argv.includes('--actual-stock'))throw Error('--pyth requires --actual-stock')
+if(twelve&&!process.argv.includes('--actual-stock'))throw Error('--twelve requires --actual-stock')
 const actual=process.argv.includes('--actual-stock'),fork=actual||process.argv.includes('--mainnet-fork')
 const dexPins=actual?JSON.parse(readFileSync(new URL('../docs/evidence/stock-dex-exit.json',import.meta.url),'utf8')):null
 const port=18547, rpcUrl='http://127.0.0.1:'+port
@@ -107,7 +111,7 @@ try{
   res.end(JSON.stringify({participantClearance:{...scope,checkedAt:now,expiresAt:now+90,workerEligible:true,funderEligible:true,workerJurisdiction:'NG',funderJurisdiction:'SG',reviewReference:'synthetic-review-only',...clearancePatch},chainId:31337,asset,observedAt:now,eligibleUntil:now+90,unitPriceUsdcUnits:'50000000',volatilityBps:100,executableLiquidityUsdcUnits:'10000000000',tradingAvailable:true,transfersAvailable:true,issuerEligible:true,...marketPatch}))
  })
  await new Promise(r=>marketServer.listen(0,'127.0.0.1',r))
- const raw={deploymentBlock,chainId:31337,escrow,asset,usdc,rpcUrl,riskUrl:'http://127.0.0.1:'+marketServer.address().port,runtimeHash:keccak256(await client.getCode({address:escrow})),...(actual?{marketDataProvider:pyth?'pyth-pro':'alpaca-sip',marketAdapter:'xlayer-dex-v1'}:{}),assetSymbol:actual?'wSPYx':'TESTx',assetDecimals:actual?18:6,maxFeeBps:300,maxRiskAge:120,quoteTtlSeconds:60,confirmations:2,participantIds:ids,policy:{maxVolatilityBps:500,maxPriceAgeSeconds:60,maxQuoteDeviationBps:actual?50:10,minExecutableLiquidityUsdcUnits:'1000000000'},reviewedEarningsIds:[]}
+ const raw={deploymentBlock,chainId:31337,escrow,asset,usdc,rpcUrl,riskUrl:'http://127.0.0.1:'+marketServer.address().port,runtimeHash:keccak256(await client.getCode({address:escrow})),...(actual?{marketDataProvider:twelve?'twelve-data':pyth?'pyth-pro':'alpaca-sip',marketAdapter:'xlayer-dex-v1'}:{}),assetSymbol:actual?'wSPYx':'TESTx',assetDecimals:actual?18:6,maxFeeBps:300,maxRiskAge:120,quoteTtlSeconds:60,confirmations:2,participantIds:ids,policy:{maxVolatilityBps:500,maxPriceAgeSeconds:60,maxQuoteDeviationBps:actual?50:10,minExecutableLiquidityUsdcUnits:'1000000000'},reviewedEarningsIds:[]}
  const env={NODE_ENV:'test',HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED:'true',HASHPAYSTREAM_STOCK_CONFIG:JSON.stringify(raw),HASHPAYSTREAM_STOCK_RISK_SIGNER_KEY:riskKey,HASHPAYSTREAM_APP_OWNERSHIP_SECRET:'synthetic-local-test-ownership-secret-only'}
  const config=readStockConfig(env)
  assert.equal('riskKey' in publicStockConfig(config),false)
@@ -140,7 +144,7 @@ try{
  const handler=createStockEarlyPayHandler({
   ...(actual?{market:async(c,scope)=>{
    const now=Number((await client.getBlock()).timestamp)
-   const reference=pyth?await readStockPythReference('synthetic',()=>now,c.policy.maxPriceAgeSeconds,stockPythReferenceFixtures(now)):await readStockReference({key:'synthetic',secret:'synthetic',paper:true},now,c.policy.maxPriceAgeSeconds,stockReferenceFixtures(now))
+   const reference=twelve?await readStockTwelveDataReference('synthetic',()=>now,c.policy.maxPriceAgeSeconds,stockTwelveDataReferenceFixtures(now)):pyth?await readStockPythReference('synthetic',()=>now,c.policy.maxPriceAgeSeconds,stockPythReferenceFixtures(now)):await readStockReference({key:'synthetic',secret:'synthetic',paper:true},now,c.policy.maxPriceAgeSeconds,stockReferenceFixtures(now))
    const review={participantClearance:{...scope,checkedAt:now,expiresAt:now+90,workerEligible:true,funderEligible:true,workerJurisdiction:'NG',funderJurisdiction:'SG',reviewReference:'synthetic-only',...clearancePatch},assetReview:{chainId:c.chainId,asset,policyVersion:scope.policyVersion,checkedAt:now,expiresAt:now+90,corporateActionsClear:true,transfersAvailable:true,reviewReference:'synthetic-only'}}
    const result=await buildStockDexMarket(c,scope,review,reference,now).catch(error=>{if(!error.status)console.error('Local adapter failure:',error.shortMessage??error.message);throw error});
    if(adapterCalls===0){
@@ -380,7 +384,7 @@ try{
 
  env.HASHPAYSTREAM_STOCK_CONFIG=JSON.stringify({...raw,runtimeHash:'0x'+'00'.repeat(32)})
  await api('worker',undefined,{view:'worker'},503)
- if(actualResult)writeFileSync(pyth?'docs/evidence/stock-pyth-repayment-fork.json':'docs/evidence/stock-actual-repayment-fork.json',JSON.stringify({...actualResult,referenceProvider:pyth?'pyth-pro':'alpaca-sip',fullRehearsalPassed:true},null,2)+'\n')
+ if(actualResult){const provider=twelve?'twelve-data':pyth?'pyth-pro':'alpaca-sip';writeFileSync(twelve?'docs/evidence/stock-twelve-data-repayment-fork.json':pyth?'docs/evidence/stock-pyth-repayment-fork.json':'docs/evidence/stock-actual-repayment-fork.json',JSON.stringify({...actualResult,referenceProvider:provider,fullRehearsalPassed:true},null,2)+'\n')}
  console.log('Stock API + local-chain integration passed: ownership, risk gates, signed delivery, fixed repayment, confirmations, recovery, reviewed counts, and deployment pinning.')
 }finally{
  await pool?.end()

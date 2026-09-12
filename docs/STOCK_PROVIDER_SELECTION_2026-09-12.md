@@ -1,16 +1,17 @@
 # Stock price provider selection - 12 September 2026
 
-> Affordability audit update: no free production replacement is verified. Twelve Data is the leading lower-cost evaluation candidate; Pyth remains an unactivated technical implementation. See [lower-cost audit](STOCK_LOW_COST_DATA_AUDIT_2026-09-12.md).
+> Superseding decision: Pyth is excluded from the launch path on cost/access grounds. Twelve Data is the lower-cost implementation candidate and the default fail-closed adapter. It is restricted to verified regular US sessions. Its live session behavior and production data rights remain release gates; this is not mainnet approval.
 
 ## Decision
 
-Select Pyth Pro as the technical default for xlayer-dex-v1. This is an integration decision, not approval to buy a subscription or activate mainnet. HASHPAYSTREAM_PYTH_PRO_KEY must be configured server-side with SPY and USDC latest-price and history entitlement. There is no silent fallback. The prior Alpaca SIP plus Kraken path remains explicitly selectable for an appropriately entitled deployment.
+Use Twelve Data as the default independent reference for `xlayer-dex-v1`. The backend requires a server-only `HASHPAYSTREAM_TWELVE_DATA_KEY`; there is no silent provider or DEX-price fallback. Pyth Pro and Alpaca SIP remain explicit legacy options for deployments that later obtain suitable access and rights. This selection does not activate mainnet.
 
 ## Evidence and alternatives
 
 | Candidate | Assessment |
 | --- | --- |
-| Pyth Pro | Selected: one provider supplies SPY/USD, USDC/USD, source timestamps, confidence, publisher count, session metadata and minute history. Exact public metadata verified; authenticated prices not yet verified. |
+| Twelve Data | Selected lower-cost candidate. Authenticated weekend requests verified exact SPY/ARCX/USD and USDC/USD/Binance identities and source timestamps. Historical 1-minute SPY access was observed. A regular-session end-to-end read and production usage rights remain unverified. |
+| Pyth Pro | Technically implemented and tested with fixtures, but excluded from the launch path on cost/access grounds. |
 | Alpaca SIP + Kraken | Existing implementation retained. Standard Alpaca API redistribution is prohibited by its published FAQ; suitable rights for this product were never established. Two independent service credentials/connectivity paths also increase operational dependencies. |
 | Chainlink Data Streams | Strong alternative with an SPY extended-hours stream. Account access, commercial terms and the exact backend verification integration were not validated in this audit. No claim that X Layer support is unavailable. |
 | RedStone | Its Ink announcement discusses xStocks coverage; this audit did not verify a usable SPY feed and equivalent access/history for this integration. |
@@ -40,14 +41,15 @@ Pyth prices are obtained over authenticated HTTPS and consumed by the existing t
 
 ## Remaining release gates
 
-1. Configure a trial key and verify actual SPY/USDC current and historical responses during a regular US stock session. Confirm commercial entitlement before public use.
-2. Establish real participant eligibility and asset/corporate-action review decisions. Pyth supplies prices, not permission to distribute stocks. Provider partnership is not itself participant approval: https://xstocks.com/partner .
-3. Calibrate and approve risk limits, complete missing product caps, security review and signer/owner configuration, then review the paused deployment packet. Existing API/scheduler chain 196 gates remain in place.
+1. Run the configured Twelve Data adapter during an open regular US session and capture fresh SPY and USDC quotes plus contiguous current-session bars.
+2. Confirm written production rights, the required tier, request capacity and any US-equity exchange fees before public testing.
+3. Establish real participant eligibility and asset/corporate-action review decisions. A price provider does not grant permission to distribute tokenized stocks.
+4. Approve pilot limits, security review, owner multisig and distinct risk and settlement signers, then review the paused deployment packet. Existing API and scheduler chain-196 gates remain in place.
 
 No mainnet transaction, deployment, hosting change, provider registration or payment occurred.
 
 ## Validation checkpoint
 
-Passed: TypeScript, Pyth source/session/history rejection tests, legacy market-data tests, DEX risk guards, preflight redaction tests and standalone browser-secret/surface checks. The full Pyth local actual-token plus isolated PostgreSQL rehearsal passed after retrying fork startup with network access. Evidence: evidence/stock-pyth-repayment-fork.json. It delivered stock and repaid fixed 101 USDC to the funder, left 399 USDC for the worker, and exercised crash/restart, confirmation and reorg recovery. Pyth prices and participant decisions were synthetic fixtures; token and DEX code came from the pinned X Layer fork. This does not validate authenticated Pyth payloads.
+Passed: TypeScript, Twelve Data calendar/identity/freshness/history/depeg rejection tests, DEX risk guards and provider-preflight tests. The Twelve Data repayment rehearsal used a pinned X Layer mainnet fork, actual wSPYx and USDC code, synthetic independent price and participant evidence, and isolated PostgreSQL. It delivered stock, repaid fixed 101 USDC to the funder, left 399 USDC for the worker, and exercised crash/restart, confirmation and reorg recovery. Evidence: `evidence/stock-twelve-data-repayment-fork.json`.
 
-Live preflight verified feed metadata and issuer availability, and deliberately returned blocked: key/entitlement absent in the inspected process, market closed, real participant/asset review unverified, and deployment/security gates outstanding. No production readiness claim is made.
+The weekend live preflight reached Twelve Data and the issuer, then correctly remained blocked because the regular stock session was closed and participant review was not configured. No production readiness claim is made.

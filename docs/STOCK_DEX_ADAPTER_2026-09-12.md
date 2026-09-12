@@ -1,6 +1,6 @@
 # Production DEX pricing adapter - 12 September 2026
 
-> Provider update: Pyth Pro is now the technical default. Earlier Alpaca/Kraken references below describe the previous implementation. See [provider selection](STOCK_PROVIDER_SELECTION_2026-09-12.md). Configure HASHPAYSTREAM_PYTH_PRO_KEY for the selected path; authenticated access and commercial entitlement remain unverified. Mainnet gates remain closed.
+> Provider update: Twelve Data is now the default lower-cost independent-reference candidate. Configure `HASHPAYSTREAM_TWELVE_DATA_KEY` only on the server. Pyth is excluded from the launch path on cost/access grounds. Open-session evidence and production data rights remain release gates; mainnet stays disabled.
 
 ## Implemented path
 

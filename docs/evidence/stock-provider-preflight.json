@@ -1,22 +1,14 @@
 {
   "schema": 1,
-  "checkedAt": "2026-09-12T15:39:10.521Z",
+  "checkedAt": "2026-09-12T21:05:56.840Z",
   "productionReady": false,
   "mainnetTransaction": false,
   "checks": {
     "publicFeedMetadata": {
-      "status": "VERIFIED",
-      "source": "pyth-pro",
-      "feeds": [
-        {
-          "symbol": "Equity.US.SPY/USD",
-          "id": 1398
-        },
-        {
-          "symbol": "Crypto.USDC/USD",
-          "id": 7
-        }
-      ]
+      "status": "EXPECTED",
+      "source": "twelve-data",
+      "stock": "SPY/ARCX/USD",
+      "stable": "USDC/USD/Binance"
     },
     "issuerAvailability": {
       "status": "VERIFIED",
@@ -25,8 +17,8 @@
       "nextChangeAt": "2026-09-14T00:00:00.000Z"
     },
     "independentStockData": {
-      "status": "NOT_CONFIGURED",
-      "source": "pyth-pro"
+      "status": "FAILED",
+      "reason": "The regular US stock session is closed."
     },
     "participantAndAssetReview": {
       "status": "NOT_VERIFIED",
@@ -37,7 +29,7 @@
   },
   "blockers": [
     "Issuer currently reports trading closed or halted",
-    "Pyth Pro key and equity data entitlement are not configured in this process",
+    "independentStockData verification failed",
     "Real participant and corporate-action decisions have not been verified; no synthetic scope was sent to a live review service",
     "Security review, owner/signers and deployment approval remain separate release gates"
   ]

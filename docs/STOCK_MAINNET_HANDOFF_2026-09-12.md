@@ -1,8 +1,6 @@
 # Stock early pay: mainnet handoff, 12 September 2026
 
-> Affordability audit update: no free production replacement is verified. Twelve Data is the leading lower-cost evaluation candidate; Pyth remains an unactivated technical implementation. See [lower-cost audit](STOCK_LOW_COST_DATA_AUDIT_2026-09-12.md).
-
-> Provider update: Pyth Pro is now the technical default. Earlier Alpaca/Kraken references below describe the previous implementation. See [provider selection](STOCK_PROVIDER_SELECTION_2026-09-12.md). Configure HASHPAYSTREAM_PYTH_PRO_KEY for the selected path; authenticated access and commercial entitlement remain unverified. Mainnet gates remain closed.
+> Current pricing decision: Twelve Data is the lower-cost independent-reference candidate; Pyth is excluded from the launch path. X Layer remains the executable quote/depth source, not the sole valuation source. The local manipulation rehearsal demonstrated why. Mainnet remains disabled.
 
 ## Authoritative network correction
 
@@ -48,11 +46,11 @@ Coverage includes early repayment rejection, concurrent worker exclusion, gas ca
 
 ## Next release package
 
-1. Select the actual transferable stock token on chain 196 and verify issuer access/transfer restrictions, redemption model, supported worker jurisdictions and contract behavior.
-2. Implement the trusted price/liquidity/issuer eligibility adapter. Review fee ceiling, volatility ceiling, liquidity floor, price age, quote deviation and confirmation policy. The TESTx token and 3% ceiling used in tests are fixtures, not approved production choices.
-3. Prepare StockEarlyPayEscrow deployment with the verified payment token, owner/multisig, distinct risk signer and immutable policy limits. Deploy paused only after review. Capture creation transaction/block and exact runtime hash.
-4. Rehearse candidate configuration with real authenticated wallet sessions and issuer-compatible assets, verify fixed settlement and worker remainder release, then review enabling chain 196 in the API and sender.
-5. Reconcile hosting configuration, separately enable receipt/scheduler workers, validate their health and gas budgets, and admit a small reviewed pilot cohort before public testing.
+1. Run the configured Twelve Data adapter during an open regular US session and capture contemporaneous independent prices plus X Layer quotes. Confirm written production data rights and capacity.
+2. Establish the actual worker/funder eligibility and corporate-action review service, then approve fee, volatility, liquidity, price-age, quote-deviation, claim and tenor limits.
+3. Prepare StockEarlyPayEscrow with the verified wSPYx and USDC contracts, owner multisig, distinct risk signer and settlement signer. Deploy paused only after final review and record the creation block and runtime hash.
+4. Rehearse the paused candidate with real authenticated wallet sessions and issuer-compatible assets, then review the explicit API and settlement-worker changes that permit chain 196.
+5. Reconcile hosting configuration, enable receipt and scheduler workers separately, validate health and gas budgets, and admit a small reviewed pilot cohort before wider public testing.
 
 No mainnet transaction, live deployment, production database mutation, push or hosting configuration change was performed in this checkpoint.
 
@@ -74,12 +72,12 @@ See [the provider audit](STOCK_PROVIDER_READINESS_AUDIT_2026-09-12.md). The risk
 
 ## Decentralized route correction
 
-The [decentralized exit review](STOCK_DECENTRALIZED_EXIT_REVIEW_2026-09-12.md) supersedes any implication that a Backed account or CAC approval is a technical dependency for transferring existing wSPYx or using a DEX exit. Issuer RFQ onboarding is an optional integration path. Participant/distribution review remains separate. A real two-hop exit passed on a local X Layer mainnet fork; the production price adapter and independent fair-price reference remain unfinished.
+The [decentralized exit review](STOCK_DECENTRALIZED_EXIT_REVIEW_2026-09-12.md) supersedes any implication that a Backed account or CAC approval is a technical dependency for transferring existing wSPYx or using a DEX exit. Issuer RFQ onboarding is an optional integration path. Participant/distribution review remains separate. A real two-hop exit passed on a local X Layer mainnet fork. The independent Twelve Data adapter is implemented; its open-session live evidence and production rights remain release gates.
 
 ## Production adapter implementation checkpoint
 
-The opt-in DEX adapter now combines exact-amount/depth quotes with independent timestamped stock and USDC references, regular-session checks and authenticated review evidence. See [the adapter handoff](STOCK_DEX_ADAPTER_2026-09-12.md) for configuration, tests and remaining live-access verification. Provider inputs in the local repayment rehearsal are synthetic; no mainnet activation or issuer account is implied.
+The opt-in DEX adapter now combines exact-amount/depth quotes with independent timestamped stock and USDC references, regular-session checks and authenticated review evidence. Twelve Data is the default candidate and Pyth is excluded from the launch path. The full actual-token local-fork repayment rehearsal passed with synthetic reference and participant evidence. See [the Twelve Data handoff](STOCK_TWELVE_DATA_ADAPTER_2026-09-12.md). No mainnet activation or issuer account is implied.
 
 ## Crypto-aligned pricing audit
 
-See [token-market audit](STOCK_TOKEN_MARKET_AUDIT_2026-09-12.md). Weekend executable exit was observed at block 70451779, but a second independent price source and manipulation resistance remain unverified. No weekend policy or mainnet gate was enabled.
+See [token-market audit](STOCK_TOKEN_MARKET_AUDIT_2026-09-12.md). Weekend executable exit was observed at block 70451779. A bounded manipulation rehearsal later showed that sustained same-pool movement can outlast the history guard, so DEX-only valuation is rejected. No weekend policy or mainnet gate was enabled.
