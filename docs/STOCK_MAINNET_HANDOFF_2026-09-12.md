@@ -63,3 +63,7 @@ No mainnet transaction, live deployment, production database mutation, push or h
 ## Asset/provider review checkpoint
 
 wSPYx V2 was identified through the issuer API and verified on chain 196. Actual-token local-fork wrapping and escrow inventory tests passed. Mainnet log scanning now respects the observed 100-block RPC limit. See [the asset/provider review](STOCK_ASSET_PROVIDER_REVIEW_2026-09-12.md) and its evidence and blocked paused-deployment packet. Asset eligibility, authenticated pricing/liquidity, implementation review, constructor owner/signers and risk-policy approval remain outstanding. No mainnet transaction was sent.
+
+## Provider readiness and participant evidence checkpoint
+
+See [the provider audit](STOCK_PROVIDER_READINESS_AUDIT_2026-09-12.md). The risk-adapter interface now requires request-bound worker/funder clearance and POST requests. An integration request is drafted, not sent. Actual provider access, jurisdiction review and live risk evidence remain unverified; mainnet activation remains gated.

@@ -1,3 +1,4 @@
+import { assertStockParticipantClearance, type StockParticipantScope } from './stock-participant-clearance.js'
 import { scanStockReceipts, applyStockScan, verifyStockReceipt, type StockScanCursor } from './stock-early-pay-reconciliation.js'
 import { randomBytes, randomUUID } from 'node:crypto'
 import type { Request, Response } from 'express'
@@ -20,7 +21,7 @@ export type StockDependencies = {
  hasStore:()=>boolean; read:(key:string)=>Promise<StockStore|undefined>;
  mutate:(key:string,fn:(store:StockStore|undefined)=>StockStore)=>Promise<StockStore>;
  partners:()=>Promise<FundingPartnerStore|undefined>; chain:(c:StockConfig)=>Promise<StockChain>;
- market:(c:StockConfig)=>Promise<StockMarketSnapshot>
+ market:(c:StockConfig,scope:StockParticipantScope)=>Promise<StockMarketSnapshot>
 }
 function empty(value?:StockStore):StockStore {
  if(value&&value.schema!==1)fail('Stock payment storage requires review.',503)
@@ -92,6 +93,12 @@ export function createStockEarlyPayHandler(overrides:Partial<StockDependencies>=
     const capacity=await chain.capacity(actor.wallet)
     if(!capacity.allowed)fail('This funder is not authorized on the stock escrow.',403)
     return {profile,capacity}
+   }
+   const marketFor=async(worker:Address,funder:Address,earningsId:Hex,principalUsdcUnits:string)=>{
+    const scope:StockParticipantScope={chainId:c.chainId,asset:c.asset,worker,funder,earningsId,principalUsdcUnits,policyVersion:chain.version.toString()}
+    const market=await d.market(c,scope)
+    const clearance=assertStockParticipantClearance(market.participantClearance,scope,chain.now,c.maxRiskAge)
+    return {...market,eligibleUntil:Math.min(market.eligibleUntil,clearance.expiresAt)}
    }
    const contextFor=async(record:StoredOffer,request:StockRequest,earnings:Awaited<ReturnType<StockChain['earnings']>>,market:StockMarketSnapshot,expectedWorker=actor.wallet)=>{
     const p=approvedProfiles.find(p=>p.id===record.funderId&&same(p.walletAddress!,record.offer.funder))
@@ -237,7 +244,7 @@ export function createStockEarlyPayHandler(overrides:Partial<StockDependencies>=
     if(!request)fail('Stock request was not found.',404)
     const e=await chain.earnings(request.earningsId), feeBps=fee(body.feeBps,c)
     if(!e.approved||e.payAt<=chain.now||same(e.worker,actor.wallet)||same(e.employer,actor.wallet))fail('This request is not eligible for your funding.')
-    const market=await d.market(c)
+    const market=await marketFor(e.worker,actor.wallet,e.id,request.principal)
     stockMarketEvidence(c,market,1n,chain.now)
     const tokenAmount=BigInt(request.principal)*10n**BigInt(c.assetDecimals)/BigInt(market.unitPriceUsdcUnits)
     const offer:StockOfferWire={earningsId:e.id,funder:actor.wallet,asset:c.asset,tokenAmount:tokenAmount.toString(),principal:request.principal,feeBps,payAt:e.payAt,
@@ -257,7 +264,7 @@ export function createStockEarlyPayHandler(overrides:Partial<StockDependencies>=
     if(body.acceptedRisk!==true)fail('Confirm that you understand the funding terms.',400)
     if(record.offer.expiresAt<=chain.now||await chain.used(id))fail('This offer expired or was already used.')
     const request=store.requests[record.requestId], earnings=await chain.earnings(record.offer.earningsId)
-    await contextFor(record,request,earnings,await d.market(c),earnings.worker)
+    await contextFor(record,request,earnings,await marketFor(earnings.worker,record.offer.funder,earnings.id,request.principal),earnings.worker)
     const sig=signature(body.signature)
     if(!await chain.verifyOffer(record.offer,sig))fail('Offer signature does not match the funding wallet.',403)
     await d.mutate(key,value=>{const next=empty(value);const saved=next.offers[id];if(!saved||saved.funderUserId!==actor.userId)fail('Your prepared offer was not found.',404);saved.signature=sig;return next})
@@ -282,8 +289,7 @@ export function createStockEarlyPayHandler(overrides:Partial<StockDependencies>=
     }
     if(!chain.paused&&positions.length===0){
      chain.assertOpen()
-     const market=await d.market(c)
-     for(const record of records){try{const context=await contextFor(record,request,earnings,market);offers.push(publicOffer(record,c));contexts[record.id]=context}catch(error){if(!(error as {status?:number}).status)throw error}}
+     for(const record of records){try{const context=await contextFor(record,request,earnings,await marketFor(earnings.worker,record.offer.funder,earnings.id,request.principal));offers.push(publicOffer(record,c));contexts[record.id]=context}catch(error){if(!(error as {status?:number}).status)throw error}}
     }
     const ranked=rankFundingOffers(offers.map(o=>({...o,verifiedCompletedFundingCount:counts[o.funderId]??0})))
     return res.json({ok:true,config:publicStockConfig(c),offers:ranked,contexts,verifiedCompletedFundingCounts:counts,positions})
@@ -294,7 +300,7 @@ export function createStockEarlyPayHandler(overrides:Partial<StockDependencies>=
     if(!record?.signature)fail('Stock offer was not found.',404)
     const {request,earnings}=await ownRequest(record.requestId)
     if(body.acceptedRisk!==true)fail('Confirm that your token value can change while the deduction stays fixed.',400)
-    const context=await contextFor(record,request,earnings,await d.market(c))
+    const context=await contextFor(record,request,earnings,await marketFor(earnings.worker,record.offer.funder,earnings.id,request.principal))
     if(!await chain.verifyOffer(record.offer,record.signature))fail('The funder signature is no longer valid.')
     const risk=await chain.signRisk(id,context.evidence!,record.offer.expiresAt)
     return res.json({ok:true,config:publicStockConfig(c),offerId:id,offer:record.offer,funderSignature:record.signature,...risk})

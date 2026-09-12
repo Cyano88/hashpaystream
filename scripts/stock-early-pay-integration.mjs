@@ -72,11 +72,14 @@ try{
  const salt='0x'+randomBytes(32).toString('hex'),payAt=Number((await client.getBlock()).timestamp)+86400
  const earningsId=keccak256(encodeAbiParameters([{type:'address'},{type:'bytes32'}],[accounts.employer.address,salt]))
  await send(accounts.employer,escrow,STOCK_ESCROW_ABI,'fundEarnings',[salt,accounts.worker.address,500000000n,payAt])
- let marketPatch={}
+ let marketPatch={},clearancePatch={}
  marketServer=createServer(async(req,res)=>{
+  assert.equal(req.method,'POST')
+  let input='';for await(const chunk of req)input+=chunk
+  const scope=JSON.parse(input)
   const now=Number((await client.getBlock()).timestamp)
   res.setHeader('content-type','application/json')
-  res.end(JSON.stringify({chainId:31337,asset,observedAt:now,eligibleUntil:now+90,unitPriceUsdcUnits:'50000000',volatilityBps:100,executableLiquidityUsdcUnits:'10000000000',tradingAvailable:true,transfersAvailable:true,issuerEligible:true,...marketPatch}))
+  res.end(JSON.stringify({participantClearance:{...scope,checkedAt:now,expiresAt:now+90,workerEligible:true,funderEligible:true,workerJurisdiction:'NG',funderJurisdiction:'SG',reviewReference:'synthetic-review-only',...clearancePatch},chainId:31337,asset,observedAt:now,eligibleUntil:now+90,unitPriceUsdcUnits:'50000000',volatilityBps:100,executableLiquidityUsdcUnits:'10000000000',tradingAvailable:true,transfersAvailable:true,issuerEligible:true,...marketPatch}))
  })
  await new Promise(r=>marketServer.listen(0,'127.0.0.1',r))
  const raw={deploymentBlock,chainId:31337,escrow,asset,usdc,rpcUrl,riskUrl:'http://127.0.0.1:'+marketServer.address().port,runtimeHash:keccak256(await client.getCode({address:escrow})),assetSymbol:'TESTx',assetDecimals:6,maxFeeBps:300,maxRiskAge:120,quoteTtlSeconds:60,confirmations:2,participantIds:ids,policy:{maxVolatilityBps:500,maxPriceAgeSeconds:60,maxQuoteDeviationBps:10,minExecutableLiquidityUsdcUnits:'1000000000'},reviewedEarningsIds:[]}
@@ -168,6 +171,11 @@ try{
  const {request}=await api('worker',{action:'request_stock',earningsId,principal:'100000000'}, {},201)
  await api('outsider',undefined,{view:'offers',requestId:request.id},404)
  await api('funder',{action:'prepare_offer',requestId:request.id,feeBps:301},{},400)
+ for(const patch of [{worker:accounts.outsider.address},{funderEligible:false},{policyVersion:'0'},{principalUsdcUnits:'1'}]){
+  clearancePatch=patch
+  await api('funder',{action:'prepare_offer',requestId:request.id,feeBps:100},{},409)
+ }
+ clearancePatch={}
  marketPatch={volatilityBps:501}
  await api('funder',{action:'prepare_offer',requestId:request.id,feeBps:100},{},409)
  marketPatch={}
@@ -180,6 +188,10 @@ try{
  await api('funder',{action:'publish_offer',offerId:prepared.offerId,signature,acceptedRisk:true})
  const listed=await api('worker',undefined,{view:'offers',requestId:request.id})
  assert.equal(listed.offers.length,1)
+ clearancePatch={workerEligible:false}
+ assert.equal((await api('worker',undefined,{view:'offers',requestId:request.id})).offers.length,0)
+ await api('worker',{action:'acceptance',offerId:prepared.offerId,acceptedRisk:true},{},409)
+ clearancePatch={}
  await api('outsider',{action:'acceptance',offerId:prepared.offerId,acceptedRisk:true},{},404)
  const accepted=await api('worker',{action:'acceptance',offerId:prepared.offerId,acceptedRisk:true})
  validateStockAcceptance(accepted,listed.offers[0],accepted.config)

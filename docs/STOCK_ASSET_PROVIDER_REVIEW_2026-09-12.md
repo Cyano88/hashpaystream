@@ -40,7 +40,7 @@ Use decimal/integer arithmetic and actual token decimals. Validate wrapper conve
 
 The issuer distinguishes technical transferability from distribution eligibility. Its [legal overview](https://docs.xstocks.fi/docs/product-legal-overview) describes tracker certificates and jurisdiction-dependent distributor obligations. An active API account or a transferable wallet does not establish every worker's eligibility.
 
-Our current risk endpoint has one asset-level issuerEligible boolean and no worker/funder context. That cannot establish participant-specific eligibility. Before enabling mainnet, bind reviewed eligibility to both parties' identities and wallets, jurisdiction, asset, chain, policy version and expiry. Refuse missing, expired or mismatched evidence. Determine approved countries from the actual integration arrangement; do not infer ?Asia eligible? or Nigeria eligible from network usage.
+At the b2ce622 candidate-review checkpoint, the risk endpoint had one asset-level issuerEligible boolean and no worker/funder context. That cannot establish participant-specific eligibility. Before enabling mainnet, bind reviewed eligibility to both parties' identities and wallets, jurisdiction, asset, chain, policy version and expiry. Refuse missing, expired or mismatched evidence. Determine approved countries from the actual integration arrangement; do not infer ?Asia eligible? or Nigeria eligible from network usage.
 
 ## Proposed pilot limits
 
@@ -88,3 +88,5 @@ Read-only eth_getLogs probes against rpc.xlayer.tech rejected both 500-block and
 ## Validation completed
 
 The real wSPYx V2 fork rehearsal passed at saved block 70421653: proxy/implementation bytecode pins, actual wrapping, paused escrow construction, exact inventory deposit and withdrawal, withdrawal while paused, and donation-resistant conversion. Balances were seeded by impersonation entirely on localhost chain 31337; no real wallet key or mainnet write was used. This does not establish issuer approval, uninterrupted redemption, corporate-action behavior, executable liquidity or full production suitability.
+
+The participant-binding boundary has since been implemented and tested; see [the provider readiness audit](STOCK_PROVIDER_READINESS_AUDIT_2026-09-12.md). Real provider-backed decisions and production adapter authentication are still pending.

@@ -1,3 +1,4 @@
+import type { StockParticipantScope, StockParticipantClearance } from './stock-participant-clearance.js'
 import { createPublicClient, http, keccak256, getAddress, decodeEventLog, type Hex, type Address } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { STOCK_ESCROW_ABI as ABI, STOCK_TOKEN_ABI, STOCK_OFFER_TYPES, STOCK_RISK_TYPES, stockDomain, stockOfferMessage, type StockOfferWire, type StockRiskWire } from '../src/lib/stockEarlyPayProtocol.js'
@@ -5,12 +6,13 @@ import type { StockRiskEvidence } from '../src/lib/stockFundingOffers.js'
 import { stockFailure as fail, type StockConfig } from './stock-early-pay-config.js'
 
 export type StockMarketSnapshot = {
+ participantClearance: StockParticipantClearance;
  chainId: number; asset: Address; observedAt: number; eligibleUntil: number; unitPriceUsdcUnits: string;
  volatilityBps: number; executableLiquidityUsdcUnits: string; tradingAvailable: boolean; transfersAvailable: boolean; issuerEligible: boolean
 }
 export type StockReceiptProof = { txHash: Hex; blockNumber: string; blockHash: Hex }
-export async function readStockMarket(c: StockConfig): Promise<StockMarketSnapshot> {
- const response = await fetch(c.riskUrl,{signal:AbortSignal.timeout(5000),redirect:'error',cache:'no-store',headers:{accept:'application/json'}})
+export async function readStockMarket(c: StockConfig, scope:StockParticipantScope): Promise<StockMarketSnapshot> {
+ const response = await fetch(c.riskUrl,{method:'POST',body:JSON.stringify(scope),signal:AbortSignal.timeout(5000),redirect:'error',cache:'no-store',headers:{accept:'application/json','content-type':'application/json'}})
  if (!response.ok) fail('Stock pricing is unavailable.',503)
  const text = await response.text()
  if (text.length > 16_384) fail('Stock pricing is invalid.',503)
