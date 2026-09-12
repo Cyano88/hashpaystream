@@ -5,6 +5,7 @@ import type { StockClientConfig } from '../src/lib/stockEarlyPayProtocol.js'
 
 export function stockFailure(message: string, status = 409): never { throw Object.assign(new Error(message), { status }) }
 export type StockConfig = StockClientConfig & {
+ marketDataProvider?:'pyth-pro'|'alpaca-sip'; pythKey?:string;
  marketAdapter?: 'xlayer-dex-v1'; marketCredentials?: {key:string;secret:string;paper:boolean}; riskAuthorization?:string;
  rpcUrl: string; runtimeHash: Hex; riskKey: Hex; riskSigner: Address; riskUrl: string;
  ownershipSecret: string; participantIds: string[]; reviewedEarningsIds: string[];
@@ -23,6 +24,7 @@ export function readStockConfig(env: NodeJS.ProcessEnv): StockConfig {
  // until a stock escrow, asset and risk policy have been reviewed and pinned.
  if (!raw || ![31337].includes(Number(raw.chainId)) || typeof raw.chainId !== 'number') stockFailure('Stock early pay has not been approved for this network.', 503)
  const chainId = raw.chainId as number
+ if(raw.marketDataProvider!==undefined&&!['pyth-pro','alpaca-sip'].includes(String(raw.marketDataProvider)))stockFailure('Unknown independent stock provider.',503)
  if(raw.marketAdapter!==undefined&&raw.marketAdapter!=='xlayer-dex-v1')stockFailure('Unknown stock market adapter.',503)
  if(!integer(raw.deploymentBlock,0,Number.MAX_SAFE_INTEGER))stockFailure('Stock deployment block is required for receipt recovery.',503)
  let rpc: URL, risk: URL
@@ -53,6 +55,7 @@ export function readStockConfig(env: NodeJS.ProcessEnv): StockConfig {
  const asset = addr(raw.asset), usdc = addr(raw.usdc)
  if (asset === usdc) stockFailure('Stock and payment assets must differ.',503)
  return {
+  marketDataProvider:(raw.marketDataProvider??'pyth-pro') as 'pyth-pro'|'alpaca-sip',pythKey:env.HASHPAYSTREAM_PYTH_PRO_KEY,
   marketAdapter:raw.marketAdapter as 'xlayer-dex-v1'|undefined,
   marketCredentials:raw.marketAdapter==='xlayer-dex-v1'?{key:env.HASHPAYSTREAM_ALPACA_KEY??'',secret:env.HASHPAYSTREAM_ALPACA_SECRET??'',paper:env.HASHPAYSTREAM_ALPACA_PAPER==='true'}:undefined,
   riskAuthorization:env.HASHPAYSTREAM_STOCK_RISK_ADAPTER_TOKEN,

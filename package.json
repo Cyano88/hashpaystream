@@ -98,7 +98,9 @@
     "test:stock-actual-repayment": "node --import tsx scripts/stock-early-pay-integration.mjs --postgres --actual-stock",
     "test:stock-dex-market": "node --import tsx scripts/stock-dex-market-smoke.mjs",
     "audit:stock-providers": "node --import tsx scripts/stock-provider-preflight.mjs",
-    "test:stock-provider-preflight": "node --import tsx scripts/stock-provider-preflight-smoke.mjs"
+    "test:stock-provider-preflight": "node --import tsx scripts/stock-provider-preflight-smoke.mjs",
+    "test:stock-pyth-market-data": "node --import tsx scripts/stock-pyth-market-data-smoke.mjs",
+    "test:stock-pyth-repayment": "node --import tsx scripts/stock-early-pay-integration.mjs --postgres --actual-stock --pyth"
   },
   "dependencies": {
     "@capacitor/android": "8.5.1",

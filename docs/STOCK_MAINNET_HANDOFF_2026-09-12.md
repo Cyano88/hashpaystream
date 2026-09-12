@@ -1,5 +1,7 @@
 # Stock early pay: mainnet handoff, 12 September 2026
 
+> Provider update: Pyth Pro is now the technical default. Earlier Alpaca/Kraken references below describe the previous implementation. See [provider selection](STOCK_PROVIDER_SELECTION_2026-09-12.md). Configure HASHPAYSTREAM_PYTH_PRO_KEY for the selected path; authenticated access and commercial entitlement remain unverified. Mainnet gates remain closed.
+
 ## Authoritative network correction
 
 X Layer mainnet (196) is the deployment target. Earlier testnet recommendations in STOCK_EARLY_PAY_BUILD_2026-09-10.md are superseded. Arc savings is separate.

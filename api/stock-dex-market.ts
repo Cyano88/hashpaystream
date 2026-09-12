@@ -1,3 +1,4 @@
+import {readStockPythReference} from './stock-pyth-market-data.js'
 import { createPublicClient,http,parseAbi,keccak256,getAddress,encodePacked,type Hex } from 'viem'
 import pins from '../docs/evidence/stock-dex-exit.json'
 import type { StockConfig } from './stock-early-pay-config.js'
@@ -54,7 +55,7 @@ export async function buildStockDexMarket(c:StockConfig,scope:StockParticipantSc
  stockFresh(a.checkedAt,now,c.maxRiskAge)
  if(!Number.isSafeInteger(a.expiresAt)||a.expiresAt<=now||a.expiresAt-a.checkedAt>c.maxRiskAge)fail('Stock asset review expired.',503)
  stockFresh(reference.observedAt,now,c.policy.maxPriceAgeSeconds)
- if(reference.source!=='alpaca-sip+kraken'||reference.expiresAt<=now||now<reference.sessionOpen||now>=reference.sessionClose||reference.fiveMinuteMoveBps>50||reference.volatilityBps>c.policy.maxVolatilityBps)fail('Stock price or regular-session risk limit failed.',409)
+ if(reference.source!==((c.marketDataProvider??'pyth-pro')==='pyth-pro'?'pyth-pro':'alpaca-sip+kraken')||reference.expiresAt<=now||now<reference.sessionOpen||now>=reference.sessionClose||reference.fiveMinuteMoveBps>50||reference.volatilityBps>c.policy.maxVolatilityBps)fail('Stock price or regular-session risk limit failed.',409)
  const {unitPriceUsdcUnits,proof}=await readStockDexQuote(c,scope,reference,now)
  const observedAt=Math.min(reference.observedAt,proof.observedAt,clearance.checkedAt,a.checkedAt)
  const eligibleUntil=Math.min(reference.expiresAt,proof.expiresAt,clearance.expiresAt,a.expiresAt,now+c.quoteTtlSeconds,observedAt+c.maxRiskAge,reference.sessionClose)
@@ -62,8 +63,9 @@ export async function buildStockDexMarket(c:StockConfig,scope:StockParticipantSc
  return {participantClearance:clearance,chainId:c.chainId,asset:c.asset,observedAt,eligibleUntil,unitPriceUsdcUnits,volatilityBps:reference.volatilityBps,executableLiquidityUsdcUnits:proof.depthOutUsdcUnits,tradingAvailable:true,transfersAvailable:true,issuerEligible:true,dex:proof}
 }
 export async function readProductionStockMarket(c:StockConfig,scope:StockParticipantScope,review:any):Promise<StockMarketSnapshot>{
- if(!c.marketCredentials)fail('Independent market data is not configured.',503)
- const [reference,issuer]=await Promise.all([readStockReference(c.marketCredentials,()=>Math.floor(Date.now()/1000),c.policy.maxPriceAgeSeconds),stockJson('https://api.backed.fi/api/v2/public/assets/SPYx')])
+ const provider=c.marketDataProvider??'pyth-pro'
+ if(provider==='alpaca-sip'&&!c.marketCredentials)fail('Independent market data is not configured.',503)
+ const [reference,issuer]=await Promise.all([provider==='pyth-pro'?readStockPythReference(c.pythKey??'',()=>Math.floor(Date.now()/1000),c.policy.maxPriceAgeSeconds):readStockReference(c.marketCredentials!,()=>Math.floor(Date.now()/1000),c.policy.maxPriceAgeSeconds),stockJson('https://api.backed.fi/api/v2/public/assets/SPYx')])
  if(issuer.isTradingHalted!==false||issuer.trading?.isTradingHalted!==false||issuer.trading?.openNow!==true)fail('Issuer market availability is closed or unknown.',409)
  const nextChange=stockTimestamp(issuer.trading.nextChangeAt)
  reference.expiresAt=Math.min(reference.expiresAt,nextChange)

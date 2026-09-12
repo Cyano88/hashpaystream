@@ -1,5 +1,7 @@
 # Production DEX pricing adapter - 12 September 2026
 
+> Provider update: Pyth Pro is now the technical default. Earlier Alpaca/Kraken references below describe the previous implementation. See [provider selection](STOCK_PROVIDER_SELECTION_2026-09-12.md). Configure HASHPAYSTREAM_PYTH_PRO_KEY for the selected path; authenticated access and commercial entitlement remain unverified. Mainnet gates remain closed.
+
 ## Implemented path
 
 Set `marketAdapter: "xlayer-dex-v1"` in the reviewed stock configuration to select the new server-side adapter. It is opt-in. The mainnet feature gate remains closed; this change does not deploy, send a transaction or enable chain 196.

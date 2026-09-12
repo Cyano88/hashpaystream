@@ -1,21 +1,32 @@
 {
   "schema": 1,
-  "checkedAt": "2026-09-12T11:38:42.619Z",
+  "checkedAt": "2026-09-12T12:00:04.990Z",
   "productionReady": false,
   "mainnetTransaction": false,
   "checks": {
+    "publicFeedMetadata": {
+      "status": "VERIFIED",
+      "source": "pyth-pro",
+      "feeds": [
+        {
+          "symbol": "Equity.US.SPY/USD",
+          "id": 1398
+        },
+        {
+          "symbol": "Crypto.USDC/USD",
+          "id": 7
+        }
+      ]
+    },
     "issuerAvailability": {
       "status": "VERIFIED",
       "openNow": false,
       "halted": false,
       "nextChangeAt": "2026-09-14T00:00:00.000Z"
     },
-    "krakenUsdcUsd": {
-      "status": "FAILED",
-      "reason": "TimeoutError"
-    },
     "independentStockData": {
-      "status": "NOT_CONFIGURED"
+      "status": "NOT_CONFIGURED",
+      "source": "pyth-pro"
     },
     "participantAndAssetReview": {
       "status": "NOT_VERIFIED",
@@ -25,9 +36,8 @@
     }
   },
   "blockers": [
-    "krakenUsdcUsd verification failed",
     "Issuer currently reports trading closed or halted",
-    "Alpaca data credentials and SIP entitlement are not configured in this process",
+    "Pyth Pro key and equity data entitlement are not configured in this process",
     "Real participant and corporate-action decisions have not been verified; no synthetic scope was sent to a live review service",
     "Security review, owner/signers and deployment approval remain separate release gates"
   ]

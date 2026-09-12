@@ -26,7 +26,7 @@ export function stockSessionTime(date:string,time:string){
  const offset=Date.parse(p.year+'-'+p.month+'-'+p.day+'T'+p.hour+':'+p.minute+':00Z')/1000-guess
  const result=guess-offset;if(!Number.isSafeInteger(result)||stockNyDate(result)!==date)fail('Market calendar date is invalid.',503);return result
 }
-export type StockReference={observedAt:number;expiresAt:number;spyUsdE8:bigint;usdcUsdE8:bigint;volatilityBps:number;fiveMinuteMoveBps:number;sessionOpen:number;sessionClose:number;source:'alpaca-sip+kraken'}
+export type StockReference={observedAt:number;expiresAt:number;spyUsdE8:bigint;usdcUsdE8:bigint;volatilityBps:number;fiveMinuteMoveBps:number;sessionOpen:number;sessionClose:number;source:'alpaca-sip+kraken'|'pyth-pro'}
 export type StockDataCredentials={key:string;secret:string;paper:boolean}
 export async function readStockReference(credentials:StockDataCredentials,nowInput:number|(()=>number),maxAge:number,fetcher:typeof fetch=fetch):Promise<StockReference>{
  const currentNow=typeof nowInput==='function'?nowInput:()=>nowInput
