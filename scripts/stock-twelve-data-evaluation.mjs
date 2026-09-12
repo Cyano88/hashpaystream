@@ -27,7 +27,8 @@ export async function evaluateTwelveData(env=process.env,fetcher=fetch,clock=()=
   if(stockBps(stockDecimal(q.close)-100000000n,100000000n)>50)throw Error('DEPEG')
   return {status:fresh?'OBSERVED':'STALE_OR_MISSING_SOURCE_TIME',accessVerified:true,symbol:q.symbol,barTimestamp:q.timestamp,reportedLastQuoteAt:Number.isSafeInteger(q.last_quote_at)?q.last_quote_at:null,timestampSemanticsVerified:false,venueIdentityVerified:false}
  })
- await check('currentSessionMinutes',async()=>{
+ if(report.checks.spyQuote?.status!=='OBSERVED')report.checks.currentSessionMinutes={status:'SKIPPED',reason:'A fresh regular-session SPY quote is required before history evaluation'};
+ else await check('currentSessionMinutes',async()=>{
   const now=clock(),date=stockNyDate(now),open=stockSessionTime(date,'09:30'),completed=Math.floor(now/60)*60
   // This bounds the candidate probe only; it does not certify an exchange calendar.
   if(completed<open+360||completed>stockSessionTime(date,'16:00'))throw Error('OUTSIDE_WINDOW')

@@ -15,6 +15,6 @@ assert.equal(good.requests,3);assert.equal(good.productionReady,false);assert.eq
 for(const mutate of [b=>{if(b.symbol==='SPY')b.last_quote_at=now-60},b=>{if(b.symbol==='SPY')b.mic_code='XNAS'},b=>{if(b.symbol==='USDC/USD')b.close='0.97'},b=>{if(b.values)b.values.pop()},b=>{if(b.values)b.values[1].datetime=b.values[0].datetime},b=>{if(b.values)b.values[0].high='1'}]){
  change=mutate;const r=await evaluateTwelveData(env,fetcher,()=>now);assert.ok(Object.values(r.checks).some(c=>c.status==='NOT_VERIFIED'))
 }
-change=b=>{if(b.symbol==='SPY')b.is_market_open=false};const closed=await evaluateTwelveData(env,fetcher,()=>now);assert.equal(closed.checks.spyQuote.status,'MARKET_CLOSED');assert.equal(closed.checks.spyQuote.accessVerified,true)
+change=b=>{if(b.symbol==='SPY')b.is_market_open=false};const closed=await evaluateTwelveData(env,fetcher,()=>now);assert.equal(closed.checks.spyQuote.status,'MARKET_CLOSED');assert.equal(closed.checks.spyQuote.accessVerified,true);assert.equal(closed.requests,2);assert.equal(closed.checks.currentSessionMinutes.status,'SKIPPED')
 const rejected=await evaluateTwelveData(env,async()=>{throw Error('private-key upstream secret')},()=>now);assert.ok(!JSON.stringify(rejected).includes('private-key'));assert.equal(rejected.productionReady,false)
 console.log('Twelve Data evaluation passed: no-key zero requests, bounded calls, identity, freshness, depeg, history gaps, safe errors and no production approval.')
