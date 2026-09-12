@@ -62,7 +62,7 @@
     "Wrapper implementation source/audit review and upgrade controls incomplete",
     "USD-to-USDC conversion and wrapper price units need verified implementation",
     "Risk limits, owner/multisig and distinct signers not approved",
-    "Production pricing adapter and independent timestamped reference not verified",
+    "Verify live pricing adapter access, timestamped independent reference and reviewed data-use entitlement",
     "Approve constructor fee ceiling and risk age before immutable deployment",
     "Provide reviewed owner/multisig and distinct risk/settlement signer addresses",
     "Review compiler artifact against current source and complete security review"

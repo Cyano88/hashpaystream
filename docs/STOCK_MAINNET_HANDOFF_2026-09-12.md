@@ -71,3 +71,7 @@ See [the provider audit](STOCK_PROVIDER_READINESS_AUDIT_2026-09-12.md). The risk
 ## Decentralized route correction
 
 The [decentralized exit review](STOCK_DECENTRALIZED_EXIT_REVIEW_2026-09-12.md) supersedes any implication that a Backed account or CAC approval is a technical dependency for transferring existing wSPYx or using a DEX exit. Issuer RFQ onboarding is an optional integration path. Participant/distribution review remains separate. A real two-hop exit passed on a local X Layer mainnet fork; the production price adapter and independent fair-price reference remain unfinished.
+
+## Production adapter implementation checkpoint
+
+The opt-in DEX adapter now combines exact-amount/depth quotes with independent timestamped stock and USDC references, regular-session checks and authenticated review evidence. See [the adapter handoff](STOCK_DEX_ADAPTER_2026-09-12.md) for configuration, tests and remaining live-access verification. Provider inputs in the local repayment rehearsal are synthetic; no mainnet activation or issuer account is implied.

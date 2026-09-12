@@ -1,3 +1,5 @@
+import { stockJson } from './stock-market-data.js'
+import { readProductionStockMarket, type StockDexProof } from './stock-dex-market.js'
 import type { StockParticipantScope, StockParticipantClearance } from './stock-participant-clearance.js'
 import { createPublicClient, http, keccak256, getAddress, decodeEventLog, type Hex, type Address } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -6,31 +8,30 @@ import type { StockRiskEvidence } from '../src/lib/stockFundingOffers.js'
 import { stockFailure as fail, type StockConfig } from './stock-early-pay-config.js'
 
 export type StockMarketSnapshot = {
+ dex?: StockDexProof;
  participantClearance: StockParticipantClearance;
  chainId: number; asset: Address; observedAt: number; eligibleUntil: number; unitPriceUsdcUnits: string;
  volatilityBps: number; executableLiquidityUsdcUnits: string; tradingAvailable: boolean; transfersAvailable: boolean; issuerEligible: boolean
 }
 export type StockReceiptProof = { txHash: Hex; blockNumber: string; blockHash: Hex }
 export async function readStockMarket(c: StockConfig, scope:StockParticipantScope): Promise<StockMarketSnapshot> {
- const response = await fetch(c.riskUrl,{method:'POST',body:JSON.stringify(scope),signal:AbortSignal.timeout(5000),redirect:'error',cache:'no-store',headers:{accept:'application/json','content-type':'application/json'}})
- if (!response.ok) fail('Stock pricing is unavailable.',503)
- const text = await response.text()
- if (text.length > 16_384) fail('Stock pricing is invalid.',503)
- const result = JSON.parse(text) as StockMarketSnapshot
- return result
+ if(c.marketAdapter==='xlayer-dex-v1'&&!c.riskAuthorization)fail('Stock review authentication is missing.',503)
+ const result = await stockJson(c.riskUrl,c.riskAuthorization?{authorization:'Bearer '+c.riskAuthorization}:{},fetch,scope) as StockMarketSnapshot
+ return c.marketAdapter==='xlayer-dex-v1'?readProductionStockMarket(c,scope,result):result
 }
 export function stockMarketEvidence(c: StockConfig, market: StockMarketSnapshot, tokenAmount: bigint, now: number): StockRiskEvidence {
  if (!market || market.chainId !== c.chainId || typeof market.asset !== 'string' || market.asset.toLowerCase() !== c.asset.toLowerCase() ||
      typeof market.unitPriceUsdcUnits !== 'string' || !/^[1-9][0-9]{0,77}$/.test(market.unitPriceUsdcUnits) ||
      !Number.isSafeInteger(market.observedAt) || !Number.isSafeInteger(market.eligibleUntil) ||
      market.observedAt > now || market.eligibleUntil <= now || market.eligibleUntil - market.observedAt > c.maxRiskAge) fail('Stock pricing is invalid or expired.',503)
+ if(c.marketAdapter==='xlayer-dex-v1'&&(!market.dex||market.dex.tokenAmount!==tokenAmount.toString()||market.dex.expiresAt<=now))fail('DEX quote does not match the token amount.',503)
  return { asset:c.asset,observedAt:market.observedAt,eligibleUntil:market.eligibleUntil,
   volatilityBps:market.volatilityBps,executableLiquidityUsdcUnits:market.executableLiquidityUsdcUnits,
   referenceValueUsdcUnits:(tokenAmount * BigInt(market.unitPriceUsdcUnits) / 10n ** BigInt(c.assetDecimals)).toString(),
   tokenUnits:tokenAmount.toString(),tradingAvailable:market.tradingAvailable,transfersAvailable:market.transfersAvailable,issuerEligible:market.issuerEligible }
 }
 export async function createStockChain(c: StockConfig) {
- const client = createPublicClient({transport:http(c.rpcUrl,{timeout:7000,retryCount:0})})
+ const client = createPublicClient({transport:http(c.rpcUrl,{timeout:c.chainId===31337?180000:7000,retryCount:0})})
  const [chainId,block] = await Promise.all([client.getChainId(),client.getBlock()])
  if (chainId !== c.chainId) fail('Stock RPC network does not match the deployment.',503)
  const common = {address:c.escrow,abi:ABI,blockNumber:block.number} as const

@@ -48,3 +48,7 @@ Pyth is a candidate for further evaluation, not a configured provider: [its curr
 Implement the verified DEX quote route in the trusted server adapter and pair it with a verified independent reference and market-session policy. Keep the stock amount, fixed USDC obligation and worker risk disclosure distinct: a later stock price decline must never increase the already-agreed deduction.
 
 Then rehearse the complete actual-token acceptance, scheduled fixed repayment and worker remainder release against the isolated database. Calibrate pilot caps and risk limits, finish contract/implementation security review, confirm the owner multisig and separate signers, and finalize the paused mainnet deployment packet. The draft packet remains blocked and contains no unsigned transaction. The optional issuer integration request remains unsent.
+
+## Production adapter implementation checkpoint
+
+The opt-in DEX adapter now combines exact-amount/depth quotes with independent timestamped stock and USDC references, regular-session checks and authenticated review evidence. See [the adapter handoff](STOCK_DEX_ADAPTER_2026-09-12.md) for configuration, tests and remaining live-access verification. Provider inputs in the local repayment rehearsal are synthetic; no mainnet activation or issuer account is implied.

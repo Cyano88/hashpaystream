@@ -5,6 +5,7 @@ import type { StockClientConfig } from '../src/lib/stockEarlyPayProtocol.js'
 
 export function stockFailure(message: string, status = 409): never { throw Object.assign(new Error(message), { status }) }
 export type StockConfig = StockClientConfig & {
+ marketAdapter?: 'xlayer-dex-v1'; marketCredentials?: {key:string;secret:string;paper:boolean}; riskAuthorization?:string;
  rpcUrl: string; runtimeHash: Hex; riskKey: Hex; riskSigner: Address; riskUrl: string;
  ownershipSecret: string; participantIds: string[]; reviewedEarningsIds: string[];
  deploymentBlock:number; policy: StockRiskPolicy; maxRiskAge: number; quoteTtlSeconds: number
@@ -22,13 +23,14 @@ export function readStockConfig(env: NodeJS.ProcessEnv): StockConfig {
  // until a stock escrow, asset and risk policy have been reviewed and pinned.
  if (!raw || ![31337].includes(Number(raw.chainId)) || typeof raw.chainId !== 'number') stockFailure('Stock early pay has not been approved for this network.', 503)
  const chainId = raw.chainId as number
+ if(raw.marketAdapter!==undefined&&raw.marketAdapter!=='xlayer-dex-v1')stockFailure('Unknown stock market adapter.',503)
  if(!integer(raw.deploymentBlock,0,Number.MAX_SAFE_INTEGER))stockFailure('Stock deployment block is required for receipt recovery.',503)
  let rpc: URL, risk: URL
  try { rpc = new URL(String(raw.rpcUrl)); risk = new URL(String(raw.riskUrl)) } catch { stockFailure('Stock endpoints are not configured.',503) }
  const local = (url: URL) => ['localhost','127.0.0.1','[::1]'].includes(url.hostname)
  if (rpc.username || rpc.password || risk.username || risk.password ||
      (chainId === 31337 && (env.NODE_ENV === 'production' || !local(rpc) || !local(risk))) ||
-     (chainId === 1952 && (rpc.protocol !== 'https:' || risk.protocol !== 'https:')) ||
+     (chainId !== 31337 && (rpc.protocol !== 'https:' || risk.protocol !== 'https:')) ||
      !['http:','https:'].includes(rpc.protocol) || !['http:','https:'].includes(risk.protocol)) stockFailure('Stock endpoints do not match the selected environment.',503)
  if (!integer(raw.maxFeeBps,0,10_000) || !integer(raw.maxRiskAge,1,300) || !integer(raw.quoteTtlSeconds,1,300) ||
      !integer(raw.confirmations,1,64) || !integer(raw.assetDecimals,0,18) ||
@@ -51,6 +53,9 @@ export function readStockConfig(env: NodeJS.ProcessEnv): StockConfig {
  const asset = addr(raw.asset), usdc = addr(raw.usdc)
  if (asset === usdc) stockFailure('Stock and payment assets must differ.',503)
  return {
+  marketAdapter:raw.marketAdapter as 'xlayer-dex-v1'|undefined,
+  marketCredentials:raw.marketAdapter==='xlayer-dex-v1'?{key:env.HASHPAYSTREAM_ALPACA_KEY??'',secret:env.HASHPAYSTREAM_ALPACA_SECRET??'',paper:env.HASHPAYSTREAM_ALPACA_PAPER==='true'}:undefined,
+  riskAuthorization:env.HASHPAYSTREAM_STOCK_RISK_ADAPTER_TOKEN,
   version:1,chainId,deploymentBlock:Number(raw.deploymentBlock),escrow:addr(raw.escrow),asset,usdc,assetSymbol:raw.assetSymbol,assetDecimals:Number(raw.assetDecimals),
   maxFeeBps:Number(raw.maxFeeBps),maxRiskAge:Number(raw.maxRiskAge),quoteTtlSeconds:Number(raw.quoteTtlSeconds),
   confirmations:Number(raw.confirmations),rpcUrl:rpc.href,riskUrl:risk.href,runtimeHash:raw.runtimeHash as Hex,

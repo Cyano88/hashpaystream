@@ -3,7 +3,7 @@ import { stockFailure as fail } from './stock-early-pay-config.js'
 
 export type StockParticipantScope={
  chainId:number;asset:Address;worker:Address;funder:Address;earningsId:Hex;
- principalUsdcUnits:string;policyVersion:string
+ principalUsdcUnits:string;policyVersion:string;tokenAmount?:string
 }
 export type StockParticipantClearance=StockParticipantScope & {
  checkedAt:number;expiresAt:number;workerEligible:boolean;funderEligible:boolean;
@@ -18,7 +18,7 @@ export function assertStockParticipantClearance(value:unknown,expected:StockPart
  const addressMatches=(a:unknown,b:string)=>typeof a==='string'&&isAddress(a)&&a.toLowerCase()===b.toLowerCase()
  if(!p||p.chainId!==expected.chainId||!addressMatches(p.asset,expected.asset)||!addressMatches(p.worker,expected.worker)||
     !addressMatches(p.funder,expected.funder)||p.earningsId!==expected.earningsId||p.principalUsdcUnits!==expected.principalUsdcUnits||
-    p.policyVersion!==expected.policyVersion)fail('Participant eligibility does not match this funding request.',409)
+    p.policyVersion!==expected.policyVersion||p.tokenAmount!==expected.tokenAmount)fail('Participant eligibility does not match this funding request.',409)
  if(p.workerEligible!==true||p.funderEligible!==true)fail('This funding request is not approved for both participants.',409)
  const checkedAt=p.checkedAt,expiresAt=p.expiresAt
  if(typeof checkedAt!=='number'||typeof expiresAt!=='number'||!Number.isSafeInteger(p.checkedAt)||!Number.isSafeInteger(p.expiresAt)||checkedAt<=0||checkedAt>now||

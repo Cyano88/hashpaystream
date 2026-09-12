@@ -59,7 +59,7 @@ export async function runStockSettlementPass(options:StockSettlementOptions){
    }catch(error){await sql.query('rollback');throw error}
   }
   const network=defineChain({id:c.chainId,name:'Stock settlement',nativeCurrency:{name:'Gas',symbol:'GAS',decimals:18},rpcUrls:{default:{http:[c.rpcUrl]}}})
-  const wallet=createWalletClient({account,chain:network,transport:http(c.rpcUrl,{timeout:7000,retryCount:0})})
+  const wallet=createWalletClient({account,chain:network,transport:http(c.rpcUrl,{timeout:c.chainId===31337?180000:7000,retryCount:0})})
   // Finish every durable pending job before allocating a new nonce.
   const jobs=await sql.query('select store_key,value from render_durable_kv where starts_with(store_key,$1) order by store_key',[key+':settlement:'])
   for(const row of jobs.rows){
