@@ -1,4 +1,3 @@
-import { stockEarlyPayEnabled } from '../lib/stockEarlyPayClient'
 import StockFunderDesk from './StockFunderDesk'
 import type { SettlementEvidence } from '../lib/settlementEvidence'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -315,4 +314,6 @@ function SummaryMetric({ label, value, accent = false }: { label: string; value:
   return <div className="min-w-0"><p className="text-[10px] font-bold text-white/45">{label}</p><p className={`mt-1 truncate text-xs font-black tabular-nums ${accent ? 'text-emerald-400' : 'text-white'}`}>{value}</p></div>
 }
 
-export default function StreamPayFundingDesk(){ return stockEarlyPayEnabled ? <StockFunderDesk/> : <LegacyStreamPayFundingDesk/> }
+const stockFunderFlowEnabled = import.meta.env.VITE_HASHPAYSTREAM_STOCK_FUNDER_FLOW_ENABLED === 'true'
+
+export default function StreamPayFundingDesk(){ return stockFunderFlowEnabled ? <StockFunderDesk/> : <LegacyStreamPayFundingDesk/> }
