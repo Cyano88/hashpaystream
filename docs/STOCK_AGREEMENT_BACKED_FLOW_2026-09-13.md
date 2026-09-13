@@ -33,6 +33,12 @@ The focused contract suite passes three scenarios covering direct delivery, paus
 
 Slither analyzed 42 contracts with 102 detectors. For this candidate it reported the expected balance-around-token-call warning despite the nonReentrant guard and checks-effects-interactions ordering, intentional deadline comparisons, and high cyclomatic complexity in the fail-closed delivery validator. A second run excluding those acknowledged detector classes and the unrelated legacy event warning analyzed 98 detectors with zero additional findings. These results support continued testing but do not replace independent review.
 
+## Issuer and distribution boundary
+
+Backed's current product documentation lists xStocks as ERC-20 tokens supported on X Layer without technical transfer restrictions, but it also states that direct purchase is limited to qualified investors, distribution is restricted by jurisdiction, and the products are not available to US persons or ordinary UK retail clients. Technical wallet compatibility is therefore not permission for an unrestricted public launch. HashPayStream needs a licensed distribution partner and enforceable participant eligibility before a real-token pilot.
+
+Official source: https://assets.backed.fi/legal-documentation
+
 ## Release boundary
 
 No agreement-backed stock-delivery contract is deployed on X Layer mainnet. The previously recorded contracts implement USDC escrow or legacy stock inventory and must not be used for this flow. Both legacy stock screens are disconnected from runtime feature flags so a configuration mistake cannot expose their deposit form.
