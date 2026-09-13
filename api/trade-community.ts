@@ -1,3 +1,4 @@
+import { verifyTradeCircleWallet } from "./trade-wallet-verification.js";
 import express, { type Request, type Response } from "express";
 import { createHmac } from "node:crypto";
 import { PrivyClient } from "@privy-io/node";
@@ -54,6 +55,7 @@ export function createTradeCommunityRouter(
   overrides: Partial<{
     env: () => NodeJS.ProcessEnv;
     identity: typeof verifiedTradeIdentity;
+    wallet: typeof verifyTradeCircleWallet;
     admin: typeof isAdmin;
     store: () => ReturnType<typeof createTradeCommunityStore>;
   }> = {},
@@ -61,6 +63,7 @@ export function createTradeCommunityRouter(
   const deps = {
     env: () => process.env,
     identity: verifiedTradeIdentity,
+    wallet: verifyTradeCircleWallet,
     admin: isAdmin,
     store: () =>
       (configured ??= createTradeCommunityStore(configuredTradePool())),
@@ -91,15 +94,13 @@ export function createTradeCommunityRouter(
         await fn(req, res, viewer, user);
       } catch (error) {
         const status = Number((error as { status?: number }).status) || 500;
-        res
-          .status(status)
-          .json({
-            ok: false,
-            error:
-              status >= 500
-                ? "Trade enquiries are temporarily unavailable. Try again."
-                : (error as Error).message,
-          });
+        res.status(status).json({
+          ok: false,
+          error:
+            status >= 500
+              ? "Trade enquiries are temporarily unavailable. Try again."
+              : (error as Error).message,
+        });
       }
     };
   const parse = express.json({ limit: "32kb" });
@@ -108,6 +109,124 @@ export function createTradeCommunityRouter(
     windowMs: 60000,
     max: 40,
   });
+  router.get(
+    "/checkout",
+    secure(async (req, res, viewer) =>
+      res.json({
+        ok: true,
+        ...(await deps
+          .store()
+          .checkoutStatus(
+            viewer,
+            id(req.query.threadId),
+            id(req.query.offerId),
+          )),
+      }),
+    ),
+  );
+  router.get(
+    "/settlement-wallet",
+    secure(async (req, res, viewer) =>
+      res.json({
+        ok: true,
+        paymentsEnabled: false,
+        wallet: await deps
+          .store()
+          .settlementWallet(
+            viewer,
+            id(req.query.threadId),
+            id(req.query.offerId),
+          ),
+      }),
+    ),
+  );
+  router.post(
+    "/settlement-wallet",
+    writes,
+    parse,
+    secure(async (req, res, viewer) => {
+      const threadId = id(req.body?.threadId),
+        offerId = id(req.body?.offerId);
+      // Check participation before making provider calls; recheck state inside the write transaction.
+      await deps.store().settlementWallet(viewer, threadId, offerId);
+      const verified = await deps.wallet(
+        { walletId: req.body?.walletId, userToken: req.body?.userToken },
+        deps.env(),
+      );
+      res.json({
+        ok: true,
+        paymentsEnabled: false,
+        wallet: await deps
+          .store()
+          .settlementWallet(viewer, threadId, offerId, verified),
+      });
+    }),
+  );
+  router.get(
+    "/funding-reservation",
+    secure(async (req, res, viewer) =>
+      res.json({
+        ok: true,
+        paymentsEnabled: false,
+        reservation: await deps
+          .store()
+          .fundingReservation(
+            viewer,
+            id(req.query.threadId),
+            id(req.query.offerId),
+          ),
+      }),
+    ),
+  );
+  router.post(
+    "/funding-reservation",
+    writes,
+    parse,
+    secure(async (req, res, viewer) =>
+      res.json({
+        ok: true,
+        paymentsEnabled: false,
+        reservation: await deps
+          .store()
+          .fundingReservation(
+            viewer,
+            id(req.body?.threadId),
+            id(req.body?.offerId),
+            true,
+          ),
+      }),
+    ),
+  );
+  router.get(
+    "/offers",
+    secure(async (req, res, viewer) =>
+      res.json({
+        ok: true,
+        offers: await deps.store().offers(viewer, id(req.query.threadId)),
+        paymentsEnabled: false,
+      }),
+    ),
+  );
+  router.post(
+    "/offers",
+    writes,
+    parse,
+    secure(async (req, res, viewer) =>
+      res.json({
+        ok: true,
+        offer: await deps
+          .store()
+          .offer(
+            viewer,
+            id(req.body?.threadId),
+            id(req.body?.id),
+            content(req.body?.action, 20),
+            req.body?.terms,
+          ),
+        paymentsEnabled: false,
+      }),
+    ),
+  );
   router.get(
     "/capabilities",
     secure(async (req, res, _viewer, user) =>

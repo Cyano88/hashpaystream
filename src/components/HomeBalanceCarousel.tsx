@@ -18,7 +18,7 @@ type Props = {
 }
 
 export default function HomeBalanceCarousel(props: Props) {
-  const xLayer = useSavingsVault()
+  const savings = useSavingsVault()
   const scroller = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState(0)
 
@@ -45,13 +45,13 @@ export default function HomeBalanceCarousel(props: Props) {
 
       <section className="relative min-w-full snap-center overflow-hidden rounded-[26px] border border-emerald-900/70 bg-[#07140d] px-5 py-5 text-white shadow-[0_18px_48px_rgba(6,78,45,0.14)] dark:border-emerald-900/70 dark:bg-[#07140d]">
         <GrowthMark />
-        <div className="relative z-10 min-w-0 pr-16"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/60">X Layer balance</p><p className="mt-1.5 min-w-0 text-[clamp(1.75rem,9vw,2.5rem)] font-bold tabular-nums tracking-tight">{xLayer.balanceReady && xLayer.units !== undefined ? formatUsdcBalance(xLayer.units).replace(/ USDC$/, '') : xLayer.ready && !xLayer.address ? '0' : '—'} <span className="text-xs font-medium tracking-normal opacity-50">USDC</span></p></div>
+        <div className="relative z-10 min-w-0 pr-16"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/60">Arc savings</p><p className="mt-1.5 min-w-0 text-[clamp(1.75rem,9vw,2.5rem)] font-bold tabular-nums tracking-tight">{savings.balanceReady && savings.units !== undefined ? formatUsdcBalance(savings.units).replace(/ USDC$/, '') : savings.ready && !savings.address ? '0' : '—'} <span className="text-xs font-medium tracking-normal opacity-50">USDC</span></p></div>
         <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">
-          <Metric label="Available" value={xLayer.balanceReady && xLayer.units !== undefined ? formatUsdcBalance(xLayer.units) : xLayer.ready && !xLayer.address ? '0 USDC' : '—'} />
-          <Metric label="In savings" value={!xLayer.configured || xLayer.savingsReady ? formatUsdcBalance(xLayer.savedUnits) : '—'} />
-          <Metric label="Plans" value={!xLayer.configured || xLayer.savingsReady ? String(xLayer.plans.filter(plan => plan.remaining > 0n).length) : '—'} />
+          <Metric label="Available" value={savings.balanceReady && savings.units !== undefined ? formatUsdcBalance(savings.units) : savings.ready && !savings.address ? '0 USDC' : '—'} />
+          <Metric label="In savings" value={!savings.configured || savings.savingsReady ? formatUsdcBalance(savings.savedUnits) : '—'} />
+          <Metric label="Plans" value={!savings.configured || savings.savingsReady ? String(savings.plans.filter(plan => plan.remaining > 0n).length) : '—'} />
         </div>
-        {xLayer.error && <button type="button" onClick={() => void xLayer.refresh()} className="mt-3 text-[10px] font-bold text-emerald-200/70 underline underline-offset-2">Balance unavailable. Tap to retry.</button>}
+        {savings.error && <button type="button" onClick={() => void savings.refresh()} className="mt-3 text-[10px] font-bold text-emerald-200/70 underline underline-offset-2">Balance unavailable. Tap to retry.</button>}
       </section>
     </div>
     <div className="mt-2.5 flex justify-center gap-1.5" aria-label={`Balance card ${active + 1} of 2`}><span className={`h-1.5 rounded-full transition-all ${active === 0 ? 'w-5 bg-gray-950 dark:bg-white' : 'w-1.5 bg-gray-300 dark:bg-white/20'}`} /><span className={`h-1.5 rounded-full transition-all ${active === 1 ? 'w-5 bg-emerald-500' : 'w-1.5 bg-gray-300 dark:bg-white/20'}`} /></div>

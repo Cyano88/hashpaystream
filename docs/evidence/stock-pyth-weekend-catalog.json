@@ -1,0 +1,880 @@
+{
+    "checkedAt":  "2026-09-12T15:47:14.1066317+00:00",
+    "sources":  [
+                    "https://pyth.dourolabs.app/v1/symbols?query=SPY",
+                    "https://pyth.dourolabs.app/v1/symbols?query=Index"
+                ],
+    "spyMatches":  [
+                       {
+                           "pyth_lazer_id":  1398,
+                           "name":  "SPY",
+                           "symbol":  "Equity.US.SPY/USD",
+                           "description":  "SPY / US DOLLAR",
+                           "asset_type":  "equity",
+                           "instrument_type":  "spot",
+                           "exponent":  -5,
+                           "cmc_id":  null,
+                           "interval":  null,
+                           "min_publishers":  1,
+                           "min_channel":  "fixed_rate@50ms",
+                           "state":  "stable",
+                           "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+                           "market_session_schedule":  {
+                                                           "regular":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+                                                           "pre_market":  "America/New_York;0400-0930,0400-0930,0400-0930,0400-0930,0400-0930,C,C;0907/C,1126/C,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+                                                           "post_market":  "America/New_York;1600-2000,1600-2000,1600-2000,1600-2000,1600-2000,C,C;0907/C,1126/C,1127/1300-1700,1224/1300-1700,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+                                                           "over_night":  "America/New_York;0000-0400\u00262000-2400,0000-0400\u00262000-2400,0000-0400\u00262000-2400,0000-0400\u00262000-2400,0000-0400,C,2000-2400;0906/C,0907/2000-2400,1125/0000-0400,1126/2000-2400,1224/0000-0400,1225/C,1231/0000-0400,0101/C,0117/C,0118/2000-2400,0214/C,0215/2000-2400,0325/0000-0400,0326/C,0530/C,0531/2000-2400,0617/0000-0400,0618/C,0704/C,0705/2000-2400"
+                                                       },
+                           "market_sessions":  {
+                                                   "regular":  {
+                                                                   "min_pub":  3,
+                                                                   "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+                                                                   "state":  "stable"
+                                                               },
+                                                   "pre_market":  {
+                                                                      "min_pub":  2,
+                                                                      "schedule":  "America/New_York;0400-0930,0400-0930,0400-0930,0400-0930,0400-0930,C,C;0907/C,1126/C,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+                                                                      "state":  "stable"
+                                                                  },
+                                                   "post_market":  {
+                                                                       "min_pub":  2,
+                                                                       "schedule":  "America/New_York;1600-2000,1600-2000,1600-2000,1600-2000,1600-2000,C,C;0907/C,1126/C,1127/1300-1700,1224/1300-1700,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+                                                                       "state":  "stable"
+                                                                   },
+                                                   "over_night":  {
+                                                                      "min_pub":  2,
+                                                                      "schedule":  "America/New_York;0000-0400\u00262000-2400,0000-0400\u00262000-2400,0000-0400\u00262000-2400,0000-0400\u00262000-2400,0000-0400,C,2000-2400;0906/C,0907/2000-2400,1125/0000-0400,1126/2000-2400,1224/0000-0400,1225/C,1231/0000-0400,0101/C,0117/C,0118/2000-2400,0214/C,0215/2000-2400,0325/0000-0400,0326/C,0530/C,0531/2000-2400,0617/0000-0400,0618/C,0704/C,0705/2000-2400",
+                                                                      "state":  "stable"
+                                                                  }
+                                               },
+                           "hermes_id":  "19e09bb805456ada3979a7d1cbb4b6d63babc3a0f8e8a9509f68afa5c4c11cd5",
+                           "nasdaq_symbol":  "SPY",
+                           "quote_currency":  "USD",
+                           "symbol_chain_id":  null,
+                           "expiration_pattern":  null,
+                           "availability_pattern":  null,
+                           "asset_sector":  null,
+                           "asset_subclass":  null,
+                           "groups":  [
+
+                                      ]
+                       },
+                       {
+                           "pyth_lazer_id":  1742,
+                           "name":  "SPYG",
+                           "symbol":  "Equity.US.SPYG/USD",
+                           "description":  "SPYG / US DOLLAR",
+                           "asset_type":  "equity",
+                           "instrument_type":  "spot",
+                           "exponent":  -5,
+                           "cmc_id":  null,
+                           "interval":  null,
+                           "min_publishers":  2,
+                           "min_channel":  "fixed_rate@200ms",
+                           "state":  "stable",
+                           "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+                           "market_session_schedule":  {
+                                                           "regular":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C"
+                                                       },
+                           "market_sessions":  {
+                                                   "regular":  {
+                                                                   "min_pub":  2,
+                                                                   "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+                                                                   "state":  "stable"
+                                                               }
+                                               },
+                           "hermes_id":  "39d6113025efb65b116726281dc70b917fd43391e26a5e06c76b9e9e606b5da9",
+                           "nasdaq_symbol":  "SPYG",
+                           "quote_currency":  "USD",
+                           "symbol_chain_id":  null,
+                           "expiration_pattern":  null,
+                           "availability_pattern":  null,
+                           "asset_sector":  null,
+                           "asset_subclass":  null,
+                           "groups":  [
+
+                                      ]
+                       },
+                       {
+                           "pyth_lazer_id":  1743,
+                           "name":  "SPYV",
+                           "symbol":  "Equity.US.SPYV/USD",
+                           "description":  "SPYV / US DOLLAR",
+                           "asset_type":  "equity",
+                           "instrument_type":  "spot",
+                           "exponent":  -5,
+                           "cmc_id":  null,
+                           "interval":  null,
+                           "min_publishers":  2,
+                           "min_channel":  "fixed_rate@200ms",
+                           "state":  "stable",
+                           "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+                           "market_session_schedule":  {
+                                                           "regular":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C"
+                                                       },
+                           "market_sessions":  {
+                                                   "regular":  {
+                                                                   "min_pub":  2,
+                                                                   "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+                                                                   "state":  "stable"
+                                                               }
+                                               },
+                           "hermes_id":  "da3768a335fe3d4e6a3a540300229909deec4ba07bab6f05d945b9dec67b6856",
+                           "nasdaq_symbol":  "SPYV",
+                           "quote_currency":  "USD",
+                           "symbol_chain_id":  null,
+                           "expiration_pattern":  null,
+                           "availability_pattern":  null,
+                           "asset_sector":  null,
+                           "asset_subclass":  null,
+                           "groups":  [
+
+                                      ]
+                       },
+                       {
+                           "pyth_lazer_id":  1842,
+                           "name":  "SPYXSPY",
+                           "symbol":  "Crypto.SPYX/SPY.RR",
+                           "description":  "SP500 XSTOCK / SP500 REDEMPTION RATE",
+                           "asset_type":  "crypto-redemption-rate",
+                           "instrument_type":  "rate",
+                           "exponent":  -8,
+                           "cmc_id":  null,
+                           "interval":  null,
+                           "min_publishers":  2,
+                           "min_channel":  "fixed_rate@200ms",
+                           "state":  "stable",
+                           "schedule":  "America/New_York;O,O,O,O,O,O,O;",
+                           "market_session_schedule":  {
+                                                           "regular":  "America/New_York;O,O,O,O,O,O,O;"
+                                                       },
+                           "market_sessions":  {
+                                                   "regular":  {
+                                                                   "min_pub":  2,
+                                                                   "schedule":  "America/New_York;O,O,O,O,O,O,O;",
+                                                                   "state":  "stable"
+                                                               }
+                                               },
+                           "hermes_id":  "9e916cc00d292da2367646ffd6537d6b8d0c3f15e2d5891ac44aed31291811a9",
+                           "nasdaq_symbol":  null,
+                           "quote_currency":  "SPY",
+                           "symbol_chain_id":  null,
+                           "expiration_pattern":  null,
+                           "availability_pattern":  null,
+                           "asset_sector":  null,
+                           "asset_subclass":  null,
+                           "groups":  [
+
+                                      ]
+                       },
+                       {
+                           "pyth_lazer_id":  1843,
+                           "name":  "SPYXUSD",
+                           "symbol":  "Crypto.SPYX/USD",
+                           "description":  "SP500 XSTOCK / US DOLLAR",
+                           "asset_type":  "crypto",
+                           "instrument_type":  "spot",
+                           "exponent":  -8,
+                           "cmc_id":  37006,
+                           "interval":  null,
+                           "min_publishers":  3,
+                           "min_channel":  "fixed_rate@200ms",
+                           "state":  "stable",
+                           "schedule":  "America/New_York;O,O,O,O,O,O,O;",
+                           "market_session_schedule":  {
+                                                           "regular":  "America/New_York;O,O,O,O,O,O,O;"
+                                                       },
+                           "market_sessions":  {
+                                                   "regular":  {
+                                                                   "min_pub":  3,
+                                                                   "schedule":  "America/New_York;O,O,O,O,O,O,O;",
+                                                                   "state":  "stable"
+                                                               }
+                                               },
+                           "hermes_id":  "2817b78438c769357182c04346fddaad1178c82f4048828fe0997c3c64624e14",
+                           "nasdaq_symbol":  null,
+                           "quote_currency":  "USD",
+                           "symbol_chain_id":  null,
+                           "expiration_pattern":  null,
+                           "availability_pattern":  null,
+                           "asset_sector":  null,
+                           "asset_subclass":  null,
+                           "groups":  [
+
+                                      ]
+                       },
+                       {
+                           "pyth_lazer_id":  2866,
+                           "name":  "SPYI",
+                           "symbol":  "Equity.US.SPYI/USD",
+                           "description":  "NEOS S\u0026P 500 HIGH INCOME ETF",
+                           "asset_type":  "equity",
+                           "instrument_type":  "spot",
+                           "exponent":  -5,
+                           "cmc_id":  null,
+                           "interval":  null,
+                           "min_publishers":  1,
+                           "min_channel":  "fixed_rate@200ms",
+                           "state":  "coming_soon",
+                           "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C",
+                           "market_session_schedule":  {
+                                                           "regular":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C",
+                                                           "pre_market":  "America/New_York;0400-0930,0400-0930,0400-0930,0400-0930,0400-0930,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1225/C",
+                                                           "post_market":  "America/New_York;1600-2000,1600-2000,1600-2000,1600-2000,1600-2000,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1225/C",
+                                                           "over_night":  "America/New_York;0000-0400\u00262000-2400,0000-0400\u00262000-2400,0000-0400\u00262000-2400,0000-0400\u00262000-2400,0000-0400,C,2000-2400;0118/C,0119/2000-2400,0215/C,0216/2000-2400,0402/0000-0400,0403/C,0524/C,0525/2000-2400,0618/0000-0400,0619/C,0702/0000-0400,0703/C,0906/C,0907/2000-2400,1125/0000-0400,1126/2000-2400,1224/0000-0400,1225/C,1231/0000-0400,0101/C"
+                                                       },
+                           "market_sessions":  {
+                                                   "regular":  {
+                                                                   "min_pub":  1,
+                                                                   "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C",
+                                                                   "state":  "coming_soon"
+                                                               },
+                                                   "pre_market":  {
+                                                                      "min_pub":  1,
+                                                                      "schedule":  "America/New_York;0400-0930,0400-0930,0400-0930,0400-0930,0400-0930,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1225/C",
+                                                                      "state":  "coming_soon"
+                                                                  },
+                                                   "post_market":  {
+                                                                       "min_pub":  1,
+                                                                       "schedule":  "America/New_York;1600-2000,1600-2000,1600-2000,1600-2000,1600-2000,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1225/C",
+                                                                       "state":  "coming_soon"
+                                                                   },
+                                                   "over_night":  {
+                                                                      "min_pub":  1,
+                                                                      "schedule":  "America/New_York;0000-0400\u00262000-2400,0000-0400\u00262000-2400,0000-0400\u00262000-2400,0000-0400\u00262000-2400,0000-0400,C,2000-2400;0118/C,0119/2000-2400,0215/C,0216/2000-2400,0402/0000-0400,0403/C,0524/C,0525/2000-2400,0618/0000-0400,0619/C,0702/0000-0400,0703/C,0906/C,0907/2000-2400,1125/0000-0400,1126/2000-2400,1224/0000-0400,1225/C,1231/0000-0400,0101/C",
+                                                                      "state":  "coming_soon"
+                                                                  }
+                                               },
+                           "hermes_id":  "284fc7f6e9062c1a6b2b23841c6aa88076e99fd660ff7683640a9f2e97f7b93e",
+                           "nasdaq_symbol":  null,
+                           "quote_currency":  "USD",
+                           "symbol_chain_id":  null,
+                           "expiration_pattern":  null,
+                           "availability_pattern":  null,
+                           "asset_sector":  null,
+                           "asset_subclass":  null,
+                           "groups":  [
+
+                                      ]
+                       },
+                       {
+                           "pyth_lazer_id":  3036,
+                           "name":  "SPYM",
+                           "symbol":  "Equity.US.SPYM/USD",
+                           "description":  "SPYM / US DOLLAR",
+                           "asset_type":  "equity",
+                           "instrument_type":  "spot",
+                           "exponent":  -5,
+                           "cmc_id":  null,
+                           "interval":  null,
+                           "min_publishers":  1,
+                           "min_channel":  "fixed_rate@200ms",
+                           "state":  "stable",
+                           "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+                           "market_session_schedule":  {
+                                                           "regular":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+                                                           "pre_market":  "America/New_York;0400-0930,0400-0930,0400-0930,0400-0930,0400-0930,C,C;0907/C,1126/C,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+                                                           "post_market":  "America/New_York;1600-2000,1600-2000,1600-2000,1600-2000,1600-2000,C,C;0907/C,1126/C,1127/1300-1700,1224/1300-1700,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+                                                           "over_night":  "America/New_York;0000-0400\u00262000-2400,0000-0400\u00262000-2400,0000-0400\u00262000-2400,0000-0400\u00262000-2400,0000-0400,C,2000-2400;0906/C,0907/2000-2400,1125/0000-0400,1126/2000-2400,1224/0000-0400,1225/C,1231/0000-0400,0101/C,0117/C,0118/2000-2400,0214/C,0215/2000-2400,0325/0000-0400,0326/C,0530/C,0531/2000-2400,0617/0000-0400,0618/C,0704/C,0705/2000-2400"
+                                                       },
+                           "market_sessions":  {
+                                                   "regular":  {
+                                                                   "min_pub":  3,
+                                                                   "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+                                                                   "state":  "stable"
+                                                               },
+                                                   "pre_market":  {
+                                                                      "min_pub":  2,
+                                                                      "schedule":  "America/New_York;0400-0930,0400-0930,0400-0930,0400-0930,0400-0930,C,C;0907/C,1126/C,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+                                                                      "state":  "stable"
+                                                                  },
+                                                   "post_market":  {
+                                                                       "min_pub":  2,
+                                                                       "schedule":  "America/New_York;1600-2000,1600-2000,1600-2000,1600-2000,1600-2000,C,C;0907/C,1126/C,1127/1300-1700,1224/1300-1700,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+                                                                       "state":  "stable"
+                                                                   },
+                                                   "over_night":  {
+                                                                      "min_pub":  2,
+                                                                      "schedule":  "America/New_York;0000-0400\u00262000-2400,0000-0400\u00262000-2400,0000-0400\u00262000-2400,0000-0400\u00262000-2400,0000-0400,C,2000-2400;0906/C,0907/2000-2400,1125/0000-0400,1126/2000-2400,1224/0000-0400,1225/C,1231/0000-0400,0101/C,0117/C,0118/2000-2400,0214/C,0215/2000-2400,0325/0000-0400,0326/C,0530/C,0531/2000-2400,0617/0000-0400,0618/C,0704/C,0705/2000-2400",
+                                                                      "state":  "stable"
+                                                                  }
+                                               },
+                           "hermes_id":  "2e5723d0391f26ff4004f8d276a7286cc52ad8ceb98c62ba64e10b0309ede63b",
+                           "nasdaq_symbol":  "SPYM",
+                           "quote_currency":  "USD",
+                           "symbol_chain_id":  null,
+                           "expiration_pattern":  null,
+                           "availability_pattern":  null,
+                           "asset_sector":  null,
+                           "asset_subclass":  null,
+                           "groups":  [
+
+                                      ]
+                       }
+                   ],
+    "indexMatches":  [
+                         {
+                             "pyth_lazer_id":  687,
+                             "symbol":  "Crypto.Index.CRT/USD",
+                             "name":  "CRTUSD",
+                             "state":  "inactive",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  688,
+                             "symbol":  "Crypto.Index.GMCI30/USD",
+                             "name":  "GMCI30USD",
+                             "state":  "inactive",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  689,
+                             "symbol":  "Crypto.Index.GML2/USD",
+                             "name":  "GML2USD",
+                             "state":  "inactive",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  690,
+                             "symbol":  "Crypto.Index.GMMEME/USD",
+                             "name":  "GMMEMEUSD",
+                             "state":  "inactive",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  691,
+                             "symbol":  "Crypto.Index.GMSOL/USD",
+                             "name":  "GMSOLUSD",
+                             "state":  "inactive",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  692,
+                             "symbol":  "Crypto.Index.USDTB/NAV",
+                             "name":  "USDTBNAV",
+                             "state":  "inactive",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  1568,
+                             "symbol":  "Crypto.Index.USDX/USD",
+                             "name":  "USDXUSD",
+                             "state":  "inactive",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  1666,
+                             "symbol":  "Equity.JP.1308/JPY",
+                             "name":  "NIKKO EXCHANGE TRADED INDEX TOPIX",
+                             "state":  "coming_soon",
+                             "schedule":  "Asia/Tokyo;0900-1130\u00261230-1525,0900-1130\u00261230-1525,0900-1130\u00261230-1525,0900-1130\u00261230-1525,0900-1130\u00261230-1525,C,C;0921/C,0922/C,0923/C,1012/C,1103/C,1123/C,1231/C,0101/C,0111/C,0211/C,0223/C,0322/C,0429/C,0503/C,0504/C,0505/C,0719/C,0811/C"
+                         },
+                         {
+                             "pyth_lazer_id":  1669,
+                             "symbol":  "Equity.JP.1330/JPY",
+                             "name":  "NIKKO EXCHANGE TRADED INDEX FUND 225",
+                             "state":  "coming_soon",
+                             "schedule":  "Asia/Tokyo;0900-1130\u00261230-1525,0900-1130\u00261230-1525,0900-1130\u00261230-1525,0900-1130\u00261230-1525,0900-1130\u00261230-1525,C,C;0921/C,0922/C,0923/C,1012/C,1103/C,1123/C,1231/C,0101/C,0111/C,0211/C,0223/C,0322/C,0429/C,0503/C,0504/C,0505/C,0719/C,0811/C"
+                         },
+                         {
+                             "pyth_lazer_id":  2392,
+                             "symbol":  "Crypto.Index.FORD/USD",
+                             "name":  "FORDUSD",
+                             "state":  "inactive",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  2393,
+                             "symbol":  "Crypto.Index.GLXY/USD",
+                             "name":  "GLXYUSD",
+                             "state":  "inactive",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3063,
+                             "symbol":  "Commodities.Index.PYTHOIL/USD",
+                             "name":  "PYTHOIL",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3065,
+                             "symbol":  "Crypto.Index.SSI",
+                             "name":  "SSI",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3153,
+                             "symbol":  "Metal.Index.GOLD/USD",
+                             "name":  "GOLD",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3154,
+                             "symbol":  "Metal.Index.SILVER/USD",
+                             "name":  "SILVER",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3161,
+                             "symbol":  "Crypto.Index.EEARN/USD",
+                             "name":  "EEARNUSD",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3162,
+                             "symbol":  "Crypto.Index.EACRED/USD",
+                             "name":  "EACREDUSD",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3178,
+                             "symbol":  "Crypto.Index.EXBTC/USD",
+                             "name":  "EXBTCUSD",
+                             "state":  "inactive",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3179,
+                             "symbol":  "Crypto.Index.ETHIRD/USD",
+                             "name":  "ETHIRDUSD",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3180,
+                             "symbol":  "Crypto.Index.ESUI/USD",
+                             "name":  "ESUIUSD",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3181,
+                             "symbol":  "Crypto.Index.EGUSDC/USD",
+                             "name":  "EGUSDCUSD",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3182,
+                             "symbol":  "Crypto.Index.EBTC/USD",
+                             "name":  "EBTCUSD",
+                             "state":  "inactive",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3183,
+                             "symbol":  "FX.Index.EUR/USD",
+                             "name":  "EURUSD",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3184,
+                             "symbol":  "FX.Index.USD/JPY",
+                             "name":  "USDJPY",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3185,
+                             "symbol":  "Equity.Index.TSLA/USD",
+                             "name":  "PYTH TSLA",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3186,
+                             "symbol":  "Equity.Index.CRCL/USD",
+                             "name":  "PYTH CRCL",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3187,
+                             "symbol":  "Equity.Index.MSTR/USD",
+                             "name":  "PYTH MSTR",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3188,
+                             "symbol":  "Equity.Index.NVDA/USD",
+                             "name":  "PYTH NVDA",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3189,
+                             "symbol":  "Equity.Index.HOOD/USD",
+                             "name":  "PYTH HOOD",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3190,
+                             "symbol":  "Equity.Index.COIN/USD",
+                             "name":  "PYTH COIN",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3191,
+                             "symbol":  "Equity.Index.AAPL/USD",
+                             "name":  "PYTH AAPL",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3192,
+                             "symbol":  "Equity.Index.AMZN/USD",
+                             "name":  "PYTH AMZN",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3193,
+                             "symbol":  "Equity.Index.PLTR/USD",
+                             "name":  "PYTH PLTR",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3194,
+                             "symbol":  "Equity.Index.GOOGL/USD",
+                             "name":  "PYTH GOOGL",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3195,
+                             "symbol":  "Equity.Index.ORCL/USD",
+                             "name":  "PYTH ORCL",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3196,
+                             "symbol":  "Equity.Index.MSFT/USD",
+                             "name":  "PYTH MSFT",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3206,
+                             "symbol":  "Crypto.Index.XAGM/USD",
+                             "name":  "XAGMUSD",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3207,
+                             "symbol":  "Crypto.Index.XAUM/USD",
+                             "name":  "XAUMUSD",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3261,
+                             "symbol":  "Equity.Index.INTC/USD",
+                             "name":  "PYTH INTC",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3262,
+                             "symbol":  "Equity.Index.META/USD",
+                             "name":  "PYTH META",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3263,
+                             "symbol":  "Equity.Index.MU/USD",
+                             "name":  "PYTH MU",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3264,
+                             "symbol":  "Equity.Index.SNDK/USD",
+                             "name":  "PYTH SNDK",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3265,
+                             "symbol":  "Commodities.Index.NATGAS/USD",
+                             "name":  "PYTH NATGAS",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3266,
+                             "symbol":  "Commodities.Index.COPPER/USD",
+                             "name":  "PYTH COPPER 23/5",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0000-1700\u00261800-2400,0000-1700\u00261800-2400,0000-1700\u00261800-2400,0000-1700\u00261800-2400,0000-1700,C,1800-2400;0119/0000-1430\u00261800-2400,0216/0000-1430\u00261800-2400,0402/0000-1700,0403/C,0525/0000-1430\u00261800-2400,0619/0000-1300,0703/0000-1300,0907/0000-1430\u00261800-2400,1126/0000-1430\u00261800-2400,1127/0000-1445,1224/0000-1345,1225/C,1231/0000-1700,0101/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3267,
+                             "symbol":  "Equity.Index.EWY/USD",
+                             "name":  "PYTH EWY",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3268,
+                             "symbol":  "Equity.Index.DRAM/USD",
+                             "name":  "PYTH DRAM",
+                             "state":  "coming_soon",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3290,
+                             "symbol":  "Equity.Index.US500/USD",
+                             "name":  "PYTH US500",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3291,
+                             "symbol":  "Equity.Index.US100/USD",
+                             "name":  "PYTH US100",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3292,
+                             "symbol":  "Equity.Index.US30/USD",
+                             "name":  "PYTH US30",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3304,
+                             "symbol":  "Crypto.Index.SILV/USD",
+                             "name":  "SILVUSD",
+                             "state":  "inactive",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3316,
+                             "symbol":  "Equity.Index.SPCX/USD",
+                             "name":  "PYTH SPCX",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3429,
+                             "symbol":  "FX.Index.GBP/USD",
+                             "name":  "GBPUSD",
+                             "state":  "coming_soon",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3430,
+                             "symbol":  "FX.Index.AUD/USD",
+                             "name":  "AUDUSD",
+                             "state":  "coming_soon",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3431,
+                             "symbol":  "FX.Index.USD/CAD",
+                             "name":  "USDCAD",
+                             "state":  "coming_soon",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3432,
+                             "symbol":  "FX.Index.USD/CHF",
+                             "name":  "USDCHF",
+                             "state":  "coming_soon",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3433,
+                             "symbol":  "FX.Index.NZD/USD",
+                             "name":  "NZDUSD",
+                             "state":  "coming_soon",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3434,
+                             "symbol":  "FX.Index.USD/SEK",
+                             "name":  "USDSEK",
+                             "state":  "coming_soon",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3435,
+                             "symbol":  "FX.Index.USD/NOK",
+                             "name":  "USDNOK",
+                             "state":  "coming_soon",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3446,
+                             "symbol":  "Commodities.Index.BRENT/USD",
+                             "name":  "BRENT",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3448,
+                             "symbol":  "Equity.Index.KR200/KRW",
+                             "name":  "PYTH KR200",
+                             "state":  "stable",
+                             "schedule":  "Asia/Seoul;0900-1530,0900-1530,0900-1530,0900-1530,0900-1530,C,C;0101/C,0216/C,0217/C,0218/C,0302/C,0501/C,0505/C,0525/C,0603/C,0717/C,0817/C,0924/C,0925/C,1005/C,1009/C,1225/C,1231/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3449,
+                             "symbol":  "Equity.Index.JP225/JPY",
+                             "name":  "PYTH JP225",
+                             "state":  "stable",
+                             "schedule":  "Asia/Tokyo;0900-1130\u00261230-1525,0900-1130\u00261230-1525,0900-1130\u00261230-1525,0900-1130\u00261230-1525,0900-1130\u00261230-1525,C,C;0921/C,0922/C,0923/C,1012/C,1103/C,1123/C,1231/C,0101/C,0111/C,0211/C,0223/C,0322/C,0429/C,0503/C,0504/C,0505/C,0719/C,0811/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3525,
+                             "symbol":  "Commodities.Index.CU/USD",
+                             "name":  "PYTH COPPER 24/7",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3618,
+                             "symbol":  "Pyth.Index.ANTHROPIC/USD",
+                             "name":  "PYTH ANTHROPIC",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3619,
+                             "symbol":  "Pyth.Index.OPENAI/USD",
+                             "name":  "PYTH OPENAI",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3633,
+                             "symbol":  "Commodities.Index.TGAS/USD",
+                             "name":  "TGAS",
+                             "state":  "stable",
+                             "schedule":  "Europe/London;0000-2200,0050-2200,0050-2200,0050-2200,0050-2200,C,2250-2400;0101/C,0403/C,0406/C,0525/0000-1830,0619/0050-1830,0703/0050-1830,0907/0000-1830,1126/0050-1830,1127/0050-2000,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3637,
+                             "symbol":  "Crypto.Index.TRADE/USD",
+                             "name":  "TRADEUSD",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3638,
+                             "symbol":  "Crypto.Index.HIGH/USD",
+                             "name":  "HIGHUSD",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3639,
+                             "symbol":  "Crypto.Index.PPLUS/USD",
+                             "name":  "PPLUSUSD",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;O,O,O,O,O,O,O;"
+                         },
+                         {
+                             "pyth_lazer_id":  3658,
+                             "symbol":  "Equity.Index.SOXL/USD",
+                             "name":  "PYTH SOXL",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3659,
+                             "symbol":  "Equity.Index.SOXS/USD",
+                             "name":  "PYTH SOXS",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3660,
+                             "symbol":  "Equity.Index.NBIS/USD",
+                             "name":  "PYTH NBIS",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3662,
+                             "symbol":  "Equity.Index.SKHY/USD",
+                             "name":  "PYTH SKHY",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0101/C,0119/C,0216/C,0403/C,0525/C,0619/C,0703/C,0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3663,
+                             "symbol":  "Equity.Index.SAMSUNG/USD",
+                             "name":  "PYTH SAMSUNG",
+                             "state":  "stable",
+                             "schedule":  "Asia/Seoul;0900-1530,0900-1530,0900-1530,0900-1530,0900-1530,C,C;0101/C,0216/C,0217/C,0218/C,0302/C,0501/C,0505/C,0525/C,0603/C,0717/C,0817/C,0924/C,0925/C,1005/C,1009/C,1225/C,1231/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3705,
+                             "symbol":  "Commodities.Index.TGAS1M/USD",
+                             "name":  "TGAS1M",
+                             "state":  "stable",
+                             "schedule":  "Europe/London;0000-2200,0050-2200,0050-2200,0050-2200,0050-2200,C,2250-2400;0101/C,0403/C,0406/C,0525/0000-1830,0619/0050-1830,0703/0050-1830,0907/0000-1830,1126/0050-1830,1127/0050-2000,1225/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3707,
+                             "symbol":  "Commodities.Index.WTI1M/USD",
+                             "name":  "WTI1M",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0000-1700\u00261800-2400,0000-1700\u00261800-2400,0000-1700\u00261800-2400,0000-1700\u00261800-2400,0000-1700,C,1800-2400;0907/0000-1430\u00261800-2400,1126/0000-1430\u00261800-2400,1127/0000-1445,1224/0000-1345,1225/C,1231/0000-1700,0101/C,0118/0000-1430\u00261800-2400,0215/0000-1430\u00261800-2400,0325/0000-1700,0326/C,0531/0000-1430\u00261800-2400,0618/0000-1300,0705/0000-1430\u00261800-2400"
+                         },
+                         {
+                             "pyth_lazer_id":  3708,
+                             "symbol":  "Commodities.Index.BRENT1M/USD",
+                             "name":  "BRENT1M",
+                             "state":  "stable",
+                             "schedule":  "Europe/London;0000-2300,0100-2300,0100-2300,0100-2300,0100-2300,C,2300-2400;0907/0000-1830,1126/0100-1830,1127/0100-2000,1224/0100-1900,1225/C,1231/0100-2000,0101/C,0326/C,0531/0000-1830,0618/0100-1830,0705/0000-1830"
+                         },
+                         {
+                             "pyth_lazer_id":  3709,
+                             "symbol":  "Commodities.Index.HHGAS1M/USD",
+                             "name":  "HHGAS1M",
+                             "state":  "stable",
+                             "schedule":  "America/New_York;0000-1700\u00261800-2400,0000-1700\u00261800-2400,0000-1700\u00261800-2400,0000-1700\u00261800-2400,0000-1700,C,1800-2400;0907/0000-1430\u00261800-2400,1126/0000-1430\u00261800-2400,1127/0000-1445,1224/0000-1345,1225/C,1231/0000-1700,0101/C,0118/0000-1430\u00261800-2400,0215/0000-1430\u00261800-2400,0325/0000-1700,0326/C,0531/0000-1430\u00261800-2400,0618/0000-1300,0705/0000-1430\u00261800-2400"
+                         },
+                         {
+                             "pyth_lazer_id":  3710,
+                             "symbol":  "Commodities.Index.HLGAS1M/USD",
+                             "name":  "HLGAS1M",
+                             "state":  "stable",
+                             "schedule":  "Europe/London;0000-2300,0050-2300,0050-2300,0050-2300,0050-2300,C,2250-2400;0907/0000-1830,1225/C,0101/C,0326/C"
+                         },
+                         {
+                             "pyth_lazer_id":  3711,
+                             "symbol":  "Commodities.Index.LWTI1M/USD",
+                             "name":  "LWTI1M",
+                             "state":  "stable",
+                             "schedule":  "Europe/London;0000-2300,0100-2300,0100-2300,0100-2300,0100-2300,C,2300-2400;0907/0000-1830,1126/0100-1830,1127/0100-2000,1224/0100-1900,1225/C,1231/0100-2000,0101/C,0326/C,0531/0000-1830,0618/0100-1830,0705/0000-1830"
+                         },
+                         {
+                             "pyth_lazer_id":  3712,
+                             "symbol":  "Metal.Index.1OZGOLD/USD",
+                             "name":  "1OZGOLD",
+                             "state":  "stable",
+                             "schedule":  "America/Chicago;0000-1600\u00261602-2400,0000-1600\u00261602-2400,0000-1600\u00261602-2400,0000-1600\u00261602-2400,0000-1600\u00261602-2400,0000-0200\u00260400-2400,O;"
+                         }
+                     ],
+    "publicCatalogOnly":  true,
+    "authenticatedWeekendPriceVerified":  false,
+    "productionReady":  false
+}

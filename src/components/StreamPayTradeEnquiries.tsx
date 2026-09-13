@@ -1,3 +1,5 @@
+import { useCircleWallet } from "../lib/circleWallet";
+import TradeAgreementCard from "./TradeAgreementCard";
 import { useStreamConfirm } from "./ui/StreamConfirmSheet";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
@@ -337,6 +339,7 @@ function TradeConversation({
   getAccessToken,
   onBack,
 }: { threadId: string; onBack: () => void } & Access) {
+  const checkoutWallet = useCircleWallet();
   const { confirm, confirmation } = useStreamConfirm();
   const { alive, request } = useAccess(getAccessToken),
     [thread, setThread] = useState<TradeThread>(),
@@ -507,6 +510,14 @@ function TradeConversation({
         >
           Earlier messages
         </button>
+      )}
+      {thread && (
+        <TradeAgreementCard
+          key={threadId}
+          thread={thread}
+          checkoutWallet={checkoutWallet}
+          getAccessToken={getAccessToken}
+        />
       )}
       <div className="space-y-3" aria-label="Conversation messages">
         {messages.map((m) => (

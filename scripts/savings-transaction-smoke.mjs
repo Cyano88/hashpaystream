@@ -3,7 +3,7 @@ import {encodeAbiParameters,encodeEventTopics,parseAbi,parseAbiParameters} from 
 import {readSavingsTransaction,runSavingsTransaction,verifySavingsReceipt} from '../src/lib/savingsTransaction.ts'
 const data=new Map()
 globalThis.window={localStorage:{getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value),removeItem:key=>data.delete(key)}}
-const scope={chainId:196,owner:'0x1111111111111111111111111111111111111111',vault:'0x2222222222222222222222222222222222222222',asset:'0x3333333333333333333333333333333333333333'}
+const scope={chainId:5042002,owner:'0x1111111111111111111111111111111111111111',vault:'0x2222222222222222222222222222222222222222',asset:'0x3333333333333333333333333333333333333333'}
 const hash='0x'+'a'.repeat(64),planId='0x'+'b'.repeat(64)
 const intent={action:'createPlan',amount:'100000',releaseAmount:'100000',interval:604800}
 const event=(signature,args,types,values,address)=>({address,topics:encodeEventTopics({abi:parseAbi([signature]),eventName:signature.match(/event (\w+)/)[1],args}),data:encodeAbiParameters(parseAbiParameters(types),values)})
@@ -62,7 +62,7 @@ const { savingsPaymentReceipt } = await import('../src/lib/savingsReceipt.ts')
 const { paymentReceiptView, arcTransactionUrl } = await import('../src/lib/paymentReceiptPdf.ts')
 const { readSavingsReceiptReferences } = await import('../src/lib/savingsTransaction.ts')
 const blockHash = '0x' + 'f'.repeat(64)
-const chainScope = { ...scope, chainId: 196 }
+const chainScope = { ...scope, chainId: 5042002 }
 const chainReceipt = { ...receipt(), blockHash }
 const block = { hash: blockHash, timestamp: 1788857663n }
 const exported = savingsPaymentReceipt(chainScope, {hash,intent}, chainReceipt, block)
@@ -70,7 +70,7 @@ assert.equal(exported.amount,'0.1')
 assert.equal(exported.createdAt,1788857663000)
 assert.equal(exported.eventId,planId)
 assert.equal(paymentReceiptView(exported).statusLabel,'Savings deposited')
-assert.ok(arcTransactionUrl(exported).startsWith('https://www.oklink.com/xlayer/tx/'))
+assert.ok(arcTransactionUrl(exported).startsWith('https://testnet.arcscan.app/tx/'))
 assert.ok(arcTransactionUrl({txHash:hash}).startsWith('https://testnet.arcscan.app/tx/'))
 assert.throws(()=>savingsPaymentReceipt(chainScope,{hash,intent},chainReceipt,{...block,hash:'0x00'}))
 assert.throws(()=>savingsPaymentReceipt({...chainScope,chainId:1},{hash,intent},chainReceipt,block))

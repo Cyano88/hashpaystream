@@ -1,8 +1,8 @@
 import type { Request, Response } from 'express'
 import { getAddress, isAddress, zeroAddress, type Address } from 'viem'
 
-export const XLAYER_MAINNET_CHAIN_ID = 196
-export const XLAYER_NATIVE_USDC_ADDRESS = getAddress('0xB6CEceAB302E2E4948951eE7843FC24E92933061')
+export const SAVINGS_CHAIN_ID = 5_042_002
+export const SAVINGS_USDC_ADDRESS = getAddress('0x3600000000000000000000000000000000000000')
 
 function enabled(value: unknown) {
   return String(value ?? '').trim().toLowerCase() === 'true'
@@ -45,8 +45,9 @@ export function createSavingsConfigHandler(overrides: Partial<SavingsConfigDepen
     return res.status(200).json({
       ok: true,
       savings: {
-        chainId: XLAYER_MAINNET_CHAIN_ID,
-        assetAddress: XLAYER_NATIVE_USDC_ADDRESS,
+        chainId: SAVINGS_CHAIN_ID,
+        network: 'Arc Testnet',
+        assetAddress: SAVINGS_USDC_ADDRESS,
         vaultAddress: vaultAddress ?? null,
         depositsEnabled,
         status: depositsEnabled ? 'active' : vaultAddress ? 'paused' : 'in_review',

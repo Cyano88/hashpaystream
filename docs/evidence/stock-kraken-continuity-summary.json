@@ -1,0 +1,827 @@
+{
+  "productionReady": false,
+  "exchangeApiUnitsVerified": false,
+  "sampleCount": 6,
+  "freshTradeSamples": 0,
+  "distinctTradeIds": [
+    108059
+  ],
+  "websocket": {
+    "messages": 57,
+    "heartbeats": 52,
+    "events": [
+      {
+        "receivedAt": "2026-09-12T15:22:37.753Z",
+        "data": {
+          "channel": "status",
+          "type": "update",
+          "data": [
+            {
+              "version": "2.0.10",
+              "system": "online",
+              "api_version": "v2",
+              "connection_id": 1194713310496586000,
+              "upcoming_maintenance": [],
+              "emergency": []
+            }
+          ]
+        }
+      },
+      {
+        "receivedAt": "2026-09-12T15:22:37.908Z",
+        "data": {
+          "method": "subscribe",
+          "result": {
+            "channel": "book",
+            "depth": 10,
+            "snapshot": true,
+            "symbol": "SPYx/USD"
+          },
+          "success": true,
+          "time_in": "2026-09-12T15:22:37.830288Z",
+          "time_out": "2026-09-12T15:22:37.830333Z"
+        }
+      },
+      {
+        "receivedAt": "2026-09-12T15:22:37.910Z",
+        "data": {
+          "method": "subscribe",
+          "result": {
+            "channel": "trade",
+            "snapshot": true,
+            "symbol": "SPYx/USD"
+          },
+          "success": true,
+          "time_in": "2026-09-12T15:22:37.831643Z",
+          "time_out": "2026-09-12T15:22:37.831667Z"
+        }
+      },
+      {
+        "receivedAt": "2026-09-12T15:22:37.914Z",
+        "data": {
+          "channel": "trade",
+          "type": "snapshot",
+          "data": [
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.08785,
+              "qty": 2.297296,
+              "ord_type": "limit",
+              "trade_id": 108010,
+              "timestamp": "2026-09-11T19:59:32.033453Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.08785,
+              "qty": 1.702704,
+              "ord_type": "limit",
+              "trade_id": 108011,
+              "timestamp": "2026-09-11T19:59:32.334690Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "buy",
+              "price": 764.93871,
+              "qty": 0.254729,
+              "ord_type": "market",
+              "trade_id": 108012,
+              "timestamp": "2026-09-11T20:09:09.950310Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 764.92876,
+              "qty": 1.236083,
+              "ord_type": "limit",
+              "trade_id": 108013,
+              "timestamp": "2026-09-11T20:09:57.949566Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "buy",
+              "price": 764.95859,
+              "qty": 0.27942,
+              "ord_type": "market",
+              "trade_id": 108014,
+              "timestamp": "2026-09-11T20:40:50.752633Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "buy",
+              "price": 764.93871,
+              "qty": 0.002614,
+              "ord_type": "limit",
+              "trade_id": 108015,
+              "timestamp": "2026-09-11T20:47:46.962806Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "buy",
+              "price": 764.93871,
+              "qty": 0.039219,
+              "ord_type": "market",
+              "trade_id": 108016,
+              "timestamp": "2026-09-11T21:38:26.118090Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "buy",
+              "price": 764.93871,
+              "qty": 0.128407,
+              "ord_type": "market",
+              "trade_id": 108017,
+              "timestamp": "2026-09-11T21:42:56.988640Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "buy",
+              "price": 764.93871,
+              "qty": 0.005202,
+              "ord_type": "limit",
+              "trade_id": 108018,
+              "timestamp": "2026-09-11T22:16:45.203190Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 764.92876,
+              "qty": 3.143985,
+              "ord_type": "limit",
+              "trade_id": 108019,
+              "timestamp": "2026-09-11T22:34:21.643961Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 764.92876,
+              "qty": 0.619932,
+              "ord_type": "limit",
+              "trade_id": 108020,
+              "timestamp": "2026-09-11T22:34:21.929527Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 764.89893,
+              "qty": 0.152895,
+              "ord_type": "market",
+              "trade_id": 108021,
+              "timestamp": "2026-09-11T23:16:46.859367Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "buy",
+              "price": 764.90888,
+              "qty": 0.106553,
+              "ord_type": "market",
+              "trade_id": 108022,
+              "timestamp": "2026-09-12T00:13:11.520334Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "buy",
+              "price": 765.22706,
+              "qty": 0.163838,
+              "ord_type": "limit",
+              "trade_id": 108023,
+              "timestamp": "2026-09-12T03:05:09.013695Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.04808,
+              "qty": 0.122171,
+              "ord_type": "market",
+              "trade_id": 108024,
+              "timestamp": "2026-09-12T05:29:32.388495Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "buy",
+              "price": 765.06797,
+              "qty": 0.128754,
+              "ord_type": "market",
+              "trade_id": 108025,
+              "timestamp": "2026-09-12T05:59:10.388292Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "buy",
+              "price": 765.06797,
+              "qty": 0.524791,
+              "ord_type": "limit",
+              "trade_id": 108026,
+              "timestamp": "2026-09-12T05:59:42.850071Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "buy",
+              "price": 765.29666,
+              "qty": 0.096977,
+              "ord_type": "market",
+              "trade_id": 108027,
+              "timestamp": "2026-09-12T06:55:21.801909Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "buy",
+              "price": 765.29666,
+              "qty": 0.301461,
+              "ord_type": "market",
+              "trade_id": 108028,
+              "timestamp": "2026-09-12T07:08:55.109576Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.06797,
+              "qty": 0.126293,
+              "ord_type": "market",
+              "trade_id": 108029,
+              "timestamp": "2026-09-12T07:24:57.606467Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.19723,
+              "qty": 0.078669,
+              "ord_type": "market",
+              "trade_id": 108030,
+              "timestamp": "2026-09-12T10:29:07.728250Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "buy",
+              "price": 765.26683,
+              "qty": 0.511773,
+              "ord_type": "market",
+              "trade_id": 108031,
+              "timestamp": "2026-09-12T10:49:59.738707Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.25689,
+              "qty": 0.142873,
+              "ord_type": "market",
+              "trade_id": 108032,
+              "timestamp": "2026-09-12T11:10:57.878545Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.25689,
+              "qty": 0.012702,
+              "ord_type": "limit",
+              "trade_id": 108033,
+              "timestamp": "2026-09-12T11:21:32.794033Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "buy",
+              "price": 765.26683,
+              "qty": 0.180681,
+              "ord_type": "market",
+              "trade_id": 108034,
+              "timestamp": "2026-09-12T11:26:32.192548Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.62479,
+              "qty": 0.5475,
+              "ord_type": "limit",
+              "trade_id": 108035,
+              "timestamp": "2026-09-12T12:43:38.565006Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.62479,
+              "qty": 0.5475,
+              "ord_type": "limit",
+              "trade_id": 108036,
+              "timestamp": "2026-09-12T12:47:29.796150Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.55518,
+              "qty": 0.5475,
+              "ord_type": "limit",
+              "trade_id": 108037,
+              "timestamp": "2026-09-12T12:47:32.569661Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 766.16172,
+              "qty": 0.5475,
+              "ord_type": "limit",
+              "trade_id": 108038,
+              "timestamp": "2026-09-12T13:16:10.667385Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 766.16172,
+              "qty": 0.5475,
+              "ord_type": "limit",
+              "trade_id": 108039,
+              "timestamp": "2026-09-12T13:16:29.944570Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.99268,
+              "qty": 0.5475,
+              "ord_type": "limit",
+              "trade_id": 108040,
+              "timestamp": "2026-09-12T13:17:30.010377Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.99268,
+              "qty": 0.5475,
+              "ord_type": "limit",
+              "trade_id": 108041,
+              "timestamp": "2026-09-12T13:18:19.429596Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.99268,
+              "qty": 0.5475,
+              "ord_type": "limit",
+              "trade_id": 108042,
+              "timestamp": "2026-09-12T13:20:32.280666Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.99268,
+              "qty": 0.5475,
+              "ord_type": "limit",
+              "trade_id": 108043,
+              "timestamp": "2026-09-12T13:20:37.282805Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.99268,
+              "qty": 0.5475,
+              "ord_type": "limit",
+              "trade_id": 108044,
+              "timestamp": "2026-09-12T13:22:28.411629Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.99268,
+              "qty": 0.5475,
+              "ord_type": "limit",
+              "trade_id": 108045,
+              "timestamp": "2026-09-12T13:23:00.620287Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.92308,
+              "qty": 0.5475,
+              "ord_type": "limit",
+              "trade_id": 108046,
+              "timestamp": "2026-09-12T13:26:42.310279Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "buy",
+              "price": 765.99268,
+              "qty": 0.652755,
+              "ord_type": "market",
+              "trade_id": 108047,
+              "timestamp": "2026-09-12T13:28:11.867215Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "buy",
+              "price": 765.99268,
+              "qty": 0.018228,
+              "ord_type": "market",
+              "trade_id": 108048,
+              "timestamp": "2026-09-12T13:28:11.867215Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.91314,
+              "qty": 0.5475,
+              "ord_type": "limit",
+              "trade_id": 108049,
+              "timestamp": "2026-09-12T13:29:31.201371Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.91314,
+              "qty": 0.5475,
+              "ord_type": "limit",
+              "trade_id": 108050,
+              "timestamp": "2026-09-12T13:29:50.096486Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.91314,
+              "qty": 0.5475,
+              "ord_type": "limit",
+              "trade_id": 108051,
+              "timestamp": "2026-09-12T13:46:36.259834Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.91314,
+              "qty": 0.5475,
+              "ord_type": "limit",
+              "trade_id": 108052,
+              "timestamp": "2026-09-12T13:57:16.370595Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.91314,
+              "qty": 0.065282,
+              "ord_type": "limit",
+              "trade_id": 108053,
+              "timestamp": "2026-09-12T14:00:51.603618Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 765.91314,
+              "qty": 0.482218,
+              "ord_type": "limit",
+              "trade_id": 108054,
+              "timestamp": "2026-09-12T14:00:51.603618Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 766.01257,
+              "qty": 0.5475,
+              "ord_type": "limit",
+              "trade_id": 108055,
+              "timestamp": "2026-09-12T14:46:05.214406Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 766.01257,
+              "qty": 0.5475,
+              "ord_type": "limit",
+              "trade_id": 108056,
+              "timestamp": "2026-09-12T14:47:23.834344Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "buy",
+              "price": 766.02251,
+              "qty": 0.166242,
+              "ord_type": "market",
+              "trade_id": 108057,
+              "timestamp": "2026-09-12T14:47:32.055573Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "buy",
+              "price": 766.02251,
+              "qty": 0.101825,
+              "ord_type": "limit",
+              "trade_id": 108058,
+              "timestamp": "2026-09-12T14:49:22.362891Z"
+            },
+            {
+              "symbol": "SPYx/USD",
+              "side": "sell",
+              "price": 766.01257,
+              "qty": 0.5475,
+              "ord_type": "limit",
+              "trade_id": 108059,
+              "timestamp": "2026-09-12T14:50:31.882274Z"
+            }
+          ]
+        }
+      },
+      {
+        "receivedAt": "2026-09-12T15:22:38.005Z",
+        "data": {
+          "channel": "book",
+          "type": "snapshot",
+          "data": [
+            {
+              "symbol": "SPYx/USD",
+              "bids": [
+                {
+                  "price": 765.80376,
+                  "qty": 0.652901
+                },
+                {
+                  "price": 765.66456,
+                  "qty": 3.265115
+                },
+                {
+                  "price": 765.28672,
+                  "qty": 7.300046
+                },
+                {
+                  "price": 765.0978,
+                  "qty": 3
+                },
+                {
+                  "price": 765.01825,
+                  "qty": 3
+                },
+                {
+                  "price": 764.89893,
+                  "qty": 0.847105
+                },
+                {
+                  "price": 764.83927,
+                  "qty": 11
+                },
+                {
+                  "price": 764.76967,
+                  "qty": 6.537862
+                },
+                {
+                  "price": 764.54098,
+                  "qty": 5
+                },
+                {
+                  "price": 764.23274,
+                  "qty": 6.542452
+                }
+              ],
+              "asks": [
+                {
+                  "price": 765.90319,
+                  "qty": 1.41944
+                },
+                {
+                  "price": 766.1816,
+                  "qty": 3.262945
+                },
+                {
+                  "price": 766.67876,
+                  "qty": 6.52167
+                },
+                {
+                  "price": 767.12621,
+                  "qty": 6.517903
+                },
+                {
+                  "price": 767.51399,
+                  "qty": 6.514573
+                },
+                {
+                  "price": 768.32933,
+                  "qty": 0.023914
+                },
+                {
+                  "price": 768.77677,
+                  "qty": 6.503845
+                },
+                {
+                  "price": 768.8066,
+                  "qty": 0.023561
+                },
+                {
+                  "price": 769.79098,
+                  "qty": 12.990545
+                },
+                {
+                  "price": 769.99978,
+                  "qty": 0.031168
+                }
+              ],
+              "checksum": 93528548,
+              "timestamp": "2026-09-12T15:21:53.854656Z"
+            }
+          ]
+        }
+      }
+    ],
+    "openedAt": "2026-09-12T15:22:37.751Z"
+  },
+  "exchangeAsset": {
+    "SPYx": {
+      "aclass": "tokenized_asset",
+      "altname": "SPYx",
+      "decimals": 8,
+      "display_decimals": 8,
+      "collateral_value": 0.9,
+      "max_collateral_balance_usd_value": "1000000",
+      "status": "enabled",
+      "margin_rate": "0.02",
+      "token_multiplier": "1.005714560286254"
+    }
+  },
+  "issuerMultiplier": {
+    "currentMultiplier": 1.005714560286254,
+    "newMultiplier": 0,
+    "activationDateTime": 0,
+    "reason": null
+  },
+  "samples": [
+    {
+      "observedAt": "2026-09-12T15:22:37.951Z",
+      "lastTradeId": 108059,
+      "tradeAgeSeconds": 1926.0687251091003,
+      "tradeFresh": false,
+      "bestBid": [
+        "765.80",
+        "0.652902",
+        1789225900
+      ],
+      "bestAsk": [
+        "765.90",
+        "1.419441",
+        1789226470
+      ],
+      "usdcTrade": [
+        "0.99980000",
+        "6.05570800",
+        1789226554.5611627,
+        "s",
+        "l",
+        "",
+        23276027
+      ],
+      "usdcAgeSeconds": 3.3898372650146484,
+      "comparison": {
+        "assumedKrakenUnit": "rebased underlying ERC20 unit - UNVERIFIED",
+        "underlyingUnits": 0.130742892837213,
+        "hypotheticalFairUsdc": 100.17039742171787,
+        "dexOutputUsdc": 100.077096,
+        "differenceBps": -9.314270894330567,
+        "block": "70457520",
+        "blockAgeSeconds": 1.9509999752044678,
+        "validForAcceptance": false
+      }
+    },
+    {
+      "observedAt": "2026-09-12T15:22:48.175Z",
+      "lastTradeId": 108059,
+      "tradeAgeSeconds": 1936.2927250862122,
+      "tradeFresh": false,
+      "bestBid": [
+        "765.80",
+        "0.652902",
+        1789225900
+      ],
+      "bestAsk": [
+        "765.90",
+        "1.419441",
+        1789226470
+      ],
+      "usdcTrade": [
+        "0.99980000",
+        "454.25251849",
+        1789226555.650353,
+        "s",
+        "l",
+        "",
+        23276029
+      ],
+      "usdcAgeSeconds": 12.524646997451782
+    },
+    {
+      "observedAt": "2026-09-12T15:22:58.717Z",
+      "lastTradeId": 108059,
+      "tradeAgeSeconds": 1946.8347251415253,
+      "tradeFresh": false,
+      "bestBid": [
+        "765.80",
+        "0.652902",
+        1789225900
+      ],
+      "bestAsk": [
+        "765.90",
+        "1.419441",
+        1789226470
+      ],
+      "usdcTrade": [
+        "0.99980000",
+        "454.25251849",
+        1789226555.650353,
+        "s",
+        "l",
+        "",
+        23276029
+      ],
+      "usdcAgeSeconds": 23.066647052764893
+    },
+    {
+      "observedAt": "2026-09-12T15:23:08.947Z",
+      "lastTradeId": 108059,
+      "tradeAgeSeconds": 1957.0647251605988,
+      "tradeFresh": false,
+      "bestBid": [
+        "765.80",
+        "0.652902",
+        1789225900
+      ],
+      "bestAsk": [
+        "765.90",
+        "1.419441",
+        1789226470
+      ],
+      "usdcTrade": [
+        "0.99980000",
+        "118.61093619",
+        1789226584.7827568,
+        "s",
+        "l",
+        "",
+        23276031
+      ],
+      "usdcAgeSeconds": 4.164243221282959
+    },
+    {
+      "observedAt": "2026-09-12T15:23:19.176Z",
+      "lastTradeId": 108059,
+      "tradeAgeSeconds": 1967.2937252521515,
+      "tradeFresh": false,
+      "bestBid": [
+        "765.80",
+        "0.652902",
+        1789225900
+      ],
+      "bestAsk": [
+        "765.90",
+        "1.419441",
+        1789226470
+      ],
+      "usdcTrade": [
+        "0.99980000",
+        "34.32482751",
+        1789226589.7565749,
+        "s",
+        "l",
+        "",
+        23276032
+      ],
+      "usdcAgeSeconds": 9.419425249099731
+    },
+    {
+      "observedAt": "2026-09-12T15:23:30.347Z",
+      "lastTradeId": 108059,
+      "tradeAgeSeconds": 1978.4647250175476,
+      "tradeFresh": false,
+      "bestBid": [
+        "765.80",
+        "0.652902",
+        1789225900
+      ],
+      "bestAsk": [
+        "765.90",
+        "1.419441",
+        1789226470
+      ],
+      "usdcTrade": [
+        "0.99980000",
+        "34.32482751",
+        1789226589.7565749,
+        "s",
+        "l",
+        "",
+        23276032
+      ],
+      "usdcAgeSeconds": 20.59042501449585,
+      "comparison": {
+        "assumedKrakenUnit": "rebased underlying ERC20 unit - UNVERIFIED",
+        "underlyingUnits": 0.130742892837213,
+        "hypotheticalFairUsdc": 100.17039742171787,
+        "dexOutputUsdc": 100.077069,
+        "differenceBps": -9.316966301426977,
+        "block": "70457573",
+        "blockAgeSeconds": 1.3469998836517334,
+        "validForAcceptance": false
+      }
+    }
+  ],
+  "probeError": null,
+  "note": "Diagnostic floating-point comparisons only. A finite observation window is not an uptime guarantee. HTTP arrival and heartbeat times do not refresh market prices.",
+  "websocketMetrics": {
+    "heartbeats": 52,
+    "marketSnapshots": 2,
+    "marketUpdates": 0,
+    "bookSnapshotAgeAtReceiptSeconds": [
+      44.151
+    ],
+    "checksumVerified": false
+  }
+}

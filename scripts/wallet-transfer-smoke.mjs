@@ -20,7 +20,7 @@ console.log('Exact receipt success, wrong token, missing transfer, amount mismat
 
 let release
 const first=withPaymentSubmission('payment-one',()=>new Promise(resolve=>release=resolve))
-await assert.rejects(withPaymentSubmission('payment-one',async()=>{}),/already/)
+await assert.rejects(withPaymentSubmission('payment-one',async()=>{}),/already being approved|being approved in another window/)
 assert.equal(await withPaymentSubmission('payment-two',async()=>2),2,'Different payment is not blocked')
 release();await first
 console.log('Per-payment approval lock allows independent payments and rejects duplicate submission.')

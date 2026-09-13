@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePrivy, useSignTypedData, useWallets } from '@privy-io/react-auth'
-import { CheckCircleIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
+import { CheckCircleIcon } from '@heroicons/react/24/outline'
 import { formatUsdcBalance } from '../lib/useAgreements'
 import { Link } from '../lib/router'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { getAddress, isAddress, type Address, type Hex } from 'viem'
 import { upfrontXLayerChain } from '../lib/upfrontChains'
+import FundingOfferSelector from './FundingOfferSelector'
+import StockFundingCheckout, { type StockFundingCheckoutProps } from './StockFundingCheckout'
+import { rankFundingOffers } from '../lib/stockFundingOffers'
 
 type FeeQuote = {
   fundingFeeBps: number
@@ -46,6 +49,7 @@ type Partner = {
   maximumRequestUsdcUnits: string
   canCoverFullRequest: boolean
   fundingTerms: FundingTerms
+  verifiedCompletedFundingCount?: number
 }
 type Selection = {
   partnerId: string
@@ -92,60 +96,7 @@ function formatExactUsdc(units: string) {
   return `${whole}${fraction ? `.${fraction}` : ''} USDC`
 }
 
-function PartnerQuote({
-  partner,
-  busy,
-  onSelect,
-}: {
-  partner: Partner
-  busy: boolean
-  onSelect: () => void
-}) {
-  const quote = partner.fundingTerms.quote
-  const totalFees = (
-    BigInt(quote.totalFundingFeeUsdcUnits) +
-    BigInt(quote.standardPlatformFeeUsdcUnits)
-  ).toString()
-  return (
-    <button
-      type={'button'}
-      disabled={busy}
-      onClick={onSelect}
-      className={'stream-card w-full px-4 py-3.5 text-left disabled:opacity-50'}
-    >
-      <span className={'flex items-center gap-3'}>
-        <span className={'min-w-0 flex-1'}>
-          <span className={'block font-black'}>{partner.name}</span>
-          <span className={'mt-1 block text-[10px] text-gray-400'}>
-            {partner.canCoverFullRequest
-              ? 'Can cover your full request'
-              : `Can cover up to ${formatUsdcBalance(partner.maximumRequestUsdcUnits)}`}
-          </span>
-        </span>
-        <ChevronRightIcon className={'h-4 w-4 text-gray-300'} />
-      </span>
-      <span className={'mt-3 grid grid-cols-3 gap-2 text-[10px]'}>
-        <QuoteValue
-          label={'Receive now'}
-          value={formatExactUsdc(quote.advanceUsdcUnits)}
-        />
-        <QuoteValue
-          label={'Receive later'}
-          value={formatExactUsdc(quote.providerRemainderUsdcUnits)}
-        />
-        <QuoteValue
-          label={'Total fees'}
-          value={formatExactUsdc(totalFees)}
-        />
-      </span>
-      <span className={'mt-2 block text-[9px] text-gray-400'}>
-        Tap once to send your early-pay request.
-      </span>
-    </button>
-  )
-}
-
-export default function FundingPartnerPicker({
+function FundingPartnerPickerContent({
   requestId,
 }: {
   requestId: string
@@ -159,6 +110,8 @@ export default function FundingPartnerPicker({
   const [loading, setLoading] = useState(true)
   const [selecting, setSelecting] = useState('')
   const [error, setError] = useState('')
+  const [selectedId, setSelectedId] = useState('')
+  const selectingRef = useRef(false)
 
   const load = useCallback(
     async (silent = false) => {
@@ -179,7 +132,10 @@ export default function FundingPartnerPicker({
         }
         if (!response.ok)
           throw new Error(body.error || 'Funding partners could not be loaded.')
-        setPartners(body.partners ?? [])
+        const eligible = (body.partners ?? []).filter(partner => partner.canCoverFullRequest && partner.fundingTerms.message.deadline > Math.floor(Date.now() / 1000))
+        const ranked = rankFundingOffers(eligible.map(partner => ({ ...partner, feeBps: partner.fundingTerms.quote.fundingFeeBps })))
+        setPartners(ranked)
+        setSelectedId(previous => previous || ranked[0]?.id || '')
         setSelection(body.selection)
       } catch (reason) {
         setError(
@@ -204,6 +160,12 @@ export default function FundingPartnerPicker({
   }, [load, selection?.status])
 
   async function select(partner: Partner) {
+    if (selectingRef.current) return
+    if (partner.fundingTerms.message.deadline <= Math.floor(Date.now() / 1000)) {
+      setError('This offer expired. Refresh offers and choose again.')
+      return
+    }
+    selectingRef.current = true
     setSelecting(partner.id)
     setError('')
     try {
@@ -281,6 +243,7 @@ export default function FundingPartnerPicker({
           : 'Your funding request could not be sent.',
       )
     } finally {
+      selectingRef.current = false
       setSelecting('')
     }
   }
@@ -360,10 +323,10 @@ export default function FundingPartnerPicker({
       <div className="flex items-end justify-between gap-3">
         <div>
           <p className="text-xs font-black text-gray-950 dark:text-white">
-            Choose a funding partner
+            Funding partner
           </p>
           <p className="mt-1 text-[10px] leading-4 text-gray-400">
-            Only partners who can cover part or all of this request appear.
+            Choose an offer, then confirm your request.
           </p>
         </div>
         <span className="text-[10px] font-bold text-gray-400">
@@ -376,19 +339,37 @@ export default function FundingPartnerPicker({
         </p>
       )}
       {partners.length ? (
-        <div className="mt-3 space-y-2">
-          {partners.map((partner) => (
-            <PartnerQuote
-              key={partner.id}
-              partner={partner}
-              busy={Boolean(selecting)}
-              onSelect={() => void select(partner)}
-            />
-          ))}
-        </div>
+        <>
+          <FundingOfferSelector
+            offers={partners.map(partner => ({
+              id: partner.id, name: partner.name,
+              feeBps: partner.fundingTerms.quote.fundingFeeBps,
+              feeLabel: formatExactUsdc(partner.fundingTerms.quote.totalFundingFeeUsdcUnits),
+              verifiedCompletedFundingCount: partner.verifiedCompletedFundingCount,
+            }))}
+            selectedId={selectedId}
+            disabled={Boolean(selecting)}
+            onSelect={id => { setSelectedId(id); setError('') }}
+          >
+            {(() => {
+              const quote = partners.find(partner => partner.id === selectedId)?.fundingTerms.quote
+              if (!quote) return null
+              return <div className="mt-3 space-y-1 text-[10px] text-gray-500 dark:text-gray-400">
+                <p><QuoteValue label="Receive now" value={formatExactUsdc(quote.advanceUsdcUnits)} /></p>
+                <p><QuoteValue label="Receive later" value={formatExactUsdc(quote.providerRemainderUsdcUnits)} /></p>
+                <p><QuoteValue label="Total fees, including completion fee" value={formatExactUsdc((BigInt(quote.totalFundingFeeUsdcUnits) + BigInt(quote.standardPlatformFeeUsdcUnits)).toString())} /></p>
+              </div>
+            })()}
+          </FundingOfferSelector>
+          <button type="button" disabled={Boolean(selecting) || !partners.some(partner => partner.id === selectedId)}
+            onClick={() => { const partner = partners.find(item => item.id === selectedId); if (partner) void select(partner) }}
+            className="mt-3 w-full rounded-full bg-emerald-500 px-5 py-3.5 text-xs font-black text-emerald-950 disabled:opacity-40">
+            {selecting ? 'Confirming request...' : 'Confirm funding request'}
+          </button>
+        </>
       ) : (
         <p className="mt-3 rounded-2xl bg-gray-50 px-4 py-5 text-center text-xs leading-5 text-gray-500 dark:bg-white/[0.04] dark:text-gray-400">
-          No approved partner has enough available X Layer USDC right now.
+          No eligible offer can cover your full request right now.
         </p>
       )}
       {error && (
@@ -405,4 +386,10 @@ export default function FundingPartnerPicker({
       )}
     </div>
   )
+}
+
+export default function FundingPartnerPicker({ requestId, stock }: { requestId: string; stock?: StockFundingCheckoutProps }) {
+  const { user } = usePrivy()
+  if (stock) return <StockFundingCheckout key={requestId + ':' + (user?.id ?? '')} {...stock} />
+  return <FundingPartnerPickerContent key={requestId + ':' + (user?.id ?? '')} requestId={requestId} />
 }

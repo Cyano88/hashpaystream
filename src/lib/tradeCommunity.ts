@@ -5,6 +5,12 @@ export type TradeThread = {
   title: string;
   role: "buyer" | "seller";
   listingStatus: string;
+  listingTerms?: {
+    price: string;
+    currency: "NGN" | "USD" | "USDC";
+    location: string;
+    handover: "Pickup" | "Delivery";
+  };
   updatedAt: number;
   blocked?: boolean;
   blockedByMe?: boolean;

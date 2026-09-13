@@ -96,6 +96,22 @@ services:
         value: "true"
       - key: HASHPAYSTREAM_XLAYER_RPC_URL
         value: https://rpc.xlayer.tech
+      # Stock Early Pay is visible in the shared web/Android product. Server-side
+      # execution remains closed until the reviewed X Layer deployment is approved.
+      - key: VITE_HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED
+        value: "true"
+      - key: HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED
+        value: "false"
+      - key: HASHPAYSTREAM_STOCK_XLAYER_MAINNET_APPROVED
+        value: "false"
+      - key: HASHPAYSTREAM_STOCK_RECEIPT_WORKER_ENABLED
+        value: "false"
+      - key: HASHPAYSTREAM_STOCK_SETTLEMENT_WORKER_ENABLED
+        value: "false"
+      - key: HASHPAYSTREAM_TWELVE_DATA_KEY
+        sync: false
+      - key: HASHPAYSTREAM_STOCK_RISK_ADAPTER_TOKEN
+        sync: false
       - key: HASHPAYSTREAM_UPFRONT_PROTECTION_PRIVATE_KEY
         sync: false
       - key: HASHPAYSTREAM_UPFRONT_PROTECTION_SIGNER

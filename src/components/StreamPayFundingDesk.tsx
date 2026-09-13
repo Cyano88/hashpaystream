@@ -1,3 +1,5 @@
+import { stockEarlyPayEnabled } from '../lib/stockEarlyPayClient'
+import StockFunderDesk from './StockFunderDesk'
 import type { SettlementEvidence } from '../lib/settlementEvidence'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
@@ -74,7 +76,7 @@ function positionLabel(status: Opportunity['positionStatus']) {
   return 'Requested'
 }
 
-export default function StreamPayFundingDesk() {
+function LegacyStreamPayFundingDesk() {
   const { ready, authenticated, getAccessToken, user } = usePrivy()
   const { search } = useLocation()
   const navigate = useNavigate()
@@ -312,3 +314,5 @@ function Metric({ label, value }: { label: string; value: string }) {
 function SummaryMetric({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
   return <div className="min-w-0"><p className="text-[10px] font-bold text-white/45">{label}</p><p className={`mt-1 truncate text-xs font-black tabular-nums ${accent ? 'text-emerald-400' : 'text-white'}`}>{value}</p></div>
 }
+
+export default function StreamPayFundingDesk(){ return stockEarlyPayEnabled ? <StockFunderDesk/> : <LegacyStreamPayFundingDesk/> }

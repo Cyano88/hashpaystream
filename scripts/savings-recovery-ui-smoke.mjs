@@ -10,7 +10,7 @@ const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.
 const owner='0x1111111111111111111111111111111111111111',vault='0x2222222222222222222222222222222222222222',asset='0x3333333333333333333333333333333333333333'
 let checks=0,walletCalls=0
 const prior={hash:'0x'+'a'.repeat(64),intent:{action:'withdraw',planId:'0x'+'b'.repeat(64),amount:'100000'}}
-const context={SavingsTransactionError:class extends Error {},exports:{},React,...React,...viem,CheckIcon:()=>null,upfrontXLayerChain:{id:196},XLAYER_USDC_ADDRESS:asset,WEEKLY_SECONDS:604800,MONTHLY_SECONDS:2592000,SAVINGS_VAULT_ABI:[],formatUsdcBalance:()=>'',savingsPlanPreview:()=>undefined,
+const context={SavingsTransactionError:class extends Error {},exports:{},React,...React,...viem,CheckIcon:()=>null,savingsChain:{id:5042002},SAVINGS_USDC_ADDRESS:asset,WEEKLY_SECONDS:604800,MONTHLY_SECONDS:2592000,SAVINGS_VAULT_ABI:[],formatUsdcBalance:()=>'',savingsPlanPreview:()=>undefined,
  createPublicClient:()=>({waitForTransactionReceipt:async()=>{checks++;return {}}}),createWalletClient:()=>{walletCalls++;throw Error('No wallet writes allowed')},readSavingsTransaction:()=>prior,
  runSavingsTransaction:async(_scope,intent,_submit,wait)=>{await wait(prior.hash);return intent},
  document:{body:{style:{overflow:''}},activeElement:null},window:{requestAnimationFrame:()=>1,cancelAnimationFrame(){},addEventListener(){},removeEventListener(){}}}
