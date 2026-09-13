@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "contractName": "PersonalSavingsVault",
+  "network": "Arc Testnet",
+  "chainId": 5042002,
+  "address": "0x218271a4dc03c0578dA4B2274A56c15Fc751f5EF",
+  "asset": "0x3600000000000000000000000000000000000000",
+  "deployer": "0x295177803fd02e1880d661Be3b66F6124787f978",
+  "transactionHash": "0x5111a4961e6bcebfc716c3d40d8ee9673299b7e5f0f5683d996092dfe0b12499",
+  "blockNumber": 61821198,
+  "sourceCommit": "d8a5d4e1a544a4afc8ed0fd75bf2a1411e221eba",
+  "sourceSha256": "7db6493214742554fa18b252dcf53e4307987f1ec8232bb2879722b9d2b5d186",
+  "dependencyLockSha256": "64ab78c1c104bab2818425f57fffe7117e310f9d9f580f761d07ad668c565124",
+  "runtimeBytecodeVerified": true,
+  "verifiedAt": "2026-09-13T01:33:49.654Z",
+  "depositsEnabled": false,
+  "externalAuditCompleted": false,
+  "financialProductionReady": false
+}

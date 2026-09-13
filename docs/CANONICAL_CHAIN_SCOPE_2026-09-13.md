@@ -17,7 +17,7 @@ The Stock Early Pay UI is visible by default. Money movement requires all three 
 
 Receipt and settlement workers remain independently disabled until their own switches, signer, and transaction budget are configured.
 
-Arc savings deposits require a verified Arc vault address and HASHPAYSTREAM_SAVINGS_DEPOSITS_ENABLED=true. No Arc savings vault is currently recorded in contracts/deployments; the UI therefore reports the feature as in review and cannot submit a deposit.
+Arc savings is deployed on Arc Testnet at 0x218271a4dc03c0578dA4B2274A56c15Fc751f5EF. Deposits require HASHPAYSTREAM_SAVINGS_DEPOSITS_ENABLED=true and remain disabled while the test-USDC rehearsal is completed. External audit and financial-production readiness remain false.
 
 ## Migration evidence
 
