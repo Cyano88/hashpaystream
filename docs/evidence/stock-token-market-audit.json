@@ -1,10 +1,10 @@
 {
   "schema": 1,
   "chainId": 196,
-  "fetchedAt": "2026-09-12T21:32:49.658Z",
-  "blockNumber": 70479703,
-  "blockHash": "0x22ed16290b097d59322076ce0fc94079eabbb395dbf3f9af308315df7e3eb787",
-  "blockTimestamp": 1789248739,
+  "fetchedAt": "2026-09-13T16:08:18.262Z",
+  "blockNumber": 70546605,
+  "blockHash": "0x1af323162a0d0beacae4dfa0f3046c4b449f6ee91531daf4d5336298b67e8764",
+  "blockTimestamp": 1789315641,
   "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-xlayer-deployments",
   "contracts": {
     "factory": "0x4B2ab38DBF28D31D467aA8993f6c2585981D6804",
@@ -60,18 +60,18 @@
         "token0": "0x4ae46a509F6b1D9056937BA4500cb143933D2dc8",
         "token1": "0xE7E553Cd128F0011777323A0b44a7b96EA1CB540",
         "fee": 500,
-        "liquidity": "394089235496556098",
-        "sqrtPriceX96": "2855002444395706887288965750172384",
-        "tick": 209855,
+        "liquidity": "578804340066804867",
+        "sqrtPriceX96": "2864634656391845169694770938257184",
+        "tick": 209922,
         "observationCardinality": 256,
         "runtimeHash": "0xeb3fc03ecc34ecaa139b680481d169faaeff3f5d497a02d4d8662a8693b87b2f",
         "history": {
-          "meanTick30m": 209855,
-          "meanTick5m": 209855,
+          "meanTick30m": 209922,
+          "meanTick5m": 209925,
           "tickCumulatives": [
-            "840901867329",
-            "841216649829",
-            "841279606329"
+            "854942898429",
+            "855257781010",
+            "855320758528"
           ]
         }
       },
@@ -83,7 +83,7 @@
         "token1": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
         "fee": 100,
         "liquidity": "1001809604944896",
-        "sqrtPriceX96": "79227167587865759470355788269",
+        "sqrtPriceX96": "79225871852521802220039822845",
         "tick": -1,
         "observationCardinality": 1,
         "runtimeHash": "0x60f8f49072453d1c5d9fa0ccbc2c2277da51d3e0fe0f53f95a774b6bf1609539",
@@ -91,9 +91,9 @@
           "meanTick30m": -1,
           "meanTick5m": -1,
           "tickCumulatives": [
-            "3364705",
-            "3363205",
-            "3362905"
+            "3295404",
+            "3293904",
+            "3293604"
           ]
         }
       }
@@ -116,52 +116,52 @@
   "quotes": [
     {
       "amountIn": "10000000000000000",
-      "amountOutUsdcUnits": "7696163",
-      "spotOutputUsdcUnits": "7700789",
+      "amountOutUsdcUnits": "7644245",
+      "spotOutputUsdcUnits": "7648839",
       "feeAndImpactBps": 6,
-      "gasEstimate": "195014"
+      "gasEstimate": "195962"
     },
     {
       "amountIn": "100000000000000000",
-      "amountOutUsdcUnits": "76961152",
-      "spotOutputUsdcUnits": "77007901",
+      "amountOutUsdcUnits": "76442137",
+      "spotOutputUsdcUnits": "76488398",
       "feeAndImpactBps": 6,
-      "gasEstimate": "195014"
+      "gasEstimate": "195962"
     },
     {
       "amountIn": "130000000000000000",
-      "amountOutUsdcUnits": "100049284",
-      "spotOutputUsdcUnits": "100110271",
+      "amountOutUsdcUnits": "99374634",
+      "spotOutputUsdcUnits": "99434917",
       "feeAndImpactBps": 6,
-      "gasEstimate": "195014"
+      "gasEstimate": "204623"
     },
     {
       "amountIn": "1000000000000000000",
-      "amountOutUsdcUnits": "769562254",
-      "spotOutputUsdcUnits": "770079018",
+      "amountOutUsdcUnits": "764388007",
+      "spotOutputUsdcUnits": "764883990",
       "feeAndImpactBps": 6,
-      "gasEstimate": "204679"
+      "gasEstimate": "204649"
     },
     {
       "amountIn": "2000000000000000000",
-      "amountOutUsdcUnits": "1539015016",
-      "spotOutputUsdcUnits": "1540158037",
-      "feeAndImpactBps": 7,
-      "gasEstimate": "204699"
+      "amountOutUsdcUnits": "1528701841",
+      "spotOutputUsdcUnits": "1529767980",
+      "feeAndImpactBps": 6,
+      "gasEstimate": "204633"
     },
     {
       "amountIn": "10000000000000000000",
-      "amountOutUsdcUnits": "7690698768",
-      "spotOutputUsdcUnits": "7700790189",
-      "feeAndImpactBps": 13,
-      "gasEstimate": "234888"
+      "amountOutUsdcUnits": "7640543579",
+      "spotOutputUsdcUnits": "7648839902",
+      "feeAndImpactBps": 10,
+      "gasEstimate": "203667"
     },
     {
       "amountIn": "100000000000000000000",
-      "amountOutUsdcUnits": "76415139793",
-      "spotOutputUsdcUnits": "77007901896",
-      "feeAndImpactBps": 76,
-      "gasEstimate": "373549"
+      "amountOutUsdcUnits": "76073380919",
+      "spotOutputUsdcUnits": "76488399029",
+      "feeAndImpactBps": 54,
+      "gasEstimate": "276307"
     }
   ],
   "testAmountIn": "130000000000000000",
@@ -225,18 +225,18 @@
       "token0": "0x4ae46a509F6b1D9056937BA4500cb143933D2dc8",
       "token1": "0xE7E553Cd128F0011777323A0b44a7b96EA1CB540",
       "fee": 500,
-      "liquidity": "394089235496556098",
-      "sqrtPriceX96": "2855002444395706887288965750172384",
-      "tick": 209855,
+      "liquidity": "578804340066804867",
+      "sqrtPriceX96": "2864634656391845169694770938257184",
+      "tick": 209922,
       "observationCardinality": 256,
       "runtimeHash": "0xeb3fc03ecc34ecaa139b680481d169faaeff3f5d497a02d4d8662a8693b87b2f",
       "history": {
-        "meanTick30m": 209855,
-        "meanTick5m": 209855,
+        "meanTick30m": 209922,
+        "meanTick5m": 209925,
         "tickCumulatives": [
-          "840901867329",
-          "841216649829",
-          "841279606329"
+          "854942898429",
+          "855257781010",
+          "855320758528"
         ]
       }
     },
@@ -254,9 +254,9 @@
     }
   ],
   "historyDiagnostics": {
-    "spotUsdgUnitsPerStock": "770098360",
-    "twap5mUsdgPerStock": 770.1384631731569,
-    "twap30mUsdgPerStock": 770.1384631731569,
+    "spotUsdgUnitsPerStock": "764928221",
+    "twap5mUsdgPerStock": 764.7665860243976,
+    "twap30mUsdgPerStock": 764.9960389439673,
     "note": "Floating point diagnostics only. Same-pool TWAP is not independent and does not measure manipulation cost."
   },
   "weekendPolicyApproved": false,

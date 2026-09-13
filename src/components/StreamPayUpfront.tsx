@@ -1,5 +1,3 @@
-import { stockEarlyPayEnabled } from '../lib/stockEarlyPayClient'
-import StockWorkerFunding from './StockWorkerFunding'
 import { useEffect, useState, type FormEvent } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowLeftIcon, BanknotesIcon, CheckBadgeIcon } from '@heroicons/react/24/outline'
@@ -93,11 +91,11 @@ function LegacyStreamPayUpfront() {
           ? await statusResponse.json().catch(() => ({})) as { assessment?: Assessment | null; requestId?: string; requestedAdvanceBps?: number; selection?: { status?: string } | null; error?: string }
           : undefined
         if (statusResponse && !statusResponse.ok) throw new Error(prior?.error || 'Early-pay status could not be loaded.')
-        const eligible = (body.agreements || []).filter(item => item.status === 'active' && item.template === 'fixed_unlock' && item.recipient?.toLowerCase() === UPFRONT_ARC_ROUTER.toLowerCase())
+        const eligible = (body.agreements || []).filter(item => item.id === requestedAgreementId && item.status === 'active' && item.template === 'fixed_unlock' && item.recipient?.toLowerCase() === UPFRONT_ARC_ROUTER.toLowerCase())
         if (!cancelled) {
           const requestedAgreement = requestedAgreementId ? eligible.find(item => item.id === requestedAgreementId) : undefined
           setAgreements(eligible)
-          setAgreementId(requestedAgreement?.id || (requestedAgreementId ? '' : eligible[0]?.id || ''))
+          setAgreementId(requestedAgreement?.id || '')
           if (requestedAgreementId && !requestedAgreement) setError('This funded agreement is not available for early pay.')
           if (prior?.assessment && !['declined', 'expired', 'refunded'].includes(prior.selection?.status ?? '')) {
             setAssessment({ ...prior.assessment, decision: { ...prior.assessment.decision, requestId: prior.requestId || prior.assessment.decision.requestId } })
@@ -253,10 +251,4 @@ function Result({ label, value }: { label: string; value: string }) {
   return <div className="rounded-xl bg-gray-50 p-3 dark:bg-white/[0.04]"><p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">{label}</p><p className="mt-1 truncate text-xs font-semibold capitalize text-gray-950 dark:text-white">{value}</p></div>
 }
 
-// The stock worker route must not replace the agreement-led early-pay flow until
-// the stock adapter can resolve the opted-in agreement supplied in the URL.
-// Stock funders remain on the separate Funding surface.
-const stockAgreementEarlyPayEnabled = stockEarlyPayEnabled
-  && import.meta.env.VITE_HASHPAYSTREAM_STOCK_AGREEMENT_FLOW_ENABLED === 'true'
-
-export default function StreamPayUpfront(){ return stockAgreementEarlyPayEnabled ? <StockWorkerFunding/> : <LegacyStreamPayUpfront/> }
+export default LegacyStreamPayUpfront

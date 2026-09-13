@@ -1,48 +1,49 @@
 # Agreement-backed Stock Early Pay checkpoint, 13 September 2026
 
-## Decision
+## Product boundary
 
-The funded Hash PayStream job remains the only USDC repayment source. A customer must never fund a second stock-specific earnings escrow.
+A funded HashPayStream job that opted into Stock Early Pay is the only entry point. The job agreement supplies the protected USDC amount, worker identity, and due date. Opening Early Pay without that job now produces an empty state, and the assessment API rejects agreements that are not bound to an opted-in service request.
 
-The worker entry point is the funded service request that opted into Early Pay. Its `agreementId`, protected USDC amount, worker wallet, and due dates are authoritative. The worker does not choose separate earnings or type another amount.
+The worker chooses from ranked eligible offers. Ranking continues to prefer verified completed funding, then lower percentage fees. The contract caps the funder fee at 3%.
 
-X Layer is the delivery and execution chain. A funder escrows the exact approved stock-token quantity. After Hash PayStream verifies the funded Arc agreement, the contract releases those tokens to the worker. At completion, the Arc repayment router distributes the already-protected USDC to the funder, worker remainder, and treasury under the signed terms.
+## Asset custody
 
-## Weekend policy
+Approved stock tokens stay in the funder's wallet until the worker accepts a fully authorized offer. AgreementBackedStockDelivery then transfers the exact token quantity directly from the approved funder to the worker's verified Privy wallet on X Layer and records the agreement-bound delivery.
 
-X Layer may provide an executable DEX quote while the underlying US market is closed. That quote is indicative only. Offer preparation, publication, and worker acceptance require a fresh independent stock reference, open regular session, participant clearance, liquidity, volatility, deviation, and age checks. Fixed USDC repayment of a previously accepted position does not depend on a weekend stock quote.
+The delivery contract does not accept stock deposits, does not hold inventory, and does not receive the agreement's USDC. The funded Arc agreement remains the only USDC repayment source. Arc savings remain separate and use their savings vault.
 
-## Implemented local contract candidate
+## Price and session policy
 
-`contracts/src/UpfrontAdvanceEscrowV3.sol` extends the existing agreement-backed advance pattern:
+X Layer can provide an executable DEX quote while the underlying US market is closed, but that quote is indicative. Creating or accepting a new offer requires an open regular US session plus a fresh independent stock price, verified token identity, participant clearance, liquidity, volatility, deviation, and quote-age checks. The signed evidence commitment and five-minute on-chain authorization limit bind those checks to delivery.
 
-- approved stock assets are owner allowlisted;
-- approved funders are owner allowlisted;
-- signed terms bind stock contract, token quantity, fixed USDC value, repayment, fee, parties, and expiry;
-- the funder escrows stock tokens only;
-- release requires a matching Arc protection attestation;
-- an unreleased stock deposit returns to the funder after the protection deadline;
-- one Arc agreement can release only one advance;
-- the contract starts paused.
+## Candidate controls
 
-The focused V2, V3, and legacy stock contract suites pass 24 tests. Slither analyzed 42 contracts with 99 detectors and reported no finding in the V3 candidate; its only result was the pre-existing unindexed `PolicyChanged` event in `StockEarlyPayEscrow.sol`.
+The local contract candidate:
 
-## Current release boundary
+- starts paused;
+- allowlists funders and stock-token contracts;
+- binds the funded agreement, worker, funder, stock contract, exact token amount, fixed USDC amounts, fee recipients, price evidence, and expiry through EIP-712 signatures;
+- requires separate underwriting, worker-consent, risk, and Arc-protection signatures;
+- enforces a 3% funder-fee ceiling and an 80% maximum advance;
+- blocks delivery and Arc-agreement replay;
+- rejects transfer-tax or otherwise non-exact stock tokens;
+- leaves its stock-token balance unchanged during delivery.
 
-No correct agreement-backed stock contract exists on X Layer mainnet yet. The two previously recorded addresses are paused USDC-only contracts. Sending a stock deposit to either would test the wrong architecture and could strand or misroute funds.
+The focused contract suite passes three scenarios covering direct delivery, pause and allowlists, signed-field tampering, fee limits, stale evidence, and replay.
 
-Keep these switches closed:
+Slither analyzed 42 contracts with 102 detectors. For this candidate it reported the expected balance-around-token-call warning despite the nonReentrant guard and checks-effects-interactions ordering, intentional deadline comparisons, and high cyclomatic complexity in the fail-closed delivery validator. A second run excluding those acknowledged detector classes and the unrelated legacy event warning analyzed 98 detectors with zero additional findings. These results support continued testing but do not replace independent review.
 
-- `HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED=false`
-- `HASHPAYSTREAM_STOCK_XLAYER_MAINNET_APPROVED=false`
-- `VITE_HASHPAYSTREAM_STOCK_AGREEMENT_FLOW_ENABLED=false`
+## Release boundary
 
-## Next implementation slice
+No agreement-backed stock-delivery contract is deployed on X Layer mainnet. The previously recorded contracts implement USDC escrow or legacy stock inventory and must not be used for this flow. Both legacy stock screens are disconnected from runtime feature flags so a configuration mistake cannot expose their deposit form.
 
-1. Extend the funding-terms API and browser typed data to version 3 with `advanceAsset` and `advanceTokenAmount`.
-2. Bind stock offers to the authenticated provider's funded, opted-in `agreementId`; derive the USDC amount and deadlines server-side.
-3. Reuse the existing ranked funding-partner picker and remove the separate worker earnings and amount form.
-4. Add local end-to-end coverage from service request through stock release and Arc repayment split.
-5. Obtain an independent contract review, deploy the candidate paused from the owner multisig, verify runtime and configuration, then perform an allowlisted tiny-value rehearsal during the regular US session.
+Keep production stock execution closed until all of these are complete:
 
-No mainnet transaction or production feature-gate change occurred in this checkpoint.
+1. finish the versioned API and browser typed-data adapter for AgreementBackedStockDelivery;
+2. verify the exact X Layer stock-token issuer, contract, redemption and transfer restrictions;
+3. connect Twelve Data or another independent licensed reference source and prove regular-session freshness;
+4. complete participant eligibility, jurisdiction, per-user, per-token and global exposure limits;
+5. obtain independent review of the final contract and settlement integration;
+6. deploy from the owner multisig while paused, verify source/runtime/configuration, then rehearse one allowlisted tiny delivery during the regular US session.
+
+No mainnet transaction, deployment, stock deposit, or production feature-gate change occurred in this checkpoint.
