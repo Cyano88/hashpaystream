@@ -8,7 +8,9 @@ import { createPublicClient, encodeDeployData, getAddress, getContractAddress, h
 const root = process.cwd()
 const read = file => JSON.parse(fs.readFileSync(path.join(root, file), 'utf8').replace(/^\uFEFF/, ''))
 const digest = file => createHash('sha256').update(fs.readFileSync(path.join(root, file), 'utf8').replace(/\r\n/g, '\n')).digest('hex')
-const manifest = read('contracts/audits/personal-savings-v1-manifest.json')
+const manifest = read('contracts/audits/personal-savings-arc-testnet-v1-manifest.json')
+assert.equal(manifest.target.chainId, 5_042_002)
+assert.equal(getAddress(manifest.target.asset), getAddress('0x3600000000000000000000000000000000000000'))
 assert.equal(digest('contracts/' + manifest.source.path), manifest.source.normalizedLfSha256)
 assert.equal(digest('contracts/package-lock.json'), manifest.toolchain.packageLockNormalizedLfSha256)
 const artifactPath = 'contracts/artifacts/src/PersonalSavingsVault.sol/PersonalSavingsVault.json'
@@ -27,7 +29,7 @@ assert.equal(await client.getChainId(), 5_042_002)
 const prior = read('contracts/deployments/arc-testnet.json')
 const previousDeployment = await client.getTransaction({ hash: prior.repaymentRouter.transactionHash })
 const deployer = getAddress(previousDeployment.from)
-const asset = getAddress('0x3600000000000000000000000000000000000000')
+const asset = getAddress(manifest.target.asset)
 const blockNumber = await client.getBlockNumber()
 const [code, decimals, symbol, balance, nonce, gasPrice] = await Promise.all([
   client.getCode({ address: asset, blockNumber }),

@@ -1,8 +1,10 @@
 import { ethers } from 'hardhat'
+import { assertPersonalSavingsArcTestnetBuild } from './assert-personal-savings-build'
 
 const ARC_TEST_USDC = '0x3600000000000000000000000000000000000000'
 
 async function main() {
+  await assertPersonalSavingsArcTestnetBuild()
   const network = await ethers.provider.getNetwork()
   if (network.chainId !== 5_042_002n) throw new Error('Refusing to deploy on chain ' + network.chainId + '; expected Arc Testnet 5042002.')
   if (process.env.SAVINGS_ARC_TESTNET_DEPLOY_CONFIRM !== 'DEPLOY_REVIEWED_ARC_TEST_SAVINGS_V1') {
@@ -12,6 +14,8 @@ async function main() {
   if (!deployer) throw new Error('ARC_DEPLOYER_PRIVATE_KEY is unavailable.')
   const asset = ethers.getAddress(ARC_TEST_USDC)
   if (await ethers.provider.getCode(asset) === '0x') throw new Error('Arc Testnet USDC has no bytecode.')
+  const predictedContract = ethers.getCreateAddress({ from: deployer.address, nonce: await ethers.provider.getTransactionCount(deployer.address) })
+  if (predictedContract === asset) throw new Error('Predicted vault address collides with Arc Testnet USDC.')
 
   const vault = await ethers.deployContract('PersonalSavingsVault', [asset])
   await vault.waitForDeployment()
@@ -20,7 +24,7 @@ async function main() {
     throw new Error('Deployed savings constants do not match the reviewed policy.')
   }
   console.log(JSON.stringify({
-    network: 'Arc Testnet', chainId: Number(network.chainId), contract, asset,
+    network: 'Arc Testnet', chainId: Number(network.chainId), contract, asset, predictedContract,
     deployer: deployer.address, transactionHash: vault.deploymentTransaction()?.hash,
     depositsEnabled: false, financialProductionReady: false,
   }, null, 2))
