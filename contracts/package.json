@@ -19,6 +19,7 @@
     "deploy:savings-mainnet": "hardhat run scripts/deploy-savings-mainnet.ts --network xlayerMainnet",
     "deploy:savings-arc-testnet": "hardhat run scripts/deploy-savings-arc-testnet.ts --network arcTestnet",
     "deploy:locked-savings-mainnet": "hardhat run scripts/deploy-locked-savings-mainnet.ts --network xlayerMainnet",
+    "verify:savings-arc-testnet": "node scripts/verify-personal-savings-arc-testnet-deployment.mjs",
     "verify:reviewed-mainnet": "hardhat run scripts/verify-reviewed-deployment.ts --network xlayerMainnet",
     "verify:reviewed-arc-testnet": "hardhat run scripts/verify-reviewed-deployment.ts --network arcTestnet",
     "verify:mainnet": "hardhat run scripts/verify-mainnet.ts --network xlayerMainnet",

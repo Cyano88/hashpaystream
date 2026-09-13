@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { ethers } from 'hardhat'
 import { assertPersonalSavingsArcTestnetBuild } from './assert-personal-savings-build'
 
@@ -5,6 +7,8 @@ const ARC_TEST_USDC = '0x3600000000000000000000000000000000000000'
 
 async function main() {
   await assertPersonalSavingsArcTestnetBuild()
+  const review = JSON.parse(readFileSync(resolve(__dirname, '../audits/personal-savings-arc-testnet-v1-manifest.json'), 'utf8'))
+  if (review.deployment?.enabled) throw new Error('Arc Testnet savings vault is already recorded; refusing a duplicate deployment.')
   const network = await ethers.provider.getNetwork()
   if (network.chainId !== 5_042_002n) throw new Error('Refusing to deploy on chain ' + network.chainId + '; expected Arc Testnet 5042002.')
   if (process.env.SAVINGS_ARC_TESTNET_DEPLOY_CONFIRM !== 'DEPLOY_REVIEWED_ARC_TEST_SAVINGS_V1') {

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "candidate": "personal-savings-arc-testnet-v1",
   "auditTag": "personal-savings-arc-testnet-v1-internal-review",
-  "status": "internally-reviewed-testnet-candidate",
+  "status": "deployed-testnet",
   "source": {
     "path": "src/PersonalSavingsVault.sol",
     "normalizedLfSha256": "7db6493214742554fa18b252dcf53e4307987f1ec8232bb2879722b9d2b5d186"
@@ -34,9 +34,11 @@
     "platformFeeEnabled": false
   },
   "deployment": {
-    "enabled": false,
-    "address": null,
-    "transactionHash": null
+    "enabled": true,
+    "address": "0x218271a4dc03c0578dA4B2274A56c15Fc751f5EF",
+    "transactionHash": "0x5111a4961e6bcebfc716c3d40d8ee9673299b7e5f0f5683d996092dfe0b12499",
+    "blockNumber": 61821198,
+    "depositsEnabled": false
   },
   "reviewBoundary": {
     "externalAuditCompleted": false,

@@ -11,6 +11,7 @@ const digest = file => createHash('sha256').update(fs.readFileSync(path.join(roo
 const manifest = read('contracts/audits/personal-savings-arc-testnet-v1-manifest.json')
 assert.equal(manifest.target.chainId, 5_042_002)
 assert.equal(getAddress(manifest.target.asset), getAddress('0x3600000000000000000000000000000000000000'))
+if (manifest.deployment?.enabled) throw new Error('Arc Testnet savings vault is already deployed; run npm --prefix contracts run verify:savings-arc-testnet.')
 assert.equal(digest('contracts/' + manifest.source.path), manifest.source.normalizedLfSha256)
 assert.equal(digest('contracts/package-lock.json'), manifest.toolchain.packageLockNormalizedLfSha256)
 const artifactPath = 'contracts/artifacts/src/PersonalSavingsVault.sol/PersonalSavingsVault.json'

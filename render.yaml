@@ -100,6 +100,10 @@ services:
       # execution remains closed until the reviewed X Layer deployment is approved.
       - key: VITE_HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED
         value: "true"
+      - key: HASHPAYSTREAM_SAVINGS_VAULT_ADDRESS
+        value: "0x218271a4dc03c0578dA4B2274A56c15Fc751f5EF"
+      - key: HASHPAYSTREAM_SAVINGS_DEPOSITS_ENABLED
+        value: "false"
       - key: HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED
         value: "false"
       - key: HASHPAYSTREAM_STOCK_XLAYER_MAINNET_APPROVED
