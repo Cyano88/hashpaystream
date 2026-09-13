@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { createSavingsConfigHandler, XLAYER_MAINNET_CHAIN_ID, XLAYER_NATIVE_USDC_ADDRESS } from '../api/savings-config.ts'
+import { createSavingsConfigHandler, SAVINGS_CHAIN_ID, SAVINGS_USDC_ADDRESS } from '../api/savings-config.ts'
 
 const VAULT = '0x1111111111111111111111111111111111111111'
 
@@ -26,8 +26,9 @@ assert.equal(inReview.headers['cache-control'], 'no-store')
 assert.deepEqual(inReview.body, {
   ok: true,
   savings: {
-    chainId: XLAYER_MAINNET_CHAIN_ID,
-    assetAddress: XLAYER_NATIVE_USDC_ADDRESS,
+    chainId: SAVINGS_CHAIN_ID,
+    network: 'Arc Testnet',
+    assetAddress: SAVINGS_USDC_ADDRESS,
     vaultAddress: null,
     depositsEnabled: false,
     status: 'in_review',

@@ -9,7 +9,7 @@ export type StockConfig = StockClientConfig & {
  marketAdapter?: 'xlayer-dex-v1'; marketCredentials?: {key:string;secret:string;paper:boolean}; riskAuthorization?:string;
  rpcUrl: string; runtimeHash: Hex; riskKey: Hex; riskSigner: Address; riskUrl: string;
  ownershipSecret: string; participantIds: string[]; reviewedEarningsIds: string[];
- deploymentBlock:number; policy: StockRiskPolicy; maxRiskAge: number; quoteTtlSeconds: number
+ deploymentBlock:number; policy: StockRiskPolicy; maxRiskAge: number; quoteTtlSeconds: number; xLayerMainnetApproved:boolean
 }
 const integer = (x: unknown, min: number, max: number) => typeof x === 'number' && Number.isSafeInteger(x) && x >= min && x <= max
 const addr = (x: unknown): Address => {
@@ -20,10 +20,11 @@ export function readStockConfig(env: NodeJS.ProcessEnv): StockConfig {
  if (env.HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED !== 'true') stockFailure('Stock early pay is not enabled.', 503)
  let raw: Record<string, unknown>
  try { raw = JSON.parse(env.HASHPAYSTREAM_STOCK_CONFIG ?? '') } catch { stockFailure('Stock deployment configuration is incomplete.', 503) }
- // Deployment target is X Layer mainnet (196). Only local rehearsals are enabled
- // until a stock escrow, asset and risk policy have been reviewed and pinned.
- if (!raw || ![31337].includes(Number(raw.chainId)) || typeof raw.chainId !== 'number') stockFailure('Stock early pay has not been approved for this network.', 503)
- const chainId = raw.chainId as number
+ // X Layer mainnet requires an explicit server-only release approval in addition
+ // to the normal deployment, market, participant, signer and policy checks.
+ const chainId = Number(raw?.chainId)
+ const xLayerMainnetApproved = chainId === 196 && env.HASHPAYSTREAM_STOCK_XLAYER_MAINNET_APPROVED === 'true'
+ if (!raw || typeof raw.chainId !== 'number' || (chainId !== 31337 && !xLayerMainnetApproved)) stockFailure('Stock early pay has not been approved for this network.', 503)
  if(raw.marketDataProvider!==undefined&&!['twelve-data','pyth-pro','alpaca-sip'].includes(String(raw.marketDataProvider)))stockFailure('Unknown independent stock provider.',503)
  if(raw.marketAdapter!==undefined&&raw.marketAdapter!=='xlayer-dex-v1')stockFailure('Unknown stock market adapter.',503)
  if(!integer(raw.deploymentBlock,0,Number.MAX_SAFE_INTEGER))stockFailure('Stock deployment block is required for receipt recovery.',503)
@@ -62,7 +63,7 @@ export function readStockConfig(env: NodeJS.ProcessEnv): StockConfig {
   version:1,chainId,deploymentBlock:Number(raw.deploymentBlock),escrow:addr(raw.escrow),asset,usdc,assetSymbol:raw.assetSymbol,assetDecimals:Number(raw.assetDecimals),
   maxFeeBps:Number(raw.maxFeeBps),maxRiskAge:Number(raw.maxRiskAge),quoteTtlSeconds:Number(raw.quoteTtlSeconds),
   confirmations:Number(raw.confirmations),rpcUrl:rpc.href,riskUrl:risk.href,runtimeHash:raw.runtimeHash as Hex,
-  riskKey:key as Hex,riskSigner,ownershipSecret:secret,participantIds,reviewedEarningsIds:reviewed.map(x=>x.toLowerCase()),
+  riskKey:key as Hex,riskSigner,ownershipSecret:secret,participantIds,reviewedEarningsIds:reviewed.map(x=>x.toLowerCase()),xLayerMainnetApproved,
   policy:{chainId,asset,assetSymbol:raw.assetSymbol,assetDecimals:Number(raw.assetDecimals),maxFeeBps:Number(raw.maxFeeBps),
    maxVolatilityBps:Number(p.maxVolatilityBps),maxPriceAgeSeconds:Number(p.maxPriceAgeSeconds),maxQuoteDeviationBps:Number(p.maxQuoteDeviationBps),
    minExecutableLiquidityUsdcUnits:p.minExecutableLiquidityUsdcUnits}

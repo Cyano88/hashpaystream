@@ -26,15 +26,15 @@ export const arcTestnet = defineChain({
   testnet: true,
 })
 
-// HashPayStream Upfront and Savings use X Layer mainnet. Defaulting to testnet
-// when a mobile build omits the public chain flag silently points balances and
-// runtime configuration at different networks.
-export const upfrontXLayerChain = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID ?? '196') === '196'
+// HashPayStream Upfront uses X Layer mainnet. Savings uses Arc separately.
+// Defaulting Upfront to testnet when a mobile build omits the public chain flag
+// silently points balances and runtime configuration at different networks.
+export const upfrontXLayerChain = String(import.meta.env?.VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID ?? '196') === '196'
   ? xLayerMainnet
   : xLayerTestnet
 
-export const upfrontTreasuryEnabled = String(import.meta.env.VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED ?? 'false').toLowerCase() === 'true'
+export const upfrontTreasuryEnabled = String(import.meta.env?.VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED ?? 'false').toLowerCase() === 'true'
 
 export const upfrontSettlementV3Enabled = String(
-  import.meta.env.VITE_HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED ?? 'false',
+  import.meta.env?.VITE_HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED ?? 'false',
 ).toLowerCase() === 'true'

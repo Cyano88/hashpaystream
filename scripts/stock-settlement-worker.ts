@@ -8,7 +8,7 @@ import type { Hex } from 'viem'
 async function main(){
  if(process.env.HASHPAYSTREAM_STOCK_SETTLEMENT_WORKER_ENABLED!=='true')throw Error('disabled')
  const config=readStockConfig(process.env)
- if(config.chainId!==31337)throw Error('Deployment not reviewed')
+ if(config.chainId!==31337&&!(config.chainId===196&&config.xLayerMainnetApproved))throw Error('Deployment not reviewed')
  const privateKey=process.env.HASHPAYSTREAM_STOCK_SETTLEMENT_KEY
  const budget=process.env.HASHPAYSTREAM_STOCK_SETTLEMENT_MAX_TX_WEI
  if(!privateKey||!/^0x[0-9a-fA-F]{64}$/.test(privateKey)||!budget||! /^[1-9][0-9]{0,30}$/.test(budget))throw Error('Signer or gas budget missing')

@@ -21,8 +21,8 @@ const expected = {
   VITE_HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED: 'true',
   VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID: '196',
   VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED: 'true',
-  // Code ships in Android; acceptance remains closed pending reviewed deployment.
-  VITE_HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED: 'false',
+  // The canonical stock UI ships in Android; server execution remains separately gated.
+  VITE_HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED: 'true',
 }
 const invalid = Object.entries(expected)
   .filter(([name, value]) => String(process.env[name] ?? '').trim().toLowerCase() !== value)

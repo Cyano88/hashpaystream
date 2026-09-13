@@ -117,6 +117,9 @@ try{
  assert.equal('riskKey' in publicStockConfig(config),false)
  assert.throws(()=>readStockConfig({...env,HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED:'false'}))
  assert.throws(()=>readStockConfig({...env,HASHPAYSTREAM_STOCK_CONFIG:JSON.stringify({...raw,chainId:196})}))
+ const approvedMainnet=readStockConfig({...env,HASHPAYSTREAM_STOCK_XLAYER_MAINNET_APPROVED:'true',HASHPAYSTREAM_STOCK_CONFIG:JSON.stringify({...raw,chainId:196,rpcUrl:'https://rpc.xlayer.tech',riskUrl:'https://risk.example.test'})})
+ assert.equal(approvedMainnet.chainId,196)
+ assert.equal(approvedMainnet.xLayerMainnetApproved,true)
  let state
 
  const dbKey='hashpaystream:stock-early-pay:v1:'+config.chainId+':'+escrow.toLowerCase()

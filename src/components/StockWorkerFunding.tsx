@@ -34,8 +34,9 @@ function WorkerContent(){
   }catch(e){setError(e instanceof Error?e.message:'Your request could not be created.')}finally{setBusy(false)}
  }
  return <section className="stream-screen w-full max-w-md space-y-4 py-5 sm:py-8">
-  <h1 className="text-xl font-black">Get paid early</h1><p className="text-[11px] text-gray-500">Stock-payment test pilot. Only approved earnings funded on this network are eligible.</p>
+  <h1 className="text-xl font-black">Stock Early Pay</h1><p className="text-[11px] text-gray-500">Receive the exact eligible USDC value now on X Layer and assign the displayed stock-token amount for repayment.</p>
   <StockMarketStatus value={marketStatus}/>
+  {!config&&error&&<div className="stream-card p-5"><p className="text-sm font-black">X Layer stock funding is in review</p><p className="mt-2 text-xs leading-5 text-gray-500">The worker and funder flow is visible, while real USDC and stock-token transactions remain paused until the escrow, price source, and risk limits are approved.</p></div>}
   <ProviderPayoutWallet value={walletAddress} onChange={setWalletAddress} />
   <details className="stream-card p-4" onToggle={e=>setEmployerOpen(e.currentTarget.open)}><summary className="cursor-pointer text-xs font-bold">Fund worker earnings</summary>{employerOpen&&<StockEmployerFunding/>}</details>
   {!request&&<div className="stream-card space-y-3 p-4">

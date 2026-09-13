@@ -67,8 +67,9 @@ function FunderContent(){
   setMessage('Repayment confirmed on chain.')
  }
  return <section className="stream-screen w-full max-w-md space-y-4 py-5 sm:py-8">
- <h1 className="text-xl font-black">Funding</h1><p className="text-[11px] text-gray-500">Stock-payment test pilot</p>
+ <h1 className="text-xl font-black">Stock funding</h1><p className="text-[11px] text-gray-500">Fund eligible worker stock payments on X Layer Mainnet.</p>
  <StockMarketStatus value={marketStatus}/>
+ {!data&&error&&<div className="stream-card p-5"><p className="text-sm font-black">X Layer stock funding is in review</p><p className="mt-2 text-xs leading-5 text-gray-500">Offer publishing and token deposits remain paused until the production escrow, independent price source, and funder limits are approved.</p></div>}
  {data&&<><div className="stream-card space-y-3 p-4"><p className="text-xs">Available: {formatUnits(BigInt(data.inventory),data.config.assetDecimals)} {data.config.assetSymbol}</p><input aria-label="Stock token amount" inputMode="decimal" value={deposit} onChange={e=>setDeposit(e.target.value)} className="w-full rounded-xl border p-3 text-xs dark:bg-zinc-900"/><button type="button" disabled={busy} onClick={()=>void run(()=>inventory())} className="text-xs font-bold">Deposit / check pending deposit</button><button type="button" disabled={busy} onClick={()=>void run(()=>inventory('withdrawStock'))} className="ml-3 text-xs font-bold">Withdraw / check withdrawal</button></div>
  <div className="stream-card space-y-3 p-4"><select aria-label="Eligible earnings request" value={requestId} disabled={busy||data.paused} onChange={e=>{setRequestId(e.target.value);setRisk(false)}} className="w-full rounded-xl border p-3 text-xs dark:bg-zinc-900"><option value="">Choose eligible earnings</option>{data.requests.map(r=><option key={r.id} value={r.id}>{r.title} · {formatUnits(BigInt(r.principal),6)} USDC</option>)}</select>
  <StockFunderOfferTerms feePercent={fee} maxFeeBps={data.config.maxFeeBps} acceptedRisk={risk} onFeeChange={setFee} onRiskChange={setRisk} disabled={busy||data.paused||marketStatus?.issuerOpen===false}/>

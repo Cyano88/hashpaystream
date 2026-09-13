@@ -12,11 +12,11 @@ const content: Record<LegalPage, {
   terms: {
     eyebrow: 'Service terms',
     title: 'HashPayStream terms of use',
-    introduction: 'These terms apply when you use HashPayStream to manage protected USDC agreements, participate in Upfront, or use an enabled X Layer savings feature.',
+    introduction: 'These terms apply when you use HashPayStream to manage protected USDC agreements, use Arc savings, or participate in X Layer Stock Early Pay.',
     sections: [
       {
         title: 'The service',
-        body: 'HashPayStream provides the customer experience for Arc Agreements and the restricted Upfront public test. Hash PayLink separately provides agreement policy, payer checkout, escrow execution, chain reconciliation, signed lifecycle updates, and authoritative receipts. ZeroScout and PolyDesk provide bounded agreement assessment and underwriting inputs for Upfront.',
+        body: 'HashPayStream provides Arc agreements and savings plus the restricted X Layer Stock Early Pay flow. Hash PayLink provides agreement policy, checkout, escrow execution, chain reconciliation, signed lifecycle updates, and authoritative receipts. Approved market-data and risk providers supply bounded inputs for Stock Early Pay.',
       },
       {
         title: 'Your responsibilities',
@@ -24,15 +24,15 @@ const content: Record<LegalPage, {
       },
       {
         title: 'Pilot network boundary',
-        body: 'The Arc Agreement and protection side of the current pilot operates on Arc Testnet using test USDC with no financial value. When Upfront is enabled, an approved funder may send real USDC through the restricted X Layer Mainnet contract. Arc test funds must not be treated as real collateral.',
+        body: 'Arc agreements and savings currently use Arc Testnet and test USDC with no financial value. Stock Early Pay targets X Layer Mainnet and remains transaction-gated. Arc test funds cannot secure or repay an X Layer position.',
       },
       {
-        title: 'Upfront public test',
-        body: 'An assessment or approved limit is not a promise that an advance will be funded. Mainnet wallet actions are irreversible and require explicit confirmation from an approved funder. Funders must review the recipient, amount, signed offer, contract, network, available USDC, and required OKB gas before confirming a transaction. Use only the limited test amount you are prepared to risk.',
+        title: 'Stock Early Pay',
+        body: 'Eligibility is not a promise of funding. A worker reviews the fixed USDC amount, stock-token quantity, fee, due date, and loss of future token gains before accepting. A funder reviews the same signed terms, approved token, X Layer escrow, liquidity, and price evidence. Mainnet wallet actions are irreversible.',
       },
       {
         title: 'Scheduled savings',
-        body: 'When enabled, Scheduled Savings holds real native USDC in a separate non-upgradeable X Layer contract under the schedule selected by the wallet owner. The vault does not generate yield, charge a platform fee, or give HashPayStream an administrator withdrawal function. Weekly or monthly amounts become withdrawable on schedule; full emergency access has a 48-hour delay. Transactions require wallet approval and OKB gas and remain subject to smart-contract and network risk.',
+        body: 'Scheduled Savings is assigned to Arc. During the current test phase it uses test USDC with no financial value, and deposits remain paused until the Arc vault is deployed and verified. The reviewed vault design generates no yield, charges no platform fee, and has no administrator withdrawal function. Weekly or monthly amounts become withdrawable on schedule; full emergency access has a 48-hour delay.',
       },
       {
         title: 'Agreement outcomes',
@@ -59,11 +59,11 @@ const content: Record<LegalPage, {
       },
       {
         title: 'Service providers',
-        body: 'HashPayStream uses service providers for authentication, hosting, database storage, and the authenticated Hash PayLink APIs and signed webhooks required to operate Arc Agreements. For Upfront, bounded agreement and payout details are also sent to ZeroScout and PolyDesk for assessment and underwriting.',
+        body: 'HashPayStream uses service providers for authentication, hosting, database storage, and the authenticated Hash PayLink APIs and signed webhooks required to operate Arc Agreements. For Stock Early Pay, bounded eligibility, price, risk, and payout details may be sent to the approved market-data and risk providers named in the checkout.',
       },
       {
         title: 'Wallet security',
-        body: 'HashPayStream does not receive or store your wallet private key or recovery phrase. Circle manages the Arc wallet used for protected agreements. Privy manages the embedded X Layer wallet used for Upfront and enabled savings actions. Fund-moving actions require the relevant wallet approval. Never send a private key, recovery phrase, login code, or server credential through an agreement or support message.',
+        body: 'HashPayStream does not receive or store your wallet private key or recovery phrase. Circle manages the Arc wallet used for protected agreements. Privy manages the embedded EVM wallet used for Arc savings and X Layer Stock Early Pay. Fund-moving actions require the relevant wallet approval. Never send a private key, recovery phrase, login code, or server credential through an agreement or support message.',
       },
       {
         title: 'Questions and requests',
@@ -82,7 +82,7 @@ export default function StreamPayLegal({ page }: { page: LegalPage }) {
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">{document.eyebrow}</p>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-4xl">{document.title}</h1>
       <p className="mt-4 max-w-2xl text-sm leading-7 text-gray-500 dark:text-gray-400">{document.introduction}</p>
-      <p className="mt-3 text-xs text-gray-400">Last updated 31 August 2026</p>
+      <p className="mt-3 text-xs text-gray-400">Last updated 13 September 2026</p>
 
       <div className="mt-9 divide-y divide-gray-200 border-y border-gray-200 dark:divide-white/10 dark:border-white/10">
         {document.sections.map(section => (

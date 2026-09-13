@@ -2,7 +2,7 @@ import { createPublicClient, createWalletClient, custom, defineChain, hashTypedD
 import { STOCK_ESCROW_ABI, STOCK_TOKEN_ABI, STOCK_OFFER_TYPES, stockDomain, stockOfferMessage, type StockOfferWire, type StockRiskWire, type StockClientConfig } from './stockEarlyPayProtocol'
 import type { StockOffer } from './stockFundingOffers'
 
-export const stockEarlyPayEnabled = import.meta.env?.VITE_HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED === 'true'
+export const stockEarlyPayEnabled = import.meta.env?.VITE_HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED !== 'false'
 export type StockApiCall = <T>(body?:Record<string,unknown>,query?:Record<string,string>)=>Promise<T>
 export type StockBrowserWallet = { address:string; switchChain:(chainId:number)=>Promise<void>; getEthereumProvider:()=>Promise<EIP1193Provider> }
 export type StockAcceptance = { config:StockClientConfig; offerId:Hex; offer:StockOfferWire; funderSignature:Hex; risk:StockRiskWire; riskSignature:Hex }

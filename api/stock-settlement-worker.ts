@@ -22,8 +22,10 @@ const same=(a:string,b:string)=>a.toLowerCase()===b.toLowerCase()
  */
 export async function runStockSettlementPass(options:StockSettlementOptions){
  const {pool,config:c,privateKey,maxTransactionCostWei}=options
- // Mainnet sending remains gated until the asset, deployment and signer are reviewed.
- if(c.chainId!==31337||!['localhost','127.0.0.1','[::1]'].includes(new URL(c.rpcUrl).hostname))throw Error('Settlement deployment is not reviewed')
+ const rpcHost=new URL(c.rpcUrl).hostname
+ const localRehearsal=c.chainId===31337&&['localhost','127.0.0.1','[::1]'].includes(rpcHost)
+ const reviewedMainnet=c.chainId===196&&c.xLayerMainnetApproved&&new URL(c.rpcUrl).protocol==='https:'
+ if(!localRehearsal&&!reviewedMainnet)throw Error('Settlement deployment is not reviewed')
  if(maxTransactionCostWei<=0n)throw Error('Transaction budget required')
  const account=privateKeyToAccount(privateKey)
  if(same(account.address,c.riskSigner))throw Error('Use a dedicated settlement signer')
