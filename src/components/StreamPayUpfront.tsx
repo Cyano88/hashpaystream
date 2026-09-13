@@ -253,4 +253,10 @@ function Result({ label, value }: { label: string; value: string }) {
   return <div className="rounded-xl bg-gray-50 p-3 dark:bg-white/[0.04]"><p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">{label}</p><p className="mt-1 truncate text-xs font-semibold capitalize text-gray-950 dark:text-white">{value}</p></div>
 }
 
-export default function StreamPayUpfront(){ return stockEarlyPayEnabled ? <StockWorkerFunding/> : <LegacyStreamPayUpfront/> }
+// The stock worker route must not replace the agreement-led early-pay flow until
+// the stock adapter can resolve the opted-in agreement supplied in the URL.
+// Stock funders remain on the separate Funding surface.
+const stockAgreementEarlyPayEnabled = stockEarlyPayEnabled
+  && import.meta.env.VITE_HASHPAYSTREAM_STOCK_AGREEMENT_FLOW_ENABLED === 'true'
+
+export default function StreamPayUpfront(){ return stockAgreementEarlyPayEnabled ? <StockWorkerFunding/> : <LegacyStreamPayUpfront/> }
