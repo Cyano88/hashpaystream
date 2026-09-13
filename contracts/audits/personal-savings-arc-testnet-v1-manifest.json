@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "candidate": "personal-savings-arc-testnet-v1",
+  "auditTag": "personal-savings-arc-testnet-v1-internal-review",
+  "status": "internally-reviewed-testnet-candidate",
+  "source": {
+    "path": "src/PersonalSavingsVault.sol",
+    "normalizedLfSha256": "7db6493214742554fa18b252dcf53e4307987f1ec8232bb2879722b9d2b5d186"
+  },
+  "toolchain": {
+    "solidity": "0.8.24",
+    "optimizerEnabled": true,
+    "optimizerRuns": 200,
+    "viaIR": true,
+    "openzeppelinContracts": "5.0.2",
+    "packageLockNormalizedLfSha256": "64ab78c1c104bab2818425f57fffe7117e310f9d9f580f761d07ad668c565124"
+  },
+  "target": {
+    "chain": "Arc Testnet",
+    "chainId": 5042002,
+    "asset": "0x3600000000000000000000000000000000000000",
+    "symbol": "USDC",
+    "decimals": 6
+  },
+  "policy": {
+    "weeklySeconds": 604800,
+    "monthlySeconds": 2592000,
+    "emergencyExitDelaySeconds": 172800,
+    "maxPageSize": 100,
+    "administrator": null,
+    "upgradeable": false,
+    "yieldEnabled": false,
+    "penaltyEnabled": false,
+    "platformFeeEnabled": false
+  },
+  "deployment": {
+    "enabled": false,
+    "address": null,
+    "transactionHash": null
+  },
+  "reviewBoundary": {
+    "externalAuditCompleted": false,
+    "financialProductionReady": false,
+    "permittedUse": "Arc Testnet rehearsal with test USDC"
+  }
+}
