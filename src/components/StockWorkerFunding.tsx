@@ -1,4 +1,3 @@
-import StockEmployerFunding from './StockEmployerFunding'
 import { performStockEarnings, stockEarningsPendingKey, type EarningsView } from '../lib/stockEarningsClient'
 import { useCallback, useEffect, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
@@ -15,7 +14,7 @@ type Earnings=EarningsView&{request:RequestInfo|null}
 type Offers={config:StockClientConfig;offers:StockOffer[];contexts:Record<string,StockEligibilityContext>;verifiedCompletedFundingCounts:Record<string,number>;positions:Array<{id:Hex;repayment:string;settled:boolean}>}
 function WorkerContent(){
  const {api,wallet,userId}=useStockPaymentSession()
- const [walletAddress,setWalletAddress]=useState(''),[employerOpen,setEmployerOpen]=useState(false),[config,setConfig]=useState<StockClientConfig>()
+ const [walletAddress,setWalletAddress]=useState(''),[config,setConfig]=useState<StockClientConfig>()
  const [earnings,setEarnings]=useState<Earnings[]>([]),[selected,setSelected]=useState(''),[amount,setAmount]=useState(''),[offers,setOffers]=useState<Offers>(),[request,setRequest]=useState<RequestInfo>(),[marketStatus,setMarketStatus]=useState<StockMarketStatusValue>(),[error,setError]=useState(''),[busy,setBusy]=useState(false),[pending,setPending]=useState(false)
  const load=useCallback(async()=>{const [data,status]=await Promise.all([api<{earnings:Earnings[];config:StockClientConfig}>(undefined,{view:'worker'}),api<{marketStatus:StockMarketStatusValue}>(undefined,{view:'market_status'}).catch(()=>undefined)]);setEarnings(data.earnings);setConfig(data.config);setMarketStatus(status?.marketStatus)},[api])
  useEffect(()=>{void load().catch(e=>setError(e.message))},[load])
@@ -38,7 +37,6 @@ function WorkerContent(){
   <StockMarketStatus value={marketStatus}/>
   {!config&&error&&<div className="stream-card p-5"><p className="text-sm font-black">X Layer stock funding is in review</p><p className="mt-2 text-xs leading-5 text-gray-500">The worker and funder flow is visible, while real USDC and stock-token transactions remain paused until the escrow, price source, and risk limits are approved.</p></div>}
   <ProviderPayoutWallet value={walletAddress} onChange={setWalletAddress} />
-  <details className="stream-card p-4" onToggle={e=>setEmployerOpen(e.currentTarget.open)}><summary className="cursor-pointer text-xs font-bold">Fund worker earnings</summary>{employerOpen&&<StockEmployerFunding/>}</details>
   {!request&&<div className="stream-card space-y-3 p-4">
    <label className="block text-xs font-bold">Approved earnings<select className="mt-2 w-full rounded-xl border p-3 text-xs dark:bg-zinc-900" value={selected} onChange={e=>{const previous=earnings.find(item=>item.id===e.target.value)?.request;setSelected(e.target.value);setAmount(previous?formatUnits(BigInt(previous.principal),6):'');setError('')}}><option value="">Choose earnings</option>{earnings.filter(e=>e.approved&&BigInt(e.available)>0n).map(e=><option key={e.id} value={e.id}>{e.title} · {formatUnits(BigInt(e.available),6)} USDC</option>)}</select></label>
    <label className="block text-xs font-bold">Amount in USDC<input inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} className="mt-2 w-full rounded-xl border p-3 dark:bg-zinc-900"/></label>
