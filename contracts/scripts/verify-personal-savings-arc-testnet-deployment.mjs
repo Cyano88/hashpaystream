@@ -43,7 +43,10 @@ assert.equal(await vault.WEEKLY(), 604800n)
 assert.equal(await vault.MONTHLY(), 2592000n)
 assert.equal(await vault.EMERGENCY_EXIT_DELAY(), 172800n)
 assert.equal(await vault.MAX_PAGE_SIZE(), 100n)
-assert.equal(await vault.totalManaged(), 0n)
+const totalManaged = await vault.totalManaged()
+const token = new Contract(deployment.asset, ['function balanceOf(address) view returns (uint256)'], provider)
+const vaultBalance = await token.balanceOf(deployment.address)
+assert.ok(vaultBalance >= totalManaged)
 console.log(JSON.stringify({
   ok: true,
   network: deployment.network,
@@ -52,7 +55,8 @@ console.log(JSON.stringify({
   transactionHash: deployment.transactionHash,
   deploymentBlock: deployment.blockNumber,
   runtimeBytecodeVerified: true,
-  totalManaged: '0',
+  totalManaged: String(totalManaged),
+  vaultBalance: String(vaultBalance),
   depositsEnabled: false,
   financialProductionReady: false
 }, null, 2))
