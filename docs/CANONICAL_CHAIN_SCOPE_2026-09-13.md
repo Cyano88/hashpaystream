@@ -17,7 +17,7 @@ The Stock Early Pay UI is visible by default. Money movement requires all three 
 
 Receipt and settlement workers remain independently disabled until their own switches, signer, and transaction budget are configured.
 
-Arc savings is deployed on Arc Testnet at 0x218271a4dc03c0578dA4B2274A56c15Fc751f5EF. Deposits require HASHPAYSTREAM_SAVINGS_DEPOSITS_ENABLED=true and remain disabled while the test-USDC rehearsal is completed. External audit and financial-production readiness remain false.
+Arc savings is deployed on Arc Testnet at 0x218271a4dc03c0578dA4B2274A56c15Fc751f5EF. Deposits require HASHPAYSTREAM_SAVINGS_DEPOSITS_ENABLED=true and remain disabled while the test-USDC rehearsal is completed. A bounded 0.1 test-USDC weekly-plan rehearsal succeeded at block 61823383. External audit and financial-production readiness remain false.
 
 ## Migration evidence
 
