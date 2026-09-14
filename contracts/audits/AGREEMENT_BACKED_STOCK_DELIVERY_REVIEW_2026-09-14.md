@@ -19,6 +19,8 @@ This review covers `contracts/src/AgreementBackedStockDelivery.sol`, its browser
 - The browser independently checks the pinned contract and asset, current onchain signer roles, allowlists, pause state, Arc route, worker acceptance signature, exact allowance, token balance, and gas before simulation.
 - The backend accepts only the assigned approved funder and verifies every recipient and economic field in the confirmed `StockDelivered` event.
 - A locally checkpointed transaction hash allows receipt recording after a browser reload or release pause without sending the tokens twice.
+- The shared Arc worker re-verifies the X Layer delivery and pinned runtime, binds repayment to the immutable assessed request and signed delivery amounts, persists recovery checkpoints, and records only a verified Arc settlement event.
+- Stock requests cannot be enabled unless the shared settlement runtime and stock settlement pass are enabled together.
 
 ## Verification evidence
 

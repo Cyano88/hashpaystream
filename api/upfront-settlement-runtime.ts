@@ -2,6 +2,7 @@ import pg from 'pg'
 import { renderDurableStoreConnectionConfig } from './durable-store.js'
 import { createUpfrontSettlementDaemon } from './upfront-settlement-daemon.js'
 import { runUpfrontSettlementPass, upfrontSettlementWorkerConfiguration } from './upfront-settlement-worker.js'
+import { runStockDeliverySettlementPass, stockDeliverySettlementConfiguration } from './stock-delivery-settlement-worker.js'
 
 type LeaseClient = {
   query: (sql: string, values: number[]) => Promise<{ rows: Array<{ acquired?: boolean }> }>
@@ -11,7 +12,9 @@ type LeasePool = { connect: () => Promise<LeaseClient>; end: () => Promise<void>
 type Dependencies = {
   pool: (url: string, env: NodeJS.ProcessEnv) => LeasePool
   runPass: typeof runUpfrontSettlementPass
+  runStockPass: typeof runStockDeliverySettlementPass
   validate: typeof upfrontSettlementWorkerConfiguration
+  validateStock: typeof stockDeliverySettlementConfiguration
   log: (event: Record<string, unknown>) => void
 }
 const defaults: Dependencies = {
@@ -19,7 +22,9 @@ const defaults: Dependencies = {
     application_name: 'hashpaystream-settlement-worker', connectionTimeoutMillis: 10_000,
     query_timeout: 10_000, max: 2 }),
   runPass: runUpfrontSettlementPass,
+  runStockPass: runStockDeliverySettlementPass,
   validate: upfrontSettlementWorkerConfiguration,
+  validateStock: stockDeliverySettlementConfiguration,
   log: event => console.log(JSON.stringify(event)),
 }
 
@@ -30,6 +35,7 @@ export function createUpfrontSettlementRuntime(env: NodeJS.ProcessEnv = process.
   const dependencies = { ...defaults, ...overrides }
   const snapshot = { ...env }
   if (!dependencies.validate(snapshot).enabled) throw new Error('AUTO_SETTLEMENT_DISABLED')
+  if (String(snapshot.HASHPAYSTREAM_STOCK_DELIVERY_SETTLEMENT_ENABLED ?? '').trim().toLowerCase() === 'true') dependencies.validateStock(snapshot)
   const databaseUrl = String(snapshot.DATABASE_URL ?? snapshot.POSTGRES_URL ?? '').trim()
   if (!databaseUrl) throw new Error('DATABASE_NOT_CONFIGURED')
   const configured = Number(snapshot.HASHPAYSTREAM_SETTLEMENT_WORKER_INTERVAL_MS ?? 30_000)
@@ -54,7 +60,11 @@ export function createUpfrontSettlementRuntime(env: NodeJS.ProcessEnv = process.
         } }
       } catch (error) { releaseClient(true); throw error }
     },
-    runPass: () => dependencies.runPass({ env: () => snapshot }),
+    runPass: async () => {
+      const upfront = await dependencies.runPass({ env: () => snapshot })
+      const stock = await dependencies.runStockPass({ env: () => snapshot })
+      return { eligible: upfront.eligible + stock.eligible, settled: upfront.settled + stock.settled, alreadySettled: upfront.alreadySettled + stock.alreadySettled, deferred: upfront.deferred + stock.deferred, codes: [...new Set([...upfront.codes, ...stock.codes])].sort() }
+    },
     schedule: (callback, delay) => setTimeout(callback, delay), cancel: clearTimeout, log,
   }, intervalMs)
   let started = false

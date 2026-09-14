@@ -84,8 +84,6 @@
     "test:stock-offers": "node --import tsx scripts/stock-funding-offers-smoke.mjs && node --import tsx scripts/funding-offer-selector-smoke.mjs && node --import tsx scripts/stock-funding-checkout-smoke.mjs && node --import tsx scripts/stock-funder-desk-smoke.mjs && node --import tsx scripts/stock-delivery-terms-smoke.mjs && node --import tsx scripts/stock-delivery-workflow-smoke.mjs && node --import tsx scripts/stock-delivery-opportunities-smoke.mjs && node --import tsx scripts/stock-delivery-offers-smoke.mjs",
     "test:stock-integration": "node --import tsx scripts/stock-early-pay-integration.mjs",
     "test:stock-employer": "node --import tsx scripts/stock-employer-smoke.mjs",
-    "stock:receipt-worker": "tsx scripts/stock-receipt-worker.ts",
-    "stock:settlement-worker": "tsx scripts/stock-settlement-worker.ts",
     "test:stock-postgres": "node --import tsx scripts/stock-early-pay-integration.mjs --postgres",
     "test:stock-mainnet-fork": "node --import tsx scripts/stock-early-pay-integration.mjs --postgres --mainnet-fork",
     "audit:stock-candidate": "node scripts/stock-xlayer-candidate-audit.mjs",
@@ -110,7 +108,8 @@
     "test:stock-dex-manipulation": "node --import tsx scripts/stock-dex-manipulation-fork.mjs",
     "test:stock-twelve-data-repayment": "node --import tsx scripts/stock-early-pay-integration.mjs --postgres --actual-stock --twelve",
     "test:stock-weekend-policy": "node --import tsx scripts/stock-weekend-policy-smoke.mjs",
-    "test:stock-delivery-terms": "node --import tsx scripts/stock-delivery-terms-smoke.mjs && node --import tsx scripts/stock-delivery-workflow-smoke.mjs && node --import tsx scripts/stock-delivery-opportunities-smoke.mjs && node --import tsx scripts/stock-delivery-offers-smoke.mjs"
+    "test:stock-delivery-terms": "node --import tsx scripts/stock-delivery-terms-smoke.mjs && node --import tsx scripts/stock-delivery-workflow-smoke.mjs && node --import tsx scripts/stock-delivery-opportunities-smoke.mjs && node --import tsx scripts/stock-delivery-offers-smoke.mjs && node --import tsx scripts/stock-delivery-settlement-worker-smoke.mjs",
+    "test:stock-delivery-settlement": "node --import tsx scripts/stock-delivery-settlement-worker-smoke.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.5.1",

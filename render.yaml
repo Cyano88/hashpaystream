@@ -114,6 +114,8 @@ services:
         value: "false"
       - key: HASHPAYSTREAM_STOCK_SETTLEMENT_WORKER_ENABLED
         value: "false"
+      - key: HASHPAYSTREAM_STOCK_DELIVERY_SETTLEMENT_ENABLED
+        value: "false"
       - key: HASHPAYSTREAM_TWELVE_DATA_KEY
         sync: false
       - key: HASHPAYSTREAM_STOCK_RISK_ADAPTER_TOKEN

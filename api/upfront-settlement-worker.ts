@@ -98,7 +98,7 @@ export function upfrontSettlementWorkerConfiguration(env: NodeJS.ProcessEnv): Up
   }
 }
 
-async function agreement(id: string, config: UpfrontSettlementWorkerConfig) {
+export async function agreement(id: string, config: UpfrontSettlementWorkerConfig) {
   try {
     const response = await fetch(`${config.baseUrl}/api/v2/agreements?id=${encodeURIComponent(id)}`, {
       cache: 'no-store', headers: { 'x-api-key': config.apiKey, accept: 'application/json' },
@@ -119,11 +119,11 @@ async function position(id: Hex, config: UpfrontSettlementWorkerConfig): Promise
   return { positionId: id, funder: value[0], repaymentRecipient: value[1], provider: value[2], providerArcRecipient: value[3], platformTreasury: value[4], termsHash: value[6], fundingTermsHash: value[7], intelligenceCommitment: value[8], arcAgreementHash: value[9], protectedAmount: value[10].toString(), advanceAmount: value[11].toString(), funderRepaymentAmount: value[12].toString(), platformFeeAmount: value[13].toString(), protectionDeadline: Number(value[14]), status }
 }
 
-async function isSettled(agreementHash: Hex, config: UpfrontSettlementWorkerConfig) {
+export async function isSettled(agreementHash: Hex, config: UpfrontSettlementWorkerConfig) {
   return createPublicClient({ chain: arcTestnet, transport: http(config.arcRpcUrl) }).readContract({ address: config.router, abi: ROUTER_ABI, functionName: 'settledAgreements', args: [agreementHash] })
 }
 
-async function submit(signed: SignedSettlement, config: UpfrontSettlementWorkerConfig) {
+export async function submit(signed: SignedSettlement, config: UpfrontSettlementWorkerConfig) {
   const account = privateKeyToAccount(config.repaymentKey)
   const client = createPublicClient({ chain: arcTestnet, transport: http(config.arcRpcUrl) })
   const raw = signed.message
@@ -187,7 +187,7 @@ const defaults: UpfrontSettlementWorkerDependencies = {
   log: event => console.log(JSON.stringify(event)),
 }
 
-function errorCode(reason: unknown) {
+export function errorCode(reason: unknown) {
   const code = reason instanceof Error ? reason.message : 'SETTLEMENT_UNAVAILABLE'
   if (/^[A-Z0-9_]{3,80}$/.test(code)) return code
   // Fixed classifications only; never expose RPC messages or signed calldata.

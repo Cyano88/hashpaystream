@@ -79,6 +79,7 @@
     "Keep the stock asset and every funder disallowed until their individual approval evidence is complete",
     "Prove fresh independent regular-session price, X Layer executable quote, liquidity, volatility and corporate-action checks",
     "Rehearse one full allowlisted tiny delivery and fixed-USDC Arc repayment with incident owners present",
+    "Validate the shared settlement runtime and enable HASHPAYSTREAM_STOCK_DELIVERY_SETTLEMENT_ENABLED before accepting stock requests",
     "Enable HASHPAYSTREAM_STOCK_DELIVERY_REQUESTS_ENABLED only after the paused deployment review is signed off"
   ]
 }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { privateKeyToAccount } from 'viem/accounts'
 import { buildAgreementIntelligenceRequest, agreementIntelligenceRequestHash } from '../api/agreement-intelligence-schema.ts'
 import { buildSignedStockDelivery } from '../api/stock-delivery-terms.ts'
-import { createStockDeliveryRequest, declineStockDelivery, recordVerifiedStockDelivery, stockDeliveryExposureReason, stockDeliveryRequestsForFunder, stockDeliveryRequestsForWorker } from '../api/stock-delivery-workflow.ts'
+import { createStockDeliveryRequest, declineStockDelivery, recordVerifiedStockDelivery, recordVerifiedStockSettlement, stockDeliveryExposureReason, stockDeliveryLifecycle, stockDeliveryRequestsForFunder, stockDeliveryRequestsForWorker } from '../api/stock-delivery-workflow.ts'
 import { STOCK_DELIVERY_TERMS_TYPES, stockDeliveryTermsMessage } from '../src/lib/stockDeliveryProtocol.ts'
 
 const nowSeconds = 1_789_302_600, now = new Date(nowSeconds * 1000)
@@ -20,11 +20,11 @@ const authorization = await buildSignedStockDelivery({ request, agreement, intel
 const workerSignature = await workerAccount.signTypedData({ domain: authorization.domain, types: STOCK_DELIVERY_TERMS_TYPES, primaryType: 'DeliveryTerms', message: stockDeliveryTermsMessage(authorization.terms) })
 const exposure = { maxDeliveryUsdcUnits: '50000000', maxWorkerOutstandingUsdcUnits: '60000000', maxFunderOutstandingUsdcUnits: '100000000', maxAssetOutstandingUsdcUnits: '200000000', maxGlobalOutstandingUsdcUnits: '200000000', maxWorkerOutstandingCount: 1, maxFunderOutstandingCount: 3 }
 const expected = { chainId: 196, deliveryContract: contract, worker, workerArcRecipient: workerArc, funder, repaymentRecipient: funder, platformTreasury: treasury, stockAsset: asset, advanceUsdcAmount: '30000000', underwritingSigner: authorization.underwritingSigner, riskSigner: authorization.riskSigner, protectionSigner: authorization.protectionSigner, now: nowSeconds }
-const created = await createStockDeliveryRequest(undefined, { assessmentRequestId: request.requestId, agreementId: 'agr_stockworkflow123', workerUserId: 'did:privy:worker', partnerApplicationId: 'fpa_12345678-1234-1234-1234-123456789abc', authorization, workerSignature, expected, exposure, now })
+const created = await createStockDeliveryRequest(undefined, { assessmentRequestId: request.requestId, agreementRequest: request, agreementId: 'agr_stockworkflow123', workerUserId: 'did:privy:worker', partnerApplicationId: 'fpa_12345678-1234-1234-1234-123456789abc', authorization, workerSignature, expected, exposure, now })
 assert.equal(stockDeliveryRequestsForWorker(created.store, 'did:privy:worker').length, 1)
 assert.equal(stockDeliveryRequestsForWorker(created.store, 'did:privy:other').length, 0)
 assert.equal(stockDeliveryRequestsForFunder(created.store, 'fpa_12345678-1234-1234-1234-123456789abc').length, 1)
-const replay = await createStockDeliveryRequest(created.store, { assessmentRequestId: request.requestId, agreementId: 'agr_stockworkflow123', workerUserId: 'did:privy:worker', partnerApplicationId: 'fpa_12345678-1234-1234-1234-123456789abc', authorization, workerSignature, expected: { ...expected, now: nowSeconds + 1 }, exposure, now: new Date((nowSeconds + 1) * 1000) })
+const replay = await createStockDeliveryRequest(created.store, { assessmentRequestId: request.requestId, agreementRequest: request, agreementId: 'agr_stockworkflow123', workerUserId: 'did:privy:worker', partnerApplicationId: 'fpa_12345678-1234-1234-1234-123456789abc', authorization, workerSignature, expected: { ...expected, now: nowSeconds + 1 }, exposure, now: new Date((nowSeconds + 1) * 1000) })
 assert.equal(replay.request.requestedAt, created.request.requestedAt)
 assert.equal(stockDeliveryExposureReason(created.store, { workerUserId: 'did:privy:worker', partnerApplicationId: 'fpa_12345678-1234-1234-1234-123456789abc', authorization, policy: exposure, now: nowSeconds }), 'This worker reached the stock pilot limit.')
 const wideExposure = { ...exposure, maxWorkerOutstandingUsdcUnits: '200000000', maxFunderOutstandingUsdcUnits: '200000000', maxAssetOutstandingUsdcUnits: '200000000', maxGlobalOutstandingUsdcUnits: '200000000', maxWorkerOutstandingCount: 3, maxFunderOutstandingCount: 3 }
@@ -34,10 +34,16 @@ assert.equal(stockDeliveryExposureReason(created.store, { workerUserId: 'new-wor
 assert.equal(stockDeliveryExposureReason(created.store, { workerUserId: 'new-worker', partnerApplicationId: 'new-funder', authorization, policy: { ...wideExposure, maxGlobalOutstandingUsdcUnits: '50000000' }, now: nowSeconds }), 'The stock pilot reached its global limit.')
 const expiredStore = { ...created.store, requests: { [authorization.deliveryId]: { ...created.request, expiresAt: new Date((nowSeconds - 1) * 1000).toISOString() } } }
 assert.equal(stockDeliveryExposureReason(expiredStore, { workerUserId: 'did:privy:worker', partnerApplicationId: 'fpa_12345678-1234-1234-1234-123456789abc', authorization, policy: exposure, now: nowSeconds }), undefined)
-await assert.rejects(() => createStockDeliveryRequest(undefined, { assessmentRequestId: request.requestId, agreementId: 'agr_stockworkflow123', workerUserId: 'did:privy:worker', partnerApplicationId: 'fpa_12345678-1234-1234-1234-123456789abc', authorization, workerSignature: authorization.riskSignature, expected, exposure, now }), /worker signature/)
+assert.equal(stockDeliveryLifecycle(expiredStore, now).requests[authorization.deliveryId].status, 'expired')
+await assert.rejects(() => createStockDeliveryRequest(undefined, { assessmentRequestId: request.requestId, agreementRequest: request, agreementId: 'agr_stockworkflow123', workerUserId: 'did:privy:worker', partnerApplicationId: 'fpa_12345678-1234-1234-1234-123456789abc', authorization, workerSignature: authorization.riskSignature, expected, exposure, now }), /worker signature/)
 const receipt = { transactionHash: '0x' + '11'.repeat(32), blockHash: '0x' + '12'.repeat(32), blockNumber: '100', deliveryId: authorization.deliveryId, arcAgreementHash: authorization.protection.arcAgreementHash, worker, funder, stockAsset: asset, stockTokenAmount: tokenAmount.toString(), confirmedAt: now.toISOString() }
 const delivered = recordVerifiedStockDelivery(created.store, { deliveryId: authorization.deliveryId, partnerApplicationId: 'fpa_12345678-1234-1234-1234-123456789abc', funder, receipt, now })
 assert.equal(delivered.request.status, 'delivered')
+const settlement = { chainId: 5_042_002, router, agreementHash: authorization.protection.arcAgreementHash, transactionHash: '0x' + '21'.repeat(32), blockNumber: '200', blockHash: '0x' + '22'.repeat(32), logIndex: 0, timestamp: now.getTime(), funderAmount: authorization.terms.funderRepaymentAmount, providerAmount: (BigInt(authorization.offer.protectedAmount) - BigInt(authorization.terms.funderRepaymentAmount) - BigInt(authorization.terms.platformFeeAmount)).toString(), treasuryAmount: authorization.terms.platformFeeAmount }
+const settled = recordVerifiedStockSettlement(delivered.store, { deliveryId: authorization.deliveryId, evidence: settlement, now })
+assert.equal(settled.request.status, 'settled')
+assert.equal(recordVerifiedStockSettlement(settled.store, { deliveryId: authorization.deliveryId, evidence: settlement, now }).request.status, 'settled')
+assert.throws(() => recordVerifiedStockSettlement(delivered.store, { deliveryId: authorization.deliveryId, evidence: { ...settlement, funderAmount: '1' }, now }), /does not match/)
 assert.throws(() => declineStockDelivery(delivered.store, { deliveryId: authorization.deliveryId, partnerApplicationId: 'fpa_12345678-1234-1234-1234-123456789abc', funder, now }), /closed/)
 assert.throws(() => recordVerifiedStockDelivery(created.store, { deliveryId: authorization.deliveryId, partnerApplicationId: 'fpa_12345678-1234-1234-1234-123456789abc', funder, receipt: { ...receipt, stockTokenAmount: '1' }, now }), /does not match/)
 console.log('Private agreement-backed stock delivery workflow checks passed.')

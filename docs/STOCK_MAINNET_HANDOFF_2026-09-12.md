@@ -1,3 +1,7 @@
+# Superseded legacy escrow handoff
+
+This document describes the retired inventory escrow flow. The current no-custody agreement-backed design and release boundary are in `docs/STOCK_AGREEMENT_BACKED_FLOW_2026-09-13.md`. Do not use the legacy worker commands or deployment addresses below.
+
 # Stock early pay: mainnet handoff, 12 September 2026
 
 > Current pricing decision: Twelve Data is the lower-cost independent-reference candidate; Pyth is excluded from the launch path. X Layer remains the executable quote/depth source, not the sole valuation source. The local manipulation rehearsal demonstrated why. Mainnet remains disabled.

@@ -39,6 +39,12 @@ Backed's current product documentation lists xStocks as ERC-20 tokens supported 
 
 Official source: https://assets.backed.fi/legal-documentation
 
+## Repayment lifecycle
+
+The shared settlement runtime now includes a dedicated agreement-backed stock pass. It re-verifies the recorded X Layer delivery against the pinned contract runtime, waits for the authoritative Arc agreement to complete, signs the fixed USDC split from the immutable assessment snapshot, verifies the confirmed Arc repayment event, and only then marks the stock request settled. Durable block checkpoints recover a repayment submitted by another relayer or interrupted after broadcast. Stock requests fail closed unless the shared settlement runtime and this stock pass are both enabled.
+
+The legacy inventory escrow receipt and settlement workers are not package entry points for this flow.
+
 ## Release boundary
 
 No agreement-backed stock-delivery contract is deployed on X Layer mainnet. The previously recorded contracts implement USDC escrow or legacy stock inventory and must not be used for this flow. Both legacy stock screens are disconnected from runtime feature flags so a configuration mistake cannot expose their deposit form.
