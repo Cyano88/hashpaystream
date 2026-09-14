@@ -36,7 +36,7 @@ const files = [
   'src/lib/stockDeliveryProtocol.ts',
 ]
 
-const sha256 = path => createHash('sha256').update(readFileSync(path)).digest('hex')
+const sha256 = path => createHash('sha256').update(readFileSync(path, 'utf8').replace(/\r\n/g, '\n')).digest('hex')
 const current = {
   schema: 1,
   release: 'agreement-backed-stock-delivery-v1',

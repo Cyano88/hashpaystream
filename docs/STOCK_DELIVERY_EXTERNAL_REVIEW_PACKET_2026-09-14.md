@@ -12,7 +12,7 @@ An Early Pay offer can only be created for an existing funded job whose worker s
 
 ## Review scope
 
-The complete source inventory and SHA-256 hashes are in `docs/evidence/stock-delivery-release-manifest.json`. CI rejects a changed file until the manifest is intentionally regenerated and its diff reviewed. Contract compiler settings and bytecode hashes are separately pinned in `docs/evidence/stock-paused-deployment-plan.json`.
+The complete source inventory and canonical-LF SHA-256 hashes are in `docs/evidence/stock-delivery-release-manifest.json`. CI rejects a changed file until the manifest is intentionally regenerated and its diff reviewed. Contract compiler settings and bytecode hashes are separately pinned in `docs/evidence/stock-paused-deployment-plan.json`.
 
 Review these trust boundaries together:
 
