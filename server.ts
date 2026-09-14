@@ -18,6 +18,7 @@ import upfrontAgreementGateway from './api/upfront-agreement-gateway.js'
 import { createHashPayStreamUpfrontArcWebhookHandler } from './api/upfront-arc-webhook.js'
 import upfrontProtection from './api/upfront-protection.js'
 import upfrontOpportunities from './api/upfront-opportunities.js'
+import stockDeliveryOpportunities from './api/stock-delivery-opportunities.js'
 import fundingPartners from './api/funding-partners.js'
 import streamAccounts from './api/stream-accounts.js'
 import circleWallet from './api/circle-wallet.js'
@@ -126,6 +127,12 @@ app.all('/api/hashpaystream/v1/upfront/opportunities', (_req, res) => {
 })
 
 
+app.get('/api/hashpaystream/v1/upfront/stock-deliveries', rateLimit({ name: 'stock-delivery-read', windowMs: 60_000, max: 60 }), stockDeliveryOpportunities)
+app.post('/api/hashpaystream/v1/upfront/stock-deliveries', rateLimit({ name: 'stock-delivery-write', windowMs: 60_000, max: 20 }), stockDeliveryOpportunities)
+app.all('/api/hashpaystream/v1/upfront/stock-deliveries', (_req, res) => {
+  res.setHeader('Allow', 'GET, POST')
+  return res.status(405).json({ ok: false, error: 'Method not allowed.' })
+})
 app.get('/api/hashpaystream/v1/funding-partners', rateLimit({ name: 'funding-partner-read', windowMs: 60_000, max: 60 }), fundingPartners)
 app.post('/api/hashpaystream/v1/funding-partners', rateLimit({ name: 'funding-partner-write', windowMs: 60_000, max: 10 }), fundingPartners)
 app.all('/api/hashpaystream/v1/funding-partners', (_req, res) => {
