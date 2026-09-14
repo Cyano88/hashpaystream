@@ -108,8 +108,10 @@
     "test:stock-dex-manipulation": "node --import tsx scripts/stock-dex-manipulation-fork.mjs",
     "test:stock-twelve-data-repayment": "node --import tsx scripts/stock-early-pay-integration.mjs --postgres --actual-stock --twelve",
     "test:stock-weekend-policy": "node --import tsx scripts/stock-weekend-policy-smoke.mjs",
-    "test:stock-delivery-terms": "node --import tsx scripts/stock-delivery-terms-smoke.mjs && node --import tsx scripts/stock-delivery-workflow-smoke.mjs && node --import tsx scripts/stock-delivery-opportunities-smoke.mjs && node --import tsx scripts/stock-delivery-offers-smoke.mjs && node --import tsx scripts/stock-delivery-settlement-worker-smoke.mjs",
-    "test:stock-delivery-settlement": "node --import tsx scripts/stock-delivery-settlement-worker-smoke.mjs"
+    "test:stock-delivery-terms": "node --import tsx scripts/stock-delivery-terms-smoke.mjs && node --import tsx scripts/stock-delivery-workflow-smoke.mjs && node --import tsx scripts/stock-delivery-opportunities-smoke.mjs && node --import tsx scripts/stock-delivery-offers-smoke.mjs && node --import tsx scripts/stock-delivery-settlement-worker-smoke.mjs && npm run test:stock-delivery-preflight",
+    "test:stock-delivery-settlement": "node --import tsx scripts/stock-delivery-settlement-worker-smoke.mjs",
+    "stock:delivery-settlement-preflight": "tsx scripts/stock-delivery-settlement-preflight.ts",
+    "test:stock-delivery-preflight": "node --import tsx scripts/stock-delivery-settlement-targets-smoke.mjs && node scripts/stock-delivery-settlement-preflight-smoke.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.5.1",
