@@ -1,80 +1,84 @@
 {
-  "schema": 1,
+  "schema": 2,
   "chainId": 196,
   "status": "DRAFT_BLOCKED",
   "deploymentApproved": false,
   "unsignedTransaction": null,
-  "contract": "StockEarlyPayEscrow",
-  "evidenceBlock": 70421653,
-  "evidenceSha256": "0bacefe8c38ca28383e492c3d41fc752fcaeb9bb511a2a16e1f174318c1b7bb8",
-  "sourceSha256": "4ceb7e86980fe091e48ceca40733532f02bef1ab9d97dd3778e6dee90f2a493e",
-  "creationBytecodeHash": "0xeeac766e6a4dc90b6a6b55aef8402ad902bcd0d08d20cf5efd8bd265f004154b",
+  "broadcast": false,
+  "contract": "AgreementBackedStockDelivery",
+  "sourcePath": "contracts/src/AgreementBackedStockDelivery.sol",
+  "sourceSha256": "8a254b790576ce1040c3372a7923331967e490d5c0cda26f0bf01f23d6bb225e",
+  "candidateEvidenceSha256": "0bacefe8c38ca28383e492c3d41fc752fcaeb9bb511a2a16e1f174318c1b7bb8",
+  "artifactSha256": "b3b8746ce882dc85fe037a156bb8100baaffe3fc0c35b63e6343bc6e9909f8b7",
+  "creationBytecodeHash": "0x006c601595428e97324ee6140b92a9154a75e12936c9472f56c9582989c2533c",
+  "runtimeBytecodeHash": "0x7ce2b9b9cf5c9d80cd62855441c6e1757441c7e48689f5af51176cf0010722bc",
+  "compiler": {
+    "version": "0.8.24",
+    "optimizer": true,
+    "optimizerRuns": 200,
+    "viaIR": true
+  },
   "constructorOrder": [
-    "usdc",
-    "owner",
+    "arcRepaymentRouter",
+    "underwritingSigner",
     "riskSigner",
-    "maxFeeBps",
-    "maxRiskAge"
+    "protectionSigner",
+    "ownerMultisig"
   ],
   "constructorDraft": {
-    "usdc": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
-    "owner": null,
+    "arcRepaymentRouter": null,
+    "underwritingSigner": null,
     "riskSigner": null,
-    "maxFeeBps": 100,
-    "maxRiskAge": 60
+    "protectionSigner": null,
+    "ownerMultisig": null
+  },
+  "constructorChecks": {
+    "missingRoles": [
+      "arcRepaymentRouter",
+      "underwritingSigner",
+      "riskSigner",
+      "protectionSigner",
+      "ownerMultisig"
+    ],
+    "distinctConfiguredRoles": true,
+    "ownerMustBeVerifiedContractMultisigOnXLayer": true,
+    "signersMustBeSeparatelyControlled": true
   },
   "proposedAsset": {
     "address": "0xE7E553Cd128F0011777323A0b44a7b96EA1CB540",
     "symbol": "wSPYx",
     "decimals": 18,
+    "evidenceBlock": 70421653,
     "runtimeHash": "0x22c711b98473b782f9d8863b9033148c180d6d4d8e3e3bce129ff566352500e8",
     "implementation": "0x76C6851ea0B2741EeDcBBED240715E8817E85583",
     "implementationRuntimeHash": "0x65fbe0111d1e611f05aaab7a4e80f5b883e996037bb58fcddb1043534a5e9a61"
+  },
+  "immutableContractLimits": {
+    "minAdvanceBps": 1000,
+    "maxAdvanceBps": 8000,
+    "maxFunderFeeBps": 300,
+    "maxProtectionWindowSeconds": 2592000,
+    "maxAuthorizationAgeSeconds": 300
   },
   "deploymentPostconditions": {
     "paused": true,
     "allowedAsset": false,
     "allowedFunder": false,
-    "totalUsdcLiability": "0",
-    "policyVersion": 1
-  },
-  "proposedPilotPolicy": {
-    "status": "UNAPPROVED_NOT_CALIBRATED_NOT_ENABLED",
-    "maxFeeBps": 100,
-    "maxRiskAgeSeconds": 60,
-    "maxSourcePriceAgeSeconds": 15,
-    "maxQuoteTtlSeconds": 30,
-    "maxQuoteDeviationBps": 50,
-    "maxPrincipalUsdcUnits": "100000000",
-    "maxRepaymentDelaySeconds": 604800,
-    "maxOutstandingClaimsPerWorker": 1,
-    "minExecutableExitLiquidityUsdcUnits": "1000000000",
-    "maxIntradayRangeBps": 300,
-    "maxFiveMinuteAbsoluteMoveBps": 50,
-    "volatilityDefinition": "Intraday high-low divided by previous regular-session close; five-minute absolute return. Require complete timestamped adjusted data.",
-    "tradeWindow": "US regular session only; issuer and independent feed must both report open",
-    "confirmations": null,
-    "note": "Principal, tenor, per-worker caps, session and corporate-action checks require implementation; not enforced by current config merely by appearing here."
+    "stockInventoryHeldByContract": "0",
+    "deliveryVersion": "1"
   },
   "requiredBeforeDeployment": [
-    "Public indicative price has no source timestamp",
-    "Per-worker and per-funder eligibility and distribution permission not verified",
-    "Wrapper implementation source/audit review and upgrade controls incomplete",
-    "USD-to-USDC conversion and wrapper price units need verified implementation",
-    "Risk limits, owner/multisig and distinct signers not approved",
-    "Verify live pricing adapter access, timestamped independent reference and reviewed data-use entitlement",
-    "Approve constructor fee ceiling and risk age before immutable deployment",
-    "Provide reviewed owner/multisig and distinct risk/settlement signer addresses",
-    "Review compiler artifact against current source and complete security review"
+    "Complete an independent security review of the final contract, API receipt verifier and browser execution adapter",
+    "Provide a verified X Layer contract multisig as owner and separately controlled underwriting, risk and protection signers",
+    "Verify the exact issuer token, implementation upgrade controls, transfer behavior and participant distribution permission",
+    "Approve per-worker, per-funder, per-token and global pilot exposure limits",
+    "Recompile from a clean checkout and match the reviewed source, artifact and creation bytecode hashes"
   ],
   "requiredBeforeUnpause": [
-    "Pin deployed runtime and creation block",
-    "Implement participant-bound eligibility and verified unit-aware pricing",
-    "Implement and test pilot caps and corporate-action blackout",
-    "Verify production DEX quote integration and current executable exit liquidity; issuer account only if using issuer RFQ",
-    "Rehearse actual stock delivery and fixed USDC repayment with approved participants",
-    "Review implementation-upgrade monitoring and incident pause",
-    "Enable mainnet API/worker only through reviewed release"
-  ],
-  "broadcast": false
+    "Verify the deployed source, constructor arguments, runtime hash and creation block",
+    "Keep the stock asset and every funder disallowed until their individual approval evidence is complete",
+    "Prove fresh independent regular-session price, X Layer executable quote, liquidity, volatility and corporate-action checks",
+    "Rehearse one full allowlisted tiny delivery and fixed-USDC Arc repayment with incident owners present",
+    "Enable HASHPAYSTREAM_STOCK_DELIVERY_REQUESTS_ENABLED only after the paused deployment review is signed off"
+  ]
 }

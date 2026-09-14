@@ -1,36 +1,95 @@
-import {readFileSync,writeFileSync} from 'node:fs'
-import {createHash} from 'node:crypto'
-import {keccak256} from 'viem'
-const evidence=JSON.parse(readFileSync('docs/evidence/stock-xlayer-candidate.json','utf8'))
-const artifact=JSON.parse(readFileSync('contracts/artifacts/src/StockEarlyPayEscrow.sol/StockEarlyPayEscrow.json','utf8'))
-if(evidence.chainId!==196||evidence.candidate.wrapper.symbol!=='wSPYx'||artifact.contractName!=='StockEarlyPayEscrow')throw Error('Unexpected deployment candidate')
-const plan={
- schema:1,chainId:196,status:'DRAFT_BLOCKED',deploymentApproved:false,unsignedTransaction:null,
- contract:'StockEarlyPayEscrow',evidenceBlock:evidence.blockNumber,
- evidenceSha256:createHash('sha256').update(readFileSync('docs/evidence/stock-xlayer-candidate.json')).digest('hex'),
- sourceSha256:createHash('sha256').update(readFileSync('contracts/src/StockEarlyPayEscrow.sol')).digest('hex'),
- creationBytecodeHash:keccak256(artifact.bytecode),
- constructorOrder:['usdc','owner','riskSigner','maxFeeBps','maxRiskAge'],
- constructorDraft:{usdc:evidence.candidate.payment.address,owner:null,riskSigner:null,maxFeeBps:100,maxRiskAge:60},
- proposedAsset:evidence.candidate.wrapper,
- deploymentPostconditions:{paused:true,allowedAsset:false,allowedFunder:false,totalUsdcLiability:'0',policyVersion:1},
- proposedPilotPolicy:{
-  status:'UNAPPROVED_NOT_CALIBRATED_NOT_ENABLED',
-  maxFeeBps:100,maxRiskAgeSeconds:60,maxSourcePriceAgeSeconds:15,maxQuoteTtlSeconds:30,maxQuoteDeviationBps:50,
-  maxPrincipalUsdcUnits:'100000000',maxRepaymentDelaySeconds:604800,maxOutstandingClaimsPerWorker:1,
-  minExecutableExitLiquidityUsdcUnits:'1000000000',
-  maxIntradayRangeBps:300,maxFiveMinuteAbsoluteMoveBps:50,
-  volatilityDefinition:'Intraday high-low divided by previous regular-session close; five-minute absolute return. Require complete timestamped adjusted data.',
-  tradeWindow:'US regular session only; issuer and independent feed must both report open',
-  confirmations:null,
-  note:'Principal, tenor, per-worker caps, session and corporate-action checks require implementation; not enforced by current config merely by appearing here.'
- },
- requiredBeforeDeployment:[...evidence.blockers.filter(item=>item!=='Authenticated pricing and executable liquidity not verified'),'Verify live pricing adapter access, timestamped independent reference and reviewed data-use entitlement','Approve constructor fee ceiling and risk age before immutable deployment',
-  'Provide reviewed owner/multisig and distinct risk/settlement signer addresses','Review compiler artifact against current source and complete security review'],
- requiredBeforeUnpause:['Pin deployed runtime and creation block','Implement participant-bound eligibility and verified unit-aware pricing',
-  'Implement and test pilot caps and corporate-action blackout','Verify production DEX quote integration and current executable exit liquidity; issuer account only if using issuer RFQ',
-  'Rehearse actual stock delivery and fixed USDC repayment with approved participants','Review implementation-upgrade monitoring and incident pause','Enable mainnet API/worker only through reviewed release'],
- broadcast:false
+import { readFileSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { getAddress, isAddress, keccak256 } from 'viem'
+
+const contractName = 'AgreementBackedStockDelivery'
+const sourcePath = `contracts/src/${contractName}.sol`
+const artifactPath = `contracts/artifacts/src/${contractName}.sol/${contractName}.json`
+const evidencePath = 'docs/evidence/stock-xlayer-candidate.json'
+const evidence = JSON.parse(readFileSync(evidencePath, 'utf8'))
+const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'))
+if (evidence.chainId !== 196 || evidence.candidate.wrapper.symbol !== 'wSPYx' || artifact.contractName !== contractName || !/^0x[0-9a-f]+$/i.test(artifact.bytecode) || !/^0x[0-9a-f]+$/i.test(artifact.deployedBytecode)) throw new Error('Unexpected agreement-backed stock delivery candidate.')
+const constructorInputs = artifact.abi.find(item => item.type === 'constructor')?.inputs?.map(item => item.name.replace(/_$/, '')) ?? []
+if (JSON.stringify(constructorInputs) !== JSON.stringify(['arcRepaymentRouter', 'underwritingSigner', 'riskSigner', 'protectionSigner', 'initialOwner'])) throw new Error('The reviewed constructor order changed.')
+
+const optionalAddress = name => {
+  const value = String(process.env[name] ?? '').trim()
+  if (!value) return null
+  if (!isAddress(value) || /^0x0{40}$/i.test(value)) throw new Error(`${name} is not a valid nonzero address.`)
+  return getAddress(value)
 }
-writeFileSync('docs/evidence/stock-paused-deployment-plan.json',JSON.stringify(plan,null,2)+'\n')
-console.log('Paused deployment review packet prepared: DRAFT_BLOCKED. No unsigned transaction emitted; owner, risk signer and approvals are missing.')
+const constructorDraft = {
+  arcRepaymentRouter: optionalAddress('HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS'),
+  underwritingSigner: optionalAddress('HASHPAYSTREAM_STOCK_UNDERWRITING_SIGNER'),
+  riskSigner: optionalAddress('HASHPAYSTREAM_STOCK_RISK_SIGNER'),
+  protectionSigner: optionalAddress('HASHPAYSTREAM_STOCK_PROTECTION_SIGNER'),
+  ownerMultisig: optionalAddress('HASHPAYSTREAM_STOCK_OWNER_MULTISIG'),
+}
+const configured = Object.values(constructorDraft).filter(Boolean)
+const duplicateRoles = new Set(configured.map(value => value.toLowerCase())).size !== configured.length
+const missingRoles = Object.entries(constructorDraft).filter(([, value]) => !value).map(([name]) => name)
+const sha256 = path => createHash('sha256').update(readFileSync(path)).digest('hex')
+
+const plan = {
+  schema: 2,
+  chainId: 196,
+  status: 'DRAFT_BLOCKED',
+  deploymentApproved: false,
+  unsignedTransaction: null,
+  broadcast: false,
+  contract: contractName,
+  sourcePath,
+  sourceSha256: sha256(sourcePath),
+  candidateEvidenceSha256: sha256(evidencePath),
+  artifactSha256: sha256(artifactPath),
+  creationBytecodeHash: keccak256(artifact.bytecode),
+  runtimeBytecodeHash: keccak256(artifact.deployedBytecode),
+  compiler: { version: '0.8.24', optimizer: true, optimizerRuns: 200, viaIR: true },
+  constructorOrder: ['arcRepaymentRouter', 'underwritingSigner', 'riskSigner', 'protectionSigner', 'ownerMultisig'],
+  constructorDraft,
+  constructorChecks: {
+    missingRoles,
+    distinctConfiguredRoles: !duplicateRoles,
+    ownerMustBeVerifiedContractMultisigOnXLayer: true,
+    signersMustBeSeparatelyControlled: true,
+  },
+  proposedAsset: {
+    address: evidence.candidate.wrapper.address,
+    symbol: evidence.candidate.wrapper.symbol,
+    decimals: evidence.candidate.wrapper.decimals,
+    evidenceBlock: evidence.blockNumber,
+    runtimeHash: evidence.candidate.wrapper.runtimeHash,
+    implementation: evidence.candidate.wrapper.implementation,
+    implementationRuntimeHash: evidence.candidate.wrapper.implementationRuntimeHash,
+  },
+  immutableContractLimits: {
+    minAdvanceBps: 1000,
+    maxAdvanceBps: 8000,
+    maxFunderFeeBps: 300,
+    maxProtectionWindowSeconds: 2592000,
+    maxAuthorizationAgeSeconds: 300,
+  },
+  deploymentPostconditions: {
+    paused: true,
+    allowedAsset: false,
+    allowedFunder: false,
+    stockInventoryHeldByContract: '0',
+    deliveryVersion: '1',
+  },
+  requiredBeforeDeployment: [
+    'Complete an independent security review of the final contract, API receipt verifier and browser execution adapter',
+    'Provide a verified X Layer contract multisig as owner and separately controlled underwriting, risk and protection signers',
+    'Verify the exact issuer token, implementation upgrade controls, transfer behavior and participant distribution permission',
+    'Approve per-worker, per-funder, per-token and global pilot exposure limits',
+    'Recompile from a clean checkout and match the reviewed source, artifact and creation bytecode hashes',
+  ],
+  requiredBeforeUnpause: [
+    'Verify the deployed source, constructor arguments, runtime hash and creation block',
+    'Keep the stock asset and every funder disallowed until their individual approval evidence is complete',
+    'Prove fresh independent regular-session price, X Layer executable quote, liquidity, volatility and corporate-action checks',
+    'Rehearse one full allowlisted tiny delivery and fixed-USDC Arc repayment with incident owners present',
+    'Enable HASHPAYSTREAM_STOCK_DELIVERY_REQUESTS_ENABLED only after the paused deployment review is signed off',
+  ],
+}
+writeFileSync('docs/evidence/stock-paused-deployment-plan.json', JSON.stringify(plan, null, 2) + '\n')
+console.log(`Paused ${contractName} review packet prepared: DRAFT_BLOCKED. No transaction was created or broadcast.`)

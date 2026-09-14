@@ -45,11 +45,11 @@ No agreement-backed stock-delivery contract is deployed on X Layer mainnet. The 
 
 Keep production stock execution closed until all of these are complete:
 
-1. finish the versioned API and browser typed-data adapter for AgreementBackedStockDelivery;
+1. obtain independent review of the final AgreementBackedStockDelivery contract, API receipt verifier, and browser execution adapter;
 2. verify the exact X Layer stock-token issuer, contract, redemption and transfer restrictions;
 3. connect Twelve Data or another independent licensed reference source and prove regular-session freshness;
 4. complete participant eligibility, jurisdiction, per-user, per-token and global exposure limits;
-5. obtain independent review of the final contract and settlement integration;
+5. approve the owner multisig, separate production signers, and pilot exposure limits;
 6. deploy from the owner multisig while paused, verify source/runtime/configuration, then rehearse one allowlisted tiny delivery during the regular US session.
 
 No mainnet transaction, deployment, stock deposit, or production feature-gate change occurred in this checkpoint.

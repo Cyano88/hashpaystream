@@ -80,20 +80,20 @@ contract AgreementBackedStockDelivery is EIP712, Ownable2Step, Pausable, Reentra
     constructor(address arcRepaymentRouter_, address underwritingSigner_, address riskSigner_, address protectionSigner_, address initialOwner)
         EIP712('HashPayStream Stock Delivery', '1') Ownable(initialOwner)
     {
-        if (arcRepaymentRouter_ == address(0) || underwritingSigner_ == address(0) || riskSigner_ == address(0) || protectionSigner_ == address(0) || initialOwner == address(0)) revert InvalidAddress();
+        if (arcRepaymentRouter_ == address(0) || underwritingSigner_ == address(0) || riskSigner_ == address(0) || protectionSigner_ == address(0) || initialOwner == address(0) || underwritingSigner_ == riskSigner_ || underwritingSigner_ == protectionSigner_ || riskSigner_ == protectionSigner_) revert InvalidAddress();
         arcRepaymentRouter = arcRepaymentRouter_; underwritingSigner = underwritingSigner_; riskSigner = riskSigner_; protectionSigner = protectionSigner_; _pause();
     }
 
     function setUnderwritingSigner(address nextSigner) external onlyOwner {
-        if (nextSigner == address(0)) revert InvalidAddress();
+        if (nextSigner == address(0) || nextSigner == riskSigner || nextSigner == protectionSigner) revert InvalidAddress();
         emit UnderwritingSignerUpdated(underwritingSigner, nextSigner); underwritingSigner = nextSigner;
     }
     function setRiskSigner(address nextSigner) external onlyOwner {
-        if (nextSigner == address(0)) revert InvalidAddress();
+        if (nextSigner == address(0) || nextSigner == underwritingSigner || nextSigner == protectionSigner) revert InvalidAddress();
         emit RiskSignerUpdated(riskSigner, nextSigner); riskSigner = nextSigner;
     }
     function setProtectionSigner(address nextSigner) external onlyOwner {
-        if (nextSigner == address(0)) revert InvalidAddress();
+        if (nextSigner == address(0) || nextSigner == underwritingSigner || nextSigner == riskSigner) revert InvalidAddress();
         emit ProtectionSignerUpdated(protectionSigner, nextSigner); protectionSigner = nextSigner;
     }
     function setFunderAllowed(address funder, bool allowed) external onlyOwner {

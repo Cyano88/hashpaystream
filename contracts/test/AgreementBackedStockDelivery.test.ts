@@ -28,9 +28,9 @@ const protectionTypes = { ProtectionAttestation: [
 ] }
 
 describe('AgreementBackedStockDelivery', () => {
-  async function fixture() {
+  async function fixture(tokenName = 'MockUSDC') {
     const [owner, underwriter, riskSigner, protectionSigner, funder, worker, workerArcRecipient, treasury, router] = await ethers.getSigners()
-    const stock = await ethers.deployContract('MockUSDC')
+    const stock = await ethers.deployContract(tokenName)
     const delivery = await ethers.deployContract('AgreementBackedStockDelivery', [router.address, underwriter.address, riskSigner.address, protectionSigner.address, owner.address])
     await delivery.connect(owner).setFunderAllowed(funder.address, true)
     await delivery.connect(owner).setStockAssetAllowed(stock.target, true)
@@ -78,6 +78,29 @@ describe('AgreementBackedStockDelivery', () => {
     await c.delivery.connect(c.owner).setFunderAllowed(c.funder.address, true)
     await c.delivery.connect(c.owner).setStockAssetAllowed(c.stock.target, false)
     await expect(c.delivery.connect(c.funder).deliver(p.offer, p.terms, p.attestation, p.offerSignature, p.riskSignature, p.workerSignature, p.protectionSignature)).to.be.revertedWithCustomError(c.delivery, 'StockAssetNotAllowed')
+  })
+
+  it('requires independently controlled authorization roles', async () => {
+    const [owner, signer, other, router] = await ethers.getSigners()
+    const factory = await ethers.getContractFactory('AgreementBackedStockDelivery')
+    await expect(factory.deploy(router.address, signer.address, signer.address, other.address, owner.address)).to.be.revertedWithCustomError(factory, 'InvalidAddress')
+    const c = await fixture()
+    await expect(c.delivery.connect(c.owner).setRiskSigner(c.underwriter.address)).to.be.revertedWithCustomError(c.delivery, 'InvalidAddress')
+    await expect(c.delivery.connect(c.owner).setProtectionSigner(c.riskSigner.address)).to.be.revertedWithCustomError(c.delivery, 'InvalidAddress')
+  })
+
+  it('rolls back short token delivery and blocks token reentrancy', async () => {
+    const short = await fixture('ShortTransferUSDC'); const shortTerms = await prepare(short, 'short')
+    await expect(short.delivery.connect(short.funder).deliver(shortTerms.offer, shortTerms.terms, shortTerms.attestation, shortTerms.offerSignature, shortTerms.riskSignature, shortTerms.workerSignature, shortTerms.protectionSignature)).to.be.revertedWithCustomError(short.delivery, 'UnsupportedTransferFee')
+    expect(await short.stock.balanceOf(short.worker.address)).to.equal(0)
+    expect((await short.delivery.deliveries(shortTerms.deliveryTermsHash)).deliveredAt).to.equal(0)
+
+    const reentrant = await fixture('ReentrantUSDC'); const p = await prepare(reentrant, 'reentrant')
+    const callback = reentrant.delivery.interface.encodeFunctionData('deliver', [p.offer, p.terms, p.attestation, p.offerSignature, p.riskSignature, p.workerSignature, p.protectionSignature])
+    await reentrant.stock.armCallback(reentrant.delivery.target, callback)
+    await reentrant.delivery.connect(reentrant.funder).deliver(p.offer, p.terms, p.attestation, p.offerSignature, p.riskSignature, p.workerSignature, p.protectionSignature)
+    expect(await reentrant.stock.callbackBlocked()).to.equal(true)
+    expect(await reentrant.stock.balanceOf(reentrant.worker.address)).to.equal(p.terms.stockTokenAmount)
   })
 
   it('rejects tampering, excess fees, stale prices, and Arc replay', async () => {
