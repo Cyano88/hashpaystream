@@ -111,7 +111,9 @@
     "test:stock-delivery-terms": "node --import tsx scripts/stock-delivery-terms-smoke.mjs && node --import tsx scripts/stock-delivery-workflow-smoke.mjs && node --import tsx scripts/stock-delivery-opportunities-smoke.mjs && node --import tsx scripts/stock-delivery-offers-smoke.mjs && node --import tsx scripts/stock-delivery-settlement-worker-smoke.mjs && npm run test:stock-delivery-preflight",
     "test:stock-delivery-settlement": "node --import tsx scripts/stock-delivery-settlement-worker-smoke.mjs",
     "stock:delivery-settlement-preflight": "tsx scripts/stock-delivery-settlement-preflight.ts",
-    "test:stock-delivery-preflight": "node --import tsx scripts/stock-delivery-settlement-targets-smoke.mjs && node scripts/stock-delivery-settlement-preflight-smoke.mjs"
+    "test:stock-delivery-preflight": "node --import tsx scripts/stock-delivery-settlement-targets-smoke.mjs && node scripts/stock-delivery-settlement-preflight-smoke.mjs",
+    "stock:review-manifest": "node scripts/stock-delivery-review-manifest.mjs --write",
+    "test:stock-review-manifest": "node scripts/stock-delivery-review-manifest.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.5.1",
