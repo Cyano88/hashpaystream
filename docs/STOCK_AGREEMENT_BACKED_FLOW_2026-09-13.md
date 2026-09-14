@@ -45,8 +45,7 @@ The shared settlement runtime now includes a dedicated agreement-backed stock pa
 
 The legacy inventory escrow receipt and settlement workers are not package entry points for this flow.
 
-Before pilot activation, 
-pm run stock:delivery-settlement-preflight performs read-only checks for the database and shared lease, the exact X Layer runtime and EIP-712 domain, pause state, asset allowlist, independent delivery signers, Arc router configuration, repayment signer, treasury, and relayer gas. It reports inancialProductionReady: false because external review and issuer/distribution approval remain separate release requirements.
+Before pilot activation, `npm run stock:delivery-settlement-preflight` performs read-only checks for the database and shared lease, the exact X Layer runtime and EIP-712 domain, pause state, asset allowlist, independent delivery signers, Arc router configuration, repayment signer, treasury, and relayer gas. It reports `financialProductionReady: false` because external review and issuer/distribution approval remain separate release requirements.
 
 ## Release boundary
 
