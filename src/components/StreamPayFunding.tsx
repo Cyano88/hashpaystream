@@ -16,7 +16,7 @@ const inputClass = 'mt-1.5 w-full rounded-2xl border border-gray-200 bg-white px
 type Profile = {
   email: string
   status: 'not_applied' | 'pending' | 'approved' | 'restricted'
-  application?: { name?: string }
+  application?: { name?: string; stockOffersEnabled?: boolean; stockFeeBps?: number }
 }
 
 const fundingProfileCache = new Map<string, Profile>()
@@ -59,6 +59,12 @@ export default function StreamPayFunding() {
     }).catch(reason => setError(reason instanceof Error ? reason.message : 'Your funding profile could not be loaded.')).finally(() => setLoading(false))
   }, [authenticated, ready, request, scope])
 
+  async function configureStockOffers(enabled: boolean, feeBps: number) {
+    const next = await request({ action: 'configure_stock_offers', enabled, feeBps })
+    fundingProfileCache.set(scope, next)
+    setProfile(next)
+  }
+
   async function apply() {
     setSubmitting(true)
     setError('')
@@ -76,7 +82,7 @@ export default function StreamPayFunding() {
   if (!authenticated) return <AgreementSignInLanding />
   if (!ready || loading) return <StreamPayLoadingState active="funding" />
   if (!fundingMode && !applying) return <StreamPayGrow fundingStatus={profile?.status} />
-  if (profile?.status === 'approved') return <StreamPayFundingDesk />
+  if (profile?.status === 'approved') return <StreamPayFundingDesk stockOfferProfile={{ enabled: profile.application?.stockOffersEnabled === true, feeBps: profile.application?.stockFeeBps, onSave: configureStockOffers }} />
 
   if (profile?.status === 'pending') return (
     <section className="stream-screen w-full max-w-md py-5 sm:py-8">

@@ -18,6 +18,8 @@ export type FundingPartnerRecord = {
   applicantType: 'individual' | 'company'
   experience: 'new' | 'some' | 'experienced'
   expectedFundingRange: string
+  stockOffersEnabled?: boolean
+  stockFeeBps?: number
   status: FundingPartnerStatus
   createdAt: string
   updatedAt: string
@@ -153,6 +155,22 @@ export function createFundingPartnersHandler(overrides: Partial<Dependencies> = 
 
       const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body as Record<string, unknown> : {}
       const action = clean(body.action, 24)
+      if (action === 'configure_stock_offers') {
+        if (!record || record.status !== 'approved') failure('Approved funding access is required.', 403)
+        if (wallets.length !== 1 || !record.walletAddress || getAddress(record.walletAddress) !== wallets[0]) failure('Your approved funding wallet is required.', 409)
+        if (typeof body.enabled !== 'boolean') failure('Choose whether stock offers are available.', 400)
+        const feeBps = Number(body.feeBps)
+        if (body.enabled && (!Number.isInteger(feeBps) || feeBps < 1 || feeBps > 300)) failure('Stock funding fee must be between 0.01% and 3%.', 400)
+        let configured: FundingPartnerRecord | undefined
+        await dependencies.mutate(config.storeKey, current => {
+          const next = safeFundingPartnerStore(current), latest = next.applications[record.id]
+          if (!latest || latest.status !== 'approved' || latest.walletAddress !== record.walletAddress) failure('Funding access changed before this update.', 409)
+          configured = { ...latest, stockOffersEnabled: body.enabled as boolean, stockFeeBps: body.enabled ? feeBps : latest.stockFeeBps, updatedAt: dependencies.now().toISOString() }
+          next.applications[record.id] = configured
+          return next
+        })
+        return res.json({ ok: true, profile: { email: primaryEmail, status: 'approved', application: { ...configured, accountKey: undefined } } })
+      }
       if (action === 'review') {
         const admins = emailSet(env.HASHPAYSTREAM_ADMIN_EMAILS)
         if (!emails.some(email => admins.has(email))) failure('Operator access is required.', 403)
