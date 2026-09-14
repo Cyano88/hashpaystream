@@ -47,6 +47,8 @@ To refresh the manifest after an intentional scoped change, run `npm run stock:r
 
 ## Guarded deployment commands
 
+Safe setup follows `docs/STOCK_OWNER_SAFE_RUNBOOK_2026-09-14.md`. `npm run plan:stock-owner-safe` is read-only and binds chain, factory, singleton, owners, threshold, initializer and salt into a deterministic address and plan ID. `npm run create:stock-owner-safe` requires that exact plan ID and a separate explicit confirmation; running it still requires final transaction authorization.
+
 Before deployment, set `HASHPAYSTREAM_STOCK_OWNER_MULTISIG` and run `npm run verify:stock-owner-safe` from `contracts`. The read-only check requires a canonical Safe v1.5.0 proxy on X Layer mainnet with exactly three distinct owners, a 2-of-3 threshold, no modules, no transaction or module guard, and the pinned canonical compatibility fallback handler. It also pins the live singleton, factory and handler runtime hashes from the official Safe deployment registry. The source commits, dependency addresses, hashes and remaining operational checks are recorded in `docs/evidence/stock-owner-safe-policy.json`. The owners must be operationally confirmed as separately controlled; bytecode cannot prove control of their keys.
 
 After the external review, multisig and signer gates are complete, `npm run deploy:stock-mainnet` from `contracts` is the only reviewed deployment entry point. It repeats the Safe verification, requires three exact operator confirmations and always deploys paused. It refuses the wrong chain, an invalid Safe, overlapping Safe owners or protocol roles, an existing configured contract, or a changed artifact.

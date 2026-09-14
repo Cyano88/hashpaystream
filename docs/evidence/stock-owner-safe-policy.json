@@ -28,6 +28,12 @@
       "runtimeKeccak256": "0x3c6a85bcf7b563daa624b884b4e9a1b9fa5371edde7be945d998071a48f28bbc"
     }
   },
+  "creation": {
+    "factoryMethod": "createChainSpecificProxyWithNonceL2(address,bytes,uint256)",
+    "planIdEncoding": "keccak256(abi.encode(chainId,factory,transactionData))",
+    "readOnlyPlannerRehearsed": true,
+    "creationAuthorized": false
+  },
   "requiredSafeShape": {
     "owners": 3,
     "threshold": 2,

@@ -30,8 +30,10 @@
     "deploy:arc-testnet": "hardhat run scripts/deploy-arc.ts --network arcTestnet",
     "deploy:stock-mainnet": "hardhat run scripts/deploy-stock-delivery-mainnet.ts --network xlayerMainnet",
     "verify:stock-mainnet": "hardhat run scripts/verify-stock-delivery-mainnet.ts --network xlayerMainnet",
+    "plan:stock-owner-safe": "hardhat run scripts/plan-stock-owner-safe-mainnet.ts --network xlayerMainnet",
+    "create:stock-owner-safe": "hardhat run scripts/create-stock-owner-safe-mainnet.ts --network xlayerMainnet",
     "verify:stock-owner-safe": "hardhat run scripts/verify-stock-owner-safe-mainnet.ts --network xlayerMainnet",
-    "test:stock-deployment": "hardhat test test/AgreementBackedStockDelivery.test.ts test/StockDeliveryDeploymentGuards.test.ts test/StockOwnerSafeVerification.test.ts"
+    "test:stock-deployment": "hardhat test test/AgreementBackedStockDelivery.test.ts test/StockDeliveryDeploymentGuards.test.ts test/StockOwnerSafeVerification.test.ts test/StockOwnerSafePlanning.test.ts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",

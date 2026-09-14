@@ -61,6 +61,11 @@ describe("X Layer stock owner Safe verification", function () {
       address: SAFE_COMPATIBILITY_FALLBACK_HANDLER,
       runtimeKeccak256: SAFE_COMPATIBILITY_FALLBACK_HANDLER_RUNTIME_HASH,
     });
+    expect(policy.creation).to.include({
+      factoryMethod:
+        "createChainSpecificProxyWithNonceL2(address,bytes,uint256)",
+      creationAuthorized: false,
+    });
     expect(policy.requiredSafeShape).to.include({
       owners: 3,
       threshold: 2,
