@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { recoverTypedDataAddress } from 'viem'
 import { buildAgreementIntelligenceRequest, agreementIntelligenceRequestHash } from '../api/agreement-intelligence-schema.ts'
 import { buildSignedStockDelivery, quoteStockDeliveryFees } from '../api/stock-delivery-terms.ts'
-import { STOCK_DELIVERY_PROTECTION_TYPES, STOCK_DELIVERY_TERMS_TYPES, STOCK_DELIVERY_UNDERWRITING_TYPES, stockDeliveryProtectionMessage, stockDeliveryTermsMessage, stockDeliveryUnderwritingMessage } from '../src/lib/stockDeliveryProtocol.ts'
+import { STOCK_DELIVERY_PROTECTION_TYPES, STOCK_DELIVERY_TERMS_TYPES, STOCK_DELIVERY_UNDERWRITING_TYPES, stockDeliveryProtectionMessage, stockDeliveryTermsMessage, stockDeliveryUnderwritingMessage, verifyStockDeliveryAuthorization } from '../src/lib/stockDeliveryProtocol.ts'
 
 const now = 1_789_302_600, worker = '0x1111111111111111111111111111111111111111', funder = '0x2222222222222222222222222222222222222222'
 const asset = '0x3333333333333333333333333333333333333333', router = '0x4444444444444444444444444444444444444444'
@@ -18,6 +18,10 @@ assert.equal(bundle.terms.stockTokenAmount, tokenAmount.toString())
 assert.equal(bundle.terms.advanceUsdcAmount, '30000000')
 assert.equal(bundle.protection.deliveryId, bundle.deliveryId)
 assert.equal(bundle.offer.agreementTermsHash, `0x${request.agreement.termsHash.slice(7)}`)
+const expected = { chainId: 196, deliveryContract: contract, worker, workerArcRecipient: workerArc, funder, repaymentRecipient: funder, platformTreasury: treasury, stockAsset: asset, advanceUsdcAmount: '30000000', underwritingSigner: bundle.underwritingSigner, riskSigner: bundle.riskSigner, protectionSigner: bundle.protectionSigner, now }
+assert.deepEqual(await verifyStockDeliveryAuthorization(bundle, expected), { offerHash: bundle.offerHash, deliveryId: bundle.deliveryId })
+await assert.rejects(() => verifyStockDeliveryAuthorization({ ...bundle, terms: { ...bundle.terms, stockTokenAmount: (tokenAmount + 1n).toString() } }, expected), /commitments do not match/)
+await assert.rejects(() => verifyStockDeliveryAuthorization(bundle, { ...expected, stockAsset: router }), /does not match this offer/)
 assert.equal(await recoverTypedDataAddress({ domain: bundle.domain, types: STOCK_DELIVERY_UNDERWRITING_TYPES, primaryType: 'UnderwritingOffer', message: stockDeliveryUnderwritingMessage(bundle.offer), signature: bundle.underwritingSignature }), bundle.underwritingSigner)
 assert.equal(await recoverTypedDataAddress({ domain: bundle.domain, types: STOCK_DELIVERY_TERMS_TYPES, primaryType: 'DeliveryTerms', message: stockDeliveryTermsMessage(bundle.terms), signature: bundle.riskSignature }), bundle.riskSigner)
 assert.equal(await recoverTypedDataAddress({ domain: bundle.domain, types: STOCK_DELIVERY_PROTECTION_TYPES, primaryType: 'ProtectionAttestation', message: stockDeliveryProtectionMessage(bundle.protection), signature: bundle.protectionSignature }), bundle.protectionSigner)

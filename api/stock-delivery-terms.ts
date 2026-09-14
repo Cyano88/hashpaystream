@@ -8,7 +8,7 @@ import {
   STOCK_DELIVERY_PROTECTION_TYPES, STOCK_DELIVERY_TERMS_TYPES, STOCK_DELIVERY_UNDERWRITING_TYPES,
   stockDeliveryDomain, stockDeliveryOfferHash, stockDeliveryProtectionMessage, stockDeliveryTermsHash,
   stockDeliveryTermsMessage, stockDeliveryUnderwritingMessage, type StockDeliveryProtectionWire,
-  type StockDeliveryTermsWire, type StockDeliveryUnderwritingWire,
+  type StockDeliveryAuthorization, type StockDeliveryTermsWire, type StockDeliveryUnderwritingWire,
 } from '../src/lib/stockDeliveryProtocol.js'
 
 const BPS = 10_000n
@@ -34,11 +34,7 @@ export function quoteStockDeliveryFees(input: { protectedAmount: bigint; advance
   return { feeBps: input.feeBps, advanceUsdcUnits: input.advanceAmount.toString(), totalFundingFeeUsdcUnits: totalFee.toString(), funderProfitUsdcUnits: funderProfit.toString(), funderRepaymentUsdcUnits: funderRepayment.toString(), platformFeeUsdcUnits: platformFee.toString(), workerRemainderUsdcUnits: workerRemainder.toString() }
 }
 
-export type SignedStockDeliveryBundle = {
-  domain: ReturnType<typeof stockDeliveryDomain>; offer: StockDeliveryUnderwritingWire; offerHash: Hex; underwritingSigner: Address; underwritingSignature: Hex;
-  terms: StockDeliveryTermsWire; deliveryId: Hex; riskSigner: Address; riskSignature: Hex; protection: StockDeliveryProtectionWire;
-  protectionSigner: Address; protectionSignature: Hex; quote: StockDeliveryFeeQuote
-}
+export type SignedStockDeliveryBundle = StockDeliveryAuthorization & { quote: StockDeliveryFeeQuote }
 export async function buildSignedStockDelivery(input: {
   request: AgreementIntelligenceRequest
   agreement: { status: string; recipient: string; chain: { network: string; chainId: number; onchainAgreementId: string; termsHash: string; amountUsdcUnits: string; remainingUsdcUnits: string; expiresAt: string } }
