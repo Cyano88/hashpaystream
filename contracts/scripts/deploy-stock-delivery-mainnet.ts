@@ -1,5 +1,6 @@
 import { ethers } from 'hardhat'
 import { assertApprovedPausedDeployment, assertReviewedStockDeliveryArtifact } from './assert-reviewed-stock-delivery'
+import { verifyXLayerStockOwnerSafe } from './verify-stock-owner-safe'
 
 function address(name: string) {
   const value = String(process.env[name] ?? '').trim()
@@ -26,7 +27,10 @@ async function main() {
   const owner = address('HASHPAYSTREAM_STOCK_OWNER_MULTISIG')
   const roles = [underwritingSigner, riskSigner, protectionSigner, owner]
   if (new Set(roles.map(value => value.toLowerCase())).size !== roles.length || roles.some(value => same(value, deployer.address)) || roles.some(value => same(value, arcRepaymentRouter))) throw new Error('Stock delivery roles, owner, deployer and Arc router must be separate.')
-  if (await ethers.provider.getCode(owner) === '0x') throw new Error('HASHPAYSTREAM_STOCK_OWNER_MULTISIG must be a deployed X Layer contract wallet.')
+  const verifiedOwnerSafe = await verifyXLayerStockOwnerSafe(ethers.provider, owner)
+  if (verifiedOwnerSafe.owners.some(safeOwner => [arcRepaymentRouter, ...roles, deployer.address].some(value => same(safeOwner, value)))) {
+    throw new Error('Safe owners must be separate from protocol roles, the Arc router and deployer.')
+  }
 
   const existing = String(process.env.HASHPAYSTREAM_STOCK_DELIVERY_CONTRACT_ADDRESS ?? '').trim()
   if (existing) {
@@ -48,6 +52,8 @@ async function main() {
     arcRepaymentRouter, underwritingSigner, riskSigner, protectionSigner, owner, paused: true,
     allowedAssets: [], allowedFunders: [], financialProductionReady: false,
     deployer: deployer.address, predictedContract, transactionHash: delivery.deploymentTransaction()?.hash,
+    ownerSafePolicy: 'CANONICAL_SAFE_1_5_0_2_OF_3_NO_MODULES_NO_GUARDS',
+    ownerSafeOwners: [...verifiedOwnerSafe.owners].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())),
   }, null, 2))
 }
 
