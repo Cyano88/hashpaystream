@@ -14,6 +14,7 @@ import { requireUpfrontSettlementV3 } from './upfront-v3.js'
 const DEFAULT_STORE_KEY = 'hashpaystream:upfront-assessments:v1'
 const DEFAULT_OWNERSHIP_STORE_KEY = 'hashpaystream:upfront-agreement-owners:v1'
 const DEFAULT_ACCOUNT_STORE_KEY = 'hashpaystream:accounts:v1'
+const DEFAULT_REQUEST_STORE_KEY = 'hashpaystream:service-requests:v1'
 const AGREEMENT_ID = /^agr_[a-z0-9]{12,64}$/i
 export type UpfrontReviewState = {
   status: 'pending' | 'approved' | 'declined'
@@ -37,7 +38,8 @@ export type UpfrontFundingRequest = {
 export type UpfrontAssessmentRecord = { ownerReference: string; requestHash: string; agreementId?: string; status: 'pending' | 'completed'; createdAt: string; request?: AgreementIntelligenceRequest; response?: Record<string, unknown>; review?: UpfrontReviewState; fundingRequest?: UpfrontFundingRequest }
 export type UpfrontAssessmentStore = { schema: 1; records: Record<string, UpfrontAssessmentRecord> }
 type AssessmentStore = UpfrontAssessmentStore
-type OwnershipStore = { schema: 1; agreements: Record<string, { agreementId: string; ownerHash: string; ownerAccountKey?: string }> }
+type OwnershipStore = { schema: 1; agreements: Record<string, { agreementId: string; ownerHash: string; ownerAccountKey?: string; serviceRequestId?: string }> }
+type ServiceRequestStore = { schema: 1; requests: Record<string, { providerAccountKey: string; agreementId?: string; activeVersion: number; terms: Array<{ version: number; upfrontRequested: boolean }> }> }
 type AccountStore = { schema: 1; accounts: Record<string, { accountKey: string; walletAddress?: string }> }
 type AuthoritativeAgreement = {
   id: string; status: string; template: string; title: string; description: string
@@ -52,6 +54,7 @@ export type UpfrontAssessmentDependencies = {
   providerAccountKeys: (identity: string, env: NodeJS.ProcessEnv) => Promise<string[]>
   mutate: (key: string, update: (current: AssessmentStore | undefined) => AssessmentStore) => Promise<AssessmentStore>
   readOwnership: (key: string) => Promise<OwnershipStore | undefined>
+  readRequests: (key: string) => Promise<ServiceRequestStore | undefined>
   agreement: (id: string, config: { baseUrl: string; apiKey: string }) => Promise<AuthoritativeAgreement>
   assess: (request: AgreementIntelligenceRequest, config: { baseUrl: string; apiKey: string }) => Promise<{ status: number; body: Record<string, unknown> }>
   underwrite: (request: AgreementIntelligenceRequest, intelligence: ReturnType<typeof safeAssessmentResponse>, config: {
@@ -150,6 +153,7 @@ function configuration(env: NodeJS.ProcessEnv) {
   const secret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300)
   const storeKey = clean(env.HASHPAYSTREAM_UPFRONT_STORE_KEY ?? DEFAULT_STORE_KEY, 160)
   const ownershipStoreKey = clean(env.HASHPAYSTREAM_UPFRONT_AGREEMENT_STORE_KEY ?? DEFAULT_OWNERSHIP_STORE_KEY, 160)
+  const requestStoreKey = clean(env.HASHPAYSTREAM_SERVICE_REQUEST_STORE_KEY ?? DEFAULT_REQUEST_STORE_KEY, 160)
   const arcApiKey = clean(env.HASHPAYSTREAM_UPFRONT_ARC_API_KEY, 200)
   const arcRouter = clean(env.HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS, 42)
   let baseUrl: URL
@@ -170,7 +174,7 @@ function configuration(env: NodeJS.ProcessEnv) {
     || !Number.isInteger(polyDeskChainId) || polyDeskChainId < 1
   ) throw httpError('HashPayStream Upfront is not fully configured.', 503)
   return {
-    apiKey, secret, storeKey, ownershipStoreKey, arcApiKey, arcRouter, baseUrl: baseUrl.origin, agreementBaseUrl: agreementBaseUrl.origin,
+    apiKey, secret, storeKey, ownershipStoreKey, requestStoreKey, arcApiKey, arcRouter, baseUrl: baseUrl.origin, agreementBaseUrl: agreementBaseUrl.origin,
     polyDeskBaseUrl: polyDeskBaseUrl.origin, polyDeskServiceToken, polyDeskSigningSecret, polyDeskSigningKeyId,
     polyDeskExpectedSigner: getAddress(polyDeskExpectedSigner), polyDeskEscrowContract: getAddress(polyDeskEscrowContract), polyDeskChainId, escrowVersion,
   }
@@ -197,15 +201,21 @@ async function fundedAgreementInput(body: Record<string, unknown>, identity: str
   }
   const ownership = await dependencies.readOwnership(config.ownershipStoreKey)
   const record = ownership?.agreements?.[agreementId]
+  if (!record) throw httpError('This funded agreement is not available to your HashPayStream account.', 404)
   const expectedOwner = createHmac('sha256', config.secret).update(`hashpaystream.owner\0${identity}`).digest('hex')
-  const accountKeys = record?.ownerAccountKey && record.ownerHash !== expectedOwner
-    ? await dependencies.providerAccountKeys(identity, dependencies.env())
-    : []
+  const accountKeys = await dependencies.providerAccountKeys(identity, dependencies.env())
   const ownsAgreement = Boolean(record && (
     record.ownerHash === expectedOwner
     || (record.ownerAccountKey && accountKeys.includes(record.ownerAccountKey))
   ))
   if (!ownsAgreement) throw httpError('This funded agreement is not available to your HashPayStream account.', 404)
+  const serviceRequestId = clean(record?.serviceRequestId, 80)
+  const requestStore = await dependencies.readRequests(config.requestStoreKey)
+  const serviceRequest = requestStore?.requests?.[serviceRequestId]
+  const activeTerms = serviceRequest?.terms?.find(terms => terms.version === serviceRequest.activeVersion)
+  if (!serviceRequestId || !serviceRequest || serviceRequest.agreementId !== agreementId || !accountKeys.includes(serviceRequest.providerAccountKey) || !activeTerms?.upfrontRequested) {
+    throw httpError('Stock Early Pay is available only for a funded job that opted in before acceptance.', 409)
+  }
   const agreement = await dependencies.agreement(agreementId, { baseUrl: config.agreementBaseUrl, apiKey: config.arcApiKey })
   const units = clean(agreement.chain?.amountUsdcUnits, 32)
   const protectionDeadline = Number(clean(agreement.chain?.expiresAt, 24))
@@ -258,6 +268,7 @@ const defaults: UpfrontAssessmentDependencies = {
   providerAccountKeys: verifiedProviderAccountKeys,
   mutate: (key, update) => mutateDurableJson<AssessmentStore>(key, update),
   readOwnership: key => readDurableJson<OwnershipStore>(key),
+  readRequests: key => readDurableJson<ServiceRequestStore>(key),
   agreement: requestAgreement,
   assess: requestAssessment,
   underwrite: (request, intelligence, config) => requestPolyDeskUnderwriting({ request, intelligence, ...config }),

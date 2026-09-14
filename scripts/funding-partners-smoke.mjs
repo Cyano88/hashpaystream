@@ -69,6 +69,13 @@ const approved = await call(handler, { method: 'POST', token: 'admin', body: { a
 assert.equal(approved.statusCode, 200)
 assert.equal(approved.body.application.status, 'approved')
 
+const excessiveStockFee = await call(handler, { method: 'POST', body: { action: 'configure_stock_offers', enabled: true, feeBps: 301 } })
+assert.equal(excessiveStockFee.statusCode, 400)
+const stockOfferProfile = await call(handler, { method: 'POST', body: { action: 'configure_stock_offers', enabled: true, feeBps: 125 } })
+assert.equal(stockOfferProfile.statusCode, 200)
+assert.equal(stockOfferProfile.body.profile.application.stockOffersEnabled, true)
+assert.equal(stockOfferProfile.body.profile.application.stockFeeBps, 125)
+
 const profile = await call(handler)
 assert.equal(profile.body.profile.status, 'approved')
 assert.equal(profile.body.profile.application.accountKey, undefined)

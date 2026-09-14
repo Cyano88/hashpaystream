@@ -641,10 +641,10 @@ function CounterRequest({
         </Field>
         <label className="flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3 dark:bg-white/[0.04]">
           <span>
-            <span className="block text-xs font-bold">Request early pay</span>
+            <span className="block text-xs font-bold">Request Stock Early Pay</span>
             <span className="text-[10px] text-gray-400">
               {upfrontSettlementV3Enabled
-                ? 'Subject to risk assessment'
+                ? 'See approved stock offers after this job is funded'
                 : upfront
                   ? 'Remove early pay to propose new terms'
                   : 'Temporarily paused for settlement upgrade'}

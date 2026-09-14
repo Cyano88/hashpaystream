@@ -1,0 +1,47 @@
+name: Stock delivery release candidate
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stock-delivery-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  application:
+    name: Application and settlement boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+      - run: npm ci
+      - run: npm run test:stock-review-manifest
+      - run: npm run typecheck
+      - run: npm run test:stock-delivery-terms
+      - run: npm run test:upfront-settlement
+      - run: npm run build
+
+  contract:
+    name: AgreementBackedStockDelivery contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: contracts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+          cache-dependency-path: contracts/package-lock.json
+      - run: npm ci
+      - run: npm run test:stock-deployment

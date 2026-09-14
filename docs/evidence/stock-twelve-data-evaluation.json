@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "checkedAt": "2026-09-12T15:38:09.000Z",
+  "checkedAt": "2026-09-13T16:12:25.000Z",
   "provider": "twelve-data",
   "internalEvaluationOnly": true,
   "productionReady": false,
@@ -17,11 +17,11 @@
       "timestampSemanticsVerified": false
     },
     "usdcQuote": {
-      "status": "OBSERVED",
+      "status": "STALE_OR_MISSING_SOURCE_TIME",
       "accessVerified": true,
       "symbol": "USDC/USD",
-      "barTimestamp": 1789227360,
-      "reportedLastQuoteAt": 1789227480,
+      "barTimestamp": 1789315800,
+      "reportedLastQuoteAt": 1789315920,
       "timestampSemanticsVerified": false,
       "venueIdentityVerified": false
     },
@@ -32,6 +32,7 @@
   },
   "blockers": [
     "SPY market closed; regular-session freshness not verified.",
+    "USDC source time is missing, stale or future-dated.",
     "Source timestamp semantics, holiday/early-close calendar, previous-session history and corporate-action handling require separate verification.",
     "Customer-facing derived valuation rights, exact data entitlement and total price remain unconfirmed."
   ]

@@ -1,4 +1,3 @@
-import StockFunderDesk from './StockFunderDesk'
 import type { SettlementEvidence } from '../lib/settlementEvidence'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
@@ -13,6 +12,9 @@ import UpfrontLifecycleButton from './UpfrontLifecycleButton'
 import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
 import { reconcileFundingPositions } from '../lib/stableSnapshots'
 import FundingPositionReceipt from './FundingPositionReceipt'
+import StockDeliveryFunderPanel from './StockDeliveryFunderPanel'
+
+type StockOfferProfile = { enabled: boolean; feeBps?: number; onSave: (enabled: boolean, feeBps: number) => Promise<void> }
 
 type Opportunity = {
   settlementEvidence?: SettlementEvidence
@@ -75,7 +77,7 @@ function positionLabel(status: Opportunity['positionStatus']) {
   return 'Requested'
 }
 
-function LegacyStreamPayFundingDesk() {
+function LegacyStreamPayFundingDesk({ stockOfferProfile }: { stockOfferProfile: StockOfferProfile }) {
   const { ready, authenticated, getAccessToken, user } = usePrivy()
   const { search } = useLocation()
   const navigate = useNavigate()
@@ -173,6 +175,10 @@ function LegacyStreamPayFundingDesk() {
 
     {error && <div className="rounded-2xl bg-rose-50 px-4 py-3 text-xs text-rose-700 dark:bg-rose-400/10 dark:text-rose-300"><p>{error}</p><button type="button" onClick={() => void load()} className="mt-2 font-bold underline">Try again</button></div>}
 
+    <StockOfferSettings profile={stockOfferProfile} />
+
+    <StockDeliveryFunderPanel />
+
     {!error && <OpportunitySection title="Incoming requests" count={openOffers.length}>
       {openOffers.length > 0
         ? openOffers.map(item => <OpportunityRow key={item.id} item={item} onOpen={() => navigate(`${fundingTo}&position=${encodeURIComponent(item.id)}`)} />)
@@ -194,6 +200,32 @@ function LegacyStreamPayFundingDesk() {
   </section>
 }
 
+function StockOfferSettings({ profile }: { profile: StockOfferProfile }) {
+  const [enabled, setEnabled] = useState(profile.enabled)
+  const [fee, setFee] = useState(profile.feeBps ? String(profile.feeBps / 100) : '1')
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+  useEffect(() => { setEnabled(profile.enabled); setFee(profile.feeBps ? String(profile.feeBps / 100) : '1') }, [profile.enabled, profile.feeBps])
+  const feeBps = /^\d+(?:\.\d{1,2})?$/.test(fee) ? Math.round(Number(fee) * 100) : 0
+  const valid = !enabled || (feeBps >= 1 && feeBps <= 300)
+  async function save() {
+    if (!valid) return
+    setSaving(true); setMessage('')
+    try { await profile.onSave(enabled, feeBps); setMessage(enabled ? 'Stock offer preferences saved.' : 'Stock offers are paused.') }
+    catch (reason) { setMessage(reason instanceof Error ? reason.message : 'Stock offer settings could not be saved.') }
+    finally { setSaving(false) }
+  }
+  return <section className="stream-card p-4">
+    <div className="flex items-center justify-between gap-4">
+      <div><h2 className="text-xs font-black text-gray-950 dark:text-white">Stock offers</h2><p className="mt-1 text-[10px] leading-4 text-gray-400">Send approved stock tokens directly to a worker on X Layer.</p></div>
+      <input type="checkbox" aria-label="Offer stock funding" checked={enabled} disabled={saving} onChange={event => { setEnabled(event.target.checked); setMessage('') }} className="h-5 w-5 accent-emerald-500" />
+    </div>
+    {enabled && <label className="mt-4 block text-[10px] font-bold text-gray-500">Your fee (%)<input inputMode="decimal" value={fee} disabled={saving} onChange={event => { setFee(event.target.value.trim()); setMessage('') }} className="mt-1.5 w-full rounded-xl border border-gray-200 bg-transparent px-3 py-2.5 text-xs outline-none dark:border-white/10" /></label>}
+    <button type="button" disabled={saving || !valid} onClick={() => void save()} className="mt-3 min-h-10 w-full rounded-full bg-gray-950 px-4 text-[11px] font-black text-white disabled:opacity-40 dark:bg-white dark:text-gray-950">{saving ? 'Saving...' : 'Save stock offer settings'}</button>
+    <p className="mt-2 text-[9px] leading-4 text-gray-400">Fees are capped at 3%. Saving does not move funds or stock tokens.</p>
+    {message && <p role="status" className="mt-2 text-[10px] text-gray-500">{message}</p>}
+  </section>
+}
 function OpportunitySection({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
   return <section>
     <div className="mb-2 flex items-center justify-between px-1"><h2 className="text-xs font-black text-gray-950 dark:text-white">{title}</h2><span className="text-[10px] font-bold text-gray-400">{count}</span></div>
@@ -314,6 +346,4 @@ function SummaryMetric({ label, value, accent = false }: { label: string; value:
   return <div className="min-w-0"><p className="text-[10px] font-bold text-white/45">{label}</p><p className={`mt-1 truncate text-xs font-black tabular-nums ${accent ? 'text-emerald-400' : 'text-white'}`}>{value}</p></div>
 }
 
-const stockFunderFlowEnabled = import.meta.env.VITE_HASHPAYSTREAM_STOCK_FUNDER_FLOW_ENABLED === 'true'
-
-export default function StreamPayFundingDesk(){ return stockFunderFlowEnabled ? <StockFunderDesk/> : <LegacyStreamPayFundingDesk/> }
+export default LegacyStreamPayFundingDesk

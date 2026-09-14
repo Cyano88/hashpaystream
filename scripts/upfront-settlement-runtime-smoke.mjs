@@ -8,7 +8,8 @@ disabled.start(); disabled.trigger(); await disabled.stop()
 assert.equal(disabled.enabled, false)
 assert.throws(() => createUpfrontSettlementRuntime(env, { validate: () => ({enabled:false}) }), /AUTO_SETTLEMENT_DISABLED/)
 assert.throws(() => createUpfrontSettlementRuntime({...env,DATABASE_URL:''}, {validate:()=>({enabled:true})}), /DATABASE_NOT_CONFIGURED/)
-let locked = false, passes = 0, closed = 0, destroyed = 0, unlockFailure = false
+assert.throws(() => createUpfrontSettlementRuntime({...env,HASHPAYSTREAM_STOCK_DELIVERY_SETTLEMENT_ENABLED:'true'}, {validate:()=>({enabled:true}),validateStock:()=>{throw Error('STOCK_CONFIG_INVALID')}}), /STOCK_CONFIG_INVALID/)
+let locked = false, passes = 0, stockPasses = 0, closed = 0, destroyed = 0, unlockFailure = false
 const pool = () => ({
  connect: async () => {
   let owns = false
@@ -26,7 +27,7 @@ const pool = () => ({
 })
 let completePass
 const gate = new Promise(resolve=>{completePass=resolve})
-const deps = {pool,validate:()=>({enabled:true}),log:()=>{},runPass:async()=>{passes++;if(passes===1)await gate;return empty}}
+const deps = {pool,validate:()=>({enabled:true}),log:()=>{},runPass:async()=>{passes++;if(passes===1)await gate;return empty},runStockPass:async()=>{stockPasses++;return empty}}
 const first=createUpfrontSettlementRuntime(env,deps)
 const second=createUpfrontSettlementRuntime(env,deps)
 first.trigger(); assert.equal(passes,0,'No wakeup before startup')
@@ -36,9 +37,9 @@ first.trigger();first.trigger()
 let stopped=false
 const draining=first.stop().then(()=>{stopped=true})
 await flush();assert.equal(stopped,false);assert.equal(closed,0,'Keep lease and pool while pass drains')
-completePass();await draining
+completePass();await draining;assert.equal(stockPasses,1)
 first.trigger();first.start();await flush();assert.equal(passes,1,'Stopped runtime must not restart or process queued wakeups')
-second.trigger();await flush();assert.equal(passes,2,'Other runtime can catch up after lease release')
+second.trigger();await flush();assert.equal(passes,2,'Other runtime can catch up after lease release');assert.equal(stockPasses,2)
 await second.stop();assert.equal(closed,2);assert.equal(locked,false)
 unlockFailure=true
 const third=createUpfrontSettlementRuntime(env,{...deps,log:()=>{throw Error('Broken logger')}})

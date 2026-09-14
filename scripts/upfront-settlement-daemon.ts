@@ -2,6 +2,7 @@ import pg from 'pg'
 import { renderDurableStoreConnectionConfig } from '../api/durable-store.js'
 import { createUpfrontSettlementDaemon } from '../api/upfront-settlement-daemon.js'
 import { runUpfrontSettlementPass } from '../api/upfront-settlement-worker.js'
+import { runStockDeliverySettlementPass } from '../api/stock-delivery-settlement-worker.js'
 
 const { Pool } = pg
 const databaseUrl = String(process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? '').trim()
@@ -64,7 +65,7 @@ const daemon = createUpfrontSettlementDaemon({
       throw reason
     }
   },
-  runPass: () => runUpfrontSettlementPass(),
+  runPass: async () => { const upfront = await runUpfrontSettlementPass(), stock = await runStockDeliverySettlementPass(); return { eligible: upfront.eligible + stock.eligible, settled: upfront.settled + stock.settled, alreadySettled: upfront.alreadySettled + stock.alreadySettled, deferred: upfront.deferred + stock.deferred, codes: [...new Set([...upfront.codes, ...stock.codes])].sort() } },
   schedule: (callback, delayMs) => setTimeout(callback, delayMs),
   cancel: timer => clearTimeout(timer),
   log: event => console.log(JSON.stringify(event)),

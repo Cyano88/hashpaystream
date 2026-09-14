@@ -28,7 +28,7 @@ const content: Record<LegalPage, {
       },
       {
         title: 'Stock Early Pay',
-        body: 'Eligibility is not a promise of funding. A worker reviews the fixed USDC amount, stock-token quantity, fee, due date, and loss of future token gains before accepting. A funder reviews the same signed terms, approved token, X Layer escrow, liquidity, and price evidence. Mainnet wallet actions are irreversible.',
+        body: 'Eligibility is not a promise of funding. A worker reviews the fixed USDC amount, stock-token quantity, fee, due date, and loss of future token gains before accepting. A funder reviews the same signed terms, approved token, direct X Layer delivery, liquidity, and price evidence. Approved stock tokens transfer from the funder directly to the worker\'s verified Privy wallet; HashPayStream does not hold stock inventory. Access requires issuer and jurisdiction eligibility before any offer is shown. Mainnet wallet actions are irreversible.',
       },
       {
         title: 'Scheduled savings',
