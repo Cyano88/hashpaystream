@@ -9,7 +9,7 @@ import { LoadingRing } from './ui/LoadingRing'
 import { StreamSelect } from './ui/StreamSelect'
 import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
 import { ProviderPayoutWallet } from './ProviderPayoutWallet'
-import FundingPartnerPicker from './FundingPartnerPicker'
+import StockDeliveryPicker from './StockDeliveryPicker'
 
 type Assessment = {
   intelligence: { confidence: number; evidenceGrade: string; deliveryClarityScore: number; summary: string; reasonCodes?: string[] }
@@ -209,7 +209,7 @@ function LegacyStreamPayUpfront() {
       {error && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2.5 text-sm text-rose-600 dark:bg-rose-400/10 dark:text-rose-300">{error}</p>}
       <button disabled={!valid || submitting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 py-3.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-gray-950">{submitting ? <LoadingRing className="h-4 w-4" label="Checking agreement" /> : <BanknotesIcon className="h-4 w-4" />}{submitting ? 'Checking' : 'Check early pay'}</button>
     </form>}
-    {assessment && <AssessmentResult assessment={assessment} review={review} reviewing={reviewing} onSubmitReview={submitReview} />}
+    {assessment && <AssessmentResult assessment={assessment} agreementId={agreementId} review={review} reviewing={reviewing} onSubmitReview={submitReview} />}
   </section>
 }
 
@@ -225,7 +225,7 @@ function reasonLabel(code: string) {
   return labels[code] || ''
 }
 
-function AssessmentResult({ assessment, review, reviewing, onSubmitReview }: { assessment: Assessment; review?: Review; reviewing: boolean; onSubmitReview: () => Promise<void> }) {
+function AssessmentResult({ assessment, agreementId, review, reviewing, onSubmitReview }: { assessment: Assessment; agreementId: string; review?: Review; reviewing: boolean; onSubmitReview: () => Promise<void> }) {
   const reasons = [...new Set([...(assessment.intelligence.reasonCodes ?? []), ...(assessment.decision.reasonCodes ?? [])].map(reasonLabel).filter(Boolean))]
   const protectedUnits = assessment.decision.onchainOffer?.message.protectedAmount
   const approvedUnits = protectedUnits && /^\d+$/.test(protectedUnits)
@@ -239,7 +239,7 @@ function AssessmentResult({ assessment, review, reviewing, onSubmitReview }: { a
     <div className="mt-4 grid grid-cols-2 gap-2"><Result label="Evidence" value={assessment.intelligence.evidenceGrade} /><Result label="Confidence" value={`${assessment.intelligence.confidence}%`} /><Result label="Clarity" value={`${assessment.intelligence.deliveryClarityScore}%`} /><Result label="Limit" value={`${assessment.decision.maximumAdvanceBps / 100}%`} /></div>
     <p className="mt-4 text-xs leading-5 text-gray-500 dark:text-gray-400">{assessment.intelligence.summary}</p>
     {reasons.length > 0 && <ul className="mt-3 space-y-1.5">{reasons.map(reason => <li key={reason} className="flex gap-2 text-[11px] leading-5 text-gray-500"><span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-gray-300" />{reason}</li>)}</ul>}
-    {assessment.decision.decision === 'APPROVE' && approvedAmount && <><div className="mt-4 rounded-xl bg-emerald-50 px-3 py-3 text-xs leading-5 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200"><p className="font-bold">Eligible for up to {approvedAmount} USDC</p>{expiresAt && <p className="mt-1 text-[10px] opacity-75">Choose a partner before {expiresAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.</p>}</div><FundingPartnerPicker requestId={assessment.decision.requestId} /></>}
+    {assessment.decision.decision === 'APPROVE' && approvedAmount && <><div className="mt-4 rounded-xl bg-emerald-50 px-3 py-3 text-xs leading-5 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200"><p className="font-bold">Eligible for up to {approvedAmount} USDC</p>{expiresAt && <p className="mt-1 text-[10px] opacity-75">Choose a partner before {expiresAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.</p>}</div><StockDeliveryPicker requestId={assessment.decision.requestId} agreementId={agreementId} /></>}
     {assessment.decision.decision === 'ESCALATE' && !review && <button type="button" disabled={reviewing} onClick={() => void onSubmitReview()} className="mt-4 min-h-11 w-full rounded-xl bg-gray-950 px-4 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-gray-950">{reviewing ? 'Submitting...' : 'Submit for review'}</button>}
     {review?.status === 'pending' && <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2.5 text-xs font-medium text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">Review submitted. HashPayStream will update this result after an operator decision.</p>}
     {review?.status === 'declined' && <p className="mt-4 rounded-xl bg-gray-100 px-3 py-2.5 text-xs font-medium text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">Review declined. Create a new customer request with clearer delivery terms.</p>}
