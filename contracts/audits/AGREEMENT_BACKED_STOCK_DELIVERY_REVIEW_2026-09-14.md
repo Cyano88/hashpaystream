@@ -30,6 +30,8 @@ Slither analyzed the project with 102 detectors. For this candidate it reports t
 
 The reproducible source, artifact, creation-bytecode and runtime-bytecode hashes are recorded in `docs/evidence/stock-paused-deployment-plan.json`.
 
+The release now includes a guarded paused-only X Layer deployer and a read-only post-deployment verifier. They enforce the frozen packet, chain, distinct roles, contract-wallet ownership, exact creation transaction, immutable-aware runtime, paused state, unallowed pilot asset and zero stock custody.
+
 ## Remaining release blockers
 
 An independent smart-contract review is still required before public value is allowed. The owner multisig and three separately controlled production signer addresses are not configured. The issuer token, wrapper upgrade controls, distribution permission, jurisdiction enforcement, exposure limits, production data entitlement, and live regular-session quote path still require final approval. After those close, deploy paused, verify the source and runtime, allow only the tiny pilot asset and funder, rehearse the full Arc repayment, and unpause through the multisig release process.

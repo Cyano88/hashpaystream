@@ -28,13 +28,14 @@ const constructorDraft = {
 const configured = Object.values(constructorDraft).filter(Boolean)
 const duplicateRoles = new Set(configured.map(value => value.toLowerCase())).size !== configured.length
 const missingRoles = Object.entries(constructorDraft).filter(([, value]) => !value).map(([name]) => name)
-const sha256 = path => createHash('sha256').update(readFileSync(path)).digest('hex')
+const sha256 = path => createHash('sha256').update(readFileSync(path, 'utf8').replace(/\r\n/g, '\n')).digest('hex')
 
 const plan = {
   schema: 2,
   chainId: 196,
   status: 'DRAFT_BLOCKED',
   deploymentApproved: false,
+  externalReviewSha256: null,
   unsignedTransaction: null,
   broadcast: false,
   contract: contractName,

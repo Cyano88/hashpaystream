@@ -44,4 +44,4 @@ jobs:
           cache: npm
           cache-dependency-path: contracts/package-lock.json
       - run: npm ci
-      - run: npm test -- --network hardhat test/AgreementBackedStockDelivery.test.ts
+      - run: npm run test:stock-deployment

@@ -12,7 +12,7 @@ An Early Pay offer can only be created for an existing funded job whose worker s
 
 ## Review scope
 
-The complete source inventory and canonical-LF SHA-256 hashes are in `docs/evidence/stock-delivery-release-manifest.json`. CI rejects a changed file until the manifest is intentionally regenerated and its diff reviewed. Contract compiler settings and bytecode hashes are separately pinned in `docs/evidence/stock-paused-deployment-plan.json`.
+The complete source inventory and canonical-LF SHA-256 hashes are in `docs/evidence/stock-delivery-release-manifest.json`. The boundary includes the guarded deployment and read-only verification commands. CI rejects a changed file until the manifest is intentionally regenerated and its diff reviewed. Contract compiler settings and bytecode hashes are separately pinned in `docs/evidence/stock-paused-deployment-plan.json`.
 
 Review these trust boundaries together:
 
@@ -40,10 +40,16 @@ npm run build
 
 cd contracts
 npm ci
-npm test -- --network hardhat test/AgreementBackedStockDelivery.test.ts
+npm run test:stock-deployment
 ```
 
 To refresh the manifest after an intentional scoped change, run `npm run stock:review-manifest` and review every changed hash before accepting it.
+
+## Guarded deployment commands
+
+After the external review, multisig and signer gates are complete, `npm run deploy:stock-mainnet` from `contracts` is the only reviewed deployment entry point. It requires three exact operator confirmations and always deploys paused. It refuses the wrong chain, a non-contract owner, overlapping roles, an existing configured contract, or a changed artifact.
+
+After a successful paused deployment, `npm run verify:stock-mainnet` performs read-only verification against the creation receipt and frozen packet. Its output supplies the runtime hash for the application configuration. Neither command allowlists an asset or funder, unpauses the contract, changes application feature gates, or moves stock.
 
 ## Required reviewer output
 

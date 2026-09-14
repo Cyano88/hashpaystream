@@ -27,7 +27,10 @@
     "verify:arc-testnet": "hardhat run scripts/verify-deployment.ts --network arcTestnet",
     "verify:xlayer-testnet": "hardhat run scripts/verify-deployment.ts --network xlayerTestnet",
     "verify:xlayer-mainnet": "hardhat run scripts/verify-deployment.ts --network xlayerMainnet",
-    "deploy:arc-testnet": "hardhat run scripts/deploy-arc.ts --network arcTestnet"
+    "deploy:arc-testnet": "hardhat run scripts/deploy-arc.ts --network arcTestnet",
+    "deploy:stock-mainnet": "hardhat run scripts/deploy-stock-delivery-mainnet.ts --network xlayerMainnet",
+    "verify:stock-mainnet": "hardhat run scripts/verify-stock-delivery-mainnet.ts --network xlayerMainnet",
+    "test:stock-deployment": "hardhat test test/AgreementBackedStockDelivery.test.ts test/StockDeliveryDeploymentGuards.test.ts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
