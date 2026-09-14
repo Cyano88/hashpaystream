@@ -1,0 +1,29 @@
+import assert from 'node:assert/strict'
+import { recoverTypedDataAddress } from 'viem'
+import { buildAgreementIntelligenceRequest, agreementIntelligenceRequestHash } from '../api/agreement-intelligence-schema.ts'
+import { buildSignedStockDelivery, quoteStockDeliveryFees } from '../api/stock-delivery-terms.ts'
+import { STOCK_DELIVERY_PROTECTION_TYPES, STOCK_DELIVERY_TERMS_TYPES, STOCK_DELIVERY_UNDERWRITING_TYPES, stockDeliveryProtectionMessage, stockDeliveryTermsMessage, stockDeliveryUnderwritingMessage } from '../src/lib/stockDeliveryProtocol.ts'
+
+const now = 1_789_302_600, worker = '0x1111111111111111111111111111111111111111', funder = '0x2222222222222222222222222222222222222222'
+const asset = '0x3333333333333333333333333333333333333333', router = '0x4444444444444444444444444444444444444444'
+const workerArc = '0x5555555555555555555555555555555555555555', treasury = '0x6666666666666666666666666666666666666666', contract = '0x7777777777777777777777777777777777777777'
+const request = buildAgreementIntelligenceRequest({ requestId: 'uai_stock_delivery_test', issuedAt: new Date(now * 1000).toISOString(), providerIdentity: 'worker-a', providerReferenceSecret: 'standalone-ownership-secret-32-characters', providerArcAddress: workerArc, draft: { template: 'fixed_unlock', title: 'Build an Android release', description: 'Deliver the reviewed Android application release.', amount: '100', durationSeconds: 86_400, cancellationWindowSeconds: 900, providerPayoutAddress: worker, requestedAdvanceBps: 3000 }, trustedEvidence: { agreementState: 'funded', protectionDeadline: now + 86_400, providerHistoryIncluded: true, sources: ['arc-funded-agreement'], dataGaps: [] } })
+const agreement = { status: 'active', recipient: router, chain: { network: 'arc', chainId: 5_042_002, onchainAgreementId: '0x' + 'aa'.repeat(32), termsHash: '0x' + 'bb'.repeat(32), amountUsdcUnits: '100000000', remainingUsdcUnits: '100000000', expiresAt: String(now + 86_400) } }
+const tokenAmount = 30_000_000n * 10n ** 18n / 75_000_000n
+const market = { participantClearance: { chainId: 196, asset, worker, funder, earningsId: agreement.chain.onchainAgreementId, principalUsdcUnits: '30000000', policyVersion: 'stock-delivery-v1', checkedAt: now - 10, expiresAt: now + 240, workerEligible: true, funderEligible: true, workerJurisdiction: 'NG', funderJurisdiction: 'NG', reviewReference: 'review-1' }, chainId: 196, asset, observedAt: now - 10, eligibleUntil: now + 240, unitPriceUsdcUnits: '75000000', volatilityBps: 20, executableLiquidityUsdcUnits: '100000000', tradingAvailable: true, transfersAvailable: true, issuerEligible: true, dex: { tokenAmount: tokenAmount.toString(), amountOutUsdcUnits: '29980000', depthTokenAmount: tokenAmount.toString(), depthOutUsdcUnits: '100000000', blockNumber: '1', blockHash: '0x' + 'dd'.repeat(32), observedAt: now - 8, expiresAt: now + 240 } }
+const base = { request, agreement, intelligenceCommitment: agreementIntelligenceRequestHash(request), worker, workerArcRecipient: workerArc, funder, repaymentRecipient: funder, platformTreasury: treasury, arcRepaymentRouter: router, stockAsset: asset, assetDecimals: 18, advanceUsdcUnits: '30000000', feeBps: 125, market, policyVersion: 'stock-delivery-v1', policy: { chainId: 196, asset, assetSymbol: 'wSPYx', assetDecimals: 18, maxFeeBps: 300, maxVolatilityBps: 100, minExecutableLiquidityUsdcUnits: '50000000', maxPriceAgeSeconds: 300, maxQuoteDeviationBps: 100 }, chainId: 196, deliveryContract: contract, underwritingKey: `0x${'01'.repeat(32)}`, riskKey: `0x${'02'.repeat(32)}`, protectionKey: `0x${'03'.repeat(32)}`, now }
+let nonceIndex = 0
+const bundle = await buildSignedStockDelivery({ ...base, nonce: () => `0x${(++nonceIndex).toString(16).padStart(64, '0')}` })
+assert.equal(bundle.terms.stockTokenAmount, tokenAmount.toString())
+assert.equal(bundle.terms.advanceUsdcAmount, '30000000')
+assert.equal(bundle.protection.deliveryId, bundle.deliveryId)
+assert.equal(bundle.offer.agreementTermsHash, `0x${request.agreement.termsHash.slice(7)}`)
+assert.equal(await recoverTypedDataAddress({ domain: bundle.domain, types: STOCK_DELIVERY_UNDERWRITING_TYPES, primaryType: 'UnderwritingOffer', message: stockDeliveryUnderwritingMessage(bundle.offer), signature: bundle.underwritingSignature }), bundle.underwritingSigner)
+assert.equal(await recoverTypedDataAddress({ domain: bundle.domain, types: STOCK_DELIVERY_TERMS_TYPES, primaryType: 'DeliveryTerms', message: stockDeliveryTermsMessage(bundle.terms), signature: bundle.riskSignature }), bundle.riskSigner)
+assert.equal(await recoverTypedDataAddress({ domain: bundle.domain, types: STOCK_DELIVERY_PROTECTION_TYPES, primaryType: 'ProtectionAttestation', message: stockDeliveryProtectionMessage(bundle.protection), signature: bundle.protectionSignature }), bundle.protectionSigner)
+assert.deepEqual(quoteStockDeliveryFees({ protectedAmount: 100_000_000n, advanceAmount: 30_000_000n, feeBps: 125 }), { feeBps: 125, advanceUsdcUnits: '30000000', totalFundingFeeUsdcUnits: '375000', funderProfitUsdcUnits: '300000', funderRepaymentUsdcUnits: '30300000', platformFeeUsdcUnits: '1075000', workerRemainderUsdcUnits: '68625000' })
+await assert.rejects(() => buildSignedStockDelivery({ ...base, feeBps: 301 }), /risk limits/)
+await assert.rejects(() => buildSignedStockDelivery({ ...base, market: { ...market, observedAt: now - 301 } }), /stale/)
+await assert.rejects(() => buildSignedStockDelivery({ ...base, market: { ...market, participantClearance: { ...market.participantClearance, earningsId: '0x' + 'cc'.repeat(32) } } }), /eligibility does not match/)
+await assert.rejects(() => buildSignedStockDelivery({ ...base, intelligenceCommitment: 'sha256:' + 'ff'.repeat(32) }), /commitment does not match/)
+console.log('Agreement-backed stock delivery terms and signature checks passed.')
