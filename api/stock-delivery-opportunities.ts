@@ -7,7 +7,7 @@ import { hasRenderDurableStore, mutateDurableJson, readDurableJson } from './dur
 import type { UpfrontAssessmentRecord, UpfrontAssessmentStore } from './upfront-assessment.js'
 import {
   createStockDeliveryRequest, declineStockDelivery, recordVerifiedStockDelivery, safeStockDeliveryStore,
-  stockDeliveryRequestsForFunder, stockDeliveryRequestsForWorker, type StockDeliveryStore, type VerifiedStockDeliveryReceipt,
+  stockDeliveryRequestsForFunder, stockDeliveryRequestsForWorker, stockDeliveryExposureReason, type StockDeliveryExposurePolicy, type StockDeliveryStore, type VerifiedStockDeliveryReceipt,
 } from './stock-delivery-workflow.js'
 import { AGREEMENT_BACKED_STOCK_DELIVERY_ABI, type StockDeliveryAuthorization } from '../src/lib/stockDeliveryProtocol.js'
 import { quoteStockDeliveryFees } from './stock-delivery-terms.js'
@@ -17,7 +17,7 @@ const DEFAULT_ASSESSMENT_STORE = 'hashpaystream:upfront-assessments:v1'
 const DEFAULT_PARTNER_STORE = 'hashpaystream:funding-partners:v1'
 const DEFAULT_DELIVERY_STORE = 'hashpaystream:stock-deliveries:v1'
 type Identity = { userId: string; emails: string[]; wallet: Address }
-type Config = { secret: string; assessmentStore: string; partnerStore: string; deliveryStore: string; chainId: number; rpcUrl: string; contract: Address; asset: Address; treasury: Address; arcRepaymentRouter: Address; runtimeHash: Hex; underwritingSigner: Address; riskSigner: Address; protectionSigner: Address; confirmations: number; requestsEnabled: boolean }
+type Config = { secret: string; assessmentStore: string; partnerStore: string; deliveryStore: string; chainId: number; rpcUrl: string; contract: Address; asset: Address; treasury: Address; arcRepaymentRouter: Address; runtimeHash: Hex; underwritingSigner: Address; riskSigner: Address; protectionSigner: Address; confirmations: number; requestsEnabled: boolean; exposure: StockDeliveryExposurePolicy }
 type Dependencies = {
   identity: (req: Request, env: NodeJS.ProcessEnv) => Promise<Identity>
   hasStore: () => boolean
@@ -33,6 +33,7 @@ type Dependencies = {
 function fail(message: string, status: number): never { throw Object.assign(new Error(message), { status }) }
 function clean(value: unknown, max: number) { return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max) }
 function address(value: unknown, label: string) { const text = clean(value, 42); if (!isAddress(text) || /^0x0{40}$/i.test(text)) fail(`${label} is unavailable.`, 503); return getAddress(text) }
+function positiveUnits(value: unknown) { const text = clean(value, 78); if (!/^[1-9]\d{0,77}$/.test(text)) fail('Stock delivery exposure limits are unavailable.', 503); return text }
 function configuration(env: NodeJS.ProcessEnv): Config {
   const secret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300), chainId = Number(env.HASHPAYSTREAM_STOCK_DELIVERY_CHAIN_ID ?? 196)
   const rpcUrl = clean(env.HASHPAYSTREAM_XLAYER_RPC_URL, 240), confirmations = Number(env.HASHPAYSTREAM_STOCK_DELIVERY_CONFIRMATIONS ?? 2)
@@ -40,8 +41,20 @@ function configuration(env: NodeJS.ProcessEnv): Config {
   try { rpc = new URL(rpcUrl) } catch { fail('Stock delivery configuration is unavailable.', 503) }
   const runtimeHash = clean(env.HASHPAYSTREAM_STOCK_DELIVERY_RUNTIME_HASH, 66)
   if (secret.length < 32 || chainId !== 196 || rpc!.protocol !== 'https:' || rpc!.username || rpc!.password || !/^0x[a-fA-F0-9]{64}$/.test(runtimeHash) || !Number.isInteger(confirmations) || confirmations < 1 || confirmations > 64) fail('Stock delivery configuration is unavailable.', 503)
+  const requestsEnabled = env.HASHPAYSTREAM_STOCK_DELIVERY_REQUESTS_ENABLED === 'true'
+  const exposure = requestsEnabled ? {
+    maxDeliveryUsdcUnits: positiveUnits(env.HASHPAYSTREAM_STOCK_MAX_DELIVERY_USDC_UNITS),
+    maxWorkerOutstandingUsdcUnits: positiveUnits(env.HASHPAYSTREAM_STOCK_MAX_WORKER_OUTSTANDING_USDC_UNITS),
+    maxFunderOutstandingUsdcUnits: positiveUnits(env.HASHPAYSTREAM_STOCK_MAX_FUNDER_OUTSTANDING_USDC_UNITS),
+    maxAssetOutstandingUsdcUnits: positiveUnits(env.HASHPAYSTREAM_STOCK_MAX_ASSET_OUTSTANDING_USDC_UNITS),
+    maxGlobalOutstandingUsdcUnits: positiveUnits(env.HASHPAYSTREAM_STOCK_MAX_GLOBAL_OUTSTANDING_USDC_UNITS),
+    maxWorkerOutstandingCount: Number(env.HASHPAYSTREAM_STOCK_MAX_WORKER_OUTSTANDING_COUNT),
+    maxFunderOutstandingCount: Number(env.HASHPAYSTREAM_STOCK_MAX_FUNDER_OUTSTANDING_COUNT),
+  } : { maxDeliveryUsdcUnits: '1', maxWorkerOutstandingUsdcUnits: '1', maxFunderOutstandingUsdcUnits: '1', maxAssetOutstandingUsdcUnits: '1', maxGlobalOutstandingUsdcUnits: '1', maxWorkerOutstandingCount: 1, maxFunderOutstandingCount: 1 }
+  const limits = [exposure.maxWorkerOutstandingUsdcUnits, exposure.maxFunderOutstandingUsdcUnits, exposure.maxAssetOutstandingUsdcUnits, exposure.maxGlobalOutstandingUsdcUnits].map(BigInt)
+  if (!Number.isInteger(exposure.maxWorkerOutstandingCount) || exposure.maxWorkerOutstandingCount < 1 || exposure.maxWorkerOutstandingCount > 100 || !Number.isInteger(exposure.maxFunderOutstandingCount) || exposure.maxFunderOutstandingCount < 1 || exposure.maxFunderOutstandingCount > 100 || limits.some(limit => BigInt(exposure.maxDeliveryUsdcUnits) > limit)) fail('Stock delivery exposure limits are unavailable.', 503)
   return {
-    secret, chainId, rpcUrl: rpc!.toString(), confirmations,
+    secret, chainId, rpcUrl: rpc!.toString(), confirmations, exposure,
     assessmentStore: clean(env.HASHPAYSTREAM_UPFRONT_ASSESSMENT_STORE_KEY ?? DEFAULT_ASSESSMENT_STORE, 160),
     partnerStore: clean(env.HASHPAYSTREAM_FUNDING_PARTNER_STORE_KEY ?? DEFAULT_PARTNER_STORE, 160),
     deliveryStore: clean(env.HASHPAYSTREAM_STOCK_DELIVERY_STORE_KEY ?? DEFAULT_DELIVERY_STORE, 160),
@@ -53,7 +66,7 @@ function configuration(env: NodeJS.ProcessEnv): Config {
     underwritingSigner: address(env.HASHPAYSTREAM_STOCK_UNDERWRITING_SIGNER, 'Stock underwriting signer'),
     riskSigner: address(env.HASHPAYSTREAM_STOCK_RISK_SIGNER, 'Stock risk signer'),
     protectionSigner: address(env.HASHPAYSTREAM_STOCK_PROTECTION_SIGNER, 'Stock protection signer'),
-    requestsEnabled: env.HASHPAYSTREAM_STOCK_DELIVERY_REQUESTS_ENABLED === 'true',
+    requestsEnabled,
   }
 }
 async function verifiedIdentity(req: Request, env: NodeJS.ProcessEnv): Promise<Identity> {
@@ -130,7 +143,8 @@ export function createStockDeliveryOpportunitiesHandler(overrides: Partial<Depen
           if (!config.requestsEnabled) fail('Stock delivery requests are paused.', 503)
           const offers = await dependencies.offers({ record, partners, worker: identity.wallet, runtime: { chainId: config.chainId, contract: config.contract, asset: config.asset, treasury: config.treasury, arcRepaymentRouter: config.arcRepaymentRouter, runtimeHash: config.runtimeHash, rpcUrl: config.rpcUrl, underwritingSigner: config.underwritingSigner, riskSigner: config.riskSigner, protectionSigner: config.protectionSigner }, env })
           const counts = completedFundingCounts(assessments)
-          const ranked = offers.map(offer => ({ ...offer, verifiedCompletedFundingCount: counts.get(offer.partnerId) ?? 0 }))
+          const exposureNow = Math.floor(dependencies.now().getTime() / 1000)
+          const ranked = offers.filter(offer => !stockDeliveryExposureReason(deliveries, { workerUserId: identity.userId, partnerApplicationId: offer.partnerId, authorization: offer.authorization, policy: config.exposure, now: exposureNow })).map(offer => ({ ...offer, verifiedCompletedFundingCount: counts.get(offer.partnerId) ?? 0 }))
             .sort((left, right) => right.verifiedCompletedFundingCount - left.verifiedCompletedFundingCount || left.feeBps - right.feeBps || left.partnerId.localeCompare(right.partnerId))
           return res.json({ ok: true, offers: ranked, selection: null, executionEnabled: true })
         }
@@ -152,7 +166,7 @@ export function createStockDeliveryOpportunitiesHandler(overrides: Partial<Depen
         const selectedAt = dependencies.now()
         let selected
         await dependencies.mutateDeliveries(config.deliveryStore, async current => {
-          const result = await createStockDeliveryRequest(current, { assessmentRequestId: requestId, agreementId, workerUserId: identity.userId, partnerApplicationId: partner.id, authorization, workerSignature, expected: { chainId: config.chainId, deliveryContract: config.contract, worker: identity.wallet, workerArcRecipient: getAddress(record.request!.settlement.providerRecipient), funder: getAddress(partner.walletAddress!), repaymentRecipient: getAddress(partner.walletAddress!), platformTreasury: config.treasury, stockAsset: config.asset, advanceUsdcAmount: record.request!.advance.requestedUsdcUnits, underwritingSigner: config.underwritingSigner, riskSigner: config.riskSigner, protectionSigner: config.protectionSigner, now: Math.floor(selectedAt.getTime() / 1000) }, now: selectedAt })
+          const result = await createStockDeliveryRequest(current, { assessmentRequestId: requestId, agreementId, workerUserId: identity.userId, partnerApplicationId: partner.id, authorization, workerSignature, expected: { chainId: config.chainId, deliveryContract: config.contract, worker: identity.wallet, workerArcRecipient: getAddress(record.request!.settlement.providerRecipient), funder: getAddress(partner.walletAddress!), repaymentRecipient: getAddress(partner.walletAddress!), platformTreasury: config.treasury, stockAsset: config.asset, advanceUsdcAmount: record.request!.advance.requestedUsdcUnits, underwritingSigner: config.underwritingSigner, riskSigner: config.riskSigner, protectionSigner: config.protectionSigner, now: Math.floor(selectedAt.getTime() / 1000) }, exposure: config.exposure, now: selectedAt })
           selected = result.request; return result.store
         })
         return res.status(201).json({ ok: true, request: selected })

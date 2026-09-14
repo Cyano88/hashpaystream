@@ -34,6 +34,11 @@ export type StockDeliveryRequest = {
   updatedAt: string
 }
 export type StockDeliveryStore = { schema: 1; requests: Record<string, StockDeliveryRequest> }
+export type StockDeliveryExposurePolicy = {
+  maxDeliveryUsdcUnits: string; maxWorkerOutstandingUsdcUnits: string; maxFunderOutstandingUsdcUnits: string
+  maxAssetOutstandingUsdcUnits: string; maxGlobalOutstandingUsdcUnits: string
+  maxWorkerOutstandingCount: number; maxFunderOutstandingCount: number
+}
 
 function failure(message: string, status = 409): never { throw Object.assign(new Error(message), { status }) }
 export function safeStockDeliveryStore(value?: StockDeliveryStore): StockDeliveryStore {
@@ -41,6 +46,33 @@ export function safeStockDeliveryStore(value?: StockDeliveryStore): StockDeliver
   return { schema: 1, requests: value?.requests ? structuredClone(value.requests) : {} }
 }
 function sameAddress(left: string, right: string) { return getAddress(left) === getAddress(right) }
+
+function exposureUnits(value: string) { if (!/^[1-9]\d{0,77}$/.test(value)) failure('Stock delivery exposure policy is invalid.', 503); return BigInt(value) }
+export function stockDeliveryExposureReason(storeValue: StockDeliveryStore | undefined, input: {
+  workerUserId: string; partnerApplicationId: string; authorization: StockDeliveryAuthorization; policy: StockDeliveryExposurePolicy; now: number
+}) {
+  const policy = input.policy, next = input.authorization
+  if (!Number.isSafeInteger(input.now) || input.now <= 0) failure('Stock delivery exposure time is invalid.', 503)
+  const limits = {
+    delivery: exposureUnits(policy.maxDeliveryUsdcUnits), worker: exposureUnits(policy.maxWorkerOutstandingUsdcUnits),
+    funder: exposureUnits(policy.maxFunderOutstandingUsdcUnits), asset: exposureUnits(policy.maxAssetOutstandingUsdcUnits),
+    global: exposureUnits(policy.maxGlobalOutstandingUsdcUnits),
+  }
+  if (!Number.isInteger(policy.maxWorkerOutstandingCount) || policy.maxWorkerOutstandingCount < 1 || policy.maxWorkerOutstandingCount > 100
+    || !Number.isInteger(policy.maxFunderOutstandingCount) || policy.maxFunderOutstandingCount < 1 || policy.maxFunderOutstandingCount > 100
+    || limits.delivery > limits.worker || limits.delivery > limits.funder || limits.delivery > limits.asset || limits.delivery > limits.global) failure('Stock delivery exposure policy is invalid.', 503)
+  const advance = exposureUnits(next.terms.advanceUsdcAmount), liability = exposureUnits(next.terms.funderRepaymentAmount)
+  if (advance > limits.delivery || liability > limits.delivery || liability > limits.worker || liability > limits.funder || liability > limits.asset || liability > limits.global) return 'This stock delivery exceeds the pilot limit.'
+  const active = Object.values(safeStockDeliveryStore(storeValue).requests).filter(item => item.status === 'delivered' || (item.status === 'requested' && Date.parse(item.expiresAt) > input.now * 1000))
+  const sum = (items: StockDeliveryRequest[]) => items.reduce((total, item) => total + exposureUnits(item.authorization.terms.funderRepaymentAmount), 0n)
+  const worker = active.filter(item => item.workerUserId === input.workerUserId)
+  const funder = active.filter(item => item.partnerApplicationId === input.partnerApplicationId)
+  const asset = active.filter(item => sameAddress(item.authorization.terms.stockAsset, next.terms.stockAsset))
+  if (worker.length >= policy.maxWorkerOutstandingCount || sum(worker) + liability > limits.worker) return 'This worker reached the stock pilot limit.'
+  if (funder.length >= policy.maxFunderOutstandingCount || sum(funder) + liability > limits.funder) return 'This funder reached the stock pilot limit.'
+  if (sum(asset) + liability > limits.asset) return 'This stock token reached the pilot limit.'
+  if (sum(active) + liability > limits.global) return 'The stock pilot reached its global limit.'
+}
 
 export async function createStockDeliveryRequest(storeValue: StockDeliveryStore | undefined, input: {
   assessmentRequestId: string
@@ -50,6 +82,7 @@ export async function createStockDeliveryRequest(storeValue: StockDeliveryStore 
   authorization: StockDeliveryAuthorization
   workerSignature: Hex
   expected: Parameters<typeof verifyStockDeliveryAuthorization>[1]
+  exposure: StockDeliveryExposurePolicy
   now: Date
 }) {
   if (!/^uai_[a-zA-Z0-9]{12,80}$/.test(input.assessmentRequestId) || !/^agr_[a-zA-Z0-9]{12,64}$/.test(input.agreementId)
@@ -93,6 +126,8 @@ export async function createStockDeliveryRequest(storeValue: StockDeliveryStore 
     if (exactReplay) return { store, request: priorForAgreement }
     failure('This protected agreement already has a stock delivery request.')
   }
+  const exposureReason = stockDeliveryExposureReason(store, { workerUserId: input.workerUserId, partnerApplicationId: input.partnerApplicationId, authorization: input.authorization, policy: input.exposure, now })
+  if (exposureReason) failure(exposureReason)
   if (Object.keys(store.requests).length >= 10_000) failure('The stock delivery pilot capacity has been reached.', 503)
   store.requests[id] = request
   return { store, request }
