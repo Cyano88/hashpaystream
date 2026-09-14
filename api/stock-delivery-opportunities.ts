@@ -98,7 +98,12 @@ async function verifyReceipt(hash: Hex, authorization: StockDeliveryAuthorizatio
   if (events.length !== 1) fail('The stock delivery event is missing or ambiguous.', 409)
   const args = events[0].args
   if (args.deliveryId !== authorization.deliveryId || args.arcAgreementHash !== authorization.protection.arcAgreementHash || getAddress(args.worker) !== getAddress(authorization.offer.worker)
-    || getAddress(args.funder) !== getAddress(authorization.terms.funder) || getAddress(args.stockAsset) !== getAddress(authorization.terms.stockAsset) || args.stockTokenAmount.toString() !== authorization.terms.stockTokenAmount) fail('The stock delivery event does not match the signed request.', 409)
+    || getAddress(args.funder) !== getAddress(authorization.terms.funder) || getAddress(args.repaymentRecipient) !== getAddress(authorization.terms.repaymentRecipient)
+    || getAddress(args.workerArcRecipient) !== getAddress(authorization.terms.workerArcRecipient) || getAddress(args.platformTreasury) !== getAddress(authorization.terms.platformTreasury)
+    || getAddress(args.stockAsset) !== getAddress(authorization.terms.stockAsset) || args.stockTokenAmount.toString() !== authorization.terms.stockTokenAmount
+    || args.protectedAmount.toString() !== authorization.offer.protectedAmount || args.advanceUsdcAmount.toString() !== authorization.terms.advanceUsdcAmount
+    || args.funderRepaymentAmount.toString() !== authorization.terms.funderRepaymentAmount || args.platformFeeAmount.toString() !== authorization.terms.platformFeeAmount
+    || args.agreementTermsHash !== authorization.offer.agreementTermsHash || args.intelligenceCommitment !== authorization.offer.intelligenceCommitment) fail('The stock delivery event does not match the signed request.', 409)
   return { transactionHash: hash, blockHash: receipt.blockHash, blockNumber: receipt.blockNumber.toString(), deliveryId: args.deliveryId, arcAgreementHash: args.arcAgreementHash, worker: getAddress(args.worker), funder: getAddress(args.funder), stockAsset: getAddress(args.stockAsset), stockTokenAmount: args.stockTokenAmount.toString(), confirmedAt: new Date().toISOString() }
 }
 const defaults: Dependencies = { identity: verifiedIdentity, hasStore: hasRenderDurableStore, readAssessments: key => readDurableJson(key), readPartners: key => readDurableJson(key), readDeliveries: key => readDurableJson(key), mutateDeliveries: (key, update) => mutateDurableJson(key, update), verifyReceipt, offers: listProductionStockDeliveryOffers, env: () => process.env, now: () => new Date() }
@@ -129,12 +134,12 @@ export function createStockDeliveryOpportunitiesHandler(overrides: Partial<Depen
             .sort((left, right) => right.verifiedCompletedFundingCount - left.verifiedCompletedFundingCount || left.feeBps - right.feeBps || left.partnerId.localeCompare(right.partnerId))
           return res.json({ ok: true, offers: ranked, selection: null, executionEnabled: true })
         }
-        if (view === 'funder') { if (!profile) fail('An approved funding profile is required.', 403); return res.json({ ok: true, requests: stockDeliveryRequestsForFunder(deliveries, profile.id), executionEnabled: false }) }
+        if (view === 'funder') { if (!profile) fail('An approved funding profile is required.', 403); return res.json({ ok: true, requests: stockDeliveryRequestsForFunder(deliveries, profile.id), executionEnabled: config.requestsEnabled }) }
         fail('Stock delivery view is invalid.', 400)
       }
       const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body as Record<string, unknown> : {}, action = clean(body.action, 32)
-      if (!config.requestsEnabled) fail('Stock delivery requests are paused.', 503)
       if (action === 'select_offer') {
+        if (!config.requestsEnabled) fail('Stock delivery requests are paused.', 503)
         const requestId = clean(body.requestId, 100), agreementId = clean(body.agreementId, 80), partnerId = clean(body.partnerId, 80)
         const assessments = await dependencies.readAssessments(config.assessmentStore), record = assessmentFor(identity, assessments, requestId, config.secret)
         const partner = partners?.applications?.[partnerId]

@@ -12,6 +12,7 @@ import UpfrontLifecycleButton from './UpfrontLifecycleButton'
 import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
 import { reconcileFundingPositions } from '../lib/stableSnapshots'
 import FundingPositionReceipt from './FundingPositionReceipt'
+import StockDeliveryFunderPanel from './StockDeliveryFunderPanel'
 
 type StockOfferProfile = { enabled: boolean; feeBps?: number; onSave: (enabled: boolean, feeBps: number) => Promise<void> }
 
@@ -175,6 +176,8 @@ function LegacyStreamPayFundingDesk({ stockOfferProfile }: { stockOfferProfile: 
     {error && <div className="rounded-2xl bg-rose-50 px-4 py-3 text-xs text-rose-700 dark:bg-rose-400/10 dark:text-rose-300"><p>{error}</p><button type="button" onClick={() => void load()} className="mt-2 font-bold underline">Try again</button></div>}
 
     <StockOfferSettings profile={stockOfferProfile} />
+
+    <StockDeliveryFunderPanel />
 
     {!error && <OpportunitySection title="Incoming requests" count={openOffers.length}>
       {openOffers.length > 0

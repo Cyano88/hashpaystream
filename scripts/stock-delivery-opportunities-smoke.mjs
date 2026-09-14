@@ -17,16 +17,18 @@ let result = await call(handler, 'GET', { view: 'worker' })
 assert.equal(result.statusCode, 200); assert.equal(result.body.requests.length, 1); assert.equal(result.body.executionEnabled, false)
 result = await call(handler, 'GET', { view: 'funder' }); assert.equal(result.statusCode, 403)
 handler = createStockDeliveryOpportunitiesHandler({ ...base, identity: async () => ({ userId: 'funder-user', emails: ['funder@example.com'], wallet: funder }) })
-result = await call(handler, 'GET', { view: 'funder' }); assert.equal(result.statusCode, 200); assert.equal(result.body.requests.length, 1)
+result = await call(handler, 'GET', { view: 'funder' }); assert.equal(result.statusCode, 200); assert.equal(result.body.requests.length, 1); assert.equal(result.body.executionEnabled, false)
 const assessmentRequestId = 'uai_123456789abc'
 const assessments = { schema: 1, records: { one: { ownerReference: 'hps_provider_' + createHmac('sha256', secret).update('upfront\0worker-user').digest('hex').slice(0, 32), status: 'completed', agreementId: 'agr_123456789abc', request: { requestId: assessmentRequestId }, response: { decision: { decision: 'APPROVE' } } }, settled: { fundingRequest: { settlementVersion: 3, status: 'settled', partnerApplicationId: 'two', settlementEvidence: { chainId: 5_042_002, transactionHash: '0x' + 'ab'.repeat(32), agreementHash: '0x' + 'cd'.repeat(32) } } } } }
 let offerCalls = 0
 const enabledEnv = { ...env, HASHPAYSTREAM_STOCK_DELIVERY_REQUESTS_ENABLED: 'true' }
+handler = createStockDeliveryOpportunitiesHandler({ ...base, env: () => enabledEnv, identity: async () => ({ userId: 'funder-user', emails: ['funder@example.com'], wallet: funder }) })
+result = await call(handler, 'GET', { view: 'funder' }); assert.equal(result.statusCode, 200); assert.equal(result.body.executionEnabled, true)
 handler = createStockDeliveryOpportunitiesHandler({ ...base, env: () => enabledEnv, readAssessments: async () => assessments, offers: async () => { offerCalls += 1; return [{ partnerId: 'one', feeBps: 50 }, { partnerId: 'two', feeBps: 200 }] }, identity: async () => ({ userId: 'worker-user', emails: ['worker@example.com'], wallet: worker }) })
 result = await call(handler, 'GET', { view: 'partners', requestId: assessmentRequestId })
 assert.equal(result.statusCode, 200); assert.equal(result.body.offers.length, 2); assert.equal(result.body.offers[0].partnerId, 'two'); assert.equal(result.body.offers[0].verifiedCompletedFundingCount, 1); assert.equal(result.body.executionEnabled, true); assert.equal(offerCalls, 1)
 handler = createStockDeliveryOpportunitiesHandler({ ...base, readAssessments: async () => assessments, offers: async () => { throw new Error('must remain paused') }, identity: async () => ({ userId: 'worker-user', emails: ['worker@example.com'], wallet: worker }) })
 result = await call(handler, 'GET', { view: 'partners', requestId: assessmentRequestId }); assert.equal(result.statusCode, 503)
-result = await call(handler, 'POST', {}, { action: 'decline', deliveryId: record.id }); assert.equal(result.statusCode, 503)
-assert.equal(result.body.error, 'Stock delivery is temporarily unavailable.')
+result = await call(handler, 'POST', {}, { action: 'decline', deliveryId: record.id }); assert.equal(result.statusCode, 403)
+assert.equal(result.body.error, 'An approved funding profile is required.')
 console.log('Authenticated stock delivery opportunity scope and pause checks passed.')
