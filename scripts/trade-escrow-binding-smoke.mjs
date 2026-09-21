@@ -6,16 +6,16 @@ const result=prepareTradeEscrowBinding(input)
 assert.equal(result.contractTerms.amount,11750000n);assert.equal(result.fundingEnabled,false)
 const tokenAddress='0x9999999999999999999999999999999999999999'
 const tokenTerms={...terms,currency:'XLAYER_ASSET',settlementAsset:'XLAYER_TOKENIZED_ASSET',settlementToken:tokenAddress}
-const tokenInput={...input,chainId:196,offer:{...input.offer,terms:tokenTerms},env:{HASHPAYSTREAM_XLAYER_TOKENIZED_ASSET_ADDRESS:tokenAddress,HASHPAYSTREAM_XLAYER_TOKENIZED_ASSET_DECIMALS:'18'}}
+const tokenInput={...input,chainId:196,offer:{...input.offer,terms:tokenTerms},env:{HASHPAYSTREAM_XLAYER_TOKENIZED_ASSETS_JSON:JSON.stringify([{address:tokenAddress,decimals:18},{address:'0x8888888888888888888888888888888888888888',decimals:18}])}}
 const tokenResult=prepareTradeEscrowBinding(tokenInput)
 assert.equal(tokenResult.contractTerms.amount,11750000000000000000n)
 assert.equal(tokenResult.contractTerms.token,tokenAddress)
 assert.equal(tokenResult.contractTerms.settlementAsset,'XLAYER_TOKENIZED_ASSET')
 assert.equal(tokenResult.contractTerms.decimals,18)
 assert.equal(tokenResult.fundingEnabled,false)
-assert.throws(()=>prepareTradeEscrowBinding({...tokenInput,offer:{...tokenInput.offer,terms:{...tokenTerms,settlementToken:'0x8888888888888888888888888888888888888888'}}}))
+assert.throws(()=>prepareTradeEscrowBinding({...tokenInput,offer:{...tokenInput.offer,terms:{...tokenTerms,settlementToken:'0x7777777777777777777777777777777777777777'}}}))
 assert.throws(()=>prepareTradeEscrowBinding({...tokenInput,chainId:5042002}))
-assert.throws(()=>prepareTradeEscrowBinding({...tokenInput,env:{HASHPAYSTREAM_XLAYER_TOKENIZED_ASSET_ADDRESS:tokenAddress,HASHPAYSTREAM_XLAYER_TOKENIZED_ASSET_DECIMALS:'1'}}))
+assert.throws(()=>prepareTradeEscrowBinding({...tokenInput,env:{HASHPAYSTREAM_XLAYER_TOKENIZED_ASSETS_JSON:JSON.stringify([{address:tokenAddress,decimals:1}])}}))
 assert.equal(prepareTradeEscrowBinding({...input,offer:{...input.offer,terms:Object.fromEntries(Object.entries(terms).reverse())}}).termsHash,result.termsHash)
 for(const patch of [{buyer:input.seller},{chainId:1},{fundBy:input.now},{fundBy:input.now+8*86400}])assert.throws(()=>prepareTradeEscrowBinding({...input,...patch}))
 for(const patch of [{status:'proposed'},{terms:{...terms,currency:'NGN'}},{terms:{...terms,escrowPolicyVersion:undefined}},{snapshot:{title:'Missing frozen photos'}}])assert.throws(()=>prepareTradeEscrowBinding({...input,offer:{...input.offer,...patch}}))

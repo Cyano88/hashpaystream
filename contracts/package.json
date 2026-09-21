@@ -18,6 +18,7 @@
     "deploy:testnet": "hardhat run scripts/deploy.ts --network xlayerTestnet",
     "deploy:mainnet": "hardhat run scripts/deploy-mainnet.ts --network xlayerMainnet",
     "deploy:trade-xlayer": "hardhat run scripts/deploy-trade-xlayer.ts --network xlayerMainnet",
+    "deploy:multi-trade-xlayer": "hardhat run scripts/deploy-multi-trade-xlayer.ts --network xlayerMainnet",
     "deploy:savings-mainnet": "hardhat run scripts/deploy-savings-mainnet.ts --network xlayerMainnet",
     "deploy:savings-arc-testnet": "hardhat run scripts/deploy-savings-arc-testnet.ts --network arcTestnet",
     "deploy:locked-savings-mainnet": "hardhat run scripts/deploy-locked-savings-mainnet.ts --network xlayerMainnet",
