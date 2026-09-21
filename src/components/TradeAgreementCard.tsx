@@ -346,12 +346,25 @@ export default function TradeAgreementCard({
           <StreamSelect
             label="Currency"
             value={terms.currency}
-            options={["NGN", "USD", "USDC"].map((value) => ({
+            options={["NGN", "USD", "USDC", "XLAYER_ASSET"].map((value) => ({
               value,
-              label: value,
+              label: value === "XLAYER_ASSET" ? "Tokenized asset · X Layer" : value,
             }))}
             disabled={busy}
-            onChange={(v) => change("currency", v as TradeTerms["currency"])}
+            onChange={(v) => {
+              const currency = v as TradeTerms["currency"];
+              change("currency", currency);
+              if (currency === "XLAYER_ASSET") {
+                change("settlementAsset", "XLAYER_TOKENIZED_ASSET");
+                change("settlementToken", String(import.meta.env.VITE_XLAYER_TOKENIZED_ASSET_ADDRESS ?? "").trim());
+              } else if (currency === "USDC") {
+                change("settlementAsset", "USDC");
+                change("settlementToken", undefined);
+              } else {
+                change("settlementAsset", undefined);
+                change("settlementToken", undefined);
+              }
+            }}
           />
           <label className="block text-xs font-bold">
             Item price
@@ -369,7 +382,7 @@ export default function TradeAgreementCard({
             value={terms.handover}
             options={["Pickup", "Delivery"].map((value) => ({
               value,
-              label: value,
+              label: value === "XLAYER_ASSET" ? "Tokenized asset · X Layer" : value,
             }))}
             disabled={busy}
             onChange={(v) => change("handover", v as TradeTerms["handover"])}

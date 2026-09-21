@@ -1,7 +1,7 @@
 export type TradeTerms = {
   price: string;
   deliveryFee: string;
-  currency: "NGN" | "USD" | "USDC";
+  currency: "NGN" | "USD" | "USDC" | "XLAYER_ASSET";
   handover: "Pickup" | "Delivery";
   location: string;
   dispatchDays: number;
@@ -10,6 +10,8 @@ export type TradeTerms = {
   inspectionHours: number;
   returns: string;
   carrier: string;
+  settlementAsset?: "USDC" | "XLAYER_TOKENIZED_ASSET";
+  settlementToken?: string;
 };
 export type TradeOffer = {
   id: string;
@@ -65,10 +67,18 @@ export function validateTradeTerms(value: unknown): TradeTerms {
   )
     throw Error("Review the current escrow policy and delivery deadline.");
   if (
-    !["NGN", "USD", "USDC"].includes(t.currency) ||
+    !["NGN", "USD", "USDC", "XLAYER_ASSET"].includes(t.currency) ||
     !["Pickup", "Delivery"].includes(t.handover)
   )
     throw Error("Choose a currency and handover method.");
+  if (t.currency === "XLAYER_ASSET" && t.settlementAsset !== "XLAYER_TOKENIZED_ASSET")
+    throw Error("X Layer asset terms must use the tokenized-asset settlement rail.");
+  if (t.currency !== "XLAYER_ASSET" && t.settlementAsset === "XLAYER_TOKENIZED_ASSET")
+    throw Error("Tokenized-asset settlement requires the X Layer asset quote.");
+  if (t.settlementAsset !== undefined && !["USDC", "XLAYER_TOKENIZED_ASSET"].includes(t.settlementAsset))
+    throw Error("Choose a supported settlement asset.");
+  if (t.settlementAsset === "XLAYER_TOKENIZED_ASSET" && (typeof t.settlementToken !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(t.settlementToken)))
+    throw Error("A valid X Layer tokenized-asset address is required.");
   if (
     !Number.isInteger(t.dispatchDays) ||
     t.dispatchDays < 1 ||
@@ -103,5 +113,7 @@ export function validateTradeTerms(value: unknown): TradeTerms {
     inspectionHours: t.inspectionHours,
     returns: t.returns.trim(),
     carrier: t.handover === "Delivery" ? t.carrier.trim() : "",
+    ...(t.settlementAsset ? { settlementAsset: t.settlementAsset } : {}),
+    ...(t.settlementToken ? { settlementToken: t.settlementToken } : {}),
   };
 }
