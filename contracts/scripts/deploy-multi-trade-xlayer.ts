@@ -1,3 +1,4 @@
+﻿import fs from 'node:fs'
 import { ethers } from 'hardhat'
 import { assertReviewedBuild, assertReviewedArtifact } from './assert-reviewed-build'
 
@@ -9,7 +10,12 @@ function address(name: string) {
 
 function tokenList() {
   let parsed: unknown
-  try { parsed = JSON.parse(String(process.env.HASHPAYSTREAM_XLAYER_TOKENIZED_ASSETS_JSON ?? '')) } catch { throw new Error('HASHPAYSTREAM_XLAYER_TOKENIZED_ASSETS_JSON must be valid JSON.') }
+  const file = String(process.env.HASHPAYSTREAM_XLAYER_TOKENIZED_ASSETS_FILE ?? '').trim()
+  const raw = file ? fs.readFileSync(file, 'utf8') : String(process.env.HASHPAYSTREAM_XLAYER_TOKENIZED_ASSETS_JSON ?? '')
+  try {
+    const document = JSON.parse(raw.replace(/^\uFEFF/, ''))
+    parsed = Array.isArray(document) ? document : (document as { assets?: unknown })?.assets
+  } catch { throw new Error(file ? `HASHPAYSTREAM_XLAYER_TOKENIZED_ASSETS_FILE must contain valid JSON: ${file}` : 'HASHPAYSTREAM_XLAYER_TOKENIZED_ASSETS_JSON must be valid JSON.') }
   if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('At least one approved X Layer token is required.')
   const result: string[] = []
   for (const item of parsed) {
@@ -40,3 +46,5 @@ async function main() {
   console.log(JSON.stringify({ deployed: true, chainId: network.chainId.toString(), contractName: 'MultiAssetTradeEscrowFactory', factory: deployed, arbiter, tokens, deployer: deployer.address, transactionHash: factory.deploymentTransaction()?.hash, fundingEnabled: false }, null, 2))
 }
 main().catch(error => { console.error(error instanceof Error ? error.message : error); process.exitCode = 1 })
+
+
