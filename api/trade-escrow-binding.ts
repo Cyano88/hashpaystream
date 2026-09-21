@@ -25,6 +25,7 @@ export type TradeBindingInput = {
   arbiter: string;
   fundBy: number;
   now: number;
+  env?: NodeJS.ProcessEnv;
 };
 function canonical(value: unknown): string {
   if (value === null || typeof value === "string" || typeof value === "boolean")
@@ -69,10 +70,12 @@ export function prepareTradeEscrowBinding(input: TradeBindingInput) {
   )
     throw Error("A valid accepted offer is required.");
   const terms = validateTradeTerms(offer.terms);
-  if (terms.currency !== "USDC")
-    throw Error(
-      "A separately accepted settlement quote is required for this currency.",
-    );
+  const settlementAsset = terms.settlementAsset ?? "USDC";
+  if (terms.currency !== "USDC" && terms.currency !== "XLAYER_ASSET") throw Error("A separately accepted on-chain settlement quote is required.");
+  if (terms.currency === "USDC" && settlementAsset !== "USDC") throw Error("USDC quotes must settle in USDC.");
+  if (terms.currency === "XLAYER_ASSET" && settlementAsset !== "XLAYER_TOKENIZED_ASSET") throw Error("X Layer asset quotes must settle in the configured tokenized asset.");
+  if (settlementAsset !== "USDC" && settlementAsset !== "XLAYER_TOKENIZED_ASSET")
+    throw Error("A separately accepted settlement asset is required.");
   const assets: Record<number, Address> = {
     196: "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
     5042002: "0x3600000000000000000000000000000000000000",
@@ -89,8 +92,15 @@ export function prepareTradeEscrowBinding(input: TradeBindingInput) {
   const factory = address(input.factory),
     buyer = address(input.buyer),
     seller = address(input.seller),
-    arbiter = address(input.arbiter),
-    token = getAddress(assets[input.chainId]);
+    arbiter = address(input.arbiter);
+  let token = getAddress(assets[input.chainId]);
+  if (settlementAsset === "XLAYER_TOKENIZED_ASSET") {
+    if (input.chainId !== 196) throw Error("Tokenized-asset settlement is only supported on X Layer.");
+    const configured = (input.env ?? process.env).HASHPAYSTREAM_XLAYER_TOKENIZED_ASSET_ADDRESS?.trim() ?? "";
+    if (!isAddress(configured) || /^0x0{40}$/i.test(configured)) throw Error("X Layer tokenized-asset settlement is not configured.");
+    if (!terms.settlementToken || getAddress(terms.settlementToken) !== getAddress(configured)) throw Error("The accepted tokenized asset is not the configured X Layer asset.");
+    token = getAddress(configured);
+  }
   if (
     new Set(
       [factory, buyer, seller, arbiter, token].map((x) => x.toLowerCase()),
@@ -108,8 +118,9 @@ export function prepareTradeEscrowBinding(input: TradeBindingInput) {
   const snapshotHash = createHash("sha256")
     .update(canonical(offer.snapshot))
     .digest("hex");
-  const amount =
-    (tradeUnits(terms.price) + tradeUnits(terms.deliveryFee)) * 10000n;
+  const decimals = settlementAsset === "USDC" ? 6 : Number((input.env ?? process.env).HASHPAYSTREAM_XLAYER_TOKENIZED_ASSET_DECIMALS ?? "");
+  if (!Number.isInteger(decimals) || decimals < 2 || decimals > 18) throw Error("Settlement-asset decimals are not configured.");
+  const amount = (tradeUnits(terms.price) + tradeUnits(terms.deliveryFee)) * 10n ** BigInt(decimals - 2);
   const core = {
     version: "trade-escrow-v1",
     chainId: input.chainId,
@@ -122,6 +133,8 @@ export function prepareTradeEscrowBinding(input: TradeBindingInput) {
     seller,
     arbiter,
     token,
+    settlementAsset,
+    decimals,
     amount: amount.toString(),
     fundBy: input.fundBy,
   };
@@ -141,6 +154,8 @@ export function prepareTradeEscrowBinding(input: TradeBindingInput) {
       seller,
       arbiter,
       token,
+      settlementAsset,
+      decimals,
       amount,
       fundBy: input.fundBy,
       dispatchWindow: terms.dispatchDays * 86400,
