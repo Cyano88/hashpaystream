@@ -3,7 +3,7 @@ services:
     name: hashpaystream
     runtime: node
     plan: starter
-    buildCommand: npm ci --include=dev && npm run build
+    buildCommand: npm ci --include=dev && cd contracts && npm ci --include=dev && cd .. && npm run build
     startCommand: npm run start
     healthCheckPath: /readyz
     maxShutdownDelaySeconds: 30
