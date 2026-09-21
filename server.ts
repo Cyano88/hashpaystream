@@ -19,6 +19,7 @@ import { createHashPayStreamUpfrontArcWebhookHandler } from './api/upfront-arc-w
 import upfrontProtection from './api/upfront-protection.js'
 import upfrontOpportunities from './api/upfront-opportunities.js'
 import fundingPartners from './api/funding-partners.js'
+import stockEarlyPay from './api/stock-early-pay.js'
 import streamAccounts from './api/stream-accounts.js'
 import circleWallet from './api/circle-wallet.js'
 import pocketTransfers, { startPocketTransferWorker } from './api/pocket-transfers.js'
@@ -124,6 +125,8 @@ app.all('/api/hashpaystream/v1/upfront/opportunities', (_req, res) => {
   res.setHeader('Allow', 'GET, POST')
   return res.status(405).json({ ok: false, error: 'Method not allowed.' })
 })
+app.all('/api/hashpaystream/v1/stock-early-pay', rateLimit({ name: 'stock-early-pay', windowMs: 60_000, max: 60 }), stockEarlyPay)
+
 app.get('/api/hashpaystream/v1/funding-partners', rateLimit({ name: 'funding-partner-read', windowMs: 60_000, max: 60 }), fundingPartners)
 app.post('/api/hashpaystream/v1/funding-partners', rateLimit({ name: 'funding-partner-write', windowMs: 60_000, max: 10 }), fundingPartners)
 app.all('/api/hashpaystream/v1/funding-partners', (_req, res) => {

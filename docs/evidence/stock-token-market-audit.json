@@ -1,0 +1,265 @@
+{
+  "schema": 1,
+  "chainId": 196,
+  "fetchedAt": "2026-09-12T21:32:49.658Z",
+  "blockNumber": 70479703,
+  "blockHash": "0x22ed16290b097d59322076ce0fc94079eabbb395dbf3f9af308315df7e3eb787",
+  "blockTimestamp": 1789248739,
+  "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-xlayer-deployments",
+  "contracts": {
+    "factory": "0x4B2ab38DBF28D31D467aA8993f6c2585981D6804",
+    "quoter": "0xD1b797D92d87B688193A2B976eFc8D577D204343",
+    "router": "0x4f0C28f5926AFDA16bf2506D5D9e57Ea190f9bcA",
+    "usdg": "0x4ae46a509F6b1D9056937BA4500cb143933D2dc8",
+    "runtimeHashes": {
+      "factory": "0x98cde3564f540d7529feb2c697e2d79b85e3bc864d088ebe09fd5dcfc60a5c0e",
+      "quoter": "0xfd872b486699c79a91db9b977e6e271edfed3535fb624a6973bb05d6dac2a277",
+      "router": "0x83ee2f04768ca84e762b139bf36844bf7efbd75b3c7cc898705169eacb9d5102",
+      "usdg": "0x5e4dcb0bb1910f6429e5fe91678990088a51c6d1cfe1b31d05fb9d948cc7867c"
+    }
+  },
+  "candidate": {
+    "symbol": "wSPYx",
+    "selectionStatus": "technical_candidate_not_approved",
+    "underlying": {
+      "address": "0x90A2a4c76b5D8c0bc892A69EA28Aa775a8f2dD48",
+      "symbol": "SPYx",
+      "decimals": 18,
+      "runtimeHash": "0xe7cbfea5a664672738dd729f7774677b0fa82dbdda74320df20eec49d2211b4c",
+      "implementation": "0x65c40D624Af3B18C109fBF87B7DEff34CdC5f19b",
+      "implementationRuntimeHash": "0x867df49d5c7ab1198b64f29e6be9b2c1be8482d35a59b38d0f9e243be448ae68"
+    },
+    "wrapper": {
+      "address": "0xE7E553Cd128F0011777323A0b44a7b96EA1CB540",
+      "symbol": "wSPYx",
+      "decimals": 18,
+      "runtimeHash": "0x22c711b98473b782f9d8863b9033148c180d6d4d8e3e3bce129ff566352500e8",
+      "implementation": "0x76C6851ea0B2741EeDcBBED240715E8817E85583",
+      "implementationRuntimeHash": "0x65fbe0111d1e611f05aaab7a4e80f5b883e996037bb58fcddb1043534a5e9a61"
+    },
+    "payment": {
+      "address": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
+      "symbol": "USDC",
+      "decimals": 6,
+      "runtimeHash": "0xa259d230afe44e97f1500ce5c06cd2e5bdafb129f25c104d8716470cb4fff0be",
+      "implementation": null,
+      "implementationRuntimeHash": null
+    },
+    "underlyingUnitsPerWholeWrapper": "1005714560286254000"
+  },
+  "route": {
+    "tokenIn": "0xE7E553Cd128F0011777323A0b44a7b96EA1CB540",
+    "tokenOut": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
+    "intermediate": "0x4ae46a509F6b1D9056937BA4500cb143933D2dc8",
+    "path": "0xe7e553cd128f0011777323a0b44a7b96ea1cb5400001f44ae46a509f6b1d9056937ba4500cb143933d2dc8000064b6ceceab302e2e4948951ee7843fc24e92933061",
+    "pools": [
+      {
+        "address": "0x07c40850D14064D20eB0AfDEf9574675392f2c11",
+        "exists": true,
+        "active": true,
+        "token0": "0x4ae46a509F6b1D9056937BA4500cb143933D2dc8",
+        "token1": "0xE7E553Cd128F0011777323A0b44a7b96EA1CB540",
+        "fee": 500,
+        "liquidity": "394089235496556098",
+        "sqrtPriceX96": "2855002444395706887288965750172384",
+        "tick": 209855,
+        "observationCardinality": 256,
+        "runtimeHash": "0xeb3fc03ecc34ecaa139b680481d169faaeff3f5d497a02d4d8662a8693b87b2f",
+        "history": {
+          "meanTick30m": 209855,
+          "meanTick5m": 209855,
+          "tickCumulatives": [
+            "840901867329",
+            "841216649829",
+            "841279606329"
+          ]
+        }
+      },
+      {
+        "address": "0xbB9a35F790EA6eA9763b99e885f33BCF95860d40",
+        "exists": true,
+        "active": true,
+        "token0": "0x4ae46a509F6b1D9056937BA4500cb143933D2dc8",
+        "token1": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
+        "fee": 100,
+        "liquidity": "1001809604944896",
+        "sqrtPriceX96": "79227167587865759470355788269",
+        "tick": -1,
+        "observationCardinality": 1,
+        "runtimeHash": "0x60f8f49072453d1c5d9fa0ccbc2c2277da51d3e0fe0f53f95a774b6bf1609539",
+        "history": {
+          "meanTick30m": -1,
+          "meanTick5m": -1,
+          "tickCumulatives": [
+            "3364705",
+            "3363205",
+            "3362905"
+          ]
+        }
+      }
+    ]
+  },
+  "directPool": {
+    "address": "0x0f74eE629eE186dc49fC9F78bb5d5856C0ca8231",
+    "exists": true,
+    "active": false,
+    "token0": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
+    "token1": "0xE7E553Cd128F0011777323A0b44a7b96EA1CB540",
+    "fee": 500,
+    "liquidity": "0",
+    "sqrtPriceX96": "0",
+    "tick": 0,
+    "observationCardinality": 0,
+    "runtimeHash": "0x3530ef4edb7f923c39e0aaea723e0a5ee0c496b39d544041f078c2361784b196",
+    "history": null
+  },
+  "quotes": [
+    {
+      "amountIn": "10000000000000000",
+      "amountOutUsdcUnits": "7696163",
+      "spotOutputUsdcUnits": "7700789",
+      "feeAndImpactBps": 6,
+      "gasEstimate": "195014"
+    },
+    {
+      "amountIn": "100000000000000000",
+      "amountOutUsdcUnits": "76961152",
+      "spotOutputUsdcUnits": "77007901",
+      "feeAndImpactBps": 6,
+      "gasEstimate": "195014"
+    },
+    {
+      "amountIn": "130000000000000000",
+      "amountOutUsdcUnits": "100049284",
+      "spotOutputUsdcUnits": "100110271",
+      "feeAndImpactBps": 6,
+      "gasEstimate": "195014"
+    },
+    {
+      "amountIn": "1000000000000000000",
+      "amountOutUsdcUnits": "769562254",
+      "spotOutputUsdcUnits": "770079018",
+      "feeAndImpactBps": 6,
+      "gasEstimate": "204679"
+    },
+    {
+      "amountIn": "2000000000000000000",
+      "amountOutUsdcUnits": "1539015016",
+      "spotOutputUsdcUnits": "1540158037",
+      "feeAndImpactBps": 7,
+      "gasEstimate": "204699"
+    },
+    {
+      "amountIn": "10000000000000000000",
+      "amountOutUsdcUnits": "7690698768",
+      "spotOutputUsdcUnits": "7700790189",
+      "feeAndImpactBps": 13,
+      "gasEstimate": "234888"
+    },
+    {
+      "amountIn": "100000000000000000000",
+      "amountOutUsdcUnits": "76415139793",
+      "spotOutputUsdcUnits": "77007901896",
+      "feeAndImpactBps": 76,
+      "gasEstimate": "373549"
+    }
+  ],
+  "testAmountIn": "130000000000000000",
+  "testSlippageBps": 50,
+  "productionApproved": false,
+  "independentFairPriceVerified": false,
+  "limitations": [
+    "Quotes are eth_call simulations at one block, not reservations or live transactions",
+    "Spot and TWAP use the same liquidity and are not independent stock-price oracles",
+    "Two-hop exit introduces USDG, two pool fees, gas, price impact and MEV exposure",
+    "No issuer account is used or required for these direct contract reads",
+    "Token eligibility, corporate actions, independent price policy and security review remain separate release checks"
+  ],
+  "scannedStablePools": [
+    {
+      "quoteToken": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
+      "requestedFee": 100,
+      "address": "0x0000000000000000000000000000000000000000",
+      "exists": false
+    },
+    {
+      "quoteToken": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
+      "requestedFee": 500,
+      "address": "0x0f74eE629eE186dc49fC9F78bb5d5856C0ca8231",
+      "exists": true,
+      "active": false,
+      "token0": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
+      "token1": "0xE7E553Cd128F0011777323A0b44a7b96EA1CB540",
+      "fee": 500,
+      "liquidity": "0",
+      "sqrtPriceX96": "0",
+      "tick": 0,
+      "observationCardinality": 0,
+      "runtimeHash": "0x3530ef4edb7f923c39e0aaea723e0a5ee0c496b39d544041f078c2361784b196",
+      "history": null
+    },
+    {
+      "quoteToken": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
+      "requestedFee": 3000,
+      "address": "0x0000000000000000000000000000000000000000",
+      "exists": false
+    },
+    {
+      "quoteToken": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
+      "requestedFee": 10000,
+      "address": "0x0000000000000000000000000000000000000000",
+      "exists": false
+    },
+    {
+      "quoteToken": "0x4ae46a509F6b1D9056937BA4500cb143933D2dc8",
+      "requestedFee": 100,
+      "address": "0x0000000000000000000000000000000000000000",
+      "exists": false
+    },
+    {
+      "quoteToken": "0x4ae46a509F6b1D9056937BA4500cb143933D2dc8",
+      "requestedFee": 500,
+      "address": "0x07c40850D14064D20eB0AfDEf9574675392f2c11",
+      "exists": true,
+      "active": true,
+      "token0": "0x4ae46a509F6b1D9056937BA4500cb143933D2dc8",
+      "token1": "0xE7E553Cd128F0011777323A0b44a7b96EA1CB540",
+      "fee": 500,
+      "liquidity": "394089235496556098",
+      "sqrtPriceX96": "2855002444395706887288965750172384",
+      "tick": 209855,
+      "observationCardinality": 256,
+      "runtimeHash": "0xeb3fc03ecc34ecaa139b680481d169faaeff3f5d497a02d4d8662a8693b87b2f",
+      "history": {
+        "meanTick30m": 209855,
+        "meanTick5m": 209855,
+        "tickCumulatives": [
+          "840901867329",
+          "841216649829",
+          "841279606329"
+        ]
+      }
+    },
+    {
+      "quoteToken": "0x4ae46a509F6b1D9056937BA4500cb143933D2dc8",
+      "requestedFee": 3000,
+      "address": "0x0000000000000000000000000000000000000000",
+      "exists": false
+    },
+    {
+      "quoteToken": "0x4ae46a509F6b1D9056937BA4500cb143933D2dc8",
+      "requestedFee": 10000,
+      "address": "0x0000000000000000000000000000000000000000",
+      "exists": false
+    }
+  ],
+  "historyDiagnostics": {
+    "spotUsdgUnitsPerStock": "770098360",
+    "twap5mUsdgPerStock": 770.1384631731569,
+    "twap30mUsdgPerStock": 770.1384631731569,
+    "note": "Floating point diagnostics only. Same-pool TWAP is not independent and does not measure manipulation cost."
+  },
+  "weekendPolicyApproved": false,
+  "manipulationResistanceVerified": false,
+  "scanScope": "One verified Uniswap V3 factory, USDC/USDG, four fee tiers. Not an exhaustive X Layer venue scan."
+}

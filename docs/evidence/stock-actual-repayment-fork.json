@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "chainId": 31337,
+  "sourceChainId": 196,
+  "sourceBlock": 70423197,
+  "actualStock": "0xE7E553Cd128F0011777323A0b44a7b96EA1CB540",
+  "actualUsdc": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
+  "principalUsdcUnits": "100000000",
+  "feeUsdcUnits": "1000000",
+  "funderRepaidUsdcUnits": "101000000",
+  "workerRemainderUsdcUnits": "399000000",
+  "stockDeliveredUnits": "129938829541818989",
+  "adapterCalls": 7,
+  "isolatedPostgres": true,
+  "syntheticIndependentPriceAndEligibility": true,
+  "mainnetTransaction": false,
+  "fullRehearsalPassed": true
+}

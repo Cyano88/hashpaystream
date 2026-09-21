@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "kind": "personal-savings-arc-testnet-rehearsal",
+  "network": "Arc Testnet",
+  "chainId": 5042002,
+  "vault": "0x218271a4dc03c0578dA4B2274A56c15Fc751f5EF",
+  "asset": "0x3600000000000000000000000000000000000000",
+  "actor": "0x295177803fd02e1880d661Be3b66F6124787f978",
+  "approvalTransactions": [
+    "0x1c5185daaab5d496f2803220311cf00437afeb184bc39679633c92cd3085c3d7"
+  ],
+  "transactionHash": "0x31fab8b14ca6387b4a83ddb4cc8bf377afaad90afdb5031590703be3e6b43cdb",
+  "blockNumber": 61823383,
+  "planId": "0x9992c470390657e47bc33d9db0cc85889d29295f222e1001e715866af0920b23",
+  "amountUsdcUnits": "100000",
+  "releaseAmountUsdcUnits": "50000",
+  "cadenceSeconds": 604800,
+  "firstReleaseAt": 1789869025,
+  "totalManagedUsdcUnitsAfter": "100000",
+  "receiptAndStateVerified": true,
+  "publicDepositsEnabled": false,
+  "financialProductionReady": false
+}

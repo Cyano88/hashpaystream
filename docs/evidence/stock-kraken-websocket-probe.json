@@ -1,0 +1,8 @@
+{
+  "checkedAt": "2026-09-12T14:29:52.928Z",
+  "source": "wss://ws.kraken.com/v2",
+  "symbol": "SPYx/USD",
+  "liveReferenceVerified": false,
+  "messages": [],
+  "errorCode": "ENOTFOUND"
+}

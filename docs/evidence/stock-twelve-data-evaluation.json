@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "checkedAt": "2026-09-12T15:38:09.000Z",
+  "provider": "twelve-data",
+  "internalEvaluationOnly": true,
+  "productionReady": false,
+  "providerSwitched": false,
+  "requests": 2,
+  "checks": {
+    "spyQuote": {
+      "status": "MARKET_CLOSED",
+      "accessVerified": true,
+      "symbol": "SPY",
+      "mic": "ARCX",
+      "barTimestamp": 1789156740,
+      "reportedLastQuoteAt": 1789156740,
+      "timestampSemanticsVerified": false
+    },
+    "usdcQuote": {
+      "status": "OBSERVED",
+      "accessVerified": true,
+      "symbol": "USDC/USD",
+      "barTimestamp": 1789227360,
+      "reportedLastQuoteAt": 1789227480,
+      "timestampSemanticsVerified": false,
+      "venueIdentityVerified": false
+    },
+    "currentSessionMinutes": {
+      "status": "SKIPPED",
+      "reason": "A fresh regular-session SPY quote is required before history evaluation"
+    }
+  },
+  "blockers": [
+    "SPY market closed; regular-session freshness not verified.",
+    "Source timestamp semantics, holiday/early-close calendar, previous-session history and corporate-action handling require separate verification.",
+    "Customer-facing derived valuation rights, exact data entitlement and total price remain unconfirmed."
+  ]
+}

@@ -10,24 +10,24 @@ export default function StreamPayGrow({ fundingStatus }: { fundingStatus: Fundin
   const fundingTo = useStreamPayPath('/funding?view=funding')
 
   const fundingCopy = fundingStatus === 'approved'
-    ? 'Review private funding requests sent directly to you.'
+    ? 'Review eligible X Layer stock-funding requests.'
     : fundingStatus === 'pending'
       ? 'Your funding partner application is under review.'
       : fundingStatus === 'restricted'
         ? 'Funding access is currently restricted.'
-        : 'Apply to receive eligible early-pay requests.'
+        : 'Apply to fund eligible worker stock payments on X Layer.'
 
   return (
     <section className="stream-screen min-h-[calc(100dvh-6rem)] w-full max-w-md pb-28 pt-7">
       <header className="flex items-center gap-3">
         <Link to={homeTo} aria-label="Back to Home" className="stream-icon-button"><ArrowLeftIcon className="h-4 w-4" /></Link>
-        <div><h1 className="text-xl font-black tracking-tight">Earn</h1><p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">Save with a plan or fund work you choose.</p></div>
+        <div><h1 className="text-xl font-black tracking-tight">Earn</h1><p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">Save on Arc or fund worker stock payments on X Layer.</p></div>
       </header>
       <div className="mt-9 flex items-end justify-between"><h2 className="text-sm font-black">Choose an option</h2><span className="stream-pill text-emerald-600 dark:text-emerald-400">USDC</span></div>
       <div className="mt-3 space-y-3">
         <Link to={savingsTo} className="stream-feature-card group">
           <span className="stream-feature-icon bg-emerald-500/10 text-emerald-500"><CircleStackIcon className="h-6 w-6" /></span>
-          <span className="min-w-0 flex-1"><span className="block text-sm font-black">Savings</span><span className="mt-1 block text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">Set aside USDC with weekly or monthly releases.</span></span>
+          <span className="min-w-0 flex-1"><span className="block text-sm font-black">Savings</span><span className="mt-1 block text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">Set aside Arc USDC with weekly or monthly releases.</span></span>
           <ChevronRightIcon className="h-4 w-4 text-zinc-400 transition group-hover:translate-x-0.5" />
         </Link>
         <Link to={fundingTo} className="stream-feature-card group">

@@ -1,0 +1,11 @@
+{
+  "checkedAt": "2026-09-12T12:30:47.823Z",
+  "httpStatus": 200,
+  "symbol": "SPY",
+  "mic": "ARCX",
+  "interval": "1min",
+  "requestedDate": "2026-09-11",
+  "barCount": 390,
+  "complete390MinuteSequence": true,
+  "currentSessionVerified": false
+}

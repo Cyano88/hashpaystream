@@ -2,8 +2,8 @@ import { readSavingsTransaction } from './savingsTransaction'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { createPublicClient, getAddress, http, isAddress, zeroAddress, type Address, type Hex } from 'viem'
-import { upfrontXLayerChain } from './upfrontChains'
-import { XLAYER_USDC_ADDRESS, useXLayerUsdcBalance } from './useXLayerUsdcBalance'
+import { SAVINGS_USDC_ADDRESS, savingsChain } from './savingsChain'
+import { useSavingsUsdcBalance } from './useSavingsUsdcBalance'
 import { nextSavingsRelease } from './savingsSchedule'
 
 export { nextSavingsRelease } from './savingsSchedule'
@@ -52,8 +52,8 @@ function useSavingsRuntimeConfig() {
       } | undefined
       if (!response.ok || payload?.ok !== true || !payload.savings) throw new Error('Savings configuration is unavailable.')
       const vaultAddress = payload.savings.vaultAddress === null ? undefined : validAddress(payload.savings.vaultAddress)
-      if (Number(payload.savings.chainId) !== upfrontXLayerChain.id) throw new Error('Savings network configuration is invalid.')
-      if (getAddress(String(payload.savings.assetAddress)) !== XLAYER_USDC_ADDRESS) throw new Error('Savings asset configuration is invalid.')
+      if (Number(payload.savings.chainId) !== savingsChain.id) throw new Error('Savings network configuration is invalid.')
+      if (getAddress(String(payload.savings.assetAddress)) !== SAVINGS_USDC_ADDRESS) throw new Error('Savings asset configuration is invalid.')
       if (payload.savings.vaultAddress !== null && !vaultAddress) throw new Error('Savings vault configuration is invalid.')
       const status = payload.savings.status
       if (status !== 'active' && status !== 'paused' && status !== 'in_review') throw new Error('Savings launch status is invalid.')
@@ -131,7 +131,7 @@ export type SavingsPlan = {
 
 
 export function useSavingsVault() {
-  const wallet = useXLayerUsdcBalance()
+  const wallet = useSavingsUsdcBalance()
   const config = useSavingsRuntimeConfig()
   const [storedPlans, setPlans] = useState<SavingsPlan[]>([])
   const [loadedScope, setLoadedScope] = useState('')
@@ -165,7 +165,7 @@ export function useSavingsVault() {
       if (walletCheckTimedOut && request === sequence.current) {
         setVaultVerified(false)
         setReady(true)
-        setError('Your X Layer wallet is still connecting.')
+        setError('Your Arc wallet is still connecting.')
       }
       return
     }
@@ -183,13 +183,13 @@ export function useSavingsVault() {
     }
     const vaultAddress = config.vaultAddress
     try {
-      const client = createPublicClient({ chain: upfrontXLayerChain, transport: http() })
+      const client = createPublicClient({ chain: savingsChain, transport: http() })
       const snapshotBlock = await client.getBlockNumber()
       const [asset, count] = await Promise.all([
         client.readContract({ address: vaultAddress, abi: SAVINGS_VAULT_ABI, functionName: 'asset', blockNumber: snapshotBlock }),
         client.readContract({ address: vaultAddress, abi: SAVINGS_VAULT_ABI, functionName: 'planCount', args: [wallet.address], blockNumber: snapshotBlock }),
       ])
-      if (getAddress(asset) !== XLAYER_USDC_ADDRESS) throw new Error('The savings vault is not configured for native X Layer USDC.')
+      if (getAddress(asset) !== SAVINGS_USDC_ADDRESS) throw new Error('The savings vault is not configured for Arc USDC.')
 
       const ids: Hex[] = []
       for (let offset = 0n; offset < count; offset += PLAN_ID_PAGE_SIZE) {
@@ -226,7 +226,7 @@ export function useSavingsVault() {
 
   let hasPendingTransaction = false
   if (wallet.address && config.vaultAddress) {
-    try { hasPendingTransaction = Boolean(readSavingsTransaction({ chainId: upfrontXLayerChain.id, owner: wallet.address, vault: config.vaultAddress, asset: XLAYER_USDC_ADDRESS })) }
+    try { hasPendingTransaction = Boolean(readSavingsTransaction({ chainId: savingsChain.id, owner: wallet.address, vault: config.vaultAddress, asset: SAVINGS_USDC_ADDRESS })) }
     catch { hasPendingTransaction = true }
   }
   const totals = useMemo(() => plans.reduce((sum, plan) => ({ saved: sum.saved + plan.remaining, available: sum.available + plan.withdrawable }), { saved: 0n, available: 0n }), [plans])

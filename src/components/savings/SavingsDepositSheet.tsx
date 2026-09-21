@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CheckIcon } from '@heroicons/react/24/outline'
-import { createPublicClient, createWalletClient, custom, formatEther, http, parseUnits } from 'viem'
-import { upfrontXLayerChain } from '../../lib/upfrontChains'
+import { createPublicClient, createWalletClient, custom, http, parseUnits } from 'viem'
+import { SAVINGS_USDC_ADDRESS, savingsChain } from '../../lib/savingsChain'
 import { formatUsdcBalance } from '../../lib/useAgreements'
 import { MONTHLY_SECONDS, SAVINGS_VAULT_ABI, WEEKLY_SECONDS, type useSavingsVault } from '../../lib/useSavingsVault'
-import { XLAYER_USDC_ADDRESS } from '../../lib/useXLayerUsdcBalance'
 import { SavingsTransactionError, readSavingsTransaction, runSavingsTransaction, type SavingsReplacementHandler } from '../../lib/savingsTransaction'
 import { savingsPlanPreview } from '../../lib/savingsSchedule'
 
@@ -71,9 +70,9 @@ export default function SavingsDepositSheet({ savings, onClose }: { savings: Sav
     actionPending.current = true
     setStage('Checking your plan...'); setError('')
     try {
-      if (!savings.address || !savings.vaultAddress) throw new SavingsUiError('Your X Layer wallet is not ready.')
-      const scope = { chainId: upfrontXLayerChain.id, owner: savings.address, vault: savings.vaultAddress, asset: XLAYER_USDC_ADDRESS }
-      const client = createPublicClient({ chain: upfrontXLayerChain, transport: http() })
+      if (!savings.address || !savings.vaultAddress) throw new SavingsUiError('Your Arc wallet is not ready.')
+      const scope = { chainId: savingsChain.id, owner: savings.address, vault: savings.vaultAddress, asset: SAVINGS_USDC_ADDRESS }
+      const client = createPublicClient({ chain: savingsChain, transport: http() })
       const wait = (hash: `0x${string}`, onReplacement: SavingsReplacementHandler) => client.waitForTransactionReceipt({ hash, timeout: 60_000, confirmations: 2, onReplaced: ({ reason, transaction }) => onReplacement({ hash: transaction.hash, reason }) })
       const pending = readSavingsTransaction(scope)
       if (pending) {
@@ -82,20 +81,20 @@ export default function SavingsDepositSheet({ savings, onClose }: { savings: Sav
         await Promise.allSettled([savings.refresh(), savings.refreshSavings()])
         return
       }
-      if (!savings.wallet) throw new SavingsUiError('Your X Layer wallet is not ready.')
+      if (!savings.wallet) throw new SavingsUiError('Your Arc wallet is not ready.')
       if (!savings.depositsEnabled) throw new SavingsUiError('New savings plans are currently paused.')
       if (!/^\d+(?:\.\d{1,6})?$/.test(amount) || !/^\d+(?:\.\d{1,6})?$/.test(releaseAmount)) throw new SavingsUiError('Enter a valid USDC amount.')
       const units = parseUnits(amount, 6)
       const releaseUnits = parseUnits(releaseAmount, 6)
       if (units <= 0n || releaseUnits <= 0n || releaseUnits > units) throw new SavingsUiError('The release amount must be greater than zero and no more than the amount saved.')
-      if (savings.units === undefined || units > savings.units) throw new SavingsUiError('Your X Layer USDC balance is too low.')
+      if (savings.units === undefined || units > savings.units) throw new SavingsUiError('Your Arc Testnet USDC balance is too low.')
       const gasPrice = await client.getGasPrice()
       const gasBalance = await client.getBalance({ address: savings.address })
       const gasReserve = gasPrice * 350_000n
-      if (gasBalance < gasReserve) throw new SavingsUiError(`You need about ${formatEther(gasReserve)} OKB for X Layer gas.`)
-      await savings.wallet.switchChain(upfrontXLayerChain.id)
-      const walletClient = createWalletClient({ account: savings.address, chain: upfrontXLayerChain, transport: custom(await savings.wallet.getEthereumProvider()) })
-      const allowance = await client.readContract({ address: XLAYER_USDC_ADDRESS, abi: ERC20_ABI, functionName: 'allowance', args: [savings.address, savings.vaultAddress] })
+      if (gasBalance < gasReserve) throw new SavingsUiError('You need Arc Testnet USDC for network fees.')
+      await savings.wallet.switchChain(savingsChain.id)
+      const walletClient = createWalletClient({ account: savings.address, chain: savingsChain, transport: custom(await savings.wallet.getEthereumProvider()) })
+      const allowance = await client.readContract({ address: SAVINGS_USDC_ADDRESS, abi: ERC20_ABI, functionName: 'allowance', args: [savings.address, savings.vaultAddress] })
       if (allowance < units) {
         setStage('Confirm deposit · 1 of 2')
         const approved = await runSavingsTransaction(scope, { action: 'approve', amount: String(units) }, async () => {
@@ -130,7 +129,7 @@ export default function SavingsDepositSheet({ savings, onClose }: { savings: Sav
         <p className='mt-2 text-xs leading-5 text-zinc-500 dark:text-white/50'>Your transaction is verified. Check your plan for its current balance and release schedule.</p>
         <button type='button' onClick={onClose} className='stream-primary mt-7 w-full'>Done</button>
       </div> : <>
-        <div className='mt-5 flex items-start justify-between gap-4'><div><h2 id='savings-sheet-title' className='text-lg font-black'>Create savings plan</h2><p className='mt-1 text-[11px] text-zinc-500 dark:text-white/45'>USDC · X Layer</p></div><img src='/brand/usdc-token.svg' alt='USDC' className='h-10 w-10 object-contain' /></div>
+        <div className='mt-5 flex items-start justify-between gap-4'><div><h2 id='savings-sheet-title' className='text-lg font-black'>Create savings plan</h2><p className='mt-1 text-[11px] text-zinc-500 dark:text-white/45'>USDC · Arc Testnet</p></div><img src='/brand/usdc-token.svg' alt='USDC' className='h-10 w-10 object-contain' /></div>
         <label className='mt-6 block'><span className='flex items-center justify-between text-[11px] font-bold text-zinc-500 dark:text-white/55'><span>Amount to save</span><button type='button' onClick={() => setAmount(savings.balance)} className='text-emerald-600 dark:text-emerald-400'>MAX</button></span><span className='mt-2 flex items-center border-b border-zinc-300 dark:border-white/15'><span className='text-2xl font-black text-zinc-400 dark:text-white/35'>$</span><input inputMode='decimal' value={amount} onChange={event => { setAmount(cleanAmount(event.target.value)); setError('') }} placeholder='0.00' className='min-w-0 flex-1 bg-transparent px-2 py-3 text-3xl font-black outline-none' /><b className='text-xs text-zinc-400 dark:text-white/35'>USDC</b></span></label>
         <p className='mt-2 text-[10px] text-zinc-400 dark:text-white/35'>Available {savings.units === undefined ? '0 USDC' : formatUsdcBalance(savings.units)}</p>
         <div className='mt-6'><p className='text-[11px] font-bold text-zinc-500 dark:text-white/55'>Release schedule</p><div className='mt-2 grid grid-cols-2 rounded-full bg-zinc-200/70 p-1 dark:bg-white/[0.06]'>{(['weekly', 'monthly'] as const).map(value => <button key={value} type='button' onClick={() => setCadence(value)} className={`rounded-full px-4 py-2.5 text-xs font-black capitalize transition ${cadence === value ? 'bg-zinc-950 text-white dark:bg-white dark:text-black' : 'text-zinc-500 dark:text-white/45'}`}>{value === 'weekly' ? 'Every 7 days' : 'Every 30 days'}</button>)}</div></div>

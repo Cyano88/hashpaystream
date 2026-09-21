@@ -1,0 +1,9 @@
+{
+    "checkedAt":  "2026-09-12T15:48:14.8237477+00:00",
+    "source":  "https://hermes.pyth.network/v2/updates/price/latest?ids%5B%5D=2817b78438c769357182c04346fddaad1178c82f4048828fe0997c3c64624e14\u0026ids%5B%5D=9e916cc00d292da2367646ffd6537d6b8d0c3f15e2d5891ac44aed31291811a9\u0026parsed=true",
+    "status":  "AUTHENTICATION_REQUIRED",
+    "responseMessage":  "unauthorized",
+    "parsed":  null,
+    "signatureVerified":  false,
+    "productionReady":  false
+}

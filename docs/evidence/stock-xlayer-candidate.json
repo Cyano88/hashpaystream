@@ -1,0 +1,101 @@
+{
+  "schema": 1,
+  "fetchedAt": "2026-09-12T05:24:53.356Z",
+  "chainId": 196,
+  "blockNumber": 70421653,
+  "blockHash": "0x5b828c8add52aed4d681d2556bf58f78fae914167a284f6e24fae5fbc7253c0f",
+  "sourceUrls": [
+    "https://api.backed.fi/api/v2/public/assets/SPYx",
+    "https://api.backed.fi/api/v2/public/assets/SPYx/price-data",
+    "https://api.backed.fi/api/v2/public/assets/SPYx/multiplier?network=XLayer"
+  ],
+  "candidate": {
+    "symbol": "wSPYx",
+    "selectionStatus": "technical_candidate_not_approved",
+    "underlying": {
+      "address": "0x90A2a4c76b5D8c0bc892A69EA28Aa775a8f2dD48",
+      "symbol": "SPYx",
+      "decimals": 18,
+      "runtimeHash": "0xe7cbfea5a664672738dd729f7774677b0fa82dbdda74320df20eec49d2211b4c",
+      "implementation": "0x65c40D624Af3B18C109fBF87B7DEff34CdC5f19b",
+      "implementationRuntimeHash": "0x867df49d5c7ab1198b64f29e6be9b2c1be8482d35a59b38d0f9e243be448ae68"
+    },
+    "wrapper": {
+      "address": "0xE7E553Cd128F0011777323A0b44a7b96EA1CB540",
+      "symbol": "wSPYx",
+      "decimals": 18,
+      "runtimeHash": "0x22c711b98473b782f9d8863b9033148c180d6d4d8e3e3bce129ff566352500e8",
+      "implementation": "0x76C6851ea0B2741EeDcBBED240715E8817E85583",
+      "implementationRuntimeHash": "0x65fbe0111d1e611f05aaab7a4e80f5b883e996037bb58fcddb1043534a5e9a61"
+    },
+    "payment": {
+      "address": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
+      "symbol": "USDC",
+      "decimals": 6,
+      "runtimeHash": "0xa259d230afe44e97f1500ce5c06cd2e5bdafb129f25c104d8716470cb4fff0be",
+      "implementation": null,
+      "implementationRuntimeHash": null
+    },
+    "underlyingUnitsPerWholeWrapper": "1005714560286254000"
+  },
+  "provider": {
+    "issuer": "Backed/xStocks",
+    "isTradingHalted": false,
+    "trading": {
+      "currency": "USD",
+      "tradingHoursMode": "TwentyFourFive",
+      "isTradingHalted": false,
+      "currentPeriod": "closed",
+      "openNow": false,
+      "nextChangeAt": "2026-09-14T00:00:00.000Z",
+      "exchange": {
+        "mic": "ARCX",
+        "abbreviation": "ARCA",
+        "name": "NYSE Arca",
+        "timezone": "America/New_York"
+      },
+      "limitsPerPeriod": {
+        "market": {
+          "minOrderFiatValue": 1000,
+          "maxOrderFiatValue": 100000000
+        },
+        "extended": {
+          "minOrderFiatValue": 1000,
+          "maxOrderFiatValue": 100000000
+        },
+        "overnight": {
+          "minOrderFiatValue": 1000,
+          "maxOrderFiatValue": 20000000
+        },
+        "closed": {
+          "minOrderFiatValue": 1000,
+          "maxOrderFiatValue": 0
+        }
+      }
+    },
+    "publicPrice": {
+      "value": 764.415,
+      "currency": "USD",
+      "sourceTimestamp": null,
+      "usableForAcceptance": false
+    },
+    "multiplier": {
+      "currentMultiplier": 1.005714560286254,
+      "newMultiplier": 0,
+      "activationDateTime": 0,
+      "reason": null
+    },
+    "supportsAtomicSwaps": true,
+    "authenticatedAccountVerified": false,
+    "participantEligibilityVerified": false
+  },
+  "deploymentReady": false,
+  "blockers": [
+    "Authenticated pricing and executable liquidity not verified",
+    "Public indicative price has no source timestamp",
+    "Per-worker and per-funder eligibility and distribution permission not verified",
+    "Wrapper implementation source/audit review and upgrade controls incomplete",
+    "USD-to-USDC conversion and wrapper price units need verified implementation",
+    "Risk limits, owner/multisig and distinct signers not approved"
+  ]
+}

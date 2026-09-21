@@ -11,9 +11,9 @@ const source = fs.readFileSync('src/lib/useSavingsVault.ts', 'utf8').replace(/\r
   .replace(/^import .*\n/gm, '').replace(/^export \{.*\n/gm, '').replace(/import\.meta\.env/g, '({})')
 const compiled = ts.transpileModule(source + '\nexport { useSavingsRuntimeConfig }', { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
 const pending = []
-const asset = getAddress('0xB6CEceAB302E2E4948951eE7843FC24E92933061')
+const asset = getAddress('0x3600000000000000000000000000000000000000')
 const vault = getAddress('0x1111111111111111111111111111111111111111')
-const context = { exports: {}, ...React, getAddress, isAddress, zeroAddress, Capacitor: { isNativePlatform: () => false }, upfrontXLayerChain: { id: 196 }, XLAYER_USDC_ADDRESS: asset, AbortController,
+const context = { exports: {}, ...React, getAddress, isAddress, zeroAddress, Capacitor: { isNativePlatform: () => false }, savingsChain: { id: 5042002 }, SAVINGS_USDC_ADDRESS: asset, AbortController,
   fetch: () => new Promise((resolve, reject) => pending.push({ resolve, reject })),
   window: { setTimeout: () => 1, clearTimeout() {}, setInterval: () => 1, clearInterval() {}, addEventListener() {}, removeEventListener() {} } }
 vm.runInNewContext(compiled, context)
@@ -21,7 +21,7 @@ let state, root
 function Probe() { state = context.exports.useSavingsRuntimeConfig(); return null }
 const mount = async () => act(async () => { root = TestRenderer.create(React.createElement(Probe)) })
 const unmount = async () => act(async () => root.unmount())
-const success = async () => act(async () => pending.shift().resolve({ ok: true, json: async () => ({ ok: true, savings: { chainId: 196, assetAddress: asset, vaultAddress: vault, depositsEnabled: true, status: 'active' } }) }))
+const success = async () => act(async () => pending.shift().resolve({ ok: true, json: async () => ({ ok: true, savings: { chainId: 5042002, assetAddress: asset, vaultAddress: vault, depositsEnabled: true, status: 'active' } }) }))
 await mount()
 assert.equal(state.depositsEnabled, false)
 await success()

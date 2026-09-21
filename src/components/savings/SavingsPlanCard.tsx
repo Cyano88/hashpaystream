@@ -1,10 +1,9 @@
 import { useRef, useState } from 'react'
 import { createPublicClient, createWalletClient, custom, http } from 'viem'
-import { upfrontXLayerChain } from '../../lib/upfrontChains'
+import { SAVINGS_USDC_ADDRESS, savingsChain } from '../../lib/savingsChain'
 import { formatUsdcBalance } from '../../lib/useAgreements'
 import { nextSavingsRelease, SAVINGS_VAULT_ABI, WEEKLY_SECONDS, type SavingsPlan, type useSavingsVault } from '../../lib/useSavingsVault'
 
-import { XLAYER_USDC_ADDRESS } from '../../lib/useXLayerUsdcBalance'
 import { SavingsTransactionError, readSavingsTransaction, runSavingsTransaction, type SavingsIntent } from '../../lib/savingsTransaction'
 
 type SavingsState = ReturnType<typeof useSavingsVault>
@@ -37,15 +36,15 @@ export default function SavingsPlanCard({ plan, savings }: { plan: SavingsPlan; 
     actionPending.current = true
     setStage(action); setError('')
     try {
-      if (!savings.address || !savings.vaultAddress) throw new Error('Your X Layer wallet is not ready.')
-      const scope = { chainId: upfrontXLayerChain.id, owner: savings.address, vault: savings.vaultAddress, asset: XLAYER_USDC_ADDRESS }
-      const client = createPublicClient({ chain: upfrontXLayerChain, transport: http() })
+      if (!savings.address || !savings.vaultAddress) throw new Error('Your Arc wallet is not ready.')
+      const scope = { chainId: savingsChain.id, owner: savings.address, vault: savings.vaultAddress, asset: SAVINGS_USDC_ADDRESS }
+      const client = createPublicClient({ chain: savingsChain, transport: http() })
       const intent: SavingsIntent = { action, planId: plan.id, ...(['withdraw', 'completeEmergencyExit'].includes(action) ? { amount: String(action === 'withdraw' ? plan.withdrawable : plan.remaining) } : {}) }
       const prior = readSavingsTransaction(scope)
       await runSavingsTransaction(scope, prior?.intent ?? intent, async () => {
-        if (!savings.wallet) throw new Error('Your X Layer wallet is not ready.')
-        await savings.wallet.switchChain(upfrontXLayerChain.id)
-        const walletClient = createWalletClient({ account: scope.owner, chain: upfrontXLayerChain, transport: custom(await savings.wallet.getEthereumProvider()) })
+        if (!savings.wallet) throw new Error('Your Arc wallet is not ready.')
+        await savings.wallet.switchChain(savingsChain.id)
+        const walletClient = createWalletClient({ account: scope.owner, chain: savingsChain, transport: custom(await savings.wallet.getEthereumProvider()) })
         if (action === 'withdraw') {
           const simulation = await client.simulateContract({ account: scope.owner, address: scope.vault, abi: SAVINGS_VAULT_ABI, functionName: 'withdraw', args: [plan.id, plan.withdrawable] })
           return walletClient.writeContract(simulation.request)

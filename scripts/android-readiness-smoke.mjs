@@ -33,6 +33,7 @@ assert.match(manifest, /android:scheme="hashpaystream"/)
 
 assert.match(gradle, /namespace = "app\.hashpaystream"/)
 assert.match(gradle, /applicationId "app\.hashpaystream"/)
+assert.match(gradle, /applicationIdSuffix "\.candidate"/)
 assert.match(gradle, /HASHPAYSTREAM_UPLOAD_STORE_FILE/)
 assert.match(gradle, /releaseBuildRequested && !releaseSigningConfigured/)
 assert.match(gradle, /minifyEnabled true/)

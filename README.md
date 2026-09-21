@@ -1,14 +1,15 @@
 # HashPayStream
 
-HashPayStream is an agreements-only customer application for protected USDC
-payments on Arc. It owns its customer experience, identity-to-agreement
-ownership journal, and signed webhook history. Hash PayLink remains the
-upstream agreement, checkout, chain-policy, lifecycle, and receipt provider.
+HashPayStream provides protected USDC agreements and scheduled savings on Arc,
+plus Stock Early Pay on X Layer. Workers can request the exact eligible USDC
+value and compare capped funder offers backed by approved stock tokens. Hash
+PayLink remains the upstream agreement, checkout, lifecycle, and receipt
+provider.
 
 ## BuildX AI Season pilot
 
-HashPayStream Upfront turns funded service agreements into AI-underwritten
-cash-flow assets with bounded advance execution on X Layer. The public judge
+HashPayStream Stock Early Pay turns approved worker earnings into fixed-USDC
+funding offers with bounded stock-token execution on X Layer. The public judge
 entry is https://hashpaystream.app/upfront. Submission copy, architecture, onchain proof, and the 90-second demo script are in
 [`docs/BUILDX_AI_SEASON_SUBMISSION.md`](./docs/BUILDX_AI_SEASON_SUBMISSION.md).
 

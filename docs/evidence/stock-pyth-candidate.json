@@ -1,0 +1,100 @@
+{
+  "checkedAt": "2026-09-12T11:46:45.833Z",
+  "liveMetadataVerified": true,
+  "livePriceAccessVerified": false,
+  "productionApproved": false,
+  "feeds": [
+    {
+      "source": "https://pyth.dourolabs.app/v1/symbols?query=SPY&asset_type=equity",
+      "pyth_lazer_id": 1398,
+      "name": "SPY",
+      "symbol": "Equity.US.SPY/USD",
+      "description": "SPY / US DOLLAR",
+      "asset_type": "equity",
+      "instrument_type": "spot",
+      "exponent": -5,
+      "cmc_id": null,
+      "interval": null,
+      "min_publishers": 1,
+      "min_channel": "fixed_rate@50ms",
+      "state": "stable",
+      "schedule": "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+      "market_session_schedule": {
+        "regular": "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+        "pre_market": "America/New_York;0400-0930,0400-0930,0400-0930,0400-0930,0400-0930,C,C;0907/C,1126/C,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+        "post_market": "America/New_York;1600-2000,1600-2000,1600-2000,1600-2000,1600-2000,C,C;0907/C,1126/C,1127/1300-1700,1224/1300-1700,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+        "over_night": "America/New_York;0000-0400&2000-2400,0000-0400&2000-2400,0000-0400&2000-2400,0000-0400&2000-2400,0000-0400,C,2000-2400;0906/C,0907/2000-2400,1125/0000-0400,1126/2000-2400,1224/0000-0400,1225/C,1231/0000-0400,0101/C,0117/C,0118/2000-2400,0214/C,0215/2000-2400,0325/0000-0400,0326/C,0530/C,0531/2000-2400,0617/0000-0400,0618/C,0704/C,0705/2000-2400"
+      },
+      "market_sessions": {
+        "regular": {
+          "min_pub": 3,
+          "schedule": "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C;0907/C,1126/C,1127/0930-1300,1224/0930-1300,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+          "state": "stable"
+        },
+        "pre_market": {
+          "min_pub": 2,
+          "schedule": "America/New_York;0400-0930,0400-0930,0400-0930,0400-0930,0400-0930,C,C;0907/C,1126/C,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+          "state": "stable"
+        },
+        "post_market": {
+          "min_pub": 2,
+          "schedule": "America/New_York;1600-2000,1600-2000,1600-2000,1600-2000,1600-2000,C,C;0907/C,1126/C,1127/1300-1700,1224/1300-1700,1225/C,0101/C,0118/C,0215/C,0326/C,0531/C,0618/C,0705/C",
+          "state": "stable"
+        },
+        "over_night": {
+          "min_pub": 2,
+          "schedule": "America/New_York;0000-0400&2000-2400,0000-0400&2000-2400,0000-0400&2000-2400,0000-0400&2000-2400,0000-0400,C,2000-2400;0906/C,0907/2000-2400,1125/0000-0400,1126/2000-2400,1224/0000-0400,1225/C,1231/0000-0400,0101/C,0117/C,0118/2000-2400,0214/C,0215/2000-2400,0325/0000-0400,0326/C,0530/C,0531/2000-2400,0617/0000-0400,0618/C,0704/C,0705/2000-2400",
+          "state": "stable"
+        }
+      },
+      "hermes_id": "19e09bb805456ada3979a7d1cbb4b6d63babc3a0f8e8a9509f68afa5c4c11cd5",
+      "nasdaq_symbol": "SPY",
+      "quote_currency": "USD",
+      "symbol_chain_id": null,
+      "expiration_pattern": null,
+      "availability_pattern": null,
+      "asset_sector": null,
+      "asset_subclass": null,
+      "groups": []
+    },
+    {
+      "source": "https://pyth.dourolabs.app/v1/symbols?query=USDC&asset_type=crypto",
+      "pyth_lazer_id": 7,
+      "name": "USDCUSD",
+      "symbol": "Crypto.USDC/USD",
+      "description": "USD COIN / US DOLLAR",
+      "asset_type": "crypto",
+      "instrument_type": "spot",
+      "exponent": -8,
+      "cmc_id": 3408,
+      "interval": null,
+      "min_publishers": 3,
+      "min_channel": "real_time",
+      "state": "stable",
+      "schedule": "America/New_York;O,O,O,O,O,O,O;",
+      "market_session_schedule": {
+        "regular": "America/New_York;O,O,O,O,O,O,O;"
+      },
+      "market_sessions": {
+        "regular": {
+          "min_pub": 3,
+          "schedule": "America/New_York;O,O,O,O,O,O,O;",
+          "state": "stable"
+        }
+      },
+      "hermes_id": "eaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
+      "nasdaq_symbol": null,
+      "quote_currency": "USD",
+      "symbol_chain_id": null,
+      "expiration_pattern": null,
+      "availability_pattern": null,
+      "asset_sector": null,
+      "asset_subclass": null,
+      "groups": []
+    }
+  ],
+  "unauthenticatedLatestPriceProbe": {
+    "httpStatus": 403,
+    "authenticated": false
+  }
+}

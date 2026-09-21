@@ -9,7 +9,7 @@ const owner='0x1111111111111111111111111111111111111111',other='0x22222222222222
 let wallet={address:owner,ready:true},config={vaultAddress:vault,configReady:true,depositsEnabled:true},defer=false,pending=[]
 const source=fs.readFileSync('src/lib/useSavingsVault.ts','utf8').split('export function useSavingsVault()')[1]
 const compiled=ts.transpileModule('export function useSavingsVault()'+source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText
-const context={readSavingsTransaction:()=>undefined,exports:{},...React,getAddress,useXLayerUsdcBalance:()=>wallet,useSavingsRuntimeConfig:()=>config,upfrontXLayerChain:{id:196},http:()=>({}),XLAYER_USDC_ADDRESS:asset,SAVINGS_VAULT_ABI:[],PLAN_ID_PAGE_SIZE:100n,PLAN_READ_BATCH_SIZE:20,nextSavingsRelease:()=>0,
+const context={readSavingsTransaction:()=>undefined,exports:{},...React,getAddress,useSavingsUsdcBalance:()=>wallet,useSavingsRuntimeConfig:()=>config,savingsChain:{id:5042002},http:()=>({}),SAVINGS_USDC_ADDRESS:asset,SAVINGS_VAULT_ABI:[],PLAN_ID_PAGE_SIZE:100n,PLAN_READ_BATCH_SIZE:20,nextSavingsRelease:()=>0,
  createPublicClient:()=>({getBlockNumber:async()=>100n,readContract:async({functionName,args})=>{
  if(functionName==='asset')return asset
  if(functionName==='planCount'){if(defer)await new Promise(resolve=>pending.push(resolve));return 1n}

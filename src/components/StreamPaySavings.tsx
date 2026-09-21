@@ -39,7 +39,7 @@ export default function StreamPaySavings() {
     </div>
 
     <section className='relative mt-6 overflow-hidden rounded-[26px] border border-emerald-900/70 bg-[#07140d] p-5 text-white shadow-[0_18px_48px_rgba(6,78,45,0.14)]'>
-      <div className='flex items-center justify-between gap-3'><p className='text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/60'>Total saved</p><span className='rounded-full bg-white/10 px-2.5 py-1 text-[9px] font-bold text-white/60'>X Layer</span></div>
+      <div className='flex items-center justify-between gap-3'><p className='text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/60'>Total saved</p><span className='rounded-full bg-white/10 px-2.5 py-1 text-[9px] font-bold text-white/60'>Arc Testnet</span></div>
       <p className='mt-1.5 text-[2.25rem] font-bold tabular-nums tracking-tight'>{formatUsdcBalance(savings.savedUnits).replace(/ USDC$/, '')} <span className='text-xs font-medium opacity-50'>USDC</span></p>
       <div className='mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-4'>
         <Metric label='Available now' value={formatUsdcBalance(savings.withdrawableUnits)} />
@@ -71,8 +71,8 @@ export default function StreamPaySavings() {
 function LaunchBoundary({ unavailable }: { unavailable: boolean }) {
   return <div className='mt-5 rounded-[24px] border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-[#151515]'>
     <span className='flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-500'><ClockIcon className='h-5 w-5' /></span>
-    <h2 className='mt-4 text-base font-black'>{unavailable ? 'Savings is temporarily unavailable' : 'Savings is coming soon'}</h2>
-    <p className='mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400'>{unavailable ? 'We could not load savings right now. Your other HashPayStream features are unaffected.' : 'Set aside USDC once. Your chosen amount unlocks every 7 or 30 days for you to withdraw.'}</p>
+    <h2 className='mt-4 text-base font-black'>{unavailable ? 'Arc savings is temporarily unavailable' : 'Arc savings is in review'}</h2>
+    <p className='mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400'>{unavailable ? 'We could not load Arc savings right now. Your other HashPayStream features are unaffected.' : 'The Arc Testnet savings vault is being prepared. Test USDC deposits stay paused until its deployment is verified.'}</p>
     {!unavailable && <div className='mt-4 flex items-center justify-between rounded-2xl bg-zinc-50 px-4 py-3 dark:bg-white/[0.04]'><div><p className='text-xs font-black'>Need it earlier?</p><p className='mt-1 text-[11px] text-zinc-500 dark:text-zinc-400'>Emergency access takes 48 hours.</p></div><span className='stream-pill'>48 hours</span></div>}
   </div>
 }

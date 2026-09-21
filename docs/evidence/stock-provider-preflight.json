@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "checkedAt": "2026-09-12T21:05:56.840Z",
+  "productionReady": false,
+  "mainnetTransaction": false,
+  "checks": {
+    "publicFeedMetadata": {
+      "status": "EXPECTED",
+      "source": "twelve-data",
+      "stock": "SPY/ARCX/USD",
+      "stable": "USDC/USD/Binance"
+    },
+    "issuerAvailability": {
+      "status": "VERIFIED",
+      "openNow": false,
+      "halted": false,
+      "nextChangeAt": "2026-09-14T00:00:00.000Z"
+    },
+    "independentStockData": {
+      "status": "FAILED",
+      "reason": "The regular US stock session is closed."
+    },
+    "participantAndAssetReview": {
+      "status": "NOT_VERIFIED",
+      "endpointConfigured": false,
+      "authenticationConfigured": false,
+      "decisionsVerified": false
+    }
+  },
+  "blockers": [
+    "Issuer currently reports trading closed or halted",
+    "independentStockData verification failed",
+    "Real participant and corporate-action decisions have not been verified; no synthetic scope was sent to a live review service",
+    "Security review, owner/signers and deployment approval remain separate release gates"
+  ]
+}
