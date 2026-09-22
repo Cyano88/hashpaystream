@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import {
   getAddress,
   isAddress,
@@ -58,6 +59,33 @@ function address(value: string): Address {
     throw Error("Invalid escrow participant or factory.");
   return getAddress(value);
 }
+function configuredXLayerAssets(env: NodeJS.ProcessEnv): Map<string, { address: Address; decimals: number }> {
+  const file = env.HASHPAYSTREAM_XLAYER_TOKENIZED_ASSETS_FILE?.trim();
+  const raw = env.HASHPAYSTREAM_XLAYER_TOKENIZED_ASSETS_JSON?.trim();
+  let entries: unknown;
+  try {
+    const source = file ? readFileSync(file, "utf8").replace(/^\uFEFF/, "") : raw;
+    const parsed = source ? JSON.parse(source) : undefined;
+    entries = file && parsed && !Array.isArray(parsed) ? (parsed as { assets?: unknown }).assets : parsed;
+  } catch {
+    throw Error(file ? `X Layer tokenized-asset registry file is invalid: ${file}` : "X Layer tokenized-asset registry JSON is invalid.");
+  }
+  if (!entries) entries = env.HASHPAYSTREAM_XLAYER_TOKENIZED_ASSET_ADDRESS ? [{ address: env.HASHPAYSTREAM_XLAYER_TOKENIZED_ASSET_ADDRESS, decimals: Number(env.HASHPAYSTREAM_XLAYER_TOKENIZED_ASSET_DECIMALS ?? "") }] : [];
+  if (!Array.isArray(entries)) throw Error("X Layer tokenized-asset registry must be a JSON array.");
+  const result = new Map<string, { address: Address; decimals: number }>();
+  for (const entry of entries) {
+    if (!entry || typeof entry !== "object") throw Error("X Layer tokenized-asset registry entry is invalid.");
+    const value = entry as Record<string, unknown>;
+    const token = String(value.address ?? "");
+    const decimals = Number(value.decimals);
+    if (!isAddress(token) || /^0x0{40}$/i.test(token) || !Number.isInteger(decimals) || decimals < 2 || decimals > 18) throw Error("X Layer tokenized-asset registry entry is invalid.");
+    const normalized = getAddress(token);
+    const key = normalized.toLowerCase();
+    if (result.has(key)) throw Error("X Layer tokenized-asset registry contains a duplicate token.");
+    result.set(key, { address: normalized, decimals });
+  }
+  return result;
+}
 export function prepareTradeEscrowBinding(input: TradeBindingInput) {
   const { offer } = input;
   if (
@@ -94,12 +122,15 @@ export function prepareTradeEscrowBinding(input: TradeBindingInput) {
     seller = address(input.seller),
     arbiter = address(input.arbiter);
   let token = getAddress(assets[input.chainId]);
+  let tokenDecimals = 6;
   if (settlementAsset === "XLAYER_TOKENIZED_ASSET") {
     if (input.chainId !== 196) throw Error("Tokenized-asset settlement is only supported on X Layer.");
-    const configured = (input.env ?? process.env).HASHPAYSTREAM_XLAYER_TOKENIZED_ASSET_ADDRESS?.trim() ?? "";
-    if (!isAddress(configured) || /^0x0{40}$/i.test(configured)) throw Error("X Layer tokenized-asset settlement is not configured.");
-    if (!terms.settlementToken || getAddress(terms.settlementToken) !== getAddress(configured)) throw Error("The accepted tokenized asset is not the configured X Layer asset.");
-    token = getAddress(configured);
+    const registry = configuredXLayerAssets(input.env ?? process.env);
+    if (!terms.settlementToken) throw Error("The accepted tokenized asset is not configured.");
+    const configured = registry.get(getAddress(terms.settlementToken).toLowerCase());
+    if (!configured) throw Error("The accepted tokenized asset is not in the approved X Layer registry.");
+    token = configured.address;
+    tokenDecimals = configured.decimals;
   }
   if (
     new Set(
@@ -118,7 +149,7 @@ export function prepareTradeEscrowBinding(input: TradeBindingInput) {
   const snapshotHash = createHash("sha256")
     .update(canonical(offer.snapshot))
     .digest("hex");
-  const decimals = settlementAsset === "USDC" ? 6 : Number((input.env ?? process.env).HASHPAYSTREAM_XLAYER_TOKENIZED_ASSET_DECIMALS ?? "");
+  const decimals = settlementAsset === "USDC" ? 6 : tokenDecimals;
   if (!Number.isInteger(decimals) || decimals < 2 || decimals > 18) throw Error("Settlement-asset decimals are not configured.");
   const amount = (tradeUnits(terms.price) + tradeUnits(terms.deliveryFee)) * 10n ** BigInt(decimals - 2);
   const core = {
