@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import {
   getAddress,
   isAddress,
@@ -59,8 +60,17 @@ function address(value: string): Address {
   return getAddress(value);
 }
 function configuredXLayerAssets(env: NodeJS.ProcessEnv): Map<string, { address: Address; decimals: number }> {
+  const file = env.HASHPAYSTREAM_XLAYER_TOKENIZED_ASSETS_FILE?.trim();
   const raw = env.HASHPAYSTREAM_XLAYER_TOKENIZED_ASSETS_JSON?.trim();
-  const entries: unknown = raw ? JSON.parse(raw) : env.HASHPAYSTREAM_XLAYER_TOKENIZED_ASSET_ADDRESS ? [{ address: env.HASHPAYSTREAM_XLAYER_TOKENIZED_ASSET_ADDRESS, decimals: Number(env.HASHPAYSTREAM_XLAYER_TOKENIZED_ASSET_DECIMALS ?? "") }] : [];
+  let entries: unknown;
+  try {
+    const source = file ? readFileSync(file, "utf8").replace(/^\uFEFF/, "") : raw;
+    const parsed = source ? JSON.parse(source) : undefined;
+    entries = file && parsed && !Array.isArray(parsed) ? (parsed as { assets?: unknown }).assets : parsed;
+  } catch {
+    throw Error(file ? `X Layer tokenized-asset registry file is invalid: ${file}` : "X Layer tokenized-asset registry JSON is invalid.");
+  }
+  if (!entries) entries = env.HASHPAYSTREAM_XLAYER_TOKENIZED_ASSET_ADDRESS ? [{ address: env.HASHPAYSTREAM_XLAYER_TOKENIZED_ASSET_ADDRESS, decimals: Number(env.HASHPAYSTREAM_XLAYER_TOKENIZED_ASSET_DECIMALS ?? "") }] : [];
   if (!Array.isArray(entries)) throw Error("X Layer tokenized-asset registry must be a JSON array.");
   const result = new Map<string, { address: Address; decimals: number }>();
   for (const entry of entries) {
