@@ -51,7 +51,7 @@ async function verifiedEmail(req: Request, env: NodeJS.ProcessEnv) {
 
 function circleApiKey(env: NodeJS.ProcessEnv) {
   const key = clean(env.CIRCLE_TEST_API_KEY ?? env.CIRCLE_API_KEY_TEST, 500)
-  if (!key) fail('Circle Arc wallet access is unavailable.', 503)
+  if (!key || key.startsWith('LIVE_API_KEY:')) fail('Circle testnet wallet access is unavailable.', 503)
   return key
 }
 
@@ -81,7 +81,7 @@ export async function listCircleArcWallets(userToken: string, env: NodeJS.Proces
     const blockchain = clean(wallet.blockchain, 40).toUpperCase()
     const accountType = clean(wallet.accountType, 20).toUpperCase()
     const state = clean(wallet.state, 20).toUpperCase()
-    return ['ARC-TESTNET', 'ARC_TESTNET', 'ARC'].includes(blockchain) && accountType === 'SCA' && (!state || state === 'LIVE') && isAddress(wallet.address)
+    return ['ARC-TESTNET', 'ARC_TESTNET'].includes(blockchain) && accountType === 'SCA' && (!state || state === 'LIVE') && isAddress(wallet.address)
   })
 }
 

@@ -242,3 +242,9 @@ Example request body:
   "cancellationWindowSeconds": 900
 }
 ```
+
+### Arc Mainnet recipient wallet preparation
+
+`POST /api/hashpaystream/v1/accounts` with action `register_mainnet_wallet` verifies a production Circle wallet session and stores an `arcMainnetWallet` binding independently of legacy `walletAddress`. The request includes the existing Privy bearer token, `circleUserToken`, `walletId` and `walletAddress`. The backend requires `HASHPAYSTREAM_CIRCLE_MAINNET_API_KEY` in Render secret configuration. Only exact `ARC`, `SCA`, `LIVE` wallets are accepted; the production key never falls back to the test key. Wallet sessions and API credentials are never persisted in the account record. Provider wallet IDs remain internal to the account binding.
+
+This preparation action does not create wallets, sign transactions, move funds, register upstream Agreement recipients or switch existing request/payment flows onto mainnet. It is intentionally unavailable until dedicated production Circle credentials are configured. Mainnet wallet replacement requires a separately reviewed migration. The updated blue/white logo assets are retained byte-for-byte from the active migration checkout.

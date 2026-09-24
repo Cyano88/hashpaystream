@@ -1,3 +1,4 @@
+import { verifyArcMainnetWallet, type ArcMainnetWalletBinding } from './arc-mainnet-wallet-binding.js'
 import { createHmac, randomUUID } from 'node:crypto'
 import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
@@ -12,7 +13,7 @@ const HASH = /^0x[a-fA-F0-9]{64}$/
 const POCKET_ID = /^\d{6,12}$/
 const transferAbi = parseAbi(['event Transfer(address indexed from,address indexed to,uint256 value)'])
 
-type Account = { accountKey: string; email: string; displayName: string; pocketId: string; walletAddress?: string; createdAt: string; updatedAt: string }
+type Account = { accountKey: string; email: string; displayName: string; pocketId: string; walletAddress?: string; arcMainnetWallet?: ArcMainnetWalletBinding; createdAt: string; updatedAt: string }
 type Transfer = {
   id: string; txHash: `0x${string}`; fromAccountKey: string; toAccountKey?: string; fromPocketId: string; toPocketId?: string
   fromAddress: string; toAddress: string; amountUsdcUnits: string; createdAt: string
@@ -25,6 +26,7 @@ type Dependencies = {
   mutate: (key: string, update: (current: Store | undefined) => Store | Promise<Store>) => Promise<Store>
   identity: (req: Request, env: NodeJS.ProcessEnv) => Promise<Identity>
   transaction: (hash: `0x${string}`, rpcUrl: string) => Promise<{ logs: TransactionReceipt['logs']; success: boolean; createdAt: string }>
+  mainnetWallet: typeof verifyArcMainnetWallet
   circleWallets: typeof listCircleArcWallets
   env: () => NodeJS.ProcessEnv; now: () => Date; id: () => string
 }
@@ -71,7 +73,7 @@ function displayName(email: string) {
   const words = email.split('@')[0].replace(/[^a-zA-Z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean)
   return words.slice(0, 2).map(word => word[0]?.toUpperCase() + word.slice(1).toLowerCase()).join(' ') || 'HashPayStream member'
 }
-function publicAccount(account: Account) { return { displayName: account.displayName, pocketId: account.pocketId, walletAddress: account.walletAddress ?? '' } }
+function publicAccount(account: Account) { return { displayName: account.displayName, pocketId: account.pocketId, walletAddress: account.walletAddress ?? '', arcMainnetWallet: account.arcMainnetWallet ? { address: account.arcMainnetWallet.address, chainId: 5042, blockchain: 'ARC', verifiedAt: account.arcMainnetWallet.verifiedAt } : null } }
 function ensureAccount(store: Store, identity: Identity, secret: string, now: string) {
   const keys = identity.emails.map(email => accountKey(secret, email))
   let account = Object.values(store.accounts).find(item => keys.includes(item.accountKey))
@@ -96,7 +98,7 @@ async function readTransaction(hash: `0x${string}`, rpcUrl: string) {
 const defaults: Dependencies = {
   hasStore: hasRenderDurableStore, read: key => readDurableJson<Store>(key), mutate: (key, update) => mutateDurableJson<Store>(key, update),
   identity: verifiedIdentity, transaction: readTransaction, env: () => process.env, now: () => new Date(), id: () => `txa_${randomUUID()}`,
-  circleWallets: listCircleArcWallets,
+  circleWallets: listCircleArcWallets, mainnetWallet: verifyArcMainnetWallet,
 }
 
 export function createStreamAccountsHandler(overrides: Partial<Dependencies> = {}) {
@@ -124,14 +126,31 @@ export function createStreamAccountsHandler(overrides: Partial<Dependencies> = {
       }
       const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body as Record<string, unknown> : {}
       const action = clean(body.action, 32)
+      if (action === 'register_mainnet_wallet') {
+        const wallet = await dependencies.mainnetWallet({ userToken: clean(body.circleUserToken, 8000), walletId: clean(body.walletId, 180), address: clean(body.walletAddress, 42) }, env)
+        if (wallet.chainId !== 5042 || wallet.environment !== 'live' || wallet.blockchain !== 'ARC' || wallet.provider !== 'circle' || !isAddress(wallet.address)) fail('Mainnet wallet verification failed.', 403)
+        let updated!: Account
+        await dependencies.mutate(config.storeKey, current => {
+          const next = safeStore(current)
+          const latest = next.accounts[account.accountKey]
+          if (!latest) fail('Account changed. Refresh before linking a wallet.', 409)
+          const existing = latest.arcMainnetWallet
+          if (existing && (existing.walletId !== wallet.walletId || getAddress(existing.address) !== getAddress(wallet.address))) fail('Mainnet wallet replacement requires a reviewed migration.', 409)
+          if (Object.values(next.accounts).some(item => item.accountKey !== account.accountKey && item.arcMainnetWallet && (item.arcMainnetWallet.walletId === wallet.walletId || getAddress(item.arcMainnetWallet.address) === getAddress(wallet.address)))) fail('This mainnet wallet is already linked to another account.', 409)
+          updated = { ...latest, arcMainnetWallet: { ...wallet, verifiedAt: dependencies.now().toISOString() }, updatedAt: dependencies.now().toISOString() }
+          next.accounts[account.accountKey] = updated
+          return next
+        })
+        return res.json({ ok: true, profile: { ...publicAccount(updated), email: updated.email } })
+      }
       if (action === 'register_wallet') {
         const walletAddress = clean(body.walletAddress, 42)
         const circleUserToken = clean(body.circleUserToken, 8_000)
         const circleWallets = circleUserToken ? await dependencies.circleWallets(circleUserToken, env) : []
         const verified = isAddress(walletAddress) && (identity.wallets.some(value => getAddress(value) === getAddress(walletAddress)) || circleWallets.some(wallet => getAddress(wallet.address) === getAddress(walletAddress)))
         if (!verified) fail('This Circle wallet is not verified for your HashPayStream account.', 403)
-        const nextAccount = { ...account, walletAddress: getAddress(walletAddress), updatedAt: dependencies.now().toISOString() }
-        await dependencies.mutate(config.storeKey, current => { const next = safeStore(current); next.accounts[account.accountKey] = nextAccount; return next })
+        let nextAccount = { ...account, walletAddress: getAddress(walletAddress), updatedAt: dependencies.now().toISOString() }
+        await dependencies.mutate(config.storeKey, current => { const next = safeStore(current); nextAccount = { ...(next.accounts[account.accountKey] ?? account), walletAddress: nextAccount.walletAddress, updatedAt: nextAccount.updatedAt }; next.accounts[account.accountKey] = nextAccount; return next })
         return res.json({ ok: true, profile: { ...publicAccount(nextAccount), email: nextAccount.email } })
       }
       if (action === 'resolve_pocket_id') {
