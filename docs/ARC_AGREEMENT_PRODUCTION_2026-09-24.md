@@ -18,3 +18,6 @@ Hash PayLink authorization-support release requested: 9082e1b093014d9abe294741df
 - Tightened legacy wallet selection to exclude ARC mainnet wallets and reject a production key in the testnet adapter.
 - This endpoint prepares identity provenance only. Existing service-request payouts still use the old wallet path and are NOT switched to mainnet. No production Circle key has been provisioned, no mainnet binding written and no new Hash PayLink key issued.
 - Mainnet binding, stream account, Circle wallet/session and router-control regression tests passed; typecheck passed. Final build/deployment verification follows separately.
+
+## Superseding integration audit
+The direct production Circle binding described above was removed after tracing the actual SDK/API boundary. It had no app caller and was not the missing Hash PayLink integration. See SDK_API_INTEGRATION_AUDIT_2026-09-24.md for verified findings and remaining platform work. Do not provision the formerly proposed dedicated Circle key based on this historical handoff.
