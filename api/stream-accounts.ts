@@ -130,8 +130,8 @@ export function createStreamAccountsHandler(overrides: Partial<Dependencies> = {
         const circleWallets = circleUserToken ? await dependencies.circleWallets(circleUserToken, env) : []
         const verified = isAddress(walletAddress) && (identity.wallets.some(value => getAddress(value) === getAddress(walletAddress)) || circleWallets.some(wallet => getAddress(wallet.address) === getAddress(walletAddress)))
         if (!verified) fail('This Circle wallet is not verified for your HashPayStream account.', 403)
-        const nextAccount = { ...account, walletAddress: getAddress(walletAddress), updatedAt: dependencies.now().toISOString() }
-        await dependencies.mutate(config.storeKey, current => { const next = safeStore(current); next.accounts[account.accountKey] = nextAccount; return next })
+        let nextAccount = { ...account, walletAddress: getAddress(walletAddress), updatedAt: dependencies.now().toISOString() }
+        await dependencies.mutate(config.storeKey, current => { const next = safeStore(current); nextAccount = { ...(next.accounts[account.accountKey] ?? account), walletAddress: nextAccount.walletAddress, updatedAt: nextAccount.updatedAt }; next.accounts[account.accountKey] = nextAccount; return next })
         return res.json({ ok: true, profile: { ...publicAccount(nextAccount), email: nextAccount.email } })
       }
       if (action === 'resolve_pocket_id') {

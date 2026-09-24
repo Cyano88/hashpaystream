@@ -242,3 +242,9 @@ Example request body:
   "cancellationWindowSeconds": 900
 }
 ```
+
+## Hash PayLink integration boundary
+
+Hash PayStream currently calls the Hash PayLink Agreement REST API from its backend. It does not install @hashpaylink/sdk; that package currently exposes hosted-checkout buttons and URL helpers, not Agreement wallet/session APIs. The existing app wallet separately uses Circle testnet and Privy authentication.
+
+The Agreement read/create scoped key is insufficient for the current service-request flow, which also calls verified-recipient and project-payer routes. Do not replace the existing credential or relabel wallet records to activate mainnet. A production integration requires the upstream contract release and a reviewed API permission/session flow. See docs/SDK_API_INTEGRATION_AUDIT_2026-09-24.md.

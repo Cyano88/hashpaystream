@@ -26,7 +26,7 @@ globalThis.fetch = async (url, init = {}) => {
   calls.push({ path, init, body })
   if (path === '/v1/w3s/users/email/token') return Response.json({ data: { deviceToken: 'device-token', deviceEncryptionKey: 'device-key', otpToken: 'otp-token' } })
   if (path === '/v1/w3s/users/token/refresh') return Response.json({ data: { userToken: 'refreshed-user-token', encryptionKey: 'refreshed-key', refreshToken: 'rotated-refresh-token' } })
-  if (path === '/v1/w3s/wallets') return Response.json({ data: { wallets: [wallet, { ...wallet, id: 'wrong-chain', blockchain: 'ETH-SEPOLIA' }] } })
+  if (path === '/v1/w3s/wallets') return Response.json({ data: { wallets: [wallet, { ...wallet, id: 'wrong-chain', blockchain: 'ETH-SEPOLIA' }, { ...wallet, id: 'mainnet-wallet', blockchain: 'ARC' }] } })
   if (path === '/v1/w3s/user/transactions/contractExecution') return Response.json({ data: { challengeId, transactionId } })
   if (path === `/v1/w3s/transactions/${transactionId}`) return Response.json({ data: { transaction: { id: transactionId, state: 'COMPLETE', txHash: `0x${'ab'.repeat(32)}` } } })
   return Response.json({ message: 'Unexpected Circle request' }, { status: 500 })
