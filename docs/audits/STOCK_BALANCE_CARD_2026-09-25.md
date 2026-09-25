@@ -12,3 +12,8 @@ API and card behavior tests pass. Hash PayLink API branch: feat/developer-stock-
 Shared API d275e9e734fc228d6b20a95b9110c0e3691f6d7e is live. Owner approved wallet:stocks:read; a separate key was issued and securely handed to Render with internal readback verification. It expires 25 October 2026. Live public-chain portfolio check returned HTTP 200, chain 196, complete and fresh with complete pricing. No balances or keys were logged. Hash PayStream deployment dep-daqvgpm0tbcc738elimg requested for c53a34294710d3bee111a82b1e2a40e2beb01f12.
 
 Web and mainnet Android builds passed. Prepared APK version 1.0.39-candidate (40), replacing the same package. Confirm deployment live before installation.
+
+
+## Completed deployment
+
+Hash PayStream c53a34294710d3bee111a82b1e2a40e2beb01f12 is live under deployment dep-daqvgpm0tbcc738elimg. Health returned 200 and unauthenticated stocks endpoint returned 401. APK 1.0.39-candidate (40), SHA-256 BE8B8B5C7E773B5B3FE10EB2CCD633495E8A64D838C1310DF429EE14939657EA, installed with adb install -r and launched on Pixel 5A160DLCH006VM. Existing app data was preserved. User-specific authenticated card rendering still needs physical-session confirmation; no payment was performed.
