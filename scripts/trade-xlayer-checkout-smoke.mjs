@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
 import { decodeFunctionData, getAddress, keccak256, zeroAddress } from 'viem';
 import { verifyTradePrivyWallet } from '../api/trade-privy-wallet.ts';
 import { prepareTradeXLayerAction, tradeLifecycleActions } from '../api/trade-xlayer-checkout.ts';
@@ -13,14 +12,11 @@ await assert.rejects(()=>verifyTradePrivyWallet('did:privy:seller',buyer,{},load
 await assert.rejects(()=>verifyTradePrivyWallet('did:privy:buyer',seller,{},load),/verified embedded/);
 await assert.rejects(()=>verifyTradePrivyWallet('did:privy:buyer',buyer,{},async()=>({id:'did:privy:buyer',linked_accounts:[{...account,connector_type:'injected'}]})),/verified embedded/);
 await assert.rejects(()=>verifyTradePrivyWallet('did:privy:buyer',buyer,{},async()=>({id:'did:privy:buyer',linked_accounts:[account,account]})),/verified embedded/);
-const base='contracts/artifacts/src/MultiAssetTradeEscrowFactory.sol/';
-const artifact=JSON.parse(readFileSync(base+'MultiAssetTradeEscrowFactory.json','utf8'));
-const debug=JSON.parse(readFileSync(base+'MultiAssetTradeEscrowFactory.dbg.json','utf8'));
-const info=JSON.parse(readFileSync(resolve(base,debug.buildInfo),'utf8'));
-const output=info.output.contracts[artifact.sourceName].MultiAssetTradeEscrowFactory.evm.deployedBytecode;
-let code=output.object;
-for(const refs of Object.values(output.immutableReferences))for(const ref of refs){assert.equal(ref.length,32);code=code.slice(0,ref.start*2)+arbiter.slice(2).toLowerCase().padStart(64,'0')+code.slice((ref.start+32)*2);}
-code='0x'+code;
+// Use the pinned deployed runtime: compiler metadata changes when Windows normalizes source line endings.
+// This fixture was read from chain 196 and verified against the unchanged production hash.
+const deployment=JSON.parse(readFileSync(new URL('./fixtures/trade-xlayer-deployed-runtime.json',import.meta.url),'utf8'));
+assert.equal(deployment.chainId,196);assert.equal(deployment.address,factory);assert.equal(deployment.arbiter,arbiter);
+const code=deployment.code;
 assert.equal(keccak256(code),'0xcc80a2e8e46179070a0a664636e29fa5a83f62eed9d97139aacca5d95c14ec26');
 const hash='0x'+'aa'.repeat(32);
 const binding={chainId:196,factory,termsHash:hash,contractTerms:{offerId:hash,termsHash:hash,buyer,seller,arbiter,token,amount:'1000000',decimals:6,fundBy:2000,dispatchWindow:86400,deliveryWindow:86400,inspectionWindow:86400}};

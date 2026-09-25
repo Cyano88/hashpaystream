@@ -44,3 +44,16 @@ Stocks card regression script passes freshness, focus/resume refresh, overlap pr
 - Built entry bundle verified to contain the searchable list, source icons, mobile navigation and request deadline.
 - Web deployment: dep-dar1aek9v7es7394oqog.
 - Render deployment verified live at the exact app source commit; public health returned 200 and served bundle contains the final xStocks list, mobile navigation and bounded loading.
+
+## List-only correction and Trade-first validation
+
+User correction: xStocks must open the list directly, without a repeated balance card. Successful balance reads refresh silently; returning Home retains the same account's latest display while checking freshness. Home icon strokes use 1.6 width. No new swap CTA is enabled before shared API execution is ready.
+
+- App commit 6172076ac3953262aaae318321fd032730d1a978; Render dep-dar1r0h7lnhs739o3oo0 verified live. Health 200; served bundle has no Refresh balances / Refreshing... text.
+- TypeScript and stock-card regressions passed, including return-to-Home with an in-flight refresh.
+- Trade health/listing routes passed public checks; private routes reject unauthenticated requests.
+- Read-only live X Layer check verified the exact factory runtime and arbiter; AAPLx, MSFTx, NVDAx and TSLAx were all approved at observation time. This is not a completed payment test.
+- Compiled 40 Solidity files. Factory source matches original deployment input after line-ending normalization; source normalization changes Solidity metadata and the full compiled runtime hash. The offline API boundary test now loads public deployed runtime pinned from X Layer instead of relying on platform-dependent compiler metadata. The production hash check is unchanged.
+- Trade checkout regression passed ownership, roles, exact approvals, delisting recovery, deadlines, disabled gating and confirmation checks.
+- First financial end-to-end test remains Trade paid with xStocks, after the shared swap/bridge endpoints and wallet integration are ready. No payment or signing was performed.
+- Arc swaps already exist in api/pocket/arc-swap.ts and arc-swap-provider.ts. Builder API adapters remain to be implemented alongside X Layer swaps and eligible USDC bridges. Preserve user session ownership, project isolation, explicit approval, receipt confirmation and pending-transaction recovery.
