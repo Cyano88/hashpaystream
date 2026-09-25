@@ -89,10 +89,10 @@ export default function StreamPayHome() {
       <section className="grid grid-cols-3 gap-2">
         {actions.map(({ label, Icon, to }) => to ? (
           <Link key={label} to={to} className="stream-card flex min-h-20 flex-col items-center justify-center gap-2 rounded-2xl px-1 text-[10px] font-bold text-gray-700 transition active:scale-[0.98] dark:text-gray-200">
-            <Icon className="h-5 w-5" />
+            <Icon className="h-5 w-5" strokeWidth={1.6} />
             {label}
           </Link>
-        ) : <button key={label} type="button" disabled aria-label="Swap coming soon" className="stream-card flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[10px] font-bold text-gray-400"><Icon className="h-5 w-5" /><span>{label}</span><span className="text-[9px] font-medium">Coming soon</span></button>)}
+        ) : <button key={label} type="button" disabled aria-label="Swap coming soon" className="stream-card flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[10px] font-bold text-gray-400"><Icon className="h-5 w-5" strokeWidth={1.6} /><span>{label}</span><span className="text-[9px] font-medium">Coming soon</span></button>)}
       </section>
 
       <section className="stream-card p-4">

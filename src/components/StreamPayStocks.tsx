@@ -5,7 +5,6 @@ import { Link } from '../lib/router'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
 import catalogue from '../lib/xStocksCatalog.json'
 import ranking from '../lib/xStocksRanking.json'
-import StocksBalanceCard from './StocksBalanceCard'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
 
 type Asset = typeof catalogue.assets[number]
@@ -40,7 +39,6 @@ export default function StreamPayStocks() {
       <h2 className="text-sm font-bold">{selected.name}</h2><p className="mt-1 text-xs text-gray-400">{selected.symbol} · X Layer</p>
       <dl className="mt-5 space-y-2 text-xs"><dt className="text-gray-400">Token contract</dt><dd className="break-all font-mono">{selected.address}</dd></dl>
     </section> : <>
-      <StocksBalanceCard />
       <section className="rounded-[24px] border border-gray-100 bg-white p-4 shadow-sm dark:border-[#262626] dark:bg-[#121212] dark:shadow-none">
         <label className="flex items-center gap-2 rounded-xl bg-gray-100 px-3 dark:bg-white/[0.06]"><MagnifyingGlassIcon className="h-4 w-4 text-gray-400" /><input aria-label="Search stocks" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search name, symbol or contract" className="min-h-11 min-w-0 flex-1 bg-transparent text-xs outline-none" /></label>
         <div className="mt-2">{assets.map(asset => <AssetRow key={asset.address} asset={asset} onOpen={() => setSelected(asset)} />)}</div>

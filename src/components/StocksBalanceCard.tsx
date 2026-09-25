@@ -6,6 +6,8 @@ import type { StockPortfolio } from '../lib/readStockBalances'
 
 type Holding = StockPortfolio['holdings'][number]
 type Snapshot = { scope: string; status: 'ready' | 'unavailable' | 'error'; holdings: Holding[]; portfolio?: StockPortfolio; refreshError?: boolean }
+// Keep the last account-scoped result across Home navigation; refresh it quietly.
+let lastStockSnapshot: Snapshot | undefined
 export default function StocksBalanceCard() {
   const { ready, user, getAccessToken } = usePrivy()
   // A balance read needs the linked address, not an initialized transaction signer.
@@ -15,15 +17,14 @@ export default function StocksBalanceCard() {
   const address = ready && embedded.length === 1 && embedded[0].type === 'wallet' ? embedded[0].address : ''
   const scope = (user?.id || '') + ':' + address.toLowerCase()
   const getToken = useRef(getAccessToken); getToken.current = getAccessToken
-  const [snapshot, setSnapshot] = useState<Snapshot>()
+  const [snapshot, setSnapshot] = useState<Snapshot | undefined>(() => lastStockSnapshot?.scope === scope ? lastStockSnapshot : undefined)
   const [revision, setRevision] = useState(0)
   const [now, setNow] = useState(Date.now)
-  const [refreshing, setRefreshing] = useState(false)
   useEffect(() => {
     const controller = new AbortController()
     let inFlight = false
-    setSnapshot(previous => previous?.scope === scope ? previous : undefined)
-    setRefreshing(false)
+    setSnapshot(previous => previous?.scope === scope ? previous : lastStockSnapshot?.scope === scope ? lastStockSnapshot : undefined)
+    if (lastStockSnapshot?.scope !== scope) lastStockSnapshot = undefined
     if (!ready || !user) {
       const timer = window.setTimeout(() => setSnapshot({ scope, status: 'unavailable', holdings: [] }), 10000)
       return () => { controller.abort(); window.clearTimeout(timer) }
@@ -32,7 +33,7 @@ export default function StocksBalanceCard() {
     const load = async () => {
       setNow(Date.now())
       if (inFlight || controller.signal.aborted || document.visibilityState === 'hidden') return
-      inFlight = true; setRefreshing(true)
+      inFlight = true
       const request = new AbortController()
       const abortRequest = () => request.abort()
       controller.signal.addEventListener('abort', abortRequest, { once: true })
@@ -56,7 +57,7 @@ export default function StocksBalanceCard() {
       } catch {
         if (!controller.signal.aborted) setSnapshot(previous => previous?.scope === scope && previous.status === 'ready'
           ? { ...previous, refreshError: true } : { scope, status: 'error', holdings: [] })
-      } finally { window.clearTimeout(deadline); if (rejectCancelled) controller.signal.removeEventListener('abort', rejectCancelled); controller.signal.removeEventListener('abort', abortRequest); inFlight = false; if (!controller.signal.aborted) { setRefreshing(false); setNow(Date.now()) } }
+      } finally { window.clearTimeout(deadline); if (rejectCancelled) controller.signal.removeEventListener('abort', rejectCancelled); controller.signal.removeEventListener('abort', abortRequest); inFlight = false; if (!controller.signal.aborted) { setNow(Date.now()) } }
     }
     const refresh = () => { void load() }
     refresh()
@@ -72,6 +73,7 @@ export default function StocksBalanceCard() {
     }
   }, [scope, ready, revision])
   useEffect(() => {
+    if (snapshot?.scope === scope && snapshot.status === 'ready') lastStockSnapshot = snapshot
     setNow(Date.now())
     const expiry = snapshot?.scope === scope && snapshot.portfolio ? stockPortfolioExpiresAt(snapshot.portfolio) : 0
     if (expiry <= Date.now()) return
@@ -82,7 +84,7 @@ export default function StocksBalanceCard() {
   const loaded = current?.status === 'ready'
   const valueFresh = loaded && !!current.portfolio && stockPortfolioValueIsFresh(current.portfolio, now)
   const expired = loaded && !!current.portfolio && (!Number.isFinite(current.portfolio.observedAt) || now - current.portfolio.observedAt >= 60000 || stockPortfolioExpiresAt(current.portfolio) <= now)
-  return <section aria-label="Stocks balance" aria-busy={refreshing || !current} className="relative flex min-h-[220px] min-w-full flex-col justify-between snap-center overflow-hidden rounded-[26px] border border-blue-900/70 bg-[#081326] px-5 py-6 text-white shadow-[0_18px_48px_rgba(15,23,42,0.14)]">
+  return <section aria-label="Stocks balance" aria-busy={!current} className="relative flex min-h-[220px] min-w-full flex-col justify-between snap-center overflow-hidden rounded-[26px] border border-blue-900/70 bg-[#081326] px-5 py-6 text-white shadow-[0_18px_48px_rgba(15,23,42,0.14)]">
     <div className="flex items-start justify-between gap-4">
       <div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-200/60">Stocks balance</p>
         <p className="mt-1.5 text-[clamp(1.75rem,9vw,2.5rem)] font-bold tabular-nums tracking-tight">{valueFresh && current.portfolio?.estimatedValueUsd !== null && current.portfolio?.estimatedValueUsd !== undefined ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(current.portfolio.estimatedValueUsd) : '\u2014'} <span className="text-xs font-medium tracking-normal text-white/50">estimated</span></p>
@@ -91,7 +93,7 @@ export default function StocksBalanceCard() {
     </div>
     <div className="mt-4 border-t border-white/10 pt-3">
       {!current ? <div aria-label="Loading stock balances" className="space-y-2"><div className="h-3 w-3/4 animate-pulse rounded bg-white/10" /><div className="h-3 w-1/2 animate-pulse rounded bg-white/10" /></div>
-        : loaded ? <>{(expired || current.refreshError || current.portfolio?.stale || !current.portfolio?.complete) && <p className="mb-2 text-[10px] text-amber-200">{expired || current.portfolio?.stale ? 'Last known balances. Updating is needed.' : current.refreshError ? 'Could not refresh. Showing the last update.' : 'Some balances are unavailable.'}</p>}{current.holdings.length ? <ul aria-label="Stock holdings" className="max-h-24 space-y-2 overflow-y-auto">{current.holdings.map(asset => <li key={asset.address} className="flex items-start justify-between gap-3 text-xs"><span className="shrink-0 font-bold">{asset.symbol}</span><span className="min-w-0 break-all text-right font-semibold tabular-nums text-white/80">{asset.balance}</span></li>)}</ul> : <p className="text-xs text-white/60">{current.portfolio?.complete && !expired ? 'No stocks in this wallet.' : 'Stock balances are incomplete.'}</p>}<button type="button" disabled={refreshing} onClick={() => setRevision(value => value + 1)} className="mt-2 min-h-8 text-[10px] font-bold text-blue-200 underline underline-offset-2">{refreshing ? 'Refreshing...' : 'Refresh balances'}</button></>
+        : loaded ? <>{(expired || current.refreshError || current.portfolio?.stale || !current.portfolio?.complete) && <p className="mb-2 text-[10px] text-amber-200">{expired || current.portfolio?.stale ? 'Last known balances. Updating is needed.' : current.refreshError ? 'Could not refresh. Showing the last update.' : 'Some balances are unavailable.'}</p>}{current.holdings.length ? <ul aria-label="Stock holdings" className="max-h-24 space-y-2 overflow-y-auto">{current.holdings.map(asset => <li key={asset.address} className="flex items-start justify-between gap-3 text-xs"><span className="shrink-0 font-bold">{asset.symbol}</span><span className="min-w-0 break-all text-right font-semibold tabular-nums text-white/80">{asset.balance}</span></li>)}</ul> : <p className="text-xs text-white/60">{current.portfolio?.complete && !expired ? 'No stocks in this wallet.' : 'Stock balances are incomplete.'}</p>}</>
         : <><p className="text-xs text-white/60">{current.status === 'unavailable' ? 'Stock balances are not available yet.' : 'Stock balances could not be loaded.'}</p><button type="button" onClick={() => setRevision(value => value + 1)} className="mt-2 min-h-8 text-[10px] font-bold text-blue-200 underline underline-offset-2">Try again</button></>}
     </div>
   </section>

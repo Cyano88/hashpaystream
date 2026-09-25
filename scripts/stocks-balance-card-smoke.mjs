@@ -15,6 +15,11 @@ const drain=async()=>{for(let i=0;i<10;i++)await new Promise(r=>setImmediate(r))
 const actRun=async fn=>act(async()=>{fn();await drain()})
 const text=()=>JSON.stringify(renderer.toJSON())
 await actRun(()=>{renderer=TestRenderer.create(React.createElement(context.exports.default))});assert.match(text(),/12.50/)
+assert.doesNotMatch(text(),/Refresh balances|Refreshing\.\.\./)
+// Returning Home preserves this account's display while a new read runs silently.
+await actRun(()=>renderer.unmount());hold=true
+await actRun(()=>{renderer=TestRenderer.create(React.createElement(context.exports.default))});assert.match(text(),/12.50/);assert.doesNotMatch(text(),/Loading stock balances|Refreshing\.\.\./)
+hold=false;await actRun(()=>reply(portfolio()))
 // The price can expire before the more recently read holdings.
 priceTime=clock-50000;observed=clock;await actRun(()=>events.get('focus')());clock+=10001
 await actRun(()=>{for(const [id,t]of [...timers])if(t.at<=clock){timers.delete(id);t.f()}});assert.doesNotMatch(text(),/12.50/);assert.match(text(),/Last known balances/)
