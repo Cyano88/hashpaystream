@@ -74,7 +74,7 @@ export function initializeNativeApp() {
   })
 
   const stateListener = App.addListener('appStateChange', ({ isActive }) => {
-    if (isActive) scheduleSystemBars()
+    if (isActive) { scheduleSystemBars(); window.dispatchEvent(new Event('hashpaystream:resume')) }
   })
 
   const onViewportChange = () => scheduleSystemBars()
