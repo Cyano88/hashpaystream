@@ -1,3 +1,4 @@
+import { ARC_WALLET_ENVIRONMENT } from '../../lib/arcWalletConfig'
 import { WORK_STATES, workPaymentLabel } from '../../lib/workXLayer'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
@@ -302,24 +303,24 @@ export default function AgreementDashboard() {
           cache: 'no-store',
           headers: { authorization: `Bearer ${token}` },
         }),
-        fetch(UPFRONT_AGREEMENTS_API, {
+        ARC_WALLET_ENVIRONMENT === 'test' ? fetch(UPFRONT_AGREEMENTS_API, {
           cache: 'no-store',
           headers: { authorization: `Bearer ${token}` },
-        }),
+        }) : Promise.resolve(null),
       ])
       const [standardData, upfrontData] = await Promise.all([
         standardResult.json().catch(() => undefined) as Promise<DashboardResponse | undefined>,
-        upfrontResult.json().catch(() => undefined) as Promise<DashboardResponse | undefined>,
+        upfrontResult ? upfrontResult.json().catch(() => undefined) as Promise<DashboardResponse | undefined> : Promise.resolve({ ok: true, agreements: [] } as DashboardResponse),
       ])
       if (!standardResult.ok || !standardData?.ok) {
         throw new Error(standardData?.error || 'Agreements could not be loaded.')
       }
-      if (!upfrontResult.ok || !upfrontData?.ok) {
+      if (upfrontResult && (!upfrontResult.ok || !upfrontData?.ok)) {
         throw new Error(upfrontData?.error || 'Early-pay agreements could not be loaded.')
       }
       const next = [
         ...(standardData.agreements ?? []).map(agreement => ({ ...agreement, gateway: 'standard' as const })),
-        ...(upfrontData.agreements ?? []).map(agreement => ({ ...agreement, gateway: 'upfront' as const })),
+        ...(upfrontData?.agreements ?? []).map(agreement => ({ ...agreement, gateway: 'upfront' as const })),
       ].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
       if (sequence !== loadSequence.current) return
       setAgreements(current => {
