@@ -655,7 +655,7 @@ function TradeScreen({
               ? "Sample item. Not for sale."
               : (item as PublishedListing).status === "sold"
                 ? "Sold"
-                : "Agree on the details here. Checkout is not available yet."}
+                : "Agree on the details with the seller before opening checkout."}
           </p>
         </div>
       ) : tab === "My listings" ? (

@@ -123,7 +123,7 @@ export default function TradeAgreementCard({
               : "Cancel agreed terms?",
           description:
             action === "accept"
-              ? `After you confirm receipt, the ${offer?.terms.inspectionHours}-hour inspection period starts. Payment then becomes releasable unless a dispute is confirmed on-chain before the deadline. Disputes require mutual agreement or arbitration and may keep funds locked. Payment is not available yet; no money moves now.`
+              ? `After you confirm receipt, the ${offer?.terms.inspectionHours}-hour inspection period starts. Payment then becomes releasable unless a dispute is confirmed on-chain before the deadline. Disputes require mutual agreement or arbitration and may keep funds locked. Accepting terms does not make a payment.`
               : "This cancels the accepted terms and makes the item available for another agreement. Cancellation is blocked if checkout becomes reserved.",
           action: action === "accept" ? "Accept terms" : "Cancel terms",
         });
@@ -374,7 +374,7 @@ export default function TradeAgreementCard({
             <XStockPaymentPicker value={terms.settlementToken || ''} disabled={busy} getAccessToken={getAccessToken} onChange={asset => {
               setTerms(previous => ({...previous, settlementToken:asset.address, settlementAsset:'XLAYER_TOKENIZED_ASSET', price:'', deliveryFee:'0'}));
             }} />
-            <p className="text-xs text-gray-500">Enter the exact stock quantity. Small fractions are supported within the stock?s precision. The recipient receives this stock, whose value can change. Selecting a different stock clears the amount.</p>
+            <p className="text-xs text-gray-500">Enter the exact stock quantity. Small fractions are supported within the supported stock precision. The recipient receives this stock, whose value can change. Selecting a different stock clears the amount.</p>
           </>}
           <label className="block text-xs font-bold">
             {terms.currency === 'XLAYER_ASSET' ? 'Item amount in '+xStockPaymentLabel(terms) : 'Item price'}
