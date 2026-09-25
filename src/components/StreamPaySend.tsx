@@ -13,12 +13,12 @@ import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
 
 type Mode = 'pocket' | 'address'
 
-export default function StreamPaySend() {
+export default function StreamPaySend({onBack}:{onBack?:()=>void}) {
   const { user } = usePrivy()
-  return <SendForm key={user?.id ?? 'signed-out'} />
+  return <SendForm key={user?.id ?? 'signed-out'} onBack={onBack}/>
 }
 
-function SendForm() {
+function SendForm({onBack}:{onBack?:()=>void}) {
   const { authenticated } = usePrivy()
   const account = useStreamAccount()
   const wallet = useCircleWallet()
@@ -106,9 +106,7 @@ function SendForm() {
   return (
     <section className="stream-screen w-full max-w-md py-5 sm:py-8">
       <div className="flex items-center gap-3">
-        <Link to={homeTo} aria-label="Back home" className="stream-icon-button">
-          <ArrowLeftIcon className="h-4 w-4" />
-        </Link>
+        {onBack ? <button type="button" aria-label="Back to send options" className="stream-icon-button" onClick={onBack}><ArrowLeftIcon className="h-4 w-4"/></button> : <Link to={homeTo} aria-label="Back home" className="stream-icon-button"><ArrowLeftIcon className="h-4 w-4"/></Link>}
         <div>
           <h1 className="text-xl font-extrabold tracking-tight text-gray-950 dark:text-white">
             Send Arc USDC

@@ -1,3 +1,4 @@
+import HostedStockSend from './HostedStockSend'
 import { useMemo, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowLeftIcon, ChevronRightIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
@@ -36,11 +37,11 @@ export default function StreamPayStocks() {
       <h1 className="text-center text-lg font-extrabold">{selected?.symbol || 'xStocks'}</h1>
     </header>
     {selected ? <section className="rounded-[24px] border border-gray-100 bg-white p-4 shadow-sm dark:border-[#262626] dark:bg-[#121212] dark:shadow-none">
-      <h2 className="text-sm font-bold">{selected.name}</h2><p className="mt-1 text-xs text-gray-400">{selected.symbol} · X Layer</p>
-      <dl className="mt-5 space-y-2 text-xs"><dt className="text-gray-400">Token contract</dt><dd className="break-all font-mono">{selected.address}</dd></dl>
+      <h2 className="text-sm font-bold">{selected.name}</h2><p className="mt-1 text-xs text-gray-400">{selected.symbol} - X Layer</p>
+      <HostedStockSend asset={selected.symbol}/><dl className="mt-5 space-y-2 text-xs"><dt className="text-gray-400">Token contract</dt><dd className="break-all font-mono">{selected.address}</dd></dl>
     </section> : <>
       <section className="rounded-[24px] border border-gray-100 bg-white p-4 shadow-sm dark:border-[#262626] dark:bg-[#121212] dark:shadow-none">
-        <label className="flex items-center gap-2 rounded-xl bg-gray-100 px-3 dark:bg-white/[0.06]"><MagnifyingGlassIcon className="h-4 w-4 text-gray-400" /><input aria-label="Search stocks" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search name, symbol or contract" className="min-h-11 min-w-0 flex-1 bg-transparent text-xs outline-none" /></label>
+        <label className="flex items-center gap-2 rounded-xl bg-gray-100 px-3 dark:bg-white/[0.06]"><MagnifyingGlassIcon className="h-4 w-4 text-gray-400" /><input aria-label="Search stocks" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search stocks" className="min-h-11 min-w-0 flex-1 bg-transparent text-xs outline-none" /></label>
         <div className="mt-2">{assets.map(asset => <AssetRow key={asset.address} asset={asset} onOpen={() => setSelected(asset)} />)}</div>
         {!assets.length && <p className="py-5 text-center text-xs text-gray-400">No stocks found.</p>}
       </section>

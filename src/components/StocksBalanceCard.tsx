@@ -1,3 +1,4 @@
+import HostedAccountConnection from './HostedAccountConnection'
 import { useEffect, useRef, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ChartBarIcon } from '@heroicons/react/24/outline'
@@ -5,17 +6,17 @@ import { readStockBalances, stockPortfolioExpiresAt, stockPortfolioValueIsFresh 
 import type { StockPortfolio } from '../lib/readStockBalances'
 
 type Holding = StockPortfolio['holdings'][number]
-type Snapshot = { scope: string; status: 'ready' | 'unavailable' | 'error'; holdings: Holding[]; portfolio?: StockPortfolio; refreshError?: boolean }
+type Snapshot = { scope: string; status: 'ready' | 'unavailable' | 'error' | 'connection'; holdings: Holding[]; portfolio?: StockPortfolio; refreshError?: boolean }
 // Keep the last account-scoped result across Home navigation; refresh it quietly.
 let lastStockSnapshot: Snapshot | undefined
-export function useStockPortfolio() {
+export function useStockPortfolio(legacy = false) {
   const { ready, user, getAccessToken } = usePrivy()
   // A balance read needs the linked address, not an initialized transaction signer.
   // The server independently verifies this wallet against the authenticated account.
   const embedded = (user?.linkedAccounts || []).filter(account => account.type === 'wallet'
     && account.chainType === 'ethereum' && account.walletClientType === 'privy' && account.connectorType === 'embedded')
   const address = ready && embedded.length === 1 && embedded[0].type === 'wallet' ? embedded[0].address : ''
-  const scope = (user?.id || '') + ':' + address.toLowerCase()
+  const scope = (user?.id || '') + ':' + (legacy ? 'legacy:' + address.toLowerCase() : 'connected')
   const getToken = useRef(getAccessToken); getToken.current = getAccessToken
   const [snapshot, setSnapshot] = useState<Snapshot | undefined>(() => lastStockSnapshot?.scope === scope ? lastStockSnapshot : undefined)
   const [revision, setRevision] = useState(0)
@@ -29,7 +30,7 @@ export function useStockPortfolio() {
       const timer = window.setTimeout(() => setSnapshot({ scope, status: 'unavailable', holdings: [] }), 10000)
       return () => { controller.abort(); window.clearTimeout(timer) }
     }
-    if (!address) { setSnapshot({ scope, status: 'unavailable', holdings: [] }); return () => controller.abort() }
+    if (legacy && !address) { setSnapshot({ scope, status: 'unavailable', holdings: [] }); return () => controller.abort() }
     const load = async () => {
       setNow(Date.now())
       if (inFlight || controller.signal.aborted || document.visibilityState === 'hidden') return
@@ -45,7 +46,7 @@ export function useStockPortfolio() {
         const token = await getToken.current()
         if (request.signal.aborted) throw Error('Request cancelled.')
         if (!token) throw Error('Sign in again.')
-        return readStockBalances(address, token, request.signal)
+        return readStockBalances(legacy ? address : undefined, token, request.signal)
           })(),
           new Promise<never>((_, reject) => {
             deadline = window.setTimeout(() => { request.abort(); reject(Error('Stock balances took too long.')) }, 50000)
@@ -54,7 +55,8 @@ export function useStockPortfolio() {
           }),
         ])
         if (!controller.signal.aborted) setSnapshot({ scope, status: 'ready', holdings: portfolio.holdings, portfolio })
-      } catch {
+      } catch (error) {
+        if (!controller.signal.aborted && (error as {needsConnection?:boolean}).needsConnection) { setSnapshot({scope,status:'connection',holdings:[]}); return }
         if (!controller.signal.aborted) setSnapshot(previous => previous?.scope === scope && previous.status === 'ready'
           ? { ...previous, refreshError: true } : { scope, status: 'error', holdings: [] })
       } finally { window.clearTimeout(deadline); if (rejectCancelled) controller.signal.removeEventListener('abort', rejectCancelled); controller.signal.removeEventListener('abort', abortRequest); inFlight = false; if (!controller.signal.aborted) { setNow(Date.now()) } }
@@ -86,10 +88,11 @@ export function useStockPortfolio() {
   const expired = loaded && !!current.portfolio && (!Number.isFinite(current.portfolio.observedAt) || now - current.portfolio.observedAt >= 60000 || stockPortfolioExpiresAt(current.portfolio) <= now)
   return { current, loaded, valueFresh, expired, now, retry: () => setRevision(value => value + 1) }
 }
-export default function StocksBalanceCard() {
-  const { current, loaded, valueFresh, expired, now, retry } = useStockPortfolio()
+export default function StocksBalanceCard({legacy = false}:{legacy?:boolean}) {
+  const { current, loaded, valueFresh, expired, now, retry } = useStockPortfolio(legacy)
   const gas = current?.portfolio?.gas
   const gasFresh = gas && !gas.stale && now - gas.observedAt < 60000 && gas.observedAt <= now + 5000
+  if (current?.status === 'connection') return <section className="rounded-[26px] border p-5"><p className="text-sm font-bold">Stocks balance</p><HostedAccountConnection/><button type="button" className="min-h-11 text-xs underline" onClick={retry}>Continue after connecting</button></section>
   return <section aria-label="Stocks balance" aria-busy={!current} className="relative flex min-h-[220px] min-w-full flex-col justify-between snap-center overflow-hidden rounded-[26px] border border-blue-900/70 bg-[#081326] px-5 py-6 text-white shadow-[0_18px_48px_rgba(15,23,42,0.14)]">
     <div className="flex items-start justify-between gap-4">
       <div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-200/60">Stocks balance</p>

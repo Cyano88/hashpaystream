@@ -1,3 +1,4 @@
+import EarlierStockWallet from './components/EarlierStockWallet'
 import StreamPaySwap from './components/StreamPaySwap'
 import { useEffect, useRef, useState } from 'react'
 import { Capacitor } from '@capacitor/core'
@@ -21,7 +22,7 @@ import StreamPayAnalytics from './components/admin/StreamPayAnalytics'
 import StreamPayStats from './components/StreamPayStats'
 import StreamPayUpfront from './components/StreamPayUpfront'
 import StreamPayFunding from './components/StreamPayFunding'
-import StreamPaySend from './components/StreamPaySend'
+import StreamPaySend from './components/StreamPaySendOptions'
 import StreamPayReceive from './components/StreamPayReceive'
 import StreamPayMove from './components/StreamPayMove'
 import StreamPayXLayerSend from './components/StreamPayXLayerSend'
@@ -40,7 +41,7 @@ const CIRCLE_ROUTES = new Set([
   '/home', '/trade', '/swap', '/xstocks', '/agreements', '/agreements/new',
   '/upfront', '/upfront/funding', '/funding', '/savings', '/move',
   '/move/xlayer/send', '/send', '/receive', '/activity', '/notifications',
-  '/requests', '/account', '/operations', '/admin/analytics',
+  '/requests', '/account', '/account/earlier-wallet', '/operations', '/admin/analytics',
 ])
 const AUTH_DECISION_ROUTES = new Set(['/', ...CIRCLE_ROUTES])
 const SESSION_READY_TIMEOUT_MS = 12_000
@@ -140,6 +141,7 @@ function StreamPayRoute() {
   else if (route === '/activity') content = <StreamPayActivity />
   else if (route === '/notifications') content = <StreamPayNotifications />
   else if (route === '/requests') content = <StreamPayRequests />
+  else if (route === '/account/earlier-wallet') content = <EarlierStockWallet />
   else if (route === '/account') content = <StreamPayAccount />
   else if (route === '/operations') content = <Navigate to={adminTo} replace />
   else if (route === '/admin/analytics') content = <StreamPayAnalytics />
