@@ -170,6 +170,11 @@ export function createCircleWalletHandler(overrides: { env?: () => NodeJS.Proces
         const data = await circleJson<Record<string, unknown>>(env, '/v1/w3s/user/wallets', { method: 'POST', userToken, body: { idempotencyKey: crypto.randomUUID(), accountType: 'SCA', blockchains: [profile.blockchain], metadata: [{ name: 'HashPayStream Arc' }] } })
         return res.json({ ok: true, ...data })
       }
+      if (action === 'receive_details') {
+        if (!profile.live) fail('This receiving service requires a live Arc wallet.', 409)
+        const data = await hashPayLinkArcWallet(env, '/receive', { userToken })
+        return res.json({ ok: true, ...data })
+      }
       if (action === 'list_wallets') {
         const wallets = await listCircleArcWallets(userToken, env)
         return res.json({ ok: true, wallets, wallet: wallets[0] ?? null })

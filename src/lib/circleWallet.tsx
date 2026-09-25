@@ -17,6 +17,7 @@ type CircleSession = { userToken: string; encryptionKey: string; refreshToken?: 
 type WalletState = 'idle' | 'connecting' | 'ready' | 'error'
 type ConnectionStage = 'restoring' | 'verifying'
 type CircleWalletContextValue = {
+  receiveDetails: () => Promise<import('./readStockBalances').WalletReceiveDetails>;
   state: WalletState; stage: ConnectionStage; error: string; session?: CircleSession; address: string; balance: string; balanceReady: boolean; balanceError: string; loadingBalance: boolean
   reconnect: () => Promise<void>; reauthorize: () => Promise<void>; refreshBalance: () => Promise<void>; sendUsdc: (recipient: Address, amount: string, options: { id: string; challengeId?: string; onPrepared: (value: TransferReferences) => Promise<void> }) => Promise<TransferReferences>; lookupTransfer: (value: TransferReferences) => Promise<TransferReferences>
   executeChallenge: (challengeId: string) => Promise<{ transactionHash: string }>
@@ -383,7 +384,14 @@ function CircleWalletSession({ children }: { children: ReactNode }) {
     return { transactionHash: find(result, ['txHash', 'transactionHash']) }
   }, [execute, session])
 
-  const value = useMemo(() => ({ state, stage, error, session, address: session?.wallet.address ?? '', balance, balanceReady, balanceError, loadingBalance, reconnect, reauthorize, refreshBalance, sendUsdc, lookupTransfer, executeChallenge }), [balance, balanceError, balanceReady, error, executeChallenge, loadingBalance, reauthorize, reconnect, refreshBalance, sendUsdc, lookupTransfer, session, stage, state])
+  const receiveDetails = useCallback(async () => {
+    if (!session) throw Error('Open your Arc wallet first.')
+    const data = await request({ action: 'receive_details', userToken: session.userToken })
+    const receive = (data.wallets as import('./readStockBalances').WalletReceiveDetails[] | undefined)?.find(item => item.chainId === 5042 && item.address.toLowerCase() === session.wallet.address.toLowerCase())
+    if (!receive || receive.qrValue !== receive.address) throw Error('Receiving details are unavailable.')
+    return receive
+  }, [request, session])
+  const value = useMemo(() => ({ receiveDetails, state, stage, error, session, address: session?.wallet.address ?? '', balance, balanceReady, balanceError, loadingBalance, reconnect, reauthorize, refreshBalance, sendUsdc, lookupTransfer, executeChallenge }), [receiveDetails, balance, balanceError, balanceReady, error, executeChallenge, loadingBalance, reauthorize, reconnect, refreshBalance, sendUsdc, lookupTransfer, session, stage, state])
   return <Context.Provider value={value}>{children}</Context.Provider>
 }
 

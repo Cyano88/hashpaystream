@@ -8,14 +8,14 @@ const document={visibilityState:'visible',addEventListener:(k,f)=>events.set(k,f
 const window={setTimeout:(f,delay)=>{const id=nextId++;timers.set(id,{f,at:clock+delay});return id},clearTimeout:id=>timers.delete(id),setInterval:f=>{const id=nextId++;intervals.set(id,f);return id},clearInterval:id=>intervals.delete(id),addEventListener:(k,f)=>events.set(k,f),removeEventListener:k=>events.delete(k)}
 const source=fs.readFileSync('src/components/StocksBalanceCard.tsx','utf8').replace(/^import .*\r?\n/gm,'')
 const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.React}}).outputText
-const portfolio=()=>({chainId:196,complete:true,stale:false,estimatedValueUsd:total,observedAt:observed,holdings:[{address:'0x1',symbol:'TESTx',balance:'1.25',priceObservedAt:priceTime}]})
+const portfolio=()=>({chainId:196,gas:{symbol:'OKB',balance:'0.025',units:'25000000000000000',decimals:18,observedAt:observed,stale:false},complete:true,stale:false,estimatedValueUsd:total,observedAt:observed,holdings:[{address:'0x1',symbol:'TESTx',balance:'1.25',priceObservedAt:priceTime}]})
 const context={exports:{},React,...React,AbortController,Intl,window,document,Date:class extends Date{static now(){return clock}},stockPortfolioExpiresAt,stockPortfolioValueIsFresh,ChartBarIcon:()=>null,usePrivy:()=>({ready,user:{id:user,linkedAccounts:[{type:'wallet',chainType:'ethereum',walletClientType:'privy',connectorType:'embedded',address:'0x'+'1'.repeat(40)}]},getAccessToken:async()=>tokenHold ? new Promise(()=>{}) : user}),useWallets:()=>({ready,wallets:[{walletClientType:'privy',address:'0x'+'1'.repeat(40)}]}),readStockBalances:async()=>{calls++;if(hold)return new Promise(r=>reply=r);if(fail)throw Error('offline');return portfolio()}}
 vm.runInNewContext(code,context);let renderer
 const drain=async()=>{for(let i=0;i<10;i++)await new Promise(r=>setImmediate(r))}
 const actRun=async fn=>act(async()=>{fn();await drain()})
 const text=()=>JSON.stringify(renderer.toJSON())
 await actRun(()=>{renderer=TestRenderer.create(React.createElement(context.exports.default))});assert.match(text(),/12.50/)
-assert.doesNotMatch(text(),/Refresh balances|Refreshing\.\.\./)
+assert.match(text(),/0.025/);assert.doesNotMatch(text(),/Refresh balances|Refreshing\.\.\./)
 // Returning Home preserves this account's display while a new read runs silently.
 await actRun(()=>renderer.unmount());hold=true
 await actRun(()=>{renderer=TestRenderer.create(React.createElement(context.exports.default))});assert.match(text(),/12.50/);assert.doesNotMatch(text(),/Loading stock balances|Refreshing\.\.\./)

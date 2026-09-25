@@ -34,7 +34,7 @@ export default function HomeBalanceCarousel(props: Props) {
           <div className="flex shrink-0 flex-col items-center gap-1"><Link to={props.notificationsTo} aria-label={props.unreadCount ? `Open notifications, ${props.unreadCount} unread` : 'Open notifications'} className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/75 transition active:scale-95"><BellIcon className="h-5 w-5" />{props.unreadCount > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-blue-500 ring-2 ring-zinc-950" />}</Link></div>
         </div>
         <div className="mt-6 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">
-          <Metric label="Available" value={props.arcBalanceReady ? formatUsdcBalance(props.availableBalance) : '—'} />
+          <Metric label="Available" loading={!props.arcBalanceReady && !props.arcBalanceError} value={props.arcBalanceReady ? formatUsdcBalance(props.availableBalance) : '—'} />
           <Metric label="Protected" value={formatUsdcBalance(props.protectedBalance)} />
           <Metric label="Refundable" value={formatUsdcBalance(props.refundableBalance)} />
         </div>
@@ -49,6 +49,6 @@ export default function HomeBalanceCarousel(props: Props) {
   </div>
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return <div><p className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/40">{label}</p><p className="mt-1 text-xs font-bold tabular-nums">{value}</p></div>
+function Metric({ label, value, loading = false }: { label: string; value: string; loading?: boolean }) {
+  return <div><p className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/40">{label}</p><p className="mt-1 text-xs font-bold tabular-nums">{loading ? <span aria-label="Loading available balance" className="inline-block h-3 w-16 animate-pulse rounded bg-white/10 motion-reduce:animate-none" /> : value}</p></div>
 }
