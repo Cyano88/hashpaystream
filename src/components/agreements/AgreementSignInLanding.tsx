@@ -1,8 +1,10 @@
+import { usePrivy } from '@privy-io/react-auth'
 import { HashPayStreamMark } from '../HashPayStreamMark'
 import { Link } from '../../lib/router'
 import { StreamPayEmailLogin } from '../auth/StreamPayEmailLogin'
 
 export function AgreementSignInLanding({ compact = false }: { compact?: boolean }) {
+  const { ready, login } = usePrivy()
   return (
     <section className={`flex w-full max-w-md flex-col items-center justify-center text-center ${compact ? 'min-h-0 lg:min-h-[64vh]' : 'min-h-[64vh]'}`}>
       <HashPayStreamMark className="h-14 w-14" title="Hash PayStream" />
@@ -14,7 +16,8 @@ export function AgreementSignInLanding({ compact = false }: { compact?: boolean 
       <p className="mt-3 max-w-sm text-sm leading-6 text-gray-500 dark:text-gray-400">
         Sign in to view and manage your agreements.
       </p>
-      <StreamPayEmailLogin className="mt-7 w-full" />
+      <div className="stream-mobile-signin w-full"><StreamPayEmailLogin className="mt-7 w-full" /></div>
+      <button type="button" disabled={!ready} onClick={() => login({ loginMethods: ['email'] })} className="stream-desktop-signin stream-primary mt-7 w-full">{ready ? 'Sign in with email' : 'Loading sign-in'}</button>
       <div className="mt-5 flex items-center gap-4 text-xs text-gray-400">
         <Link to="/stats" className="transition-colors hover:text-gray-700 dark:hover:text-gray-200">Product stats</Link>
         <a href="https://x.com/Hash_PayLink" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-700 dark:hover:text-gray-200">Support</a>

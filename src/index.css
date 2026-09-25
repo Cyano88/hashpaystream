@@ -169,3 +169,108 @@ html[data-stream-theme-surface='launch'], html[data-stream-theme-surface='launch
 }
 
 :root { --hashpaylink-safe-top: var(--stream-safe-top); --hashpaylink-safe-bottom: var(--stream-safe-bottom); }
+
+/* The web shell reuses the mobile components. Native layouts stay unchanged. */
+.stream-desktop-brand,
+.stream-bottom-nav[data-guest="true"] { display: none; }
+
+@media (min-width: 1024px) {
+  .stream-app-shell[data-stream-platform="web"] {
+    --stream-sidebar-width: 224px;
+    padding-left: var(--stream-sidebar-width);
+  }
+  .stream-app-shell[data-stream-platform="web"] .stream-mobile-main {
+    padding: 32px clamp(24px, 3vw, 56px) 48px;
+  }
+  .stream-app-shell[data-stream-platform="web"] .stream-mobile-main > .stream-screen {
+    max-width: 720px;
+    min-width: 0;
+    padding-top: 0;
+  }
+  .stream-app-shell[data-stream-platform="web"][data-stream-route="/home"] .stream-mobile-main > .stream-screen,
+  .stream-app-shell[data-stream-platform="web"][data-stream-route="/trade"] .stream-mobile-main > .stream-screen {
+    max-width: 1120px;
+  }
+  .stream-app-shell[data-stream-platform="web"][data-stream-route="/trade"]:is([data-stream-view="sell"], [data-stream-view="enquiries"], [data-stream-view="detail"]) .stream-mobile-main > .stream-screen {
+    max-width: 760px;
+  }
+  .stream-app-shell[data-stream-platform="web"] .stream-bottom-nav {
+    display: flex;
+    flex-direction: column;
+    inset: 0 auto 0 0;
+    width: var(--stream-sidebar-width);
+    padding: 32px 16px;
+    overflow-y: auto;
+    border-top: 0;
+    border-right: 1px solid #e4e4e7;
+    box-shadow: none;
+  }
+  .dark .stream-app-shell[data-stream-platform="web"] .stream-bottom-nav { border-right-color: #262626; }
+  .stream-app-shell[data-stream-platform="web"] .stream-desktop-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 8px;
+    margin-bottom: 40px;
+    font-size: 14px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+  .stream-app-shell[data-stream-platform="web"] .stream-mobile-nav-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    padding: 0;
+  }
+  .stream-app-shell[data-stream-platform="web"] .stream-mobile-nav-inner > a {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 14px;
+    min-height: 52px;
+    padding: 12px 16px;
+    border-radius: 16px;
+    font-size: 13px;
+  }
+  .stream-app-shell[data-stream-platform="web"] .stream-mobile-nav-inner > a:hover,
+  .stream-app-shell[data-stream-platform="web"] .stream-mobile-nav-inner > a[aria-current="page"] { background: #f4f4f5; }
+  .dark .stream-app-shell[data-stream-platform="web"] .stream-mobile-nav-inner > a:hover,
+  .dark .stream-app-shell[data-stream-platform="web"] .stream-mobile-nav-inner > a[aria-current="page"] { background: #1c1c1c; }
+  .stream-app-shell[data-stream-platform="web"] .stream-balance-cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    overflow: visible;
+    scroll-snap-type: none;
+  }
+  .stream-app-shell[data-stream-platform="web"] .stream-balance-cards > * { min-width: 0; width: 100%; }
+  .stream-app-shell[data-stream-platform="web"] .stream-balance-pagination { display: none; }
+  .stream-app-shell[data-stream-platform="web"] .stream-screen > .stream-segment { max-width: 560px; }
+  .stream-app-shell[data-stream-platform="web"] a:focus-visible,
+  .stream-app-shell[data-stream-platform="web"] button:focus-visible { outline: 2px solid #3b82f6; outline-offset: 3px; }
+}
+@media (min-width: 1280px) {
+  .stream-app-shell[data-stream-platform="web"] .stream-trade-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 24px;
+  }
+  .stream-app-shell[data-stream-platform="web"] .stream-trade-list > article {
+    border-top-width: 0;
+    border-bottom: 1px solid #e4e4e7;
+  }
+  .dark .stream-app-shell[data-stream-platform="web"] .stream-trade-list > article { border-bottom-color: #262626; }
+}
+
+.stream-brand-mark { display: inline-block; flex-shrink: 0; }
+.stream-brand-dark, .stream-desktop-signin { display: none; }
+.dark .stream-brand-mark .stream-brand-light,
+.stream-brand-mark[data-surface="dark"] .stream-brand-light { display: none; }
+.dark .stream-brand-mark .stream-brand-dark,
+.stream-brand-mark[data-surface="dark"] .stream-brand-dark { display: block; }
+@media (min-width: 1024px) {
+  [data-stream-platform="web"] .stream-mobile-signin { display: none; }
+  [data-stream-platform="web"] .stream-desktop-signin { display: flex; }
+  .stream-app-shell[data-stream-platform="web"] .stream-mobile-nav-inner > a:not([aria-current="page"]) { color: #71717a; }
+  .dark .stream-app-shell[data-stream-platform="web"] .stream-mobile-nav-inner > a:not([aria-current="page"]) { color: #a1a1aa; }
+}

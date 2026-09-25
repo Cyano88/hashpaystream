@@ -27,7 +27,7 @@ export default function HomeBalanceCarousel(props: Props) {
   }
 
   return <div>
-    <div ref={scroller} onScroll={updatePage} className="flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div ref={scroller} onScroll={updatePage} className="stream-balance-cards flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <section className="flex min-h-[220px] min-w-full flex-col justify-between snap-center overflow-hidden rounded-[26px] border border-zinc-800 bg-zinc-950 px-5 py-6 text-white shadow-[0_18px_48px_rgba(15,23,42,0.14)] dark:border-[#262626] dark:bg-[#121212]">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50 dark:text-gray-500">Total balance</p><p className="mt-1.5 min-w-0 text-[clamp(1.75rem,9vw,2.5rem)] font-bold tabular-nums tracking-tight">{props.arcBalanceReady ? formatUsdcBalance(props.totalBalance).replace(/ USDC$/, '') : !props.arcBalanceError ? <span aria-label="Loading USDC balance" className="inline-block h-10 w-40 animate-pulse rounded-lg bg-white/10 align-middle motion-reduce:animate-none" /> : '\u2014'} <span className="text-xs font-medium tracking-normal opacity-50">USDC</span></p></div>
@@ -45,7 +45,7 @@ export default function HomeBalanceCarousel(props: Props) {
 
 
     </div>
-    <div className="mt-2.5 flex justify-center gap-1.5" aria-label={`Balance card ${active + 1} of 2`}>{['USDC balance', 'Stocks balance'].map((label, index) => <button key={label} type="button" aria-label={`Show ${label}`} aria-current={active === index ? 'true' : undefined} onClick={() => { const node = scroller.current; if (node) node.scrollTo({ left: index * (node.clientWidth + 12), behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }) }} className="flex h-6 min-w-8 items-center justify-center"><span className={`h-1.5 rounded-full transition-all ${active === index ? 'w-5 ' + ['bg-gray-950 dark:bg-white', 'bg-blue-500', 'bg-emerald-500'][index] : 'w-1.5 bg-gray-300 dark:bg-white/20'}`} /></button>)}</div>
+    <div className="stream-balance-pagination mt-2.5 flex justify-center gap-1.5" aria-label={`Balance card ${active + 1} of 2`}>{['USDC balance', 'Stocks balance'].map((label, index) => <button key={label} type="button" aria-label={`Show ${label}`} aria-current={active === index ? 'true' : undefined} onClick={() => { const node = scroller.current; if (node) node.scrollTo({ left: index * (node.clientWidth + 12), behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }) }} className="flex h-6 min-w-8 items-center justify-center"><span className={`h-1.5 rounded-full transition-all ${active === index ? 'w-5 ' + ['bg-gray-950 dark:bg-white', 'bg-blue-500', 'bg-emerald-500'][index] : 'w-1.5 bg-gray-300 dark:bg-white/20'}`} /></button>)}</div>
   </div>
 }
 

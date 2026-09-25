@@ -1242,7 +1242,7 @@ function TradeScreen({
             </div>
           ) : (mode === "error" || marketError) &&
             !visible.length ? null : visible.length ? (
-            <div className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+            <div className="stream-trade-list divide-y divide-gray-100 dark:divide-white/[0.05]">
               {visible.map((listing) => (
                 <article key={listing.id} className="flex min-w-0 items-center gap-1">
                   <button onClick={() => go(tab, listing.id)} aria-label={`View ${listing.title}`} className="flex min-h-[80px] min-w-0 flex-1 items-center gap-3 rounded-2xl px-1 py-3 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.04]">

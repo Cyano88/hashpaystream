@@ -40,6 +40,7 @@ try{
  nativeListeners.keyboardWillShow();assert.equal(document.documentElement.dataset.streamKeyboard,'open')
  nativeListeners.keyboardDidShow();assert.equal(document.documentElement.dataset.streamKeyboard,'open')
  nativeListeners.keyboardDidHide();assert.equal(document.documentElement.dataset.streamKeyboard,undefined)
+ assert.deepEqual(events,['hashpaystream:resume','hashpaystream:resume','hashpaystream:resume'],'Resume must refresh account-scoped balances');events=[]
  nativeListeners.backButton({canGoBack:false});assert.deepEqual(historyCalls,['/home']);assert.deepEqual(events,['hashpaystream:back','popstate'])
  nativeListeners.backButton({canGoBack:true});assert.deepEqual(historyCalls,['/home','back'])
  window.location.pathname='/home';nativeListeners.backButton({canGoBack:false});assert.equal(globalThis.minimized,true)

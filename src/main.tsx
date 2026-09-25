@@ -18,7 +18,7 @@ import { initializeNativeApp } from './lib/nativeApp'
 import { installNativeApiTransport } from './lib/nativeApiTransport'
 
 const appId = String(import.meta.env.VITE_PRIVY_APP_ID || '').trim()
-const logoUrl = new URL('/brand/hashpaystream-logo.png', window.location.origin).toString()
+const logoUrl = new URL('/brand/hashpaystream-logo-light.svg', window.location.origin).toString()
 const termsUrl = new URL('/terms', window.location.origin).toString()
 const privacyUrl = new URL('/privacy', window.location.origin).toString()
 const deploymentReloadKey = 'hashpaystream:deployment-reload'

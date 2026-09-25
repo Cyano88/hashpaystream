@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react'
+import { Capacitor } from '@capacitor/core'
 import { usePrivy } from '@privy-io/react-auth'
 import { useLocation } from '../lib/router'
 import { StreamPayHeader } from './StreamPayHeader'
 import { StreamPayMobileNav } from './StreamPayMobileNav'
 
 export function StreamPayLayout({ children }: { children: ReactNode }) {
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const { authenticated } = usePrivy()
   const foundationPage = (pathname.replace(/\/+$/, '') || '/') === '/'
   const route = pathname.replace(/\/+$/, '')
@@ -20,7 +21,9 @@ export function StreamPayLayout({ children }: { children: ReactNode }) {
       '/funding',
       '/savings',
       '/xstocks',
+      '/swap',
       '/move',
+      '/move/xlayer/send',
       '/send',
       '/receive',
       '/activity',
@@ -31,8 +34,11 @@ export function StreamPayLayout({ children }: { children: ReactNode }) {
 
   return (
     <div
+      data-stream-platform={Capacitor.isNativePlatform() ? 'native' : 'web'}
+      data-stream-route={route}
+      data-stream-view={new URLSearchParams(search).has('item') ? 'detail' : new URLSearchParams(search).get('view') || 'default'}
       className={
-        'min-h-screen w-full font-sans flex flex-col ' +
+        'min-h-screen w-full font-sans flex flex-col ' + (mobileAppPage ? 'stream-app-shell ' : '') +
         (mobileAppPage
           ? 'min-h-[100dvh] bg-[#f6f6f3] text-zinc-950 transition-colors dark:bg-black dark:text-white'
           : 'bg-[#F5F5F7] dark:bg-[#111113]')
@@ -46,7 +52,7 @@ export function StreamPayLayout({ children }: { children: ReactNode }) {
       >
         {children}
       </main>
-      {mobileAppPage && authenticated && <StreamPayMobileNav />}
+      {mobileAppPage && <StreamPayMobileNav guest={!authenticated} />}
     </div>
   )
 }

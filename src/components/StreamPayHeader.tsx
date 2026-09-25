@@ -35,10 +35,10 @@ export function StreamPayHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-white/60 dark:border-white/5 bg-white/80 dark:bg-[#111113]/90 backdrop-blur-xl">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 pt-3 pb-2 sm:px-6">
-        <Link to={agreementsTo} className="group flex items-center gap-2.5 focus:outline-none" aria-label="HashPayStream home">
+        <Link to={agreementsTo} className="group flex items-center gap-2.5 focus:outline-none" aria-label="Hash PayStream home">
           <HashPayStreamMark className="h-6 w-6 text-gray-900 transition-transform group-hover:scale-105 dark:text-white" />
           <span className="text-[15px] font-semibold tracking-tight">
-            <span className="text-gray-900 dark:text-white">HashPay</span><span style={{ color: '#3b82f6' }}>Stream</span>
+            <span className="text-gray-900 dark:text-white">Hash</span>{' '}<span style={{ color: '#3b82f6' }}>PayStream</span>
           </span>
         </Link>
 
