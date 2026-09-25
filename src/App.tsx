@@ -1,3 +1,4 @@
+import StreamPaySwap from './components/StreamPaySwap'
 import { useEffect, useRef, useState } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { usePrivy } from '@privy-io/react-auth'
@@ -129,6 +130,7 @@ function StreamPayRoute() {
   else if (route === '/') content = <StreamPayLanding />
   else if (route === '/trade') content = <StreamPayTrade />
   else if (route === '/home') content = <StreamPayHome />
+  else if (route === '/swap') content = <StreamPaySwap />
   else if (route === '/xstocks') content = <StreamPayStocks />
   else if (route === '/agreements') content = <AgreementDashboard />
   else if (route === '/agreements/new') content = <Navigate to={composeRequestTo} replace />

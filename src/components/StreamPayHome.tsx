@@ -3,6 +3,7 @@ import {
   PaperAirplaneIcon,
   ArrowDownTrayIcon,
   ChartBarIcon,
+  ArrowsRightLeftIcon,
 } from '@heroicons/react/24/outline'
 import { useMemo } from 'react'
 import { Link, useLocation } from '../lib/router'
@@ -42,6 +43,7 @@ export default function StreamPayHome() {
   const createTo = useStreamPayPath('/requests?compose=1')
   const sendTo = useStreamPayPath('/send')
   const receiveTo = useStreamPayPath('/receive')
+  const swapTo = useStreamPayPath('/swap')
   const stocksTo = useStreamPayPath('/xstocks')
   const { search } = useLocation()
   const activityTo = useStreamPayPath('/activity')
@@ -66,6 +68,7 @@ export default function StreamPayHome() {
   const actions = [
     { label: 'Send', Icon: PaperAirplaneIcon, to: sendTo },
     { label: 'Receive', Icon: ArrowDownTrayIcon, to: receiveTo },
+    { label: 'Swap', Icon: ArrowsRightLeftIcon, to: swapTo },
     { label: 'xStocks', Icon: ChartBarIcon, to: stocksTo },
   ]
 
@@ -86,7 +89,7 @@ export default function StreamPayHome() {
         unreadCount={unreadCount}
       />
 
-      <section className="grid grid-cols-3 gap-2">
+      <section className="grid grid-cols-4 gap-2">
         {actions.map(({ label, Icon, to }) => to ? (
           <Link key={label} to={to} className="stream-card flex min-h-20 flex-col items-center justify-center gap-2 rounded-2xl px-1 text-[10px] font-bold text-gray-700 transition active:scale-[0.98] dark:text-gray-200">
             <Icon className="h-5 w-5" strokeWidth={1.6} />

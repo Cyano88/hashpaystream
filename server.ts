@@ -1,3 +1,4 @@
+import walletSwap from './api/wallet-swap.js'
 import stockBalances from './api/stock-balances.js'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -100,6 +101,7 @@ app.all(
 app.use('/api/hashpaystream/v1/trade', createTradeRouter())
 app.use(express.json({ limit: '64kb' }))
 app.post('/api/hashpaystream/v1/stocks/balances', rateLimit({ name: 'stock-balances', windowMs: 60000, max: 12 }), stockBalances)
+app.post('/api/hashpaystream/v1/wallet/swap', rateLimit({name:'wallet-swap',windowMs:60000,max:20}), walletSwap)
 app.post('/api/hashpaystream/v1/stocks/receive', rateLimit({ name: 'stock-balances', windowMs: 60000, max: 12 }), stockBalances)
 app.get('/healthz', (_req, res) => res.json({ ok: true, service: 'hashpaystream' }))
 app.get('/readyz', rateLimit({ name: 'readiness', windowMs: 60_000, max: 120 }), readiness)
