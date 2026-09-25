@@ -3,7 +3,7 @@ import { MoonIcon, SunIcon } from '@heroicons/react/24/outline'
 import { usePrivy } from '@privy-io/react-auth'
 import { useTheme } from '../lib/ThemeContext'
 import { useStreamPayPath } from '../lib/useStreamPayPath'
-import { HashPayStreamMark } from './HashPayStreamMark'
+import { HashPayStreamMark, HashPayStreamWordmark } from './HashPayStreamMark'
 
 function isTelegramStreamPay(search: string) {
   const params = new URLSearchParams(search)
@@ -38,7 +38,7 @@ export function StreamPayHeader() {
         <Link to={agreementsTo} className="group flex items-center gap-2.5 focus:outline-none" aria-label="Hash PayStream home">
           <HashPayStreamMark className="h-6 w-6 text-gray-900 transition-transform group-hover:scale-105 dark:text-white" />
           <span className="text-[15px] font-semibold tracking-tight">
-            <span className="text-gray-900 dark:text-white">Hash</span>{' '}<span style={{ color: '#3b82f6' }}>PayStream</span>
+            <HashPayStreamWordmark />
           </span>
         </Link>
 

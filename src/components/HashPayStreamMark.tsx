@@ -10,3 +10,7 @@ export function HashPayStreamMark({ className = 'h-6 w-6', title, surface = 'aut
     <img src="/brand/hashpaystream-mark.png" className="stream-brand-dark h-full w-full object-contain" alt={title ?? ''} aria-hidden={title ? undefined : true} />
   </span>
 }
+
+export function HashPayStreamWordmark() {
+  return <><span className="text-gray-950 dark:text-white">Hash</span>{' '}<span className="text-blue-600 dark:text-blue-400">PayStream</span></>
+}

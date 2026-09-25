@@ -1,18 +1,17 @@
-import { HashPayStreamMark } from '../HashPayStreamMark'
+import { HashPayStreamMark, HashPayStreamWordmark } from '../HashPayStreamMark'
 import { Link } from '../../lib/router'
 import { StreamPayEmailLogin } from '../auth/StreamPayEmailLogin'
 
 export function AgreementSignInLanding({ compact = false }: { compact?: boolean }) {
   return (
     <section className={`flex w-full max-w-md flex-col items-center justify-center text-center ${compact ? 'min-h-0 lg:min-h-[64vh]' : 'min-h-[64vh]'}`}>
-      <HashPayStreamMark className="h-14 w-14" title="Hash PayStream" />
+      <HashPayStreamMark className="h-14 w-14" />
       <p className="mt-6 text-sm font-semibold tracking-tight">
-        <span className="text-gray-950 dark:text-white">Hash</span>{' '}
-        <span className="text-blue-600 dark:text-blue-400">PayStream</span>
+        <HashPayStreamWordmark />
       </p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Your protected payments.</h1>
+      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Payments, work and trade.</h1>
       <p className="mt-3 max-w-sm text-sm leading-6 text-gray-500 dark:text-gray-400">
-        Sign in to view and manage your agreements.
+        Sign in to send USDC, manage work agreements and trade with xStocks.
       </p>
       <StreamPayEmailLogin className="mt-7 w-full" />
       <div className="mt-5 flex items-center gap-4 text-xs text-gray-400">
