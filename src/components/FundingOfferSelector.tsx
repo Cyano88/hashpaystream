@@ -67,7 +67,7 @@ export default function FundingOfferSelector({ offers, selectedId, onSelect, dis
       {selected ? 'See other eligible offers' : 'Choose an eligible offer'}<ChevronDownIcon className="h-3 w-3" />
     </button>}
     {open && createPortal(<div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 backdrop-blur-sm" onClick={event => { if (event.target === event.currentTarget) close() }}>
-      <section ref={sheet} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="relative z-10 max-h-[calc(100dvh-1rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-[28px] border border-zinc-200 bg-[#f6f6f3] px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 text-zinc-950 shadow-2xl outline-none dark:border-white/10 dark:bg-[#111111] dark:text-white">
+      <section ref={sheet} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="relative z-10 max-h-[calc(100dvh-var(--stream-safe-top)-1rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-[28px] border border-zinc-200 bg-[#f6f6f3] px-5 pb-[max(1.5rem,var(--stream-safe-bottom))] pt-3 text-zinc-950 shadow-2xl outline-none dark:border-white/10 dark:bg-[#111111] dark:text-white">
         <span className="mx-auto block h-1 w-10 rounded-full bg-zinc-300 dark:bg-white/20" />
         <div className="mt-5 flex items-center justify-between gap-3"><h2 id={titleId} className="text-sm font-black">Eligible offers</h2><button type="button" onClick={close} className="min-h-10 px-2 text-xs font-bold">Close</button></div>
         <p className="mb-4 text-[10px] text-zinc-500 dark:text-white/50">Ranked by completed funding, then fee.</p>

@@ -1,3 +1,4 @@
+import stockBalances from './api/stock-balances.js'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import express from 'express'
@@ -98,6 +99,7 @@ app.all(
 )
 app.use('/api/hashpaystream/v1/trade', createTradeRouter())
 app.use(express.json({ limit: '64kb' }))
+app.post('/api/hashpaystream/v1/stocks/balances', rateLimit({ name: 'stock-balances', windowMs: 60000, max: 12 }), stockBalances)
 app.get('/healthz', (_req, res) => res.json({ ok: true, service: 'hashpaystream' }))
 app.get('/readyz', rateLimit({ name: 'readiness', windowMs: 60_000, max: 120 }), readiness)
 app.get('/api/hashpaystream/v1/human/agreements', rateLimit({ name: 'human-agreement-read', windowMs: 60_000, max: 120 }), agreementGateway)

@@ -132,7 +132,7 @@ function StreamPayRoute() {
   else if (route === '/agreements/new') content = <Navigate to={composeRequestTo} replace />
   else if (route === '/upfront') content = <StreamPayUpfront />
   else if (route === '/funding') content = <StreamPayFunding />
-  else if (route === '/savings') content = <StreamPaySavings />
+  else if (route === '/savings') content = <Navigate to="/home" replace />
   else if (route === '/move') content = <StreamPayMove />
   else if (route === '/move/xlayer/send') content = <StreamPayXLayerSend />
   else if (route === '/send') content = <StreamPaySend />
