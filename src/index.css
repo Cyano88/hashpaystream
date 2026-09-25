@@ -263,14 +263,12 @@ html[data-stream-theme-surface='launch'], html[data-stream-theme-surface='launch
 }
 
 .stream-brand-mark { display: inline-block; flex-shrink: 0; }
-.stream-brand-dark, .stream-desktop-signin { display: none; }
+.stream-brand-dark { display: none; }
 .dark .stream-brand-mark .stream-brand-light,
 .stream-brand-mark[data-surface="dark"] .stream-brand-light { display: none; }
 .dark .stream-brand-mark .stream-brand-dark,
 .stream-brand-mark[data-surface="dark"] .stream-brand-dark { display: block; }
 @media (min-width: 1024px) {
-  [data-stream-platform="web"] .stream-mobile-signin { display: none; }
-  [data-stream-platform="web"] .stream-desktop-signin { display: flex; }
   .stream-app-shell[data-stream-platform="web"] .stream-mobile-nav-inner > a:not([aria-current="page"]) { color: #71717a; }
   .dark .stream-app-shell[data-stream-platform="web"] .stream-mobile-nav-inner > a:not([aria-current="page"]) { color: #a1a1aa; }
 }

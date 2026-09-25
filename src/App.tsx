@@ -34,20 +34,15 @@ import { CircleWalletGate } from './components/CircleWalletGate'
 import { useThemeSurface } from './lib/ThemeContext'
 import { useCircleWallet } from './lib/circleWallet'
 
-const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/upfront', '/funding', '/savings', '/xstocks', '/move', '/move/xlayer/send', '/send', '/receive', '/activity', '/notifications', '/requests', '/account', '/operations', '/admin/analytics'])
+// Every product entry point requires both email authentication and a ready
+// Circle session. Public documentation and legal pages remain accessible.
 const CIRCLE_ROUTES = new Set([
-  '/home',
-  '/agreements',
-  '/agreements/new',
-  '/upfront',
-  '/move',
-  '/send',
-  '/receive',
-  '/activity',
-  '/notifications',
-  '/requests',
-  '/account',
+  '/home', '/trade', '/swap', '/xstocks', '/agreements', '/agreements/new',
+  '/upfront', '/upfront/funding', '/funding', '/savings', '/move',
+  '/move/xlayer/send', '/send', '/receive', '/activity', '/notifications',
+  '/requests', '/account', '/operations', '/admin/analytics',
 ])
+const AUTH_DECISION_ROUTES = new Set(['/', ...CIRCLE_ROUTES])
 const SESSION_READY_TIMEOUT_MS = 12_000
 
 function SessionLoadingSurface({ sessionDelayed, onRetry }: { sessionDelayed: boolean; onRetry: () => void }) {
@@ -126,8 +121,8 @@ function StreamPayRoute() {
     return <><SessionLoadingSurface sessionDelayed={sessionDelayed} onRetry={retrySession} /><HashPayStreamSessionSplash splashState={splashState} sessionDelayed={sessionDelayed} onRetry={retrySession} /></>
   }
 
-  if (!authenticated && CIRCLE_ROUTES.has(route)) content = <Navigate to="/" replace />
-  else if (route === '/') content = <StreamPayLanding />
+  if (!authenticated && CIRCLE_ROUTES.has(route)) return <Navigate to="/" replace />
+  if (route === '/') content = <StreamPayLanding />
   else if (route === '/trade') content = <StreamPayTrade />
   else if (route === '/home') content = <StreamPayHome />
   else if (route === '/swap') content = <StreamPaySwap />
