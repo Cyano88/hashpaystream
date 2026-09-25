@@ -21,3 +21,7 @@ for(const patch of [{buyer:input.seller},{chainId:1},{fundBy:input.now},{fundBy:
 for(const patch of [{status:'proposed'},{terms:{...terms,currency:'NGN'}},{terms:{...terms,escrowPolicyVersion:undefined}},{snapshot:{title:'Missing frozen photos'}}])assert.throws(()=>prepareTradeEscrowBinding({...input,offer:{...input.offer,...patch}}))
 for(const altered of [ {...input,chainId:196}, {...input,fundBy:input.fundBy+1}, {...input,arbiter:'0x5555555555555555555555555555555555555555'}, {...input,offer:{...input.offer,snapshot:{...input.offer.snapshot,description:'Changed defect'}}}, {...input,offer:{...input.offer,terms:{...terms,price:'10.26'}}} ])assert.notEqual(prepareTradeEscrowBinding(altered).termsHash,result.termsHash)
 console.log('Trade binding passed: Arc USDC and X Layer tokenized-asset profiles, exact units, canonical terms, complete snapshot, participant/network binding, deadline and legacy/fiat rejection. No funding authorized.')
+
+const smallTerms={...tokenTerms,price:'0.00223',deliveryFee:'0',handover:'Pickup'}
+assert.equal(prepareTradeEscrowBinding({...tokenInput,offer:{...tokenInput.offer,terms:smallTerms}}).contractTerms.amount,2230000000000000n)
+assert.throws(()=>prepareTradeEscrowBinding({...tokenInput,offer:{...tokenInput.offer,terms:{...smallTerms,price:'0.0000001'}},env:{HASHPAYSTREAM_XLAYER_TOKENIZED_ASSETS_JSON:JSON.stringify([{address:tokenAddress,decimals:6}])}}))

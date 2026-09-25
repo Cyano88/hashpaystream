@@ -34,31 +34,36 @@ export type TradeOffer = {
   expiresAt: number;
   decidedAt?: number;
 };
-export function tradeUnits(value: string) {
-  if (!/^\d{1,9}(\.\d{1,2})?$/.test(value))
-    throw Error("Use an amount with up to two decimal places.");
+export function tradeUnits(value: string, decimals = 2) {
+  if (!Number.isInteger(decimals) || decimals < 2 || decimals > 18 ||
+    !/^\d{1,9}(\.\d{1,18})?$/.test(value) || (value.split(".")[1]?.length || 0) > decimals)
+    throw Error(`Use an exact amount with up to ${decimals} decimal places.`);
   const [whole, fraction = ""] = value.split(".");
-  return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0"));
+  return BigInt(whole) * 10n ** BigInt(decimals) + BigInt(fraction.padEnd(decimals, "0"));
 }
 export function tradeTotal(terms: TradeTerms) {
-  const amount = tradeUnits(terms.price) + tradeUnits(terms.deliveryFee);
+  const decimals = terms.currency === "XLAYER_ASSET"
+    ? Math.max(2, terms.price.split(".")[1]?.length || 0, terms.deliveryFee.split(".")[1]?.length || 0) : 2;
+  const amount = tradeUnits(terms.price, decimals) + tradeUnits(terms.deliveryFee, decimals);
+  const scale = 10n ** BigInt(decimals);
   return (
-    (amount / 100n).toString() +
+    (amount / scale).toString() +
     "." +
-    (amount % 100n).toString().padStart(2, "0")
+    (amount % scale).toString().padStart(decimals, "0")
   );
 }
 export function validateTradeTerms(value: unknown): TradeTerms {
   const t = value as TradeTerms;
+  const decimals = t?.currency === "XLAYER_ASSET" ? 18 : 2;
   if (
     !t ||
     typeof t !== "object" ||
     typeof t.price !== "string" ||
     typeof t.deliveryFee !== "string" ||
-    tradeUnits(t.price) <= 0n
+    tradeUnits(t.price, decimals) <= 0n
   )
     throw Error("Enter an item price greater than zero.");
-  tradeUnits(t.deliveryFee);
+  tradeUnits(t.deliveryFee, decimals);
   if (
     t.escrowPolicyVersion !== "trade-escrow-v1" ||
     !Number.isInteger(t.deliveryDays) ||
@@ -97,7 +102,7 @@ export function validateTradeTerms(value: unknown): TradeTerms {
       t[key].length > max
     )
       throw Error("Complete the handover area and return terms.");
-  if (t.handover === "Pickup" && tradeUnits(t.deliveryFee) !== 0n)
+  if (t.handover === "Pickup" && tradeUnits(t.deliveryFee, decimals) !== 0n)
     throw Error("Pickup must have zero delivery cost.");
   if (t.handover === "Delivery" && !t.carrier.trim())
     throw Error("Name the proposed delivery provider.");

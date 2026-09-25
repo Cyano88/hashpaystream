@@ -374,7 +374,7 @@ export default function TradeAgreementCard({
             <XStockPaymentPicker value={terms.settlementToken || ''} disabled={busy} getAccessToken={getAccessToken} onChange={asset => {
               setTerms(previous => ({...previous, settlementToken:asset.address, settlementAsset:'XLAYER_TOKENIZED_ASSET', price:'', deliveryFee:'0'}));
             }} />
-            <p className="text-xs text-gray-500">Enter the exact token quantity, up to two decimal places. The recipient receives this stock, whose value can change. Selecting a different stock clears the amount.</p>
+            <p className="text-xs text-gray-500">Enter the exact stock quantity. Small fractions are supported within the stock?s precision. The recipient receives this stock, whose value can change. Selecting a different stock clears the amount.</p>
           </>}
           <label className="block text-xs font-bold">
             {terms.currency === 'XLAYER_ASSET' ? 'Item amount in '+xStockPaymentLabel(terms) : 'Item price'}

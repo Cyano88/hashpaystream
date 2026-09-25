@@ -151,7 +151,7 @@ export function prepareTradeEscrowBinding(input: TradeBindingInput) {
     .digest("hex");
   const decimals = settlementAsset === "USDC" ? 6 : tokenDecimals;
   if (!Number.isInteger(decimals) || decimals < 2 || decimals > 18) throw Error("Settlement-asset decimals are not configured.");
-  const amount = (tradeUnits(terms.price) + tradeUnits(terms.deliveryFee)) * 10n ** BigInt(decimals - 2);
+  const amount = tradeUnits(terms.price, decimals) + tradeUnits(terms.deliveryFee, decimals);
   const core = {
     version: "trade-escrow-v1",
     chainId: input.chainId,
