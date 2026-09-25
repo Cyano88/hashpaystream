@@ -60,3 +60,13 @@ assert.equal(invalidMethod.statusCode, 405)
 assert.equal(invalidMethod.headers.allow, 'GET')
 
 console.log('HashPayStream savings configuration smoke checks passed.')
+
+const live=call({HASHPAYSTREAM_ARC_ENVIRONMENT:'live',HASHPAYSTREAM_SAVINGS_VAULT_ADDRESS:VAULT,HASHPAYSTREAM_SAVINGS_DEPOSITS_ENABLED:'true'})
+assert.equal(live.body.savings.chainId,5042)
+assert.equal(live.body.savings.vaultAddress,null,'Live must not reuse a sandbox vault')
+assert.equal(live.body.savings.depositsEnabled,false)
+const liveConfigured=call({HASHPAYSTREAM_ARC_ENVIRONMENT:'live',HASHPAYSTREAM_ARC_MAINNET_SAVINGS_VAULT_ADDRESS:VAULT,HASHPAYSTREAM_SAVINGS_DEPOSITS_ENABLED:'true'})
+assert.equal(liveConfigured.body.savings.vaultAddress,VAULT)
+assert.equal(liveConfigured.body.savings.depositsEnabled,false,'Legacy deposit flag cannot activate mainnet')
+assert.equal(call({HASHPAYSTREAM_ARC_ENVIRONMENT:'invalid'}).statusCode,503)
+console.log('Savings mainnet vault and activation isolation passed.')

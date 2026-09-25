@@ -5,7 +5,7 @@ import { StreamPayEmailLogin } from '../auth/StreamPayEmailLogin'
 export function AgreementSignInLanding({ compact = false }: { compact?: boolean }) {
   return (
     <section className={`flex w-full max-w-md flex-col items-center justify-center text-center ${compact ? 'min-h-0 lg:min-h-[64vh]' : 'min-h-[64vh]'}`}>
-      <HashPayStreamMark className="h-14 w-14" title="HashPayStream" />
+      <HashPayStreamMark className="h-14 w-14" title="Hash PayStream" />
       <p className="mt-6 text-sm font-semibold tracking-tight">
         <span className="text-gray-950 dark:text-white">Hash</span>{' '}
         <span className="text-blue-600 dark:text-blue-400">PayStream</span>

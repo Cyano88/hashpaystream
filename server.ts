@@ -21,6 +21,7 @@ import upfrontOpportunities from './api/upfront-opportunities.js'
 import fundingPartners from './api/funding-partners.js'
 import stockEarlyPay from './api/stock-early-pay.js'
 import streamAccounts from './api/stream-accounts.js'
+import hostedAccount from './api/hosted-account.js'
 import circleWallet from './api/circle-wallet.js'
 import pocketTransfers, { startPocketTransferWorker } from './api/pocket-transfers.js'
 import customerRequests from './api/customer-requests.js'
@@ -133,6 +134,7 @@ app.all('/api/hashpaystream/v1/funding-partners', (_req, res) => {
   res.setHeader('Allow', 'GET, POST')
   return res.status(405).json({ ok: false, error: 'Method not allowed.' })
 })
+app.all('/api/hashpaystream/v1/hosted-account', rateLimit({ name: 'hosted-account', windowMs: 60_000, max: 20 }), hostedAccount)
 app.get('/api/hashpaystream/v1/accounts', rateLimit({ name: 'account-read', windowMs: 60_000, max: 120 }), streamAccounts)
 app.post('/api/hashpaystream/v1/accounts', rateLimit({ name: 'account-write', windowMs: 60_000, max: 30 }), streamAccounts)
 app.all('/api/hashpaystream/v1/accounts', (_req, res) => {

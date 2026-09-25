@@ -43,3 +43,5 @@ assert.equal(notices.find(item => item.id.includes('evt_expired'))?.role, 'HashP
 assert.equal(new Set(notices.map(item => item.id)).size, notices.length)
 
 console.log('HashPayStream role-labelled notification classification checks passed.')
+
+assert.equal(notices.find(item => item.id.startsWith('request:'))?.destination, '/requests?tab=received&view=details&request=req_customer12345678')

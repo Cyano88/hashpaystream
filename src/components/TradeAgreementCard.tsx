@@ -1,3 +1,5 @@
+import XStockPaymentPicker from './XStockPaymentPicker';
+import { xStockPaymentLabel } from '../lib/xStocksAssets';
 import TradeCheckout, { type TradeCheckoutWallet } from "./TradeCheckout";
 import { useEffect, useRef, useState } from "react";
 import { communityRequest, type TradeThread } from "../lib/tradeCommunity";
@@ -209,15 +211,15 @@ export default function TradeAgreementCard({
           <dl className="grid grid-cols-2 gap-2 text-xs">
             <dt>Item</dt>
             <dd className="text-right">
-              {latest.terms.price} {latest.terms.currency}
+              {latest.terms.price} {xStockPaymentLabel(latest.terms)}
             </dd>
             <dt>Delivery</dt>
             <dd className="text-right">
-              {latest.terms.deliveryFee} {latest.terms.currency}
+              {latest.terms.deliveryFee} {xStockPaymentLabel(latest.terms)}
             </dd>
             <dt className="font-bold">Total</dt>
             <dd className="text-right font-bold">
-              {tradeTotal(latest.terms)} {latest.terms.currency}
+              {tradeTotal(latest.terms)} {xStockPaymentLabel(latest.terms)}
             </dd>
           </dl>
           <p className="text-xs">
@@ -348,15 +350,17 @@ export default function TradeAgreementCard({
             value={terms.currency}
             options={["NGN", "USD", "USDC", "XLAYER_ASSET"].map((value) => ({
               value,
-              label: value === "XLAYER_ASSET" ? "Tokenized asset · X Layer" : value,
+              label: value === "XLAYER_ASSET" ? "Tokenized stocks - X Layer" : value,
             }))}
             disabled={busy}
             onChange={(v) => {
               const currency = v as TradeTerms["currency"];
               change("currency", currency);
+              change("price", "");
+              change("deliveryFee", "0");
               if (currency === "XLAYER_ASSET") {
                 change("settlementAsset", "XLAYER_TOKENIZED_ASSET");
-                change("settlementToken", String(import.meta.env.VITE_XLAYER_TOKENIZED_ASSET_ADDRESS ?? "").trim());
+                change("settlementToken", undefined);
               } else if (currency === "USDC") {
                 change("settlementAsset", "USDC");
                 change("settlementToken", undefined);
@@ -366,8 +370,14 @@ export default function TradeAgreementCard({
               }
             }}
           />
+          {terms.currency === "XLAYER_ASSET" && <>
+            <XStockPaymentPicker value={terms.settlementToken || ''} disabled={busy} getAccessToken={getAccessToken} onChange={asset => {
+              setTerms(previous => ({...previous, settlementToken:asset.address, settlementAsset:'XLAYER_TOKENIZED_ASSET', price:'', deliveryFee:'0'}));
+            }} />
+            <p className="text-xs text-gray-500">Enter the exact token quantity, up to two decimal places. The recipient receives this stock, whose value can change. Selecting a different stock clears the amount.</p>
+          </>}
           <label className="block text-xs font-bold">
-            Item price
+            {terms.currency === 'XLAYER_ASSET' ? 'Item amount in '+xStockPaymentLabel(terms) : 'Item price'}
             <input
               className={field}
               inputMode="decimal"
@@ -382,7 +392,7 @@ export default function TradeAgreementCard({
             value={terms.handover}
             options={["Pickup", "Delivery"].map((value) => ({
               value,
-              label: value === "XLAYER_ASSET" ? "Tokenized asset · X Layer" : value,
+              label: value === "XLAYER_ASSET" ? "Tokenized stocks - X Layer" : value,
             }))}
             disabled={busy}
             onChange={(v) => change("handover", v as TradeTerms["handover"])}
@@ -390,7 +400,7 @@ export default function TradeAgreementCard({
           {terms.handover === "Delivery" && (
             <>
               <label className="block text-xs font-bold">
-                Delivery cost
+                {terms.currency === 'XLAYER_ASSET' ? 'Delivery amount in '+xStockPaymentLabel(terms) : 'Delivery cost'}
                 <input
                   className={field}
                   inputMode="decimal"

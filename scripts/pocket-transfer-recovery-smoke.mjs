@@ -29,7 +29,7 @@ const fetchWithTimeout=async(_url,options)=>{
  if(!row){row={...body,actor:owner,status:'awaiting_approval',createdAt:'2026-09-08',updatedAt:'2026-09-08'};rows.set(body.id,row)}
  return Response.json({transfer:row})
 }
-const context={exports:{},React,...React,formatUnits,readPendingTransfer,transferStorageKey,localStorage,crypto:globalThis.crypto,usePrivy:()=>({user:{id:actor},authenticated:true,getAccessToken}),useCircleWallet:()=>wallet,useXLayerUsdcBalance:()=>xlayer,XLAYER_USDC_ADDRESS:scope.asset,fetchWithTimeout,window:{setInterval:()=>1,clearInterval(){},addEventListener(){},removeEventListener(){}}}
+const context={ARC_WALLET_CHAIN_ID:5042002,ARC_WALLET_ENVIRONMENT:'test',exports:{},React,...React,formatUnits,readPendingTransfer,transferStorageKey,localStorage,crypto:globalThis.crypto,usePrivy:()=>({user:{id:actor},authenticated:true,getAccessToken}),useCircleWallet:()=>wallet,useXLayerUsdcBalance:()=>xlayer,XLAYER_USDC_ADDRESS:scope.asset,fetchWithTimeout,window:{setInterval:()=>1,clearInterval(){},addEventListener(){},removeEventListener(){}}}
 vm.runInNewContext(compiled,context)
 function Probe(){value=context.exports.usePocketTransfers();return null}
 let root
@@ -52,6 +52,13 @@ first.releaseDraft()
 let second
 await act(async()=>{second=await value.begin(scope,intent)})
 assert.notEqual(first.transfer.id,second.transfer.id,'Explicit new payment receives a new key')
+const outboxKey='hashpaystream:transfer-outbox:'+actor
+const hiddenId='33333333-3333-4333-8333-333333333333'
+localStorage.setItem(outboxKey,JSON.stringify({[hiddenId]:{hash:'0x'+'b'.repeat(64)},[second.transfer.id]:{hash:'0x'+'c'.repeat(64)}}))
+await act(async()=>{await value.refresh()})
+assert.ok(JSON.parse(localStorage.getItem(outboxKey))[hiddenId],'Other-environment status writes stay preserved')
+assert.equal(rows.get(second.transfer.id).hash,'0x'+'c'.repeat(64),'Visible status write still recovers')
+assert.ok(!requests.some(r=>r.body?.action==='track'&&r.body.id===hiddenId),'Never replay a payment excluded by the server')
 actor='different-owner';wallet.address=''
 await act(async()=>root.update(React.createElement(context.exports.PocketTransfersProvider,null,React.createElement(Probe))))
 assert.deepEqual(Array.from(value.rows),[],'Account switch hides previous payments')

@@ -452,10 +452,10 @@ function TradeConversation({
       {confirmation}
       <button
         onClick={onBack}
-        className="inline-flex min-h-11 items-center gap-2 text-xs font-bold"
+        aria-label="Back to enquiries"
+        className="stream-icon-button"
       >
         <ArrowLeftIcon className="h-4 w-4" />
-        All enquiries
       </button>
       <h2 className="text-lg font-bold">{thread?.title || "Conversation"}</h2>
       <div className="flex flex-wrap items-center gap-4">
@@ -635,9 +635,10 @@ function TradeModeration({
       {confirmation}
       <button
         onClick={() => (selected ? setSelected(undefined) : onBack())}
-        className="min-h-11 text-xs font-bold"
+        aria-label="Back"
+        className="stream-icon-button"
       >
-        Back
+        <ArrowLeftIcon className="h-4 w-4" />
       </button>
       <h2 className="text-lg font-bold">Review reports</h2>
       {error && (

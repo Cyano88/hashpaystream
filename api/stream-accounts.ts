@@ -1,3 +1,4 @@
+import { arcWalletEnvironment } from './arc-wallet-environment.js'
 import { createHmac, randomUUID } from 'node:crypto'
 import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
@@ -12,7 +13,7 @@ const HASH = /^0x[a-fA-F0-9]{64}$/
 const POCKET_ID = /^\d{6,12}$/
 const transferAbi = parseAbi(['event Transfer(address indexed from,address indexed to,uint256 value)'])
 
-type Account = { accountKey: string; email: string; displayName: string; pocketId: string; walletAddress?: string; createdAt: string; updatedAt: string }
+type Account = { accountKey: string; email: string; displayName: string; pocketId: string; walletAddress?: string; walletChainId?: number; circleWalletId?: string; createdAt: string; updatedAt: string }
 type Transfer = {
   id: string; txHash: `0x${string}`; fromAccountKey: string; toAccountKey?: string; fromPocketId: string; toPocketId?: string
   fromAddress: string; toAddress: string; amountUsdcUnits: string; createdAt: string
@@ -24,7 +25,7 @@ type Dependencies = {
   read: (key: string) => Promise<Store | undefined>
   mutate: (key: string, update: (current: Store | undefined) => Store | Promise<Store>) => Promise<Store>
   identity: (req: Request, env: NodeJS.ProcessEnv) => Promise<Identity>
-  transaction: (hash: `0x${string}`, rpcUrl: string) => Promise<{ logs: TransactionReceipt['logs']; success: boolean; createdAt: string }>
+  transaction: (hash: `0x${string}`, rpcUrl: string, chainId?: number) => Promise<{ logs: TransactionReceipt['logs']; success: boolean; createdAt: string }>
   circleWallets: typeof listCircleArcWallets
   env: () => NodeJS.ProcessEnv; now: () => Date; id: () => string
 }
@@ -57,10 +58,11 @@ function safeStore(value?: Store): Store {
 }
 function configuration(env: NodeJS.ProcessEnv) {
   const secret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300)
-  const storeKey = clean(env.HASHPAYSTREAM_ACCOUNT_STORE_KEY ?? DEFAULT_STORE_KEY, 160)
-  const rpcUrl = clean(env.HASHPAYSTREAM_ARC_RPC_URL ?? 'https://rpc.testnet.arc.network', 500)
+  const network = arcWalletEnvironment(env)
+  const storeKey = network.accountStore
+  const rpcUrl = network.rpcUrl
   if (secret.length < 32 || !storeKey || !rpcUrl) fail('HashPayStream accounts are temporarily unavailable.', 503)
-  return { secret, storeKey, rpcUrl }
+  return { secret, storeKey, rpcUrl, network }
 }
 function accountKey(secret: string, email: string) { return createHmac('sha256', secret).update(`hashpaystream.account\0${email.toLowerCase()}`).digest('hex') }
 function makePocketId(secret: string, email: string, attempt = 0) {
@@ -71,7 +73,7 @@ function displayName(email: string) {
   const words = email.split('@')[0].replace(/[^a-zA-Z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean)
   return words.slice(0, 2).map(word => word[0]?.toUpperCase() + word.slice(1).toLowerCase()).join(' ') || 'HashPayStream member'
 }
-function publicAccount(account: Account) { return { displayName: account.displayName, pocketId: account.pocketId, walletAddress: account.walletAddress ?? '' } }
+function publicAccount(account: Account) { return { displayName: account.displayName, pocketId: account.pocketId, walletAddress: account.walletAddress ?? '', walletChainId: account.walletChainId } }
 function ensureAccount(store: Store, identity: Identity, secret: string, now: string) {
   const keys = identity.emails.map(email => accountKey(secret, email))
   let account = Object.values(store.accounts).find(item => keys.includes(item.accountKey))
@@ -84,9 +86,9 @@ function ensureAccount(store: Store, identity: Identity, secret: string, now: st
   }
   return account
 }
-async function readTransaction(hash: `0x${string}`, rpcUrl: string) {
+async function readTransaction(hash: `0x${string}`, rpcUrl: string, chainId = 5042002) {
   const client = createPublicClient({ transport: http(rpcUrl) })
-  if (await client.getChainId() !== 5042002) throw Error('Arc network mismatch.')
+  if (await client.getChainId() !== chainId) throw Error('Arc network mismatch.')
   const receipt = await client.getTransactionReceipt({ hash })
   const [block, head] = await Promise.all([client.getBlock({ blockNumber: receipt.blockNumber }), client.getBlockNumber()])
   if (head < receipt.blockNumber + 1n || block.hash !== receipt.blockHash || receipt.transactionHash.toLowerCase() !== hash.toLowerCase()) throw Error('Arc transfer is still confirming.')
@@ -128,10 +130,11 @@ export function createStreamAccountsHandler(overrides: Partial<Dependencies> = {
         const walletAddress = clean(body.walletAddress, 42)
         const circleUserToken = clean(body.circleUserToken, 8_000)
         const circleWallets = circleUserToken ? await dependencies.circleWallets(circleUserToken, env) : []
-        const verified = isAddress(walletAddress) && (identity.wallets.some(value => getAddress(value) === getAddress(walletAddress)) || circleWallets.some(wallet => getAddress(wallet.address) === getAddress(walletAddress)))
+        const circleWallet = circleWallets.find(wallet => wallet.blockchain === config.network.blockchain && isAddress(walletAddress) && getAddress(wallet.address) === getAddress(walletAddress))
+        const verified = isAddress(walletAddress) && (Boolean(circleWallet) || (!config.network.live && identity.wallets.some(value => getAddress(value) === getAddress(walletAddress))))
         if (!verified) fail('This Circle wallet is not verified for your HashPayStream account.', 403)
-        let nextAccount = { ...account, walletAddress: getAddress(walletAddress), updatedAt: dependencies.now().toISOString() }
-        await dependencies.mutate(config.storeKey, current => { const next = safeStore(current); nextAccount = { ...(next.accounts[account.accountKey] ?? account), walletAddress: nextAccount.walletAddress, updatedAt: nextAccount.updatedAt }; next.accounts[account.accountKey] = nextAccount; return next })
+        const nextAccount = { ...account, walletAddress: getAddress(walletAddress), walletChainId: config.network.chainId, ...(circleWallet ? { circleWalletId: circleWallet.id } : {}), updatedAt: dependencies.now().toISOString() }
+        await dependencies.mutate(config.storeKey, current => { const next = safeStore(current); next.accounts[account.accountKey] = nextAccount; return next })
         return res.json({ ok: true, profile: { ...publicAccount(nextAccount), email: nextAccount.email } })
       }
       if (action === 'resolve_pocket_id') {
@@ -172,7 +175,7 @@ export function createStreamAccountsHandler(overrides: Partial<Dependencies> = {
           return res.json({ ok: true, transfer: existing })
         }
         let chain: Awaited<ReturnType<Dependencies['transaction']>>
-        try { chain = await dependencies.transaction(txHash, config.rpcUrl) } catch { fail('The Arc transfer is still confirming. Refresh Activity shortly.', 409) }
+        try { chain = await dependencies.transaction(txHash, config.rpcUrl, config.network.chainId) } catch { fail('The Arc transfer is still confirming. Refresh Activity shortly.', 409) }
         if (!chain.success) fail('The Arc transfer did not succeed.', 409)
         const transfers = parseEventLogs({ abi: transferAbi, logs: chain.logs.filter(log => getAddress(log.address) === ARC_USDC) }).filter(event => getAddress(event.args.from) === getAddress(account.walletAddress!))
         if (transfers.length !== 1) fail('The confirmed USDC transfer does not match this wallet.', 409)
@@ -192,8 +195,8 @@ export function createStreamAccountsHandler(overrides: Partial<Dependencies> = {
 }
 
 // Internal worker entry point. Caller must verify the exact canonical receipt first.
-export async function recordVerifiedPocketTransfer(input: { owner: string; recipient: string; units: string; hash?: `0x${string}`; createdAt: string }) {
-  if (!input.hash) return false
+export async function recordVerifiedPocketTransfer(input: { chainId: number; owner: string; recipient: string; units: string; hash?: `0x${string}`; createdAt: string }) {
+  if (!input.hash || input.chainId !== arcWalletEnvironment(process.env).chainId) return false
   const config = configuration(process.env)
   let recorded = false
   await mutateDurableJson<Store>(config.storeKey, current => {

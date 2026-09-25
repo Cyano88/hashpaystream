@@ -13,7 +13,7 @@ export const MONTHLY_SECONDS = 30 * 24 * 60 * 60
 const PLAN_ID_PAGE_SIZE = 100n
 const PLAN_READ_BATCH_SIZE = 20
 
-const rawVault = String(import.meta.env.VITE_HASHPAYSTREAM_SAVINGS_VAULT_ADDRESS ?? '').trim()
+const rawVault = String((savingsChain.id === 5042 ? import.meta.env.VITE_HASHPAYSTREAM_ARC_MAINNET_SAVINGS_VAULT_ADDRESS : import.meta.env.VITE_HASHPAYSTREAM_SAVINGS_VAULT_ADDRESS) ?? '').trim()
 export const SAVINGS_VAULT_ADDRESS: Address | undefined = isAddress(rawVault) && getAddress(rawVault) !== zeroAddress ? getAddress(rawVault) : undefined
 const SAVINGS_CONFIG_PATH = '/api/hashpaystream/v1/savings/config'
 const SAVINGS_CONFIG_URL = Capacitor.isNativePlatform() ? `https://hashpaystream.app${SAVINGS_CONFIG_PATH}` : SAVINGS_CONFIG_PATH

@@ -137,3 +137,35 @@ html[data-stream-theme-surface="launch"] body { background: #06070a; }
 * { scrollbar-width: none; -ms-overflow-style: none; }
 *::-webkit-scrollbar { display: none; width: 0; height: 0; }
 html[data-stream-theme-surface='launch'], html[data-stream-theme-surface='launch'] body { overflow: hidden; overscroll-behavior: none; }
+
+@keyframes hashpaystream-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-0.35rem); }
+}
+
+/* Reference: downloaded launch video, 2026-09-24. Mark and wordmark share one centre. */
+.hashpaystream-reference-launch { transition-property: opacity; }
+.hashpaystream-reference-launch[data-phase="launching"] { opacity: 0; }
+.hashpaystream-launch-mark { transform: scale(0); }
+.hashpaystream-reference-launch[data-phase="mark"] .hashpaystream-launch-mark { animation: hashpaystream-reference-mark 800ms linear both; }
+.hashpaystream-launch-wordmark > span { display: inline-block; animation: hashpaystream-reference-letter 320ms linear both; }
+@keyframes hashpaystream-reference-mark {
+  0% { transform: scale(0) rotate(-45deg); }
+  12.5% { transform: scale(.85, .9) rotate(-45deg); }
+  25% { transform: scale(1.14, 1.28) rotate(9deg); }
+  37.5% { transform: scale(.94, 1.02) rotate(0); }
+  50% { transform: scale(.74, .8) rotate(0); }
+  62.5%, 100% { transform: scale(.64) rotate(0); }
+}
+@keyframes hashpaystream-reference-letter {
+  0% { opacity: 0; transform: translateY(var(--letter-y)) rotate(var(--letter-turn)) scale(var(--letter-scale)); }
+  35% { opacity: 1; transform: translateY(calc(var(--letter-y) * -.22)) rotate(calc(var(--letter-turn) * -.25)) scale(1.12); }
+  68% { opacity: 1; transform: translateY(1px) rotate(0) scale(.97); }
+  100% { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hashpaystream-launch-mark, .hashpaystream-launch-wordmark > span { animation: none; }
+  .hashpaystream-reference-launch { transition: none; }
+}
+
+:root { --hashpaylink-safe-top: var(--stream-safe-top); --hashpaylink-safe-bottom: var(--stream-safe-bottom); }

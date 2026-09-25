@@ -1,4 +1,5 @@
-﻿const key = (owner: string) => `hashpaystream:arc-activity:${owner.toLowerCase()}`
+import { ARC_WALLET_ENVIRONMENT } from './arcWalletConfig'
+﻿const key = (owner: string) => `${ARC_WALLET_ENVIRONMENT === 'live' ? 'hashpaystream:arc-activity:5042:' : 'hashpaystream:arc-activity:'}${owner.toLowerCase()}`
 export function pendingArcActivity(owner: string): string[] {
   const raw = window.localStorage.getItem(key(owner))
   const values = raw ? JSON.parse(raw) : []

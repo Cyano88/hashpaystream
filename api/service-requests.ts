@@ -1,4 +1,11 @@
+import { agreementCredentials } from './agreement-credentials.js'
+import { arcWalletEnvironment } from './arc-wallet-environment.js'
 import { createHash, createHmac, randomUUID } from 'node:crypto'
+import { parseWorkPayment, prepareWorkBinding, prepareWorkAction, workPaymentAssets, workXLayerEnabled, type WorkEscrowRecord } from './work-xlayer.js'
+import { verifyTradePrivyWallet } from './trade-privy-wallet.js'
+import type { WorkPayment } from '../src/lib/workXLayer.js'
+import { keccak256, stringToHex } from 'viem'
+import type { TradeXLayerAction } from '../src/lib/tradeXLayerProtocol.js'
 import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
 import { createPublicClient, getAddress, http, isAddress, type Address, type Hex } from 'viem'
@@ -18,6 +25,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 type Role = 'customer' | 'provider'
 type RequestStatus = 'sent' | 'countered' | 'provider_accepted' | 'awaiting_funding' | 'funded' | 'expired' | 'completed' | 'refunded' | 'declined' | 'cancelled'
 type Terms = {
+  xlayerPayment?: WorkPayment
   version: number; title: string; description: string; amount: string; amountUsdcUnits: string
   durationSeconds: number; cancellationWindowSeconds: number; upfrontRequested: boolean; upfrontReason?: string
   proposedBy: Role; createdAt: string
@@ -26,11 +34,12 @@ type Event = { id: string; type: string; actor: Role; createdAt: string; version
 type ServiceRequest = {
   id: string; customerAccountKey: string; providerAccountKey: string; providerLabel: string
   status: RequestStatus; activeVersion: number; terms: Terms[]; events: Event[]
+  xlayerWork?: WorkEscrowRecord
   providerAcceptedVersion?: number; customerAcceptedVersion?: number
   agreementCreationStarted?: boolean; agreementId?: string; payerReviewPath?: string; createdAt: string; updatedAt: string
 }
 type RequestStore = { schema: 1; requests: Record<string, ServiceRequest>; idempotency: Record<string, string> }
-type Account = { accountKey: string; email: string; displayName: string; pocketId: string; walletAddress?: string }
+type Account = { accountKey: string; email: string; displayName: string; pocketId: string; walletAddress?: string; walletChainId?: number; circleWalletId?: string }
 type AccountStore = { schema: 1; accounts: Record<string, Account> }
 type AgreementEventStore = { schema: 1; events: Record<string, { event: string; agreementId: string; createdAt: string }> }
 type OwnershipStore = { schema: 1; agreements: Record<string, Record<string, unknown>>; idempotency: Record<string, string> }
@@ -48,6 +57,9 @@ type EarlyPaySettlement = {
 }
 
 type Dependencies = {
+  workWallet: typeof verifyTradePrivyWallet
+  workPlan: typeof prepareWorkAction
+  workAssets: typeof workPaymentAssets
   hasStore: () => boolean
   readRequests: (key: string) => Promise<RequestStore | undefined>
   mutateRequests: (key: string, update: (value: RequestStore | undefined) => RequestStore | Promise<RequestStore>) => Promise<RequestStore>
@@ -173,6 +185,7 @@ function signedSettlement(record: NonNullable<UpfrontAssessmentStore['records'][
 }
 
 const defaults: Dependencies = {
+  workWallet: verifyTradePrivyWallet, workPlan: prepareWorkAction, workAssets: workPaymentAssets,
   hasStore: hasRenderDurableStore, readRequests: readDurableJson,
   mutateRequests: (key, update) => mutateDurableJson<RequestStore>(key, update), readAccounts: readDurableJson,
   readEvents: readDurableJson, readAssessments: readDurableJson, readPartners: readDurableJson, earlyPayPositionStatus,
@@ -186,26 +199,31 @@ function config(env: NodeJS.ProcessEnv) {
   const secret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300)
   const base = clean(env.HASHPAYSTREAM_HASH_PAYLINK_BASE_URL ?? 'https://app.hashpaylink.com', 240).replace(/\/$/, '')
   if (secret.length < 32 || !base.startsWith('https://')) fail('HashPayStream requests are temporarily unavailable.', 503)
+  const network = arcWalletEnvironment(env)
+  if (network.live) return { secret, base, requestStore: 'hashpaystream:arc-mainnet:5042:service-requests:v1', accountStore: network.accountStore, humanStore: 'hashpaystream:arc-mainnet:5042:human-agreement-owners:v1', upfrontStore: 'hashpaystream:arc-mainnet:5042:upfront-agreement-owners:v1', assessmentStore: 'hashpaystream:arc-mainnet:5042:upfront-assessments:v1', partnerStore: 'hashpaystream:arc-mainnet:5042:funding-partners:v1', humanEvents: 'hashpaystream:arc-mainnet:5042:arc-webhooks:v1', upfrontEvents: 'hashpaystream:arc-mainnet:5042:upfront-arc-webhooks:v1' }
   return { secret, base, requestStore: clean(env.HASHPAYSTREAM_SERVICE_REQUEST_STORE_KEY ?? DEFAULT_REQUEST_STORE_KEY, 160), accountStore: clean(env.HASHPAYSTREAM_ACCOUNT_STORE_KEY ?? DEFAULT_ACCOUNT_STORE_KEY, 160), humanStore: clean(env.HASHPAYSTREAM_HUMAN_AGREEMENT_STORE_KEY ?? DEFAULT_HUMAN_STORE_KEY, 160), upfrontStore: clean(env.HASHPAYSTREAM_UPFRONT_AGREEMENT_STORE_KEY ?? DEFAULT_UPFRONT_STORE_KEY, 160), assessmentStore: clean(env.HASHPAYSTREAM_UPFRONT_STORE_KEY ?? DEFAULT_ASSESSMENT_STORE_KEY, 160), partnerStore: clean(env.HASHPAYSTREAM_FUNDING_PARTNER_STORE_KEY ?? DEFAULT_PARTNER_STORE_KEY, 160), humanEvents: clean(env.HASHPAYSTREAM_ARC_WEBHOOK_STORE_KEY ?? 'hashpaystream:arc-webhooks:v1', 160), upfrontEvents: clean(env.HASHPAYSTREAM_UPFRONT_ARC_WEBHOOK_STORE_KEY ?? 'hashpaystream:upfront-arc-webhooks:v1', 160) }
 }
 function publicRequest(item: ServiceRequest, viewer: string, earlyPaySettlement?: EarlyPaySettlement) {
   const role: Role = item.customerAccountKey === viewer ? 'customer' : 'provider'
-  return { id: item.id, role, direction: role === 'customer' ? 'sent' : 'received', counterparty: role === 'customer' ? item.providerLabel : 'Customer', status: item.status, acceptancePending: Boolean(item.customerAcceptedVersion && !item.agreementId), activeVersion: item.activeVersion, terms: item.terms, events: item.events, agreementId: item.agreementId ?? '', payerReviewPath: role === 'customer' ? item.payerReviewPath ?? '' : '', ...(earlyPaySettlement ? { earlyPaySettlement } : {}), createdAt: item.createdAt, updatedAt: item.updatedAt }
+  return { workState:item.xlayerWork?.state, workEscrow:item.xlayerWork?.escrow, id: item.id, role, direction: role === 'customer' ? 'sent' : 'received', counterparty: role === 'customer' ? item.providerLabel : 'Customer', status: item.status, acceptancePending: Boolean(item.customerAcceptedVersion && !item.agreementId), activeVersion: item.activeVersion, terms: item.terms, events: item.events, agreementId: item.agreementId ?? '', payerReviewPath: role === 'customer' ? item.payerReviewPath ?? '' : '', ...(earlyPaySettlement ? { earlyPaySettlement } : {}), createdAt: item.createdAt, updatedAt: item.updatedAt }
 }
-function parseTerms(body: Record<string, unknown>, proposedBy: Role, version: number, now: string, prior?: Terms): Terms {
+function parseTerms(body: Record<string, unknown>, proposedBy: Role, version: number, now: string, prior?: Terms, env:NodeJS.ProcessEnv = process.env): Terms {
   const title = clean(body.title ?? prior?.title, 140)
   const description = clean(body.description ?? prior?.description, 1200)
   const amount = clean(body.amount ?? prior?.amount, 40)
   const durationSeconds = Number(body.durationSeconds ?? prior?.durationSeconds ?? 86400)
-  const cancellationWindowSeconds = Number(body.cancellationWindowSeconds ?? prior?.cancellationWindowSeconds ?? 900)
+  if ((body.paymentRail==='xlayer'||prior?.xlayerPayment) && (typeof (body.amount??prior?.amount)!=='string'||String(body.amount??prior?.amount).trim().length>40)) fail('Enter an exact token quantity of at most 40 characters.',400)
+  const xlayerPayment = parseWorkPayment(body, amount, durationSeconds, env, prior?.xlayerPayment)
+  const cancellationWindowSeconds = xlayerPayment ? 0 : Number(body.cancellationWindowSeconds ?? prior?.cancellationWindowSeconds ?? 900)
   const upfrontRequested = body.upfrontRequested === undefined ? Boolean(prior?.upfrontRequested) : body.upfrontRequested === true
   const upfrontReason = clean(body.upfrontReason ?? prior?.upfrontReason, 300)
-  if (title.length < 3 || description.length < 10 || !validAmount(amount)) fail('Enter a valid title, work description, and USDC amount.', 400)
+  if (title.length < 3 || description.length < 10 || (!xlayerPayment && !validAmount(amount))) fail('Enter a valid title, work description, and USDC amount.', 400)
   if (!Number.isInteger(durationSeconds) || durationSeconds < 3600 || durationSeconds > 31_536_000) fail('Delivery period is invalid.', 400)
   if (!Number.isInteger(cancellationWindowSeconds) || cancellationWindowSeconds < 0 || cancellationWindowSeconds >= durationSeconds) fail('Cancellation period must be shorter than delivery period.', 400)
+  if (xlayerPayment && upfrontRequested) fail('Early pay is not available for X Layer work agreements.', 400)
   if (upfrontRequested && upfrontReason.length < 10) fail('Explain why early payment is needed.', 400)
   if (upfrontRequested && durationSeconds < 86_400) fail('Early pay requires a delivery period of at least 1 day.', 400)
-  return { version, title, description, amount, amountUsdcUnits: units(amount), durationSeconds, cancellationWindowSeconds, upfrontRequested, ...(upfrontRequested ? { upfrontReason } : {}), proposedBy, createdAt: now }
+  return { version, title, description, amount, amountUsdcUnits: xlayerPayment ? '0' : units(amount), ...(xlayerPayment ? {xlayerPayment} : {}), durationSeconds, cancellationWindowSeconds, upfrontRequested, ...(upfrontRequested ? { upfrontReason } : {}), proposedBy, createdAt: now }
 }
 
 export function createServiceRequestsHandler(overrides: Partial<Dependencies> = {}) {
@@ -244,7 +262,55 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
       if (req.method !== 'POST') { res.setHeader('Allow', 'GET, POST'); return res.status(405).json({ ok: false, error: 'Method not allowed.' }) }
       const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body as Record<string, unknown> : {}
       const action = clean(body.action, 40)
+      if (arcWalletEnvironment(env).live && env.HASHPAYSTREAM_ARC_AGREEMENT_FUNDING_ENABLED !== 'true') fail('Mainnet work agreements are pending verified recipient and funding integration.', 503)
       const now = dependencies.now().toISOString()
+      if (action === 'work_xlayer_assets') return res.json({ok:true,...await dependencies.workAssets(env)})
+      if (action === 'work_xlayer_wallet' || action === 'work_xlayer_status') {
+        const requestId=clean(body.requestId,80)
+        const stored=await dependencies.readRequests(cfg.requestStore)
+        let item=stored?.requests[requestId]
+        if(!item || (item.customerAccountKey!==viewer && item.providerAccountKey!==viewer))fail('Request not found.',404)
+        const role:Role=item.customerAccountKey===viewer?'customer':'provider'
+        const terms=item.terms.find(term=>term.version===item!.activeVersion)
+        if(!terms?.xlayerPayment||!item.xlayerWork||!item.agreementId||item.customerAcceptedVersion!==item.activeVersion||item.providerAcceptedVersion!==item.activeVersion)fail('Accept the current work terms first.',409)
+        if(Number(body.version)!==item.activeVersion)fail('These work terms changed.',409)
+        if(action==='work_xlayer_wallet'){
+          if(!workXLayerEnabled(env))fail('New work payments are paused.',409)
+          const verified=await dependencies.workWallet(identity.userId,body.address,env)
+          await dependencies.mutateRequests(cfg.requestStore,current=>{
+            const next=safeStore(current),latest=next.requests[requestId]
+            if(!latest?.xlayerWork||latest.activeVersion!==Number(body.version)||latest.customerAcceptedVersion!==latest.activeVersion)fail('These work terms changed.',409)
+            const work={...latest.xlayerWork,wallets:{...latest.xlayerWork.wallets}}
+            if(work.wallets[role]&&work.wallets[role]?.toLowerCase()!==verified.address.toLowerCase())fail('This agreement is already bound to another wallet.',409)
+            if(work.wallets[role==='customer'?'provider':'customer']?.toLowerCase()===verified.address.toLowerCase())fail('Use different participant wallets.',409)
+            work.wallets[role]=verified.address
+            if(!work.binding&&work.wallets.customer&&work.wallets.provider)work.binding=prepareWorkBinding(latest.id,terms,work.wallets.customer,work.wallets.provider,Math.floor(dependencies.now().getTime()/1000))
+            next.requests[requestId]={...latest,xlayerWork:work,updatedAt:now};item=next.requests[requestId];return next
+          })
+        }
+        const work=item.xlayerWork!,address=work.wallets[role]
+        const context={wallet:address?{address,chainId:196}:null,customerReady:!!work.wallets.customer,providerReady:!!work.wallets.provider,fundBy:work.binding?.contractTerms.fundBy,clientAddress:work.wallets.customer,workerAddress:work.wallets.provider}
+        if(!address||!work.binding)return res.json({ok:true,...context,enabled:workXLayerEnabled(env),actions:[]})
+        const verified=await dependencies.workWallet(identity.userId,address,env)
+        const plan=await dependencies.workPlan({env,binding:work.binding,account:verified.address as Address,action:body.operation as TradeXLayerAction|undefined,evidence:body.evidence})
+        await dependencies.mutateRequests(cfg.requestStore,current=>{
+          const next=safeStore(current),latest=next.requests[requestId]
+          if(latest?.xlayerWork?.binding?.termsHash!==work.binding!.termsHash)fail('Work agreement binding changed.',409)
+          const evidence=[...(latest.xlayerWork.evidence||[])]
+          if(plan.transaction&&['dispatch','refund','dispute'].includes(String(body.operation))){
+            const text=String(body.evidence).trim(),hash=keccak256(stringToHex(text))
+            if(!evidence.some(entry=>entry.hash===hash&&entry.actor===role)){
+              if(evidence.length>=100)fail('Evidence limit reached. Contact support.',409)
+              evidence.push({hash,body:text,actor:role,createdAt:now})
+            }
+          }
+          const state=plan.pending||!plan.observedBlock||(latest.xlayerWork.observedBlock&&BigInt(plan.observedBlock)<BigInt(latest.xlayerWork.observedBlock))?undefined:plan.state
+          const status:RequestStatus=state===6?'completed':state===7?'refunded':state===8?'completed':state===9?'cancelled':state!==undefined&&state>=2?'funded':latest.status
+          next.requests[requestId]={...latest,status,xlayerWork:{...latest.xlayerWork,evidence,...(state===undefined?{}:{state,observedBlock:plan.observedBlock,escrow:plan.escrow,observedAt:now})},updatedAt:state!==undefined&&state!==latest.xlayerWork.state?now:latest.updatedAt}
+          item=next.requests[requestId];return next
+        })
+        return res.json({ok:true,...context,...plan,workEvidence:item.xlayerWork?.evidence||[]})
+      }
       if (action === 'create') {
         const providerEmail = clean(body.providerEmail, 254).toLowerCase()
         if (!EMAIL.test(providerEmail)) fail('Enter a valid service provider email.', 400)
@@ -257,7 +323,7 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
         await dependencies.mutateRequests(cfg.requestStore, current => {
           const next = safeStore(current); const replay = next.idempotency[scoped]
           if (replay && next.requests[replay]) { created = next.requests[replay]; return next }
-          const terms = parseTerms(body, 'customer', 1, now)
+          const terms = parseTerms(body, 'customer', 1, now, undefined, env)
           if (terms.upfrontRequested) requireUpfrontSettlementV3(env)
           const id = dependencies.id(); created = { id, customerAccountKey: viewer, providerAccountKey: provider, providerLabel: maskEmail(providerEmail), status: 'sent', activeVersion: 1, terms: [terms], events: [{ id: `${id}:1`, type: 'request.created', actor: 'customer', createdAt: now, version: 1 }], createdAt: now, updatedAt: now }
           next.requests[id] = created; next.idempotency[scoped] = id; return next
@@ -321,8 +387,8 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
         if (!/^agrp_[A-Za-z0-9_-]{40,100}$/.test(capability)) fail('Agreement payer access is unavailable.', 503)
         const terms = item.terms.find(term => term.version === item.activeVersion)
         if (!terms) fail('The accepted request terms are unavailable.', 409)
-        const apiKey = clean(env[terms.upfrontRequested ? 'HASHPAYSTREAM_UPFRONT_ARC_API_KEY' : 'HASHPAYSTREAM_ARC_API_KEY'], 200)
-        if (!apiKey.startsWith('hpl_test_')) fail('Agreement funding is temporarily unavailable.', 503)
+        const apiKey = agreementCredentials(env, terms.upfrontRequested).funding
+        if (arcWalletEnvironment(env).live && !['brand', 'link-wallet', 'review', 'status', 'prepare', 'challenge', 'recover', 'record'].includes(payerAction)) fail('This action is not enabled by the mainnet funding integration.', 403)
         const forwarded: Record<string, unknown> = {
           agreementId: item.agreementId,
           payerEmail: identity.email,
@@ -365,7 +431,7 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
           updated.providerAcceptedVersion = version; updated.status = 'provider_accepted'
         } else if (action === 'provider_counter') {
           if (role !== 'provider' || !['sent', 'countered'].includes(item.status)) fail('Only the invited service provider can propose new terms.', 403)
-          const terms = parseTerms(body, 'provider', version + 1, now, item.terms[item.terms.length - 1]); if (terms.upfrontRequested) requireUpfrontSettlementV3(env); updated.terms.push(terms); updated.activeVersion = terms.version; updated.providerAcceptedVersion = terms.version; updated.customerAcceptedVersion = undefined; updated.status = 'countered'
+          const terms = parseTerms(body, 'provider', version + 1, now, item.terms[item.terms.length - 1], env); if (terms.upfrontRequested) requireUpfrontSettlementV3(env); updated.terms.push(terms); updated.activeVersion = terms.version; updated.providerAcceptedVersion = terms.version; updated.customerAcceptedVersion = undefined; updated.status = 'countered'
         } else if (action === 'provider_decline') {
           if (role !== 'provider') fail('Only the invited service provider can decline.', 403); updated.status = 'declined'
         } else if (action === 'customer_cancel') {
@@ -373,6 +439,14 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
         } else if (action === 'customer_accept') {
           if (role !== 'customer' || !['countered', 'provider_accepted'].includes(item.status) || item.providerAcceptedVersion !== version) fail('The service provider must accept the current terms first.', 409)
           const terms = item.terms.find(value => value.version === version)
+          if (terms?.xlayerPayment) {
+            if(!workXLayerEnabled(env))fail('X Layer work payments are not available yet.',409)
+            parseWorkPayment({},terms.amount,terms.durationSeconds,env,terms.xlayerPayment)
+            updated.customerAcceptedVersion=version;updated.status='awaiting_funding';updated.agreementId='work_'+item.id
+            updated.xlayerWork={wallets:{}}
+            updated.events.push({id:item.id+':'+(updated.events.length+1),type:'request.customer_accept',actor:role,createdAt:now,version})
+            next.requests[item.id]=updated;result=updated;return next
+          }
           if (terms?.upfrontRequested) requireUpfrontSettlementV3(env)
           updated.customerAcceptedVersion = version; updated.status = 'provider_accepted'
         } else fail('Request action is invalid.', 400)
@@ -393,14 +467,15 @@ export function createServiceRequestsHandler(overrides: Partial<Dependencies> = 
           const provider = accounts?.accounts?.[result.providerAccountKey]
           if (!provider?.walletAddress || !isAddress(provider.walletAddress)) fail('The service provider must finish Circle wallet setup before you can accept and fund.', 409)
           const upfront = terms.upfrontRequested
-          const apiKey = clean(env[upfront ? 'HASHPAYSTREAM_UPFRONT_ARC_API_KEY' : 'HASHPAYSTREAM_ARC_API_KEY'], 200)
-          if (!apiKey.startsWith('hpl_test_')) fail('Agreement creation is temporarily unavailable.', 503)
+          const credentials = agreementCredentials(env, upfront)
+          const apiKey = credentials.draft
+          if (arcWalletEnvironment(env).live && (provider.walletChainId !== 5042 || !provider.circleWalletId)) fail('The service provider must verify their mainnet Circle wallet first.', 409)
           const recipient = upfront ? clean(env.HASHPAYSTREAM_UPFRONT_ARC_ROUTER_ADDRESS, 42) : getAddress(provider.walletAddress)
           if (!isAddress(recipient)) fail('Agreement recipient routing is unavailable.', 503)
           if (!upfront) {
             const registrySecret = clean(env.HASHPAYSTREAM_DIRECT_RECIPIENT_REGISTRY_SECRET, 300)
             if (registrySecret.length < 32) fail('Direct recipient verification is temporarily unavailable.', 503)
-            const registered = await dependencies.registerRecipient(cfg.base, apiKey, registrySecret, recipient, result.providerAccountKey, dependencies.now())
+            const registered = await dependencies.registerRecipient(cfg.base, credentials.recipient, registrySecret, recipient, result.providerAccountKey, dependencies.now())
             if (registered.status < 200 || registered.status >= 300 || registered.body.ok !== true) fail(clean(registered.body.error, 300) || 'The service provider wallet could not be verified for Direct payment.', registered.status >= 400 && registered.status < 600 ? registered.status : 502)
           }
           await dependencies.mutateRequests(cfg.requestStore, current => {

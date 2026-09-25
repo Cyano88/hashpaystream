@@ -59,7 +59,7 @@ function address(value: string): Address {
     throw Error("Invalid escrow participant or factory.");
   return getAddress(value);
 }
-function configuredXLayerAssets(env: NodeJS.ProcessEnv): Map<string, { address: Address; decimals: number }> {
+export function configuredXLayerAssets(env: NodeJS.ProcessEnv): Map<string, { address: Address; decimals: number }> {
   const file = env.HASHPAYSTREAM_XLAYER_TOKENIZED_ASSETS_FILE?.trim();
   const raw = env.HASHPAYSTREAM_XLAYER_TOKENIZED_ASSETS_JSON?.trim();
   let entries: unknown;

@@ -1,3 +1,4 @@
+import { arcWalletEnvironment } from './arc-wallet-environment.js'
 import { createHash } from 'node:crypto'
 import type { Request, Response } from 'express'
 import { createPublicClient, getAddress, http, isAddress, parseAbi, type Hex } from 'viem'
@@ -9,14 +10,18 @@ import { verifyTransfer } from '../src/lib/walletTransfer.js'
 export type PocketTransfer = { id: string; actor: string; chainId: number; owner: `0x${string}`; asset: `0x${string}`; recipient: `0x${string}`; units: string; status: 'awaiting_approval' | 'processing' | 'successful' | 'failed' | 'needs_review'; createdAt: string; updatedAt: string; hash?: Hex; challengeId?: string; transactionId?: string; circlePrepared?: boolean; activityRecorded?: boolean; confirmedAt?: string; circleWalletId?: string; circlePageAfter?: string; legacy?: boolean }
 type Store = { records: PocketTransfer[] }
 const KEY = 'hashpaystream:pocket-transfers:v1'
-const assets: Record<number, `0x${string}`> = { 5042002: '0x3600000000000000000000000000000000000000', 196: '0xB6CEceAB302E2E4948951eE7843FC24E92933061' }
+const assets: Record<number, `0x${string}`> = { 5042: '0x3600000000000000000000000000000000000000', 5042002: '0x3600000000000000000000000000000000000000', 196: '0xB6CEceAB302E2E4948951eE7843FC24E92933061' }
 const active = (row: PocketTransfer) => !['successful', 'failed'].includes(row.status)
 const fail = (message: string, status = 409): never => { throw Object.assign(Error(message), { status }) }
+const selectedArcChain = () => arcWalletEnvironment(process.env).chainId
+const supportedChain = (chainId: number) => chainId === 196 || chainId === selectedArcChain()
 function client(chainId: number) {
-  const rpc = chainId === 5042002 ? process.env.HASHPAYSTREAM_ARC_RPC_URL || 'https://rpc.testnet.arc.network' : process.env.HASHPAYSTREAM_XLAYER_RPC_URL || 'https://rpc.xlayer.tech'
+  if (!supportedChain(chainId)) fail('Payment network does not match this environment.')
+  const rpc = chainId === selectedArcChain() ? arcWalletEnvironment(process.env).rpcUrl : process.env.HASHPAYSTREAM_XLAYER_RPC_URL || 'https://rpc.xlayer.tech'
   return createPublicClient({ transport: http(rpc, { timeout: 8000, retryCount: 0 }) })
 }
 export async function inspectPocketTransfer(input: PocketTransfer): Promise<Partial<PocketTransfer>> {
+  if (!supportedChain(input.chainId)) return {}
   const row = { ...input }
   const patch: Partial<PocketTransfer> = {}
   if (!row.hash && row.circlePrepared && row.circleWalletId && !row.legacy) {
@@ -71,7 +76,7 @@ export function availablePocketUnits(records: PocketTransfer[], chainId: number,
 const defaults = { recordActivity: recordVerifiedPocketTransfer, identity: verifiedIdentity, circleWallets: listCircleArcWallets, balance, inspect: inspectPocketTransfer, read: () => readDurableJson<Store>(KEY), mutate: (fn: (current: Store | undefined) => Promise<Store> | Store) => mutateDurableJson<Store>(KEY, fn) }
 export async function pocketCircleReference(email: string, id: string) {
   const actor = createHash('sha256').update(email.toLowerCase()).digest('hex')
-  const row = (await defaults.read())?.records.find(item => item.actor === actor && item.id === id)
+  const row = (await defaults.read())?.records.find(item => item.actor === actor && item.id === id && item.chainId === selectedArcChain())
   return row && !row.legacy ? 'hashpaystream-pocket:' + id : 'hashpaystream-arc-send'
 }
 
@@ -83,7 +88,7 @@ export async function attachPocketCircleChallenge(email: string, id: string, own
     const index = records.findIndex(row => row.actor === actor && row.id === id)
     if (index < 0) return { records } // Older clients did not create a tracking intent.
     const row = records[index]
-    if (row.chainId !== 5042002 || row.owner.toLowerCase() !== owner.toLowerCase() || row.recipient.toLowerCase() !== recipient.toLowerCase() || row.units !== units || (row.challengeId && row.challengeId !== challengeId)) fail('Circle approval does not match this payment.')
+    if (row.chainId !== selectedArcChain() || row.owner.toLowerCase() !== owner.toLowerCase() || row.recipient.toLowerCase() !== recipient.toLowerCase() || row.units !== units || (row.challengeId && row.challengeId !== challengeId)) fail('Circle approval does not match this payment.')
     records[index] = { ...row, challengeId, circleWalletId, circlePrepared: true, updatedAt: new Date().toISOString() }
     return { records }
   })
@@ -95,7 +100,7 @@ export function createPocketTransfersHandler(overrides: Partial<typeof defaults>
     try {
       const identity = await deps.identity(req, process.env)
       const actor = createHash('sha256').update(identity.email.toLowerCase()).digest('hex')
-      if (req.method === 'GET') return res.json({ ok: true, transfers: ((await deps.read())?.records ?? []).filter(row => row.actor === actor).map(({ actor: _, ...row }) => row) })
+      if (req.method === 'GET') return res.json({ ok: true, transfers: ((await deps.read())?.records ?? []).filter(row => row.actor === actor && supportedChain(row.chainId)).map(({ actor: _, ...row }) => row) })
       if (req.method !== 'POST') fail('Method not allowed.', 405)
       const body = req.body ?? {}
       const id = String(body.id ?? '')
@@ -106,7 +111,7 @@ export function createPocketTransfersHandler(overrides: Partial<typeof defaults>
         const index = records.findIndex(row => row.actor === actor && row.id === id)
         if (body.action === 'create' || body.action === 'import') {
           const chainId = Number(body.chainId)
-          if (!assets[chainId] || !isAddress(body.owner) || !isAddress(body.recipient) || /^0x0{40}$/i.test(body.recipient) || (typeof body.units !== 'string' || !/^\d{1,78}$/.test(body.units)) || BigInt(body.units) <= 0n) fail('Payment details are invalid.', 400)
+          if (!supportedChain(chainId) || !assets[chainId] || !isAddress(body.owner) || !isAddress(body.recipient) || /^0x0{40}$/i.test(body.recipient) || (typeof body.units !== 'string' || !/^\d{1,78}$/.test(body.units)) || BigInt(body.units) <= 0n) fail('Payment details are invalid.', 400)
           if (index >= 0) {
             output = records[index]
             if (output.chainId !== chainId || output.owner.toLowerCase() !== body.owner.toLowerCase() || output.recipient.toLowerCase() !== body.recipient.toLowerCase() || output.units !== body.units) fail('Payment reference belongs to different details.')
@@ -115,7 +120,7 @@ export function createPocketTransfersHandler(overrides: Partial<typeof defaults>
           const owner = getAddress(body.owner)
           const owned = chainId === 196 ? identity.wallets.some(address => address.toLowerCase() === owner.toLowerCase()) : (await deps.circleWallets(String(body.userToken ?? ''))).some(wallet => wallet.address.toLowerCase() === owner.toLowerCase())
           if (!owned) fail('This wallet is not owned by your signed-in session.', 403)
-          if (records.filter(row => row.actor === actor && active(row)).length >= 20) fail('Review your pending payments in Activity before adding more.')
+          if (records.filter(row => row.actor === actor && supportedChain(row.chainId) && active(row)).length >= 20) fail('Review your pending payments in Activity before adding more.')
           if (body.action !== 'import' && BigInt(body.units) > availablePocketUnits(records, chainId, owner, await deps.balance(chainId, owner))) fail('Your available USDC is too low after pending payments.')
           const now = new Date().toISOString()
           output = { id, actor, chainId, owner, asset: assets[chainId], recipient: getAddress(body.recipient), units: body.units, status: 'awaiting_approval', createdAt: now, updatedAt: now }
@@ -130,6 +135,7 @@ export function createPocketTransfersHandler(overrides: Partial<typeof defaults>
         } else {
           if (index < 0) fail('Payment was not found.', 404)
           const row = records[index]
+          if (!supportedChain(row.chainId)) fail('Payment network does not match this environment.')
           if (!active(row)) { output = row; return { records } }
           if (body.action === 'cancel_unsubmitted') {
             if (row.chainId !== 196 || row.status !== 'awaiting_approval' || row.hash || row.challengeId) fail('This payment may already be submitted. Check Activity.')
@@ -137,7 +143,7 @@ export function createPocketTransfersHandler(overrides: Partial<typeof defaults>
             return { records }
           }
           if (body.action === 'reconcile_circle') {
-            if (row.chainId !== 5042002 || !body.userToken) fail('Open your Circle wallet to check this payment.', 400)
+            if (row.chainId !== selectedArcChain() || !body.userToken) fail('Open your Circle wallet to check this payment.', 400)
             const wallets = await deps.circleWallets(String(body.userToken))
             if (!wallets.some(wallet => wallet.address.toLowerCase() === row.owner.toLowerCase())) fail('Payment wallet does not match this session.', 403)
             let transactionId = row.transactionId
@@ -180,10 +186,10 @@ export function createPocketTransfersHandler(overrides: Partial<typeof defaults>
 export async function reconcilePocketTransfers(overrides: Partial<typeof defaults> = {}) {
   const deps = { ...defaults, ...overrides }
   const records = (await deps.read())?.records ?? []
-  const candidates = records.filter(row => (row.hash || (row.circlePrepared && row.circleWalletId && !row.legacy)) && (active(row) || (row.status === 'successful' && row.chainId === 5042002 && !row.activityRecorded))).sort((a, b) => a.updatedAt.localeCompare(b.updatedAt)).slice(0, 3)
+  const candidates = records.filter(row => supportedChain(row.chainId)).filter(row => (row.hash || (row.circlePrepared && row.circleWalletId && !row.legacy)) && (active(row) || (row.status === 'successful' && row.chainId === selectedArcChain() && !row.activityRecorded))).sort((a, b) => a.updatedAt.localeCompare(b.updatedAt)).slice(0, 3)
   await Promise.all(candidates.map(async row => {
     const patch: Partial<PocketTransfer> = active(row) ? await deps.inspect(row).catch(() => ({})) : {}
-    if ((patch.status ?? row.status) === 'successful' && row.chainId === 5042002 && !row.activityRecorded) {
+    if ((patch.status ?? row.status) === 'successful' && row.chainId === selectedArcChain() && !row.activityRecorded) {
       patch.activityRecorded = await deps.recordActivity({ ...row, ...patch, createdAt: patch.confirmedAt ?? row.confirmedAt ?? row.createdAt }).catch(() => false)
     }
     await deps.mutate(current => ({ records: (current?.records ?? []).map(item => item.actor === row.actor && item.id === row.id && item.hash === row.hash && (active(row) ? active(item) : item.status === 'successful') ? { ...item, ...patch, updatedAt: new Date().toISOString() } : item) }))

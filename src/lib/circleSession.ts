@@ -1,6 +1,6 @@
 import { getAddress, isAddress, type Address } from 'viem'
 import { Capacitor } from '@capacitor/core'
-import { AccessControl, NativeBiometric } from '@capgo/capacitor-native-biometric'
+import { circleBiometricVault } from './circleBiometricVault'
 
 export type StoredCircleWallet = {
   id: string
@@ -73,22 +73,8 @@ function parseSession(raw: string, appId: string, email: string, deviceId: strin
 export async function readPersistedCircleSession(storage: StorageLike, appId: string, email: string, deviceId: string) {
   if (!Capacitor.isNativePlatform()) return readStoredCircleSession(storage, appId, email, deviceId)
   const server = secureServer(appId, email)
-  let saved: { isSaved: boolean }
-  try {
-    saved = await NativeBiometric.isCredentialsSaved({ server })
-  } catch {
-    throw new Error('HashPayStream could not check the saved Circle wallet session.')
-  }
-  if (!saved.isSaved) return undefined
-  let credentials: { username: string; password: string }
-  try {
-    credentials = await NativeBiometric.getCredentials({ server })
-  } catch {
-    throw new Error('The saved Circle wallet session could not be opened. Reconnect it to continue.')
-  }
-  if (credentials.username !== email.trim().toLowerCase()) {
-    throw new Error('The saved Circle wallet session belongs to a different account.')
-  }
+  const credentials = await circleBiometricVault.read(server, email.trim().toLowerCase())
+  if (!credentials) return undefined
   const session = parseSession(credentials.password, appId, email, deviceId)
   if (!session) throw new Error('The saved Circle wallet session is invalid. Reconnect it to continue.')
   return session
@@ -101,21 +87,14 @@ export async function writePersistedCircleSession(storage: StorageLike, session:
     return
   }
   const server = secureServer(session.appId, session.email)
-  await NativeBiometric.setCredentials({
-    server,
-    username: session.email.trim().toLowerCase(),
-    password: SECURE_SESSION_PREFIX + JSON.stringify({ ...session, savedAt }),
-    accessControl: AccessControl.NONE,
-  })
-  const saved = await NativeBiometric.isCredentialsSaved({ server })
-  if (!saved.isSaved) throw new Error('HashPayStream could not securely retain the Circle wallet session.')
+  await circleBiometricVault.write(server, session.email.trim().toLowerCase(), SECURE_SESSION_PREFIX + JSON.stringify({ ...session, savedAt }))
   clearStoredCircleSession(storage)
 }
 
 export async function clearPersistedCircleSession(storage: StorageLike, appId: string, email: string) {
   clearStoredCircleSession(storage)
   if (!Capacitor.isNativePlatform() || !appId || !email) return
-  await NativeBiometric.deleteCredentials({ server: secureServer(appId, email) }).catch(() => undefined)
+  await circleBiometricVault.clear(secureServer(appId, email))
 }
 
 export function circleUserTokenExpiresAt(userToken: string) {
@@ -126,4 +105,21 @@ export function circleUserTokenExpiresAt(userToken: string) {
     const decoded = JSON.parse(atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '='))) as { exp?: unknown }
     return typeof decoded.exp === 'number' && Number.isFinite(decoded.exp) ? decoded.exp * 1_000 : 0
   } catch { return 0 }
+}
+
+export async function circleBiometricUnlockStatus(appId: string, email: string) {
+  if (!Capacitor.isNativePlatform() || !appId || !email) return { available: false, enabled: false }
+  return { available: await circleBiometricVault.available(), enabled: await circleBiometricVault.enabled(secureServer(appId, email)) }
+}
+export async function enableCircleBiometricUnlock(storage: StorageLike, session: StoredCircleSession & { encryptionKey: string }) {
+  if (!Capacitor.isNativePlatform() || !session.refreshToken || !session.encryptionKey) throw Error('Verify your Circle wallet on this phone first.')
+  await circleBiometricVault.enable(secureServer(session.appId, session.email), session.email.trim().toLowerCase(), SECURE_SESSION_PREFIX + JSON.stringify({ ...session, savedAt: Date.now() }))
+  clearStoredCircleSession(storage)
+}
+export function lockCircleBiometricMemory() { circleBiometricVault.lock() }
+
+export function canReuseNativeCircleSession(session: StoredCircleSession, now = Date.now()) {
+  if (!session.encryptionKey || !session.savedAt || now < session.savedAt || now - session.savedAt >= 12 * 60 * 60 * 1000) return false
+  const expiresAt = circleUserTokenExpiresAt(session.userToken)
+  return !expiresAt || expiresAt > now + 60_000
 }

@@ -599,10 +599,10 @@ function TradeScreen({
         <div className="space-y-5">
           <button
             onClick={() => go(tab)}
-            className="inline-flex min-h-11 items-center gap-2 text-xs font-bold"
+            aria-label="Back to items"
+            className="stream-icon-button"
           >
             <ArrowLeftIcon className="h-4 w-4" />
-            Back to items
           </button>
           <ItemArt item={item} large />
           <div className="flex items-start justify-between gap-4">
@@ -938,7 +938,7 @@ function TradeScreen({
                   }
                 />
               </Field>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-3">
                 <Field label="Category">
                   <StreamSelect
                     label="Category"
@@ -1236,55 +1236,21 @@ function TradeScreen({
               {[0, 1].map((id) => (
                 <div
                   key={id}
-                  className="aspect-square rounded-2xl bg-zinc-100 dark:bg-zinc-900"
+                  className="h-20 rounded-2xl bg-zinc-100 dark:bg-zinc-900"
                 />
               ))}
             </div>
           ) : (mode === "error" || marketError) &&
             !visible.length ? null : visible.length ? (
-            <div className="grid grid-cols-2 gap-x-3 gap-y-5">
+            <div className="divide-y divide-gray-100 dark:divide-white/[0.05]">
               {visible.map((listing) => (
-                <article key={listing.id} className="min-w-0">
-                  <div className="relative">
-                    <button
-                      onClick={() => go(tab, listing.id)}
-                      aria-label={`View ${listing.title}`}
-                      className="block w-full text-left"
-                    >
-                      <ItemArt item={listing} />
-                    </button>
-                    <div className="absolute right-2 top-2">
-                      <SaveButton
-                        item={listing}
-                        saved={pocket.saved.includes(listing.id)}
-                        disabled={busy || !ready || (!!owner && !loaded)}
-                        onClick={() => void saveItem(listing.id)}
-                      />
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => go(tab, listing.id)}
-                    className="mt-2 block w-full text-left"
-                  >
-                    <p className="text-sm font-bold">{tradePrice(listing)}</p>
-                    <h3 className="mt-1 truncate text-xs font-medium">
-                      {listing.title}
-                    </h3>
-                    <p className="mt-1 text-[10px] text-zinc-500">
-                      {[
-                        listing.size,
-                        listing.condition,
-                        (listing as PublishedListing).status === "sold"
-                          ? "Sold"
-                          : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" \u00b7 ")}
-                    </p>
-                    <p className="mt-1 text-[10px] text-zinc-500">
-                      {listing.city}
-                    </p>
+                <article key={listing.id} className="flex min-w-0 items-center gap-1">
+                  <button onClick={() => go(tab, listing.id)} aria-label={`View ${listing.title}`} className="flex min-h-[80px] min-w-0 flex-1 items-center gap-3 rounded-2xl px-1 py-3 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.04]">
+                    <span className="w-14 shrink-0"><ItemArt item={listing} compact /></span>
+                    <span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold">{listing.title}</span><span className="mt-1 block truncate text-[10px] text-gray-400">{[listing.condition, listing.size, listing.city].filter(Boolean).join(' · ')}</span></span>
+                    <span className="shrink-0 text-right"><span className="block text-xs font-bold tabular-nums">{tradePrice(listing)}</span>{(listing as PublishedListing).status === 'sold' && <span className="mt-1 block text-[10px] text-gray-400">Sold</span>}</span>
                   </button>
+                  <SaveButton item={listing} saved={pocket.saved.includes(listing.id)} disabled={busy || !ready || (!!owner && !loaded)} onClick={() => void saveItem(listing.id)} />
                 </article>
               ))}
             </div>
@@ -1372,9 +1338,11 @@ function SaveButton({
 function ItemArt({
   item,
   large = false,
+  compact = false,
 }: {
   item: TradeListing;
   large?: boolean;
+  compact?: boolean;
 }) {
   const palette: Record<string, string> = {
     Clothing: "#e9e4db",
@@ -1388,7 +1356,7 @@ function ItemArt({
         <TradeImage
           src={item.photos[0]}
           alt={item.title}
-          className={`w-full rounded-[20px] object-cover ${large ? "aspect-[4/3]" : "aspect-[4/5]"}`}
+          className={`w-full rounded-[20px] object-cover ${compact ? "aspect-square !rounded-xl" : large ? "aspect-[4/3]" : "aspect-[4/5]"}`}
         />
         {large && item.photos.length > 1 && (
           <div className="grid grid-cols-3 gap-2">
@@ -1406,7 +1374,7 @@ function ItemArt({
     );
   return (
     <div
-      className={`relative flex items-center justify-center overflow-hidden rounded-[20px] ${large ? "aspect-[4/3]" : "aspect-[4/5]"}`}
+      className={`relative flex items-center justify-center overflow-hidden rounded-[20px] ${compact ? "aspect-square !rounded-xl" : large ? "aspect-[4/3]" : "aspect-[4/5]"}`}
       style={{ background: palette[item.category] }}
     >
       <svg

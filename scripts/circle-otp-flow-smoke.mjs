@@ -1,0 +1,18 @@
+﻿import assert from 'node:assert/strict';
+import {circleOtpLogin,registeredCircleDeviceId} from '../src/lib/circleOtpFlow.ts';
+let registrations=0;const device={getDeviceId:async()=>{registrations++;return 'circle-issued-device'}};
+assert.equal(await registeredCircleDeviceId(device),'circle-issued-device');await registeredCircleDeviceId(device);assert.equal(registrations,2,'Retry registers through SDK again');
+await assert.rejects(registeredCircleDeviceId({getDeviceId:async()=>{throw Error('Device blocked')}}),/blocked/);
+await assert.rejects(registeredCircleDeviceId({getDeviceId:async()=>''}),/register/);
+const listeners=new Map();let removed=0,cancel,login,resend,cleaned=0;
+globalThis.window={addEventListener:(type,cb)=>listeners.set(type,cb),removeEventListener:(type,cb)=>{if(listeners.get(type)===cb)listeners.delete(type)}};
+globalThis.document={getElementById:()=>({remove:()=>removed++})};
+const sdk={updateConfigs:(_config,cb)=>{login=cb},setOnResendOtpEmail:cb=>{resend=cb},verifyOtp(){}};
+const otp={deviceToken:'fixture',deviceEncryptionKey:'fixture',otpToken:'fixture'};
+const options={installCancel:cb=>{cancel=cb;return()=>cleaned++},timeoutMs:1000};
+let pending=circleOtpLogin(sdk,'fixture',otp,async()=>otp,options);cancel();await assert.rejects(pending,/cancelled/);login(undefined,{userToken:'late',encryptionKey:'late'});assert.equal(cleaned,1);assert.equal(listeners.size,0);assert.equal(removed,1);
+pending=circleOtpLogin(sdk,'fixture',otp,async()=>otp,options);login(undefined,{userToken:'fixture-user',encryptionKey:'fixture-key'});assert.equal((await pending).userToken,'fixture-user');assert.equal(listeners.size,0);
+pending=circleOtpLogin(sdk,'fixture',otp,async()=>{throw Error('Resend failed')},options);resend();await assert.rejects(pending,/Resend failed/);assert.equal(listeners.size,0);
+pending=circleOtpLogin(sdk,'fixture',otp,async()=>otp,{...options,timeoutMs:5});await assert.rejects(pending,/timed out/);
+const controller=new AbortController();pending=circleOtpLogin(sdk,'fixture',otp,async()=>otp,{...options,signal:controller.signal});controller.abort();await assert.rejects(pending,/cancelled/);
+console.log('Circle OTP passed: SDK-issued device registration, no fabricated fallback, cancel, late callback, successful retry, resend failure, timeout and account-change cleanup.');

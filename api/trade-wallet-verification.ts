@@ -4,7 +4,7 @@ import { tradeFailure as fail } from "./trade-store.js";
 export type TradeSettlementWallet = {
   walletId: string;
   address: string;
-  chainId: 5042002;
+  chainId: 5042002 | 196;
 };
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

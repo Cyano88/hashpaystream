@@ -1,10 +1,11 @@
+import { hashPayLinkArcWallet } from './hashpaylink-arc-wallet.js'
 import crypto from 'node:crypto'
+import { arcWalletEnvironment } from './arc-wallet-environment.js'
 import { attachPocketCircleChallenge, pocketCircleReference } from './pocket-transfers.js'
 import type { Request, Response } from 'express'
 import { PrivyClient } from '@privy-io/node'
 import { createPublicClient, encodeFunctionData, fallback, getAddress, http, isAddress, parseAbi } from 'viem'
 
-const ARC_BLOCKCHAIN = 'ARC-TESTNET'
 const ARC_USDC = getAddress('0x3600000000000000000000000000000000000000')
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -50,13 +51,17 @@ async function verifiedEmail(req: Request, env: NodeJS.ProcessEnv) {
 }
 
 function circleApiKey(env: NodeJS.ProcessEnv) {
-  const key = clean(env.CIRCLE_TEST_API_KEY ?? env.CIRCLE_API_KEY_TEST, 500)
-  if (!key || key.startsWith('LIVE_API_KEY:')) fail('Circle testnet wallet access is unavailable.', 503)
+  const profile = arcWalletEnvironment(env)
+  const key = clean(profile.apiKey, 500)
+  if (profile.live && /^TEST_/i.test(key)) fail('A production Circle key is required.', 503)
+  if (!key) fail('Circle Arc wallet access is unavailable.', 503)
   return key
 }
 
 export async function circleJson<T extends Record<string, unknown>>(env: NodeJS.ProcessEnv, path: string, init: { method?: string; userToken?: string; body?: Record<string, unknown> } = {}) {
+  if (arcWalletEnvironment(env).live) return hashPayLinkArcWallet<T>(env, path, init)
   const response = await fetch(`${clean(env.CIRCLE_BASE_URL ?? 'https://api.circle.com', 300).replace(/\/+$/, '').replace(/\/v1(?:\/w3s)?$/i, '')}${path}`, {
+    redirect: 'error',
     signal: AbortSignal.timeout(15000),
     method: init.method ?? 'GET',
     headers: {
@@ -81,7 +86,7 @@ export async function listCircleArcWallets(userToken: string, env: NodeJS.Proces
     const blockchain = clean(wallet.blockchain, 40).toUpperCase()
     const accountType = clean(wallet.accountType, 20).toUpperCase()
     const state = clean(wallet.state, 20).toUpperCase()
-    return ['ARC-TESTNET', 'ARC_TESTNET'].includes(blockchain) && accountType === 'SCA' && (!state || state === 'LIVE') && isAddress(wallet.address)
+    return blockchain === arcWalletEnvironment(env).blockchain && accountType === 'SCA' && (!state || state === 'LIVE') && isAddress(wallet.address)
   })
 }
 
@@ -93,11 +98,19 @@ async function readOwnedWallet(userToken: string, walletId: string, walletAddres
 }
 
 export async function readArcUsdcBalance(walletAddress: string, env: NodeJS.ProcessEnv) {
-  const publicRpcUrl = 'https://rpc.testnet.arc.network'
-  const configuredRpcUrl = clean(env.HASHPAYSTREAM_ARC_RPC_URL ?? publicRpcUrl, 500)
+  const profile = arcWalletEnvironment(env)
+  const publicRpcUrl = profile.fallbackRpcUrl
+  const configuredRpcUrl = clean(profile.rpcUrl, 500)
   if (!configuredRpcUrl.startsWith('https://')) fail('Arc balance access is unavailable.', 503)
   const rpcUrls = [...new Set([configuredRpcUrl, publicRpcUrl])]
-  const transports = rpcUrls.map(url => http(url, { retryCount: 1, timeout: 5_000 }))
+  // Verify each RPC independently before allowing fallback; checking only the
+  // aggregate client could validate one endpoint and read balances from another.
+  const verifiedUrls: string[] = []
+  for (const url of rpcUrls) {
+    try { const probe = createPublicClient({ transport: http(url, { retryCount: 0, timeout: 5_000 }) }); if (await probe.getChainId() === profile.chainId) verifiedUrls.push(url) } catch { /* try the same-network fallback */ }
+  }
+  if (!verifiedUrls.length) fail('Arc balance network could not be verified.', 503)
+  const transports = verifiedUrls.map(url => http(url, { retryCount: 1, timeout: 5_000 }))
   const client = createPublicClient({ transport: transports.length === 1 ? transports[0] : fallback(transports, { rank: false }) })
   try {
     return await client.readContract({ address: ARC_USDC, abi: balanceAbi, functionName: 'balanceOf', args: [getAddress(walletAddress)] })
@@ -120,7 +133,18 @@ export function createCircleWalletHandler(overrides: { env?: () => NodeJS.Proces
       const env = environment()
       const email = await identity(req, env)
       const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body as Record<string, unknown> : {}
+      const profile = arcWalletEnvironment(env)
+      if (profile.live && body.walletEnvironment !== 'live') fail('Update Hash PayStream to use the production wallet.', 409)
+      if (body.walletEnvironment && body.walletEnvironment !== profile.mode) fail('Wallet network does not match this app build.', 409)
       const action = clean(body.action, 40)
+      if (action === 'configuration') {
+        if (profile.live) {
+          const hosted = await hashPayLinkArcWallet(env, '/configuration')
+          if (hosted.chainId !== profile.chainId || hosted.blockchain !== profile.blockchain || !profile.appId || hosted.appId !== profile.appId) fail('Hosted wallet configuration does not match this app.', 503)
+        }
+        return res.json({ ok: true, environment: profile.mode, chainId: profile.chainId, blockchain: profile.blockchain, appId: profile.appId || '' })
+      }
+      if (profile.live && (action === 'router_status' || action === 'set_router_paused')) fail('The legacy repayment router is sandbox-only.', 409)
       const userToken = clean(body.userToken, 8_000)
       if (action === 'request_email_otp') {
         const requestedEmail = clean(body.email, 254).toLowerCase()
@@ -138,12 +162,12 @@ export function createCircleWalletHandler(overrides: { env?: () => NodeJS.Proces
       }
       if (action === 'initialize_user') {
         if (!userToken) fail('Circle wallet session is missing.', 400)
-        const data = await circleJson<Record<string, unknown>>(env, '/v1/w3s/user/initialize', { method: 'POST', userToken, body: { idempotencyKey: crypto.randomUUID(), accountType: 'SCA', blockchains: [ARC_BLOCKCHAIN] } })
+        const data = await circleJson<Record<string, unknown>>(env, '/v1/w3s/user/initialize', { method: 'POST', userToken, body: { idempotencyKey: crypto.randomUUID(), accountType: 'SCA', blockchains: [profile.blockchain] } })
         return res.json({ ok: true, ...data })
       }
       if (action === 'create_wallet') {
         if (!userToken) fail('Circle wallet session is missing.', 400)
-        const data = await circleJson<Record<string, unknown>>(env, '/v1/w3s/user/wallets', { method: 'POST', userToken, body: { idempotencyKey: crypto.randomUUID(), accountType: 'SCA', blockchains: [ARC_BLOCKCHAIN], metadata: [{ name: 'HashPayStream Arc' }] } })
+        const data = await circleJson<Record<string, unknown>>(env, '/v1/w3s/user/wallets', { method: 'POST', userToken, body: { idempotencyKey: crypto.randomUUID(), accountType: 'SCA', blockchains: [profile.blockchain], metadata: [{ name: 'HashPayStream Arc' }] } })
         return res.json({ ok: true, ...data })
       }
       if (action === 'list_wallets') {
@@ -158,13 +182,14 @@ export function createCircleWalletHandler(overrides: { env?: () => NodeJS.Proces
         // on every 15-second read made an otherwise healthy Arc balance depend on a
         // second upstream session call. Ownership is still enforced for every write.
         const address = getAddress(walletAddress)
+        const cacheKey = `${profile.chainId}:${address.toLowerCase()}`
         let balanceUsdcUnits: bigint
         let stale = false
         try {
           balanceUsdcUnits = await balance(address, env)
-          balanceCache.set(address.toLowerCase(), { units: balanceUsdcUnits, observedAt: Date.now() })
+          balanceCache.set(cacheKey, { units: balanceUsdcUnits, observedAt: Date.now() })
         } catch (reason) {
-          const cached = balanceCache.get(address.toLowerCase())
+          const cached = balanceCache.get(cacheKey)
           if (!cached || Date.now() - cached.observedAt > 5 * 60 * 1_000) throw reason
           balanceUsdcUnits = cached.units
           stale = true

@@ -1,3 +1,6 @@
+import WorkPaymentFields, { type WorkPaymentMode } from './WorkPaymentFields'
+import WorkXLayerCheckout from './WorkXLayerCheckout'
+import { WORK_USDC, WORK_STATES, workPaymentLabel, workTermsNotice } from '../lib/workXLayer'
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import {
   ArrowLeftIcon,
@@ -37,6 +40,7 @@ export default function StreamPayRequests() {
   const [funding, setFunding] = useState<ServiceRequest | null>(null)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  const agreementsTo = useStreamPayPath('/agreements')
   const requestsTo = useStreamPayPath('/requests')
   const composeTo = useStreamPayPath('/requests?compose=1')
   const tabTo = useStreamPayPath(`/requests?tab=${tab}`)
@@ -52,7 +56,7 @@ export default function StreamPayRequests() {
   }, [inbox.requests, search])
   function closeCreate() {
     setCreating(false)
-    navigate(requestsTo, { replace: true })
+    navigate(new URLSearchParams(search).get('from') === 'agreements' ? agreementsTo : requestsTo, { replace: true })
   }
   function openRequest(item: ServiceRequest, view: 'details' | 'counter' | 'fund') {
     const separator = tabTo.includes('?') ? '&' : '?'
@@ -129,6 +133,7 @@ export default function StreamPayRequests() {
         onSubmit={(payload) => act(countering, 'provider_counter', payload)}
       />
     )
+  if (fundingItem?.terms.find(term=>term.version===fundingItem.activeVersion)?.xlayerPayment) return <FormShell title='Work agreement' onBack={closeRequest}><WorkXLayerCheckout item={fundingItem} request={inbox.payer} onUpdated={()=>void inbox.refresh(true)}/></FormShell>
   if (fundingItem)
     return (
       <StreamPayFundRequest
@@ -159,6 +164,7 @@ export default function StreamPayRequests() {
             }}
             onFund={() => openRequest(viewingItem, 'fund')}
           />
+          {viewingItem.agreementId && viewingItem.terms.find(term=>term.version===viewingItem.activeVersion)?.xlayerPayment && <WorkXLayerCheckout key={viewingItem.id+':'+viewingItem.activeVersion} item={viewingItem} request={inbox.payer} onUpdated={()=>void inbox.refresh(true)}/>}
         </div>
       </section>
     )
@@ -169,6 +175,7 @@ export default function StreamPayRequests() {
   ).length
   return (
     <section className="stream-screen w-full max-w-md py-5 sm:py-8">
+      <div className="mb-5 grid grid-cols-[3rem_1fr_3rem] items-center gap-3"><Link to={agreementsTo} aria-label="Back to agreements" className="stream-icon-button"><ArrowLeftIcon className="h-4 w-4" /></Link><h1 className="text-center text-lg font-bold">Requests</h1><span aria-hidden="true" /></div>
       <div className="stream-segment grid-cols-2">
         {(['received', 'sent'] as const).map((value) => (
           <button
@@ -250,12 +257,12 @@ function RequestListRow({
           {terms.title}
         </span>
         <span className="mt-1 block truncate text-[10px] font-semibold text-gray-400">
-          {statusLabel(item.status, item.role)} {'\u00b7'} {roleLabel}
+          {terms.xlayerPayment && item.workState!==undefined ? WORK_STATES[item.workState] : statusLabel(item.status, item.role)} {'\u00b7'} {roleLabel}
         </span>
       </span>
       <span className="shrink-0 text-right">
         <span className="block text-xs font-black tabular-nums">
-          {formatUsdc(terms.amountUsdcUnits)}
+          {terms.xlayerPayment ? terms.amount+' '+workPaymentLabel(terms.xlayerPayment) : formatUsdc(terms.amountUsdcUnits)}
         </span>
         <ChevronRightIcon className="ml-auto mt-1 h-3.5 w-3.5 text-gray-400" />
       </span>
@@ -292,7 +299,7 @@ function RequestCard({
     '/upfront?agreementId=' + encodeURIComponent(item.agreementId),
   )
   const agreementTo = useStreamPayPath(
-    '/agreements?agreementId=' + encodeURIComponent(item.agreementId),
+    terms.xlayerPayment ? '/requests?view=details&request='+encodeURIComponent(item.id) : '/agreements?agreementId=' + encodeURIComponent(item.agreementId),
   )
   const useFundsTo = useStreamPayPath('/move/xlayer/send')
   const compact = ['expired', 'completed', 'refunded', 'declined', 'cancelled'].includes(item.status)
@@ -301,9 +308,9 @@ function RequestCard({
       <div className="flex min-h-[68px] items-center gap-3 px-4 py-3">
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-extrabold text-gray-950 dark:text-white">{terms.title}</span>
-          <span className="mt-1 block truncate text-[10px] font-semibold text-gray-400">{statusLabel(item.status, item.role)} {'\u00b7'} {item.role === 'customer' ? 'Requested by you' : 'Work for you'}</span>
+          <span className="mt-1 block truncate text-[10px] font-semibold text-gray-400">{terms.xlayerPayment && item.workState!==undefined ? WORK_STATES[item.workState] : statusLabel(item.status, item.role)} {'\u00b7'} {item.role === 'customer' ? 'Requested by you' : 'Work for you'}</span>
         </span>
-        <span className="shrink-0 text-xs font-black tabular-nums">{formatUsdc(terms.amountUsdcUnits)}</span>
+        <span className="shrink-0 text-xs font-black tabular-nums">{terms.xlayerPayment ? terms.amount+' '+workPaymentLabel(terms.xlayerPayment) : formatUsdc(terms.amountUsdcUnits)}</span>
       </div>
       {item.earlyPaySettlement && <div className="border-t border-gray-100 px-3 pb-3 dark:border-white/[0.07]"><EarlyPaySettlementSummary settlement={item.earlyPaySettlement} /></div>}
       {providerHasEarlyPay && <ProviderEarlyPayAction item={item} earlyPayTo={earlyPayTo} useFundsTo={useFundsTo} />}
@@ -351,9 +358,10 @@ function RequestCard({
           </p>
         </div>
         <p className="shrink-0 text-sm font-black">
-          {formatUsdc(terms.amountUsdcUnits)}
+          {terms.xlayerPayment ? terms.amount+' '+workPaymentLabel(terms.xlayerPayment) : formatUsdc(terms.amountUsdcUnits)}
         </p>
       </div>
+      {terms.xlayerPayment && <p className='mt-3 text-xs leading-5 text-gray-500'>{workTermsNotice(terms.durationSeconds,terms.xlayerPayment)}</p>}
       {terms.upfrontReason && (
         <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
           {terms.upfrontReason}
@@ -361,7 +369,7 @@ function RequestCard({
       )}
       <div className="mt-3 flex justify-between text-[10px] font-semibold text-gray-400">
         <span>Version {terms.version}</span>
-        <span>{statusLabel(item.status, item.role)}</span>
+        <span>{terms.xlayerPayment && item.workState!==undefined ? WORK_STATES[item.workState] : statusLabel(item.status, item.role)}</span>
       </div>
       {item.earlyPaySettlement && <EarlyPaySettlementSummary settlement={item.earlyPaySettlement} />}
       {providerCanRespond && (
@@ -407,7 +415,7 @@ function RequestCard({
           </button>
         </div>
       )}
-      {item.role === 'customer' && item.status === 'funded' && item.agreementId && (
+      {!terms.xlayerPayment && item.role === 'customer' && item.status === 'funded' && item.agreementId && (
         <Link
           to={agreementTo}
           className={'mt-4 flex min-h-11 w-full items-center justify-center rounded-full bg-gray-950 text-xs font-bold text-white dark:bg-white dark:text-gray-950'}
@@ -454,7 +462,7 @@ function statusLabel(
       funded: 'Funded',
       expired: 'Refund available',
       completed: 'Completed',
-      refunded: 'USDC returned',
+      refunded: 'Payment refunded',
       declined: 'Declined',
       cancelled: 'Cancelled',
     } as const
@@ -474,6 +482,9 @@ function CreateRequest({
   const [amount, setAmount] = useState('')
   const [duration, setDuration] = useState('86400')
   const [cancellation, setCancellation] = useState('900')
+  const [paymentMode,setPaymentMode]=useState<WorkPaymentMode>('arc')
+  const [paymentToken,setPaymentToken]=useState('')
+  const [reviewHours,setReviewHours]=useState(48)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const submitting = useRef(false)
@@ -491,7 +502,8 @@ function CreateRequest({
         description,
         amount,
         durationSeconds: Number(duration),
-        cancellationWindowSeconds: Number(cancellation),
+        cancellationWindowSeconds: paymentMode==='arc'?Number(cancellation):0,
+        ...(paymentMode==='arc'?{}:{paymentRail:'xlayer',paymentToken:paymentMode==='xlayer-usdc'?WORK_USDC:paymentToken,reviewHours}),
       }
       const fingerprint = JSON.stringify(payload)
       if (submission.current?.fingerprint !== fingerprint) submission.current = { fingerprint, key: newKey() }
@@ -508,7 +520,7 @@ function CreateRequest({
     }
   }
   return (
-    <FormShell title="New request" onBack={onBack}>
+    <FormShell title="New agreement" onBack={onBack}>
       <form onSubmit={submit} className="space-y-5">
         <Field label="Service provider email">
           <input
@@ -546,21 +558,22 @@ function CreateRequest({
             className={`${inputClass} resize-none`}
           />
         </Field>
-        <Field label="Protected amount">
+        <WorkPaymentFields mode={paymentMode} token={paymentToken} reviewHours={reviewHours} disabled={busy} onMode={mode=>{setPaymentMode(mode);setAmount('');if(mode!=='arc'&&Number(duration)<86400)setDuration('86400');}} onToken={token=>{setPaymentToken(token);setAmount('');}} onReview={setReviewHours}/>
+        <Field label={paymentMode==='stock'?'Stock quantity':'USDC amount'}>
           <input
             required
             inputMode="decimal"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            placeholder="100.00 USDC"
+            placeholder={paymentMode==='stock'?'0.01':'100.00'}
             className={inputClass}
           />
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Delivery period">
-            <Duration value={duration} onChange={setDuration} />
+            <Duration value={duration} onChange={setDuration} minimumOneDay={paymentMode!=='arc'} />
           </Field>
-          <Field label="Cancellation">
+          {paymentMode==='arc' && <Field label="Cancellation">
             <StreamSelect
               label="Cancellation"
               value={cancellation}
@@ -571,7 +584,7 @@ function CreateRequest({
                 { value: '3600', label: '1 hour' },
               ]}
             />
-          </Field>
+          </Field>}
         </div>
         {error && <ErrorMessage>{error}</ErrorMessage>}
         <button
@@ -603,6 +616,9 @@ function CounterRequest({
   const [duration, setDuration] = useState(String(terms.durationSeconds))
   const [upfront, setUpfront] = useState(terms.upfrontRequested)
   const [reason, setReason] = useState(terms.upfrontReason ?? '')
+  const [paymentMode,setPaymentMode]=useState<WorkPaymentMode>(terms.xlayerPayment?terms.xlayerPayment.token.toLowerCase()===WORK_USDC.toLowerCase()?'xlayer-usdc':'stock':'arc')
+  const [paymentToken,setPaymentToken]=useState(terms.xlayerPayment?.token||'')
+  const [reviewHours,setReviewHours]=useState<number>(terms.xlayerPayment?.reviewHours||48)
   return (
     <FormShell title="Change terms" onBack={onBack}>
       <form
@@ -611,7 +627,8 @@ function CounterRequest({
           void onSubmit({
             amount,
             durationSeconds: Number(duration),
-            upfrontRequested: upfront,
+            upfrontRequested: paymentMode==='arc'&&upfront,
+            ...(paymentMode==='arc'?{}:{paymentRail:'xlayer',paymentToken:paymentMode==='xlayer-usdc'?WORK_USDC:paymentToken,reviewHours}),
             upfrontReason: reason,
           })
         }}
@@ -623,7 +640,8 @@ function CounterRequest({
             Your changes become version {terms.version + 1}.
           </p>
         </div>
-        <Field label="Protected amount">
+        <WorkPaymentFields mode={paymentMode} token={paymentToken} reviewHours={reviewHours} disabled={busy} allowNetworkChange={false} onMode={mode=>{setPaymentMode(mode);setAmount('');}} onToken={token=>{setPaymentToken(token);setAmount('');}} onReview={setReviewHours}/>
+        <Field label={paymentMode==='stock'?'Stock quantity':'USDC amount'}>
           <input
             required
             inputMode="decimal"
@@ -636,10 +654,10 @@ function CounterRequest({
           <Duration
             value={duration}
             onChange={setDuration}
-            minimumOneDay={upfront}
+            minimumOneDay={upfront||paymentMode!=='arc'}
           />
         </Field>
-        <label className="flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3 dark:bg-white/[0.04]">
+        {paymentMode==='arc' && <label className="flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3 dark:bg-white/[0.04]">
           <span>
             <span className="block text-xs font-bold">Request early pay</span>
             <span className="text-[10px] text-gray-400">
@@ -661,8 +679,8 @@ function CounterRequest({
             }}
             className="h-5 w-5 accent-gray-950 disabled:opacity-40"
           />
-        </label>
-        {upfront && (
+        </label>}
+        {paymentMode==='arc' && upfront && (
           <Field label="Why do you need it?">
             <textarea
               required

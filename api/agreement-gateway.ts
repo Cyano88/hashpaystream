@@ -133,10 +133,17 @@ function configuration(
   webhookStoreEnvironmentVariable: NonNullable<AgreementGatewayOptions['webhookStoreEnvironmentVariable']> = 'HASHPAYSTREAM_ARC_WEBHOOK_STORE_KEY',
   ownershipStoreEnvironmentVariable: NonNullable<AgreementGatewayOptions['ownershipStoreEnvironmentVariable']> = 'HASHPAYSTREAM_HUMAN_AGREEMENT_STORE_KEY',
 ) {
-  const apiKey = clean(env[apiKeyEnvironmentVariable], 200)
+  const humanMainnet = ownershipStoreEnvironmentVariable === 'HASHPAYSTREAM_HUMAN_AGREEMENT_STORE_KEY'
+    && env.HASHPAYSTREAM_HUMAN_AGREEMENT_ENVIRONMENT === 'live'
+  if (ownershipStoreEnvironmentVariable === 'HASHPAYSTREAM_HUMAN_AGREEMENT_STORE_KEY'
+    && env.HASHPAYSTREAM_HUMAN_AGREEMENT_ENVIRONMENT !== undefined
+    && !['live', 'test'].includes(env.HASHPAYSTREAM_HUMAN_AGREEMENT_ENVIRONMENT)) {
+    throw httpError('Hash PayStream Agreement environment is invalid.', 503)
+  }
+  const apiKey = clean(env[humanMainnet ? 'HASHPAYSTREAM_ARC_MAINNET_API_KEY' : apiKeyEnvironmentVariable], 200)
   const ownershipSecret = clean(env.HASHPAYSTREAM_APP_OWNERSHIP_SECRET, 300)
-  const storeKey = clean(env[ownershipStoreEnvironmentVariable] ?? DEFAULT_HUMAN_STORE_KEY, 160)
-  const eventStoreKey = clean(env[webhookStoreEnvironmentVariable] ?? DEFAULT_EVENT_STORE_KEY, 160)
+  const storeKey = humanMainnet ? 'hashpaystream:arc-mainnet:5042:human-agreement-owners:v1' : clean(env[ownershipStoreEnvironmentVariable] ?? DEFAULT_HUMAN_STORE_KEY, 160)
+  const eventStoreKey = humanMainnet ? 'hashpaystream:arc-mainnet:5042:arc-webhooks:v1' : clean(env[webhookStoreEnvironmentVariable] ?? DEFAULT_EVENT_STORE_KEY, 160)
   const rawBaseUrl = clean(env.HASHPAYSTREAM_HASH_PAYLINK_BASE_URL ?? 'https://app.hashpaylink.com', 240)
   let baseUrl: URL
   try {
@@ -144,7 +151,7 @@ function configuration(
   } catch {
     throw httpError('HashPayStream upstream URL is invalid.', 503)
   }
-  if (!apiKey.startsWith('hpl_test_') || apiKey.length < 32) {
+  if (humanMainnet ? !/^hpl_app_[a-f0-9]{64}$/.test(apiKey) : (!apiKey.startsWith('hpl_test_') || apiKey.length < 32)) {
     throw httpError(
       apiKeyEnvironmentVariable === 'HASHPAYSTREAM_UPFRONT_ARC_API_KEY'
         ? 'HashPayStream Upfront agreement routing is unavailable.'
@@ -156,7 +163,7 @@ function configuration(
   if (!storeKey || !eventStoreKey || baseUrl.protocol !== 'https:' || baseUrl.username || baseUrl.password || baseUrl.search || baseUrl.hash) {
     throw httpError('HashPayStream standalone gateway is misconfigured.', 503)
   }
-  return { apiKey, ownershipSecret, storeKey, eventStoreKey, baseUrl: baseUrl.origin }
+  return { apiKey, ownershipSecret, storeKey, eventStoreKey, humanMainnet, baseUrl: baseUrl.origin }
 }
 
 async function upstreamRequest(input: {
@@ -165,8 +172,8 @@ async function upstreamRequest(input: {
   body?: Record<string, unknown>
   idempotencyKey?: string
   timeoutMs?: number
-}, env: NodeJS.ProcessEnv, apiKeyEnvironmentVariable?: AgreementGatewayOptions['apiKeyEnvironmentVariable']) {
-  const config = configuration(env, apiKeyEnvironmentVariable)
+}, env: NodeJS.ProcessEnv, apiKeyEnvironmentVariable?: AgreementGatewayOptions['apiKeyEnvironmentVariable'], webhookStoreEnvironmentVariable?: AgreementGatewayOptions['webhookStoreEnvironmentVariable'], ownershipStoreEnvironmentVariable?: AgreementGatewayOptions['ownershipStoreEnvironmentVariable']) {
+  const config = configuration(env, apiKeyEnvironmentVariable, webhookStoreEnvironmentVariable, ownershipStoreEnvironmentVariable)
   const controller = new AbortController()
   const timeoutMs = Math.max(1_000, Math.min(input.timeoutMs ?? 15_000, 135_000))
   const timer = setTimeout(() => controller.abort(), timeoutMs)
@@ -384,7 +391,7 @@ export function createHashPayStreamAgreementGateway(
   const featureFlagRequired = Boolean(inputOptions.featureFlagEnvironmentVariable)
   const dependencies = { ...defaults, ...overrides }
   if (!overrides.upstream) {
-    dependencies.upstream = input => upstreamRequest(input, dependencies.env(), options.apiKeyEnvironmentVariable)
+    dependencies.upstream = input => upstreamRequest(input, dependencies.env(), options.apiKeyEnvironmentVariable, options.webhookStoreEnvironmentVariable, options.ownershipStoreEnvironmentVariable)
   }
   return async function hashPayStreamAgreementGateway(req: Request, res: Response) {
     res.setHeader('Cache-Control', 'no-store')
@@ -400,6 +407,7 @@ export function createHashPayStreamAgreementGateway(
       if (!dependencies.hasStore()) throw httpError('HashPayStream ownership storage is unavailable.', 503)
       const config = configuration(dependencies.env(), options.apiKeyEnvironmentVariable, options.webhookStoreEnvironmentVariable, options.ownershipStoreEnvironmentVariable)
       const identity = await dependencies.identity(req)
+      if (config.humanMainnet && req.method !== 'GET') throw httpError('Mainnet Agreement creation is pending wallet integration. Existing agreements remain available to view.', 503)
       const userId = typeof identity === 'string' ? identity : identity.userId
       const ownerAccount = typeof identity === 'string' ? undefined : accountKey(config.ownershipSecret, identity.email)
       const owner = ownerHash(config.ownershipSecret, userId)

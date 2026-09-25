@@ -1,3 +1,7 @@
+import WalletBiometricUnlock from './WalletBiometricUnlock'
+import HostedAccountConnection from './HostedAccountConnection'
+import { Link } from '../lib/router'
+import { useStreamPayPath } from '../lib/useStreamPayPath'
 import { useEffect, useState } from 'react'
 import { ArrowRightStartOnRectangleIcon, CheckIcon, ChevronRightIcon, ClipboardDocumentIcon, MoonIcon, PencilIcon, SunIcon, UserIcon, WalletIcon } from '@heroicons/react/24/outline'
 import { usePrivy } from '@privy-io/react-auth'
@@ -12,6 +16,8 @@ import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
 export default function StreamPayAccount() {
   const { authenticated, user, logout } = usePrivy()
   const { theme, preference, setPreference } = useTheme()
+  const fundingTo = useStreamPayPath('/funding')
+  const upfrontTo = useStreamPayPath('/upfront')
   const account = useStreamAccount()
   const wallet = useCircleWallet()
   const [copied, setCopied] = useState('')
@@ -45,10 +51,13 @@ export default function StreamPayAccount() {
     <div className="stream-list-card overflow-visible">
       {editing ? <div className="p-4"><label className="text-[10px] font-black uppercase tracking-[.18em] text-gray-400">Pocket ID</label><input value={draftId} inputMode="numeric" onChange={event => setDraftId(event.target.value.replace(/\D/g, '').slice(0, 12))} className="mt-2 w-full rounded-2xl border border-gray-200 px-4 py-4 text-base font-bold tabular-nums outline-none focus:border-blue-500 dark:border-white/10 dark:bg-white/[0.04]" /><p className="mt-2 text-[10px] text-gray-400">6 to 12 digits. Previous IDs stay reserved to your account.</p>{editError && <p className="mt-2 text-xs font-semibold text-red-600">{editError}</p>}<div className="mt-4 grid grid-cols-2 gap-2"><button type="button" onClick={() => { setEditing(false); setDraftId(account.profile?.pocketId || ''); setEditError('') }} className="min-h-11 rounded-full text-xs font-bold text-gray-500">Cancel</button><button type="button" disabled={saving || !/^\d{6,12}$/.test(draftId)} onClick={() => void saveId()} className="min-h-11 rounded-full bg-gray-950 text-xs font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950">{saving ? 'Saving…' : 'Save ID'}</button></div></div> : <button type="button" onClick={() => setEditing(true)} className="flex min-h-[68px] w-full items-center gap-3 px-4 text-left"><span className="min-w-0 flex-1"><span className="block text-[9px] font-black uppercase tracking-[.18em] text-gray-400">Pocket ID</span><span className="mt-1 block text-base font-black tabular-nums">{account.profile?.pocketId}</span></span><PencilIcon className="h-4 w-4 text-gray-400" /><span className="sr-only">Edit Pocket ID</span></button>}
       <button type="button" onClick={() => void copy(wallet.address, 'wallet')} className="flex min-h-[66px] w-full items-center gap-3 border-t border-gray-100 px-4 text-left dark:border-white/[0.07]"><WalletIcon className="h-5 w-5 text-gray-500" /><span className="min-w-0 flex-1"><span className="block text-sm font-bold text-gray-900 dark:text-white">Circle wallet</span><span className="mt-0.5 block truncate font-mono text-[10px] text-gray-400">{wallet.address}</span></span>{copied === 'wallet' ? <CheckIcon className="h-4 w-4 text-emerald-500" /> : <ClipboardDocumentIcon className="h-4 w-4 text-gray-400" />}</button>
+      <WalletBiometricUnlock />
+      <HostedAccountConnection />
       <div className="flex min-h-[62px] items-center gap-3 border-t border-gray-100 px-4 py-3 dark:border-white/[0.07]"><span className="text-gray-500">{theme === 'dark' ? <MoonIcon className="h-5 w-5" /> : <SunIcon className="h-5 w-5" />}</span><span className="flex-1 text-sm font-bold text-gray-900 dark:text-white">Appearance</span><StreamSelect className="w-36" label="Appearance" value={preference} onChange={value => setPreference(value as ThemePreference)} options={[{value:'system',label:'System'},{value:'light',label:'Light'},{value:'dark',label:'Dark'}]} /></div>
     </div>
 
     <div className="stream-list-card mt-3"><a href="https://x.com/Hash_PayLink" target="_blank" rel="noreferrer" className="flex min-h-[58px] items-center px-4 text-sm font-bold text-gray-700 dark:text-gray-200">Help and support<ChevronRightIcon className="ml-auto h-4 w-4 text-gray-300" /></a><button type="button" onClick={() => void signOut()} className="flex min-h-[58px] w-full items-center gap-3 border-t border-gray-100 px-4 text-sm font-bold text-red-600 dark:border-white/[0.07] dark:text-red-400"><ArrowRightStartOnRectangleIcon className="h-4 w-4" />Sign out</button></div>
+    <details className="stream-list-card mt-3 px-4 py-3"><summary className="cursor-pointer py-2 text-xs font-bold text-gray-500">Existing funding</summary><Link to={upfrontTo} className="flex min-h-11 items-center text-xs">Early pay agreements</Link><Link to={fundingTo} className="flex min-h-11 items-center border-t border-gray-100 text-xs dark:border-white/10">Funding activity</Link></details>
     {account.error && <p className="mt-4 text-center text-xs font-semibold text-red-600">{account.error}</p>}
   </section>
 }

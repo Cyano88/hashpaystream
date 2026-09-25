@@ -1,4 +1,7 @@
-import { ArrowDownLeftIcon, ArrowUpRightIcon, BanknotesIcon, CheckBadgeIcon, CheckCircleIcon, ClockIcon, XCircleIcon } from '@heroicons/react/24/outline'
+import { ARC_WALLET_CHAIN_ID, ARC_WALLET_EXPLORER } from '../lib/arcWalletConfig'
+import { Link, useLocation } from '../lib/router'
+import { streamPayPath, useStreamPayPath } from '../lib/useStreamPayPath'
+import { ArrowLeftIcon, ArrowDownLeftIcon, ArrowUpRightIcon, BanknotesIcon, CheckBadgeIcon, CheckCircleIcon, ClockIcon, XCircleIcon } from '@heroicons/react/24/outline'
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { formatUsdc, useAgreements } from '../lib/useAgreements'
 import { pendingArcActivity, removeArcActivity } from '../lib/arcTransferActivity'
@@ -22,7 +25,15 @@ const EVENTS = {
   'delivery.release_approved': { label: 'Release approved', Icon: CheckBadgeIcon, tone: 'text-blue-600' },
 } as const
 
-function date(value: string) { const parsed = new Date(value); return Number.isNaN(parsed.getTime()) ? 'Date unavailable' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(parsed) }
+function date(value: string) {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return 'Date unavailable'
+  const today = new Date(), yesterday = new Date()
+  yesterday.setDate(today.getDate() - 1)
+  if (parsed.toDateString() === today.toDateString()) return 'Today'
+  if (parsed.toDateString() === yesterday.toDateString()) return 'Yesterday'
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(parsed)
+}
 function time(value: string) { const parsed = new Date(value); return Number.isNaN(parsed.getTime()) ? '' : new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(parsed) }
 function short(value: string) { return value.length > 14 ? `${value.slice(0, 7)}…${value.slice(-5)}` : value }
 
@@ -34,6 +45,9 @@ export default function StreamPayActivity() {
   const [resuming, setResuming] = useState('')
   const requests = useServiceRequests()
   const [showAll, setShowAll] = useState(false)
+  const [filter, setFilter] = useState<'all' | 'agreements' | 'transfers'>('all')
+  const { search } = useLocation()
+  const homeTo = useStreamPayPath('/home')
   useEffect(() => {
     const owner = account.profile?.walletAddress
     if (!authenticated || !owner) return
@@ -58,8 +72,8 @@ export default function StreamPayActivity() {
   const requestNotices = useMemo(() => buildStreamNotices([], requests.requests), [requests.requests])
   const activity = useMemo(() => {
     const agreementRows = agreements.flatMap(agreement => [
-      ...(agreement.timeline ?? []).map(event => ({ id: `${agreement.id}:${event.id}`, event: event.event, occurredAt: event.createdAt || event.receivedAt, title: agreement.title || 'Agreement', detail: 'Protected payment' })),
-      ...(agreement.deliveryTimeline ?? []).map(event => ({ id: `${agreement.id}:${event.id}`, event: event.event, occurredAt: event.createdAt, title: agreement.title || 'Agreement', detail: 'Delivery update' })),
+      ...(agreement.timeline ?? []).map(event => ({ id: `${agreement.id}:${event.id}`, event: event.event, occurredAt: event.createdAt || event.receivedAt, title: agreement.title || 'Agreement', detail: 'Protected payment', destination: '/agreements?agreementId=' + encodeURIComponent(agreement.id) })),
+      ...(agreement.deliveryTimeline ?? []).map(event => ({ id: `${agreement.id}:${event.id}`, event: event.event, occurredAt: event.createdAt, title: agreement.title || 'Agreement', detail: 'Delivery update', destination: '/agreements?agreementId=' + encodeURIComponent(agreement.id) })),
     ])
     const transferRows = account.activity.map(item => ({
       id: item.id, event: item.direction === 'sent' ? 'wallet.sent' : 'wallet.received', occurredAt: item.createdAt,
@@ -76,12 +90,14 @@ export default function StreamPayActivity() {
     }))
     return [...agreementRows, ...requestRows, ...transferRows, ...trackedRows].filter(item => item.occurredAt).sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
   }, [account.activity, agreements, requestNotices, transfers.rows])
-  const visible = showAll ? activity : activity.slice(0, 20)
+  const filtered = activity.filter(item => filter === 'all' || (filter === 'transfers' ? item.event.startsWith('wallet.') : !item.event.startsWith('wallet.')))
+  const visible = showAll ? filtered : filtered.slice(0, 20)
   if (!authenticated) return <AgreementSignInLanding />
-  if (!ready || loading || account.loading || requests.loading) return <StreamPayLoadingState active="agreements" />
+  if (!ready || loading || account.loading || requests.loading) return <StreamPayLoadingState active="activity" />
 
   return <section className="stream-screen w-full max-w-md py-5 sm:py-8">
-    <h1 className="sr-only">Activity</h1>
+    <div className="mb-5 grid grid-cols-[3rem_1fr_3rem] items-center gap-3"><Link to={homeTo} aria-label="Back home" className="stream-icon-button"><ArrowLeftIcon className="h-4 w-4" /></Link><h1 className="text-center text-lg font-bold">Activity</h1><span aria-hidden="true" /></div>
+    <div className="mb-4 flex gap-2" aria-label="Activity filters">{(['all', 'agreements', 'transfers'] as const).map(value => <button type="button" key={value} aria-pressed={filter === value} onClick={() => { setFilter(value); setShowAll(false) }} className={`min-h-11 rounded-full px-4 text-xs font-bold capitalize ${filter === value ? 'bg-gray-950 text-white dark:bg-white dark:text-gray-950' : 'text-gray-500'}`}>{value}</button>)}</div>
     {(error || account.error || requests.error) && <p className="mb-4 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700 dark:bg-red-400/10 dark:text-red-200">{error || account.error || requests.error}</p>}
     {(resumeError || transfers.error) && <p role="alert" className="mb-4 text-xs text-red-600">{resumeError || transfers.error}</p>}
     <div className="stream-list-card">
@@ -93,11 +109,11 @@ export default function StreamPayActivity() {
         const Icon = presentation?.Icon ?? ClockIcon
         const group = date(item.occurredAt)
         const previous = index ? date(visible[index - 1].occurredAt) : ''
-        const row = <div className="flex min-h-[68px] items-center gap-3 border-t border-gray-100 px-4 py-3 dark:border-white/[0.07]"><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-white/[0.06] ${presentation?.tone || 'text-gray-500'}`}><Icon className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-gray-950 dark:text-white">{presentation?.label || 'Updated'}</span><span className="mt-0.5 block truncate text-[11px] text-gray-400">{item.detail || item.title}</span></span><time className="text-[10px] font-semibold text-gray-400">{time(item.occurredAt)}</time></div>
-        return <Fragment key={item.id}>{group !== previous && <p className={`${index ? 'border-t border-gray-100 dark:border-white/[0.07]' : ''} bg-gray-50 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:bg-white/[0.025]`}>{group}</p>}{'txHash' in item && item.txHash ? <a href={`${'chainId' in item && item.chainId === 196 ? 'https://www.oklink.com/xlayer' : 'https://testnet.arcscan.app'}/tx/${item.txHash}`} target="_blank" rel="noreferrer">{row}</a> : <>{row}{pendingTransfer && pendingTransfer.chainId === 5042002 && pendingTransfer.status === 'awaiting_approval' && <button disabled={Boolean(resuming)} onClick={async () => { setResuming(pendingTransfer.id); setResumeError(''); try { await transfers.resume(pendingTransfer) } catch (error) { setResumeError(error instanceof Error ? error.message : 'Approval is unavailable.') } finally { setResuming('') } }} className="px-4 pb-3 text-xs font-bold text-blue-600 disabled:opacity-40">{resuming === pendingTransfer.id ? 'Opening approval...' : 'Resume approval'}</button>}</>}</Fragment>
+        const row = <div className="flex min-h-[72px] items-center gap-3 border-t border-gray-100 px-4 py-3 dark:border-white/[0.07]"><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-white/[0.06] ${presentation?.tone || 'text-gray-500'}`}><Icon className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-gray-950 dark:text-white">{presentation?.label || 'Updated'}</span><span className="mt-1 block truncate text-[10px] text-gray-400">{item.detail || item.title}</span></span><time className="text-[10px] font-semibold text-gray-400">{time(item.occurredAt)}</time></div>
+        return <Fragment key={item.id}>{group !== previous && <p className={`${index ? 'border-t border-gray-100 dark:border-white/[0.07]' : ''} bg-gray-50 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:bg-white/[0.025]`}>{group}</p>}{'txHash' in item && item.txHash ? <a href={`${'chainId' in item && item.chainId === 196 ? 'https://www.oklink.com/xlayer' : ARC_WALLET_EXPLORER}/tx/${item.txHash}`} target="_blank" rel="noreferrer">{row}</a> : <>{notice || 'destination' in item ? <Link to={streamPayPath(notice?.destination || String('destination' in item ? item.destination : '/agreements'), search)}>{row}</Link> : row}{pendingTransfer && pendingTransfer.chainId === ARC_WALLET_CHAIN_ID && pendingTransfer.status === 'awaiting_approval' && <button disabled={Boolean(resuming)} onClick={async () => { setResuming(pendingTransfer.id); setResumeError(''); try { await transfers.resume(pendingTransfer) } catch (error) { setResumeError(error instanceof Error ? error.message : 'Approval is unavailable.') } finally { setResuming('') } }} className="px-4 pb-3 text-xs font-bold text-blue-600 disabled:opacity-40">{resuming === pendingTransfer.id ? 'Opening approval...' : 'Resume approval'}</button>}</>}</Fragment>
       })}
-      {activity.length > 20 && <button type="button" onClick={() => setShowAll(current => !current)} className="w-full border-t border-gray-100 px-5 py-4 text-xs font-bold text-blue-600 dark:border-white/[0.07]">{showAll ? 'Show recent activity' : 'View earlier activity'}</button>}
-      {!activity.length && <p className="px-6 py-14 text-center text-sm leading-6 text-gray-400">Your confirmed activity will appear here.</p>}
+      {filtered.length > 20 && <button type="button" onClick={() => setShowAll(current => !current)} className="w-full border-t border-gray-100 px-5 py-4 text-xs font-bold text-blue-600 dark:border-white/[0.07]">{showAll ? 'Show recent activity' : 'View earlier activity'}</button>}
+      {!filtered.length && <p className="px-6 py-14 text-center text-sm leading-6 text-gray-400">No activity to show here yet.</p>}
     </div>
   </section>
 }

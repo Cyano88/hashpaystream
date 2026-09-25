@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
 import { createServiceRequestsHandler } from '../api/service-requests.ts'
 
+const liveFixture = process.env.SMOKE_ARC_MAINNET === '1'
+const mainnetDraft = 'hpl_app_'+'a'.repeat(64), mainnetFunding = 'hpl_app_'+'b'.repeat(64)
 const secret = 'r'.repeat(48)
 const customer = { userId: 'did:privy:customer', email: 'customer@example.com' }
 const provider = { userId: 'did:privy:provider', email: 'provider@example.com' }
@@ -17,17 +19,17 @@ let upstreamPause
 let upstreamFailure = false
 const handler = createServiceRequestsHandler({
   hasStore: () => true,
-  env: () => ({ HASHPAYSTREAM_APP_OWNERSHIP_SECRET: secret, HASHPAYSTREAM_DIRECT_RECIPIENT_REGISTRY_SECRET: 'd'.repeat(48), HASHPAYSTREAM_ARC_API_KEY: `hpl_test_${'a'.repeat(40)}` }),
+  env: () => ({ ...(liveFixture ? {HASHPAYSTREAM_ARC_ENVIRONMENT:'live',HASHPAYSTREAM_ARC_AGREEMENT_FUNDING_ENABLED:'true',HASHPAYSTREAM_ARC_MAINNET_API_KEY:mainnetDraft,HASHPAYSTREAM_ARC_MAINNET_FUNDING_API_KEY:mainnetFunding}:{}), HASHPAYSTREAM_APP_OWNERSHIP_SECRET: secret, HASHPAYSTREAM_DIRECT_RECIPIENT_REGISTRY_SECRET: 'd'.repeat(48), HASHPAYSTREAM_ARC_API_KEY: `hpl_test_${'a'.repeat(40)}` }),
   identity: async () => identity,
   readRequests: async () => requestStore,
   readEvents: async () => eventStore,
   readAssessments: async () => undefined,
   readPartners: async () => undefined,
   mutateRequests: async (_key, update) => (requestStore = await update(requestStore)),
-  readAccounts: async () => ({ schema: 1, accounts: { [key(provider.email)]: { accountKey: key(provider.email), email: provider.email, displayName: 'Provider', pocketId: '1234567890', walletAddress: '0x1111111111111111111111111111111111111111' } } }),
+  readAccounts: async () => ({ schema: 1, accounts: { [key(provider.email)]: { accountKey: key(provider.email), email: provider.email, displayName: 'Provider', pocketId: '1234567890', walletChainId:5042,circleWalletId:'verified-circle-wallet',walletAddress: '0x1111111111111111111111111111111111111111' } } }),
   mutateOwnership: async (_key, update) => (ownershipStore = await update(ownershipStore)),
-  registerRecipient: async (_base, _apiKey, _secret, recipient, accountReference) => { registeredRecipient = { recipient, accountReference }; return { status: 201, body: { ok: true } } },
-  upstream: async (_base, _apiKey, body) => { upstreamBody = body; if (upstreamPause) await upstreamPause(); if (upstreamFailure) throw Error('connection lost'); return { status: 201, body: { ok: true, agreement: { id: 'agr_1234567890abcdef' }, payerReviewPath: '/agreements/agr_1234567890abcdef#access=private' } } },
+  registerRecipient: async (_base, _apiKey, _secret, recipient, accountReference) => { if(liveFixture)assert.equal(_apiKey,mainnetFunding); registeredRecipient = { recipient, accountReference }; return { status: 201, body: { ok: true } } },
+  upstream: async (_base, _apiKey, body) => { if(liveFixture)assert.equal(_apiKey,mainnetDraft); upstreamBody = body; if (upstreamPause) await upstreamPause(); if (upstreamFailure) throw Error('connection lost'); return { status: 201, body: { ok: true, agreement: { id: 'agr_1234567890abcdef' }, payerReviewPath: '/agreements/agr_1234567890abcdef#access=private' } } },
   now: () => new Date('2026-08-26T12:00:00.000Z'), id: () => 'req_1234567890abcdef',
 })
 function response() { return { statusCode: 200, body: undefined, headers: {}, setHeader(name, value) { this.headers[name] = value; return this }, status(code) { this.statusCode = code; return this }, json(body) { this.body = body; return this } } }

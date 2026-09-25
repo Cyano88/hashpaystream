@@ -61,6 +61,7 @@
     "audit:financial-core-reconciliation": "node --import tsx scripts/reconcile-financial-core-data.mjs",
     "verify:financial-core-postgres": "node --import tsx scripts/verify-financial-core-postgres.mjs",
     "db:migrate:financial-core": "node --import tsx scripts/migrate-financial-core.mjs",
+    "test:trade-xlayer": "node --import tsx scripts/trade-xlayer-checkout-smoke.mjs && node --import tsx scripts/trade-privy-ui-smoke.mjs",
     "test:trade-preview": "node --import tsx scripts/trade-preview-smoke.mjs",
     "test:trade-backend": "node --import tsx scripts/trade-backend-smoke.mjs",
     "test:trade-postgres": "node scripts/trade-postgres-harness.mjs",
@@ -109,7 +110,13 @@
     "test:stock-twelve-data-market": "node --import tsx scripts/stock-twelve-data-market-data-smoke.mjs",
     "test:stock-dex-manipulation": "node --import tsx scripts/stock-dex-manipulation-fork.mjs",
     "test:stock-twelve-data-repayment": "node --import tsx scripts/stock-early-pay-integration.mjs --postgres --actual-stock --twelve",
-    "test:stock-weekend-policy": "node --import tsx scripts/stock-weekend-policy-smoke.mjs"
+    "test:stock-weekend-policy": "node --import tsx scripts/stock-weekend-policy-smoke.mjs",
+    "test:trade-xstocks": "node --import tsx scripts/trade-xstocks-assets-smoke.mjs && node --import tsx scripts/trade-xstocks-picker-smoke.mjs",
+    "test:work-xlayer": "node --import tsx scripts/work-xlayer-smoke.mjs && node --import tsx scripts/work-xlayer-ui-smoke.mjs",
+    "test:hosted-account": "node --import tsx scripts/hosted-account-smoke.mjs",
+    "test:circle-biometric": "node --import tsx scripts/circle-biometric-vault-smoke.mjs",
+    "test:circle-otp": "node --import tsx scripts/circle-otp-flow-smoke.mjs",
+    "test:arc-wallet-environment": "node --import tsx scripts/arc-wallet-environment-smoke.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.5.1",
@@ -128,6 +135,7 @@
     "@circle-fin/w3s-pw-web-sdk": "^1.1.11",
     "@circle-fin/x402-batching": "^3.3.0",
     "@fontsource/plus-jakarta-sans": "^5.2.8",
+    "@hashpaylink/sdk": "file:vendor/hashpaylink-sdk-1.1.0-candidate.3.tgz",
     "@heroicons/react": "^2.2.0",
     "@privy-io/node": "0.28.0",
     "@privy-io/react-auth": "3.28.0",

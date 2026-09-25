@@ -13,7 +13,7 @@ let auth={ready:true,authenticated:true,user:{id:'owner',linkedAccounts:[{type:'
 let deferred=false
 const reads=[]
 const context={exports:{},...React,getAddress,isAddress,formatUnits,savingsChain:{id:5042002},SAVINGS_USDC_ADDRESS:getAddress('0x3600000000000000000000000000000000000000'),usePrivy:()=>auth,useWallets:()=>connected,
- createPublicClient:()=>({readContract:async()=>deferred ? new Promise(resolve=>reads.push(resolve)) : 100000n}),http:()=>({}),window:{localStorage:{getItem:()=>null,setItem(){},removeItem(){}},setInterval:()=>1,clearInterval(){},addEventListener(){},removeEventListener(){}}}
+ createPublicClient:()=>({getChainId:async()=>5042002,readContract:async()=>deferred ? new Promise(resolve=>reads.push(resolve)) : 100000n}),http:()=>({}),window:{localStorage:{getItem:()=>null,setItem(){},removeItem(){}},setInterval:()=>1,clearInterval(){},addEventListener(){},removeEventListener(){}}}
 vm.runInNewContext(compiled,context)
 let state,root
 function Probe(){state=context.exports.useSavingsUsdcBalance();return null}

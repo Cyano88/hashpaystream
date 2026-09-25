@@ -19,14 +19,14 @@ export function StreamPayHeader() {
   const agreementsTo = useStreamPayPath(authenticated ? '/home' : '/')
   const homeTo = useStreamPayPath('/home')
   const workspaceTo = useStreamPayPath('/agreements')
-  const fundingTo = useStreamPayPath('/funding')
+  const tradeTo = useStreamPayPath('/trade')
   const accountTo = useStreamPayPath('/account')
   const docsTo = useStreamPayPath('/docs')
   const telegramMode = isTelegramStreamPay(search)
   const route = pathname.replace(/\/+$/, '') || '/'
   const minimalSignInHeader = route === '/agreements' && !authenticated
   const navClass = (path: string) => {
-    const active = path === '/agreements' ? route.startsWith('/agreements') : route === path
+    const active = path === '/agreements' ? (route.startsWith('/agreements') || route === '/requests') : route === path
     return `rounded-full px-3 py-2 text-xs font-medium transition-colors ${active
       ? 'bg-gray-100 text-gray-950 dark:bg-white/10 dark:text-white'
       : 'text-gray-500 hover:text-gray-950 dark:text-gray-400 dark:hover:text-white'}`
@@ -53,11 +53,11 @@ export function StreamPayHeader() {
               <Link to={homeTo} aria-current={route === '/home' ? 'page' : undefined} className={navClass('/home')}>
                 Home
               </Link>
-              <Link to={workspaceTo} aria-current={route.startsWith('/agreements') ? 'page' : undefined} className={navClass('/agreements')}>
+              <Link to={workspaceTo} aria-current={(route.startsWith('/agreements') || route === '/requests') ? 'page' : undefined} className={navClass('/agreements')}>
                 Agreements
               </Link>
-              <Link to={fundingTo} aria-current={route === '/funding' ? 'page' : undefined} className={navClass('/funding')}>
-                Funding
+              <Link to={tradeTo} aria-current={route === '/trade' ? 'page' : undefined} className={navClass('/trade')}>
+                Trade
               </Link>
               <Link to={accountTo} aria-current={route === '/account' ? 'page' : undefined} className={navClass('/account')}>
                 Account

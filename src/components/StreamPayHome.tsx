@@ -1,14 +1,14 @@
 import {
   ArrowRightIcon,
-  ShoppingBagIcon,
-  BanknotesIcon,
-  DocumentPlusIcon,
-  SparklesIcon,
+  PaperAirplaneIcon,
+  ArrowDownTrayIcon,
+  ArrowsRightLeftIcon,
+  CircleStackIcon,
 } from '@heroicons/react/24/outline'
 import { useMemo } from 'react'
-import { Link } from '../lib/router'
-import { formatUsdcBalance, useAgreements } from '../lib/useAgreements'
-import { useStreamPayPath } from '../lib/useStreamPayPath'
+import { Link, useLocation } from '../lib/router'
+import { useAgreements } from '../lib/useAgreements'
+import { streamPayPath, useStreamPayPath } from '../lib/useStreamPayPath'
 import { AgreementSignInLanding } from './agreements/AgreementSignInLanding'
 import { useStreamAccount } from '../lib/streamAccount'
 import { StreamPayLoadingState } from './ui/StreamPayLoadingState'
@@ -41,14 +41,14 @@ export default function StreamPayHome() {
   const requests = useServiceRequests()
   useStreamAccount()
   const createTo = useStreamPayPath('/requests?compose=1')
-  const upfrontTo = useStreamPayPath('/upfront')
+  const sendTo = useStreamPayPath('/send')
+  const receiveTo = useStreamPayPath('/receive')
+  const savingsTo = useStreamPayPath('/savings')
+  const { search } = useLocation()
   const activityTo = useStreamPayPath('/activity')
   const notificationsTo = useStreamPayPath('/notifications')
-  const moveTo = useStreamPayPath('/move')
-  const tradeTo = useStreamPayPath('/trade')
-  const earnTo = useStreamPayPath('/funding')
   const notices = useMemo(() => buildStreamNotices(agreements, requests.requests), [agreements, requests.requests])
-  const recentActivity = useMemo(() => notices.slice(0, 3), [notices])
+  const recentActivity = useMemo(() => notices.slice(0, 4), [notices])
   const { unreadCount } = useNotificationReadState(notices)
   const customerEscrow = useMemo(() => requests.requests.reduce((total, request) => {
     if (request.role !== 'customer' || !request.agreementId || !['funded', 'expired'].includes(request.status)) return total
@@ -65,15 +65,15 @@ export default function StreamPayHome() {
   if (!ready || loading || requests.loading || (!wallet.balanceReady && !wallet.balanceError)) return <StreamPayLoadingState active="home" />
 
   const actions = [
-    { label: 'New', Icon: DocumentPlusIcon, to: createTo },
-    { label: 'Early pay', Icon: SparklesIcon, to: upfrontTo },
-    { label: 'Trade', Icon: ShoppingBagIcon, to: tradeTo },
-    { label: 'Earn', Icon: BanknotesIcon, to: earnTo },
+    { label: 'Send', Icon: PaperAirplaneIcon, to: sendTo },
+    { label: 'Receive', Icon: ArrowDownTrayIcon, to: receiveTo },
+    { label: 'Swap', Icon: ArrowsRightLeftIcon, to: null },
+    { label: 'Savings', Icon: CircleStackIcon, to: savingsTo },
   ]
 
   return (
     <section className="stream-screen w-full max-w-md space-y-4 py-5 sm:py-8">
-      <h1 className="sr-only">Agreements</h1>
+      <h1 className="sr-only">Home</h1>
       {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300">{error}</div>}
 
       <HomeBalanceCarousel
@@ -85,17 +85,16 @@ export default function StreamPayHome() {
         arcBalanceError={wallet.balanceError}
         refreshArcBalance={wallet.refreshBalance}
         notificationsTo={notificationsTo}
-        moveTo={moveTo}
         unreadCount={unreadCount}
       />
 
       <section className="grid grid-cols-4 gap-2">
-        {actions.map(({ label, Icon, to }) => (
+        {actions.map(({ label, Icon, to }) => to ? (
           <Link key={label} to={to} className="stream-card flex min-h-20 flex-col items-center justify-center gap-2 rounded-2xl px-1 text-[10px] font-bold text-gray-700 transition active:scale-[0.98] dark:text-gray-200">
             <Icon className="h-5 w-5" />
             {label}
           </Link>
-        ))}
+        ) : <button key={label} type="button" disabled aria-label="Swap coming soon" className="stream-card flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[10px] font-bold text-gray-400"><Icon className="h-5 w-5" /><span>{label}</span><span className="text-[9px] font-medium">Coming soon</span></button>)}
       </section>
 
       <section className="stream-card p-4">
@@ -109,12 +108,12 @@ export default function StreamPayHome() {
             <ArrowRightIcon className="h-3.5 w-3.5" />
           </Link>
         </div>
-        <div className="mt-4 space-y-1">
+        <div className="mt-4 divide-y divide-gray-100 dark:divide-white/[0.05]">
           {recentActivity.map(item => {
             const Icon = item.Icon
             return (
-              <Link key={item.id} to={activityTo} className="flex w-full items-center gap-3 rounded-2xl px-2 py-3 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.04]">
-                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-white/[0.07] ${item.tone}`}>
+              <Link key={item.id} to={streamPayPath(item.destination, search)} className="flex min-h-[72px] w-full items-center gap-3 rounded-2xl px-1 py-3 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.04]">
+                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-white/[0.07] ${item.tone}`}>
                   <Icon className="h-4 w-4" />
                 </span>
                 <span className="min-w-0 flex-1">

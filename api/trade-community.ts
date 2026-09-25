@@ -1,3 +1,7 @@
+import { keccak256, stringToHex } from 'viem';
+import { tradeXLayerAssets } from './trade-xlayer-assets.js';
+import { verifyTradePrivyWallet } from './trade-privy-wallet.js';
+import { tradeXLayerFundingContext, tradeXLayerEnabled, prepareTradeXLayerAction } from './trade-xlayer-checkout.js';
 import { verifyTradeCircleWallet } from "./trade-wallet-verification.js";
 import express, { type Request, type Response } from "express";
 import { createHmac } from "node:crypto";
@@ -66,7 +70,7 @@ export function createTradeCommunityRouter(
     wallet: verifyTradeCircleWallet,
     admin: isAdmin,
     store: () =>
-      (configured ??= createTradeCommunityStore(configuredTradePool())),
+      (configured ??= createTradeCommunityStore(configuredTradePool(), tradeXLayerFundingContext(overrides.env ?? (() => process.env)))),
     ...overrides,
   };
   const router = express.Router();
@@ -104,6 +108,9 @@ export function createTradeCommunityRouter(
       }
     };
   const parse = express.json({ limit: "32kb" });
+  router.get('/xlayer-assets', rateLimit({name:'trade-assets-read',windowMs:60000,max:12}), secure(async (_req,res) => {
+    res.json({ok:true,...await tradeXLayerAssets(deps.env())});
+  }));
   const writes = rateLimit({
     name: "trade-community-write",
     windowMs: 60000,
@@ -124,6 +131,27 @@ export function createTradeCommunityRouter(
       }),
     ),
   );
+  router.post('/xlayer-wallet', writes, parse, secure(async (req, res, viewer, userId) => {
+    const threadId = id(req.body?.threadId), offerId = id(req.body?.offerId);
+    await deps.store().settlementWallet(viewer, threadId, offerId);
+    const wallet = await verifyTradePrivyWallet(userId, req.body?.address, deps.env());
+    res.json({ok:true, wallet:await deps.store().settlementWallet(viewer, threadId, offerId, wallet)});
+  }));
+  router.post('/xlayer-checkout', writes, parse, secure(async (req, res, viewer, userId) => {
+    const threadId = id(req.body?.threadId), offerId = id(req.body?.offerId);
+    const selected = await deps.store().settlementWallet(viewer, threadId, offerId);
+    if (!tradeXLayerEnabled(deps.env())) { res.json({ok:true, enabled:false, actions:[]}); return; }
+    if (!selected || selected.chainId !== 196) fail('Confirm your trading wallet first.', 409);
+    const wallet = await verifyTradePrivyWallet(userId, selected.address, deps.env());
+    const reservation = await deps.store().fundingReservation(viewer, threadId, offerId, req.body?.reserve === true);
+    if (!reservation) { res.json({ok:true, enabled:true, actions:[], needsReservation:true}); return; }
+    const plan = await prepareTradeXLayerAction({env:deps.env(), binding:reservation.binding, account:wallet.address as `0x${string}`, action:req.body?.action, evidence:req.body?.evidence});
+    if (plan.transaction && ['dispatch','refund','dispute'].includes(req.body?.action)) {
+      const body = String(req.body.evidence).trim();
+      await deps.store().checkoutEvidence(viewer,threadId,offerId,keccak256(stringToHex(body)),body);
+    }
+    res.json({ok:true, ...plan});
+  }));
   router.get(
     "/settlement-wallet",
     secure(async (req, res, viewer) =>

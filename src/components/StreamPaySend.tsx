@@ -1,3 +1,4 @@
+import { ARC_WALLET_CHAIN_ID } from '../lib/arcWalletConfig'
 import { useRef, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowLeftIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
@@ -32,7 +33,7 @@ function SendForm() {
   const [notice, setNotice] = useState('')
   const resolving = useRef(0)
   const submitting = useRef(false)
-  const scope = wallet.address ? { chainId: 5042002, owner: getAddress(wallet.address), asset: getAddress('0x3600000000000000000000000000000000000000') } : undefined
+  const scope = wallet.address ? { chainId: ARC_WALLET_CHAIN_ID, owner: getAddress(wallet.address), asset: getAddress('0x3600000000000000000000000000000000000000') } : undefined
   const available = scope ? transfers.available(scope, parseUnits(wallet.balance || '0', 6)) : 0n
   const homeTo = useStreamPayPath('/home')
   if (!authenticated)

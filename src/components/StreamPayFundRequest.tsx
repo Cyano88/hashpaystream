@@ -295,7 +295,7 @@ export default function StreamPayFundRequest({ item, onBack, payer, onFunded }: 
 
   return <section className="w-full max-w-md py-5 sm:py-8">
     <div className="flex items-center gap-3">
-      <button onClick={onBack} aria-label="Back to request" className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm dark:bg-white/[0.06]">
+      <button onClick={onBack} aria-label="Back to request" className="stream-icon-button">
         <ArrowLeftIcon className="h-4 w-4" />
       </button>
       <h1 className="text-xl font-extrabold">{refunded || cancelled ? 'Agreement closed' : completed ? 'Agreement completed' : active ? 'Review delivery' : 'Review and fund'}</h1>

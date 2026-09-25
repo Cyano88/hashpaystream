@@ -1,6 +1,6 @@
 const required = [
   'VITE_PRIVY_APP_ID',
-  'VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET',
+  process.env.VITE_HASHPAYSTREAM_ARC_ENVIRONMENT === 'live' ? 'VITE_CIRCLE_USER_WALLET_APP_ID_ARC_MAINNET' : 'VITE_CIRCLE_USER_WALLET_APP_ID_ARC_TESTNET',
   'VITE_HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED',
   'VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID',
   'VITE_HASHPAYSTREAM_UPFRONT_ESCROW_CONTRACT_ADDRESS',
@@ -21,8 +21,8 @@ const expected = {
   VITE_HASHPAYSTREAM_FEE_SETTLEMENT_V3_ENABLED: 'true',
   VITE_HASHPAYSTREAM_UPFRONT_CHAIN_ID: '196',
   VITE_HASHPAYSTREAM_UPFRONT_TREASURY_ENABLED: 'true',
-  // The canonical stock UI ships in Android; server execution remains separately gated.
-  VITE_HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED: 'true',
+  // New Pay with xStocks is separate; the retired Early Pay UI must stay disabled.
+  VITE_HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED: 'false',
 }
 const invalid = Object.entries(expected)
   .filter(([name, value]) => String(process.env[name] ?? '').trim().toLowerCase() !== value)

@@ -759,6 +759,27 @@ try {
   );
   const raceOffer = (await store.offers(owner("buyer"), racingThread))[0];
   assert.equal(raceOffer.status, raceReservation ? "accepted" : "cancelled");
+  // Migrate the legacy UUID/Arc-only schema without losing bound Circle wallets.
+  const legacyBefore = (await pool.query('select * from hashpaystream_trade_settlement_wallets order by offer_id,actor')).rows;
+  await pool.query('alter table hashpaystream_trade_settlement_wallets alter column wallet_id type uuid using wallet_id::uuid');
+  await pool.query('alter table hashpaystream_trade_settlement_wallets drop constraint hashpaystream_trade_settlement_wallets_chain_id_check');
+  await pool.query('alter table hashpaystream_trade_settlement_wallets add constraint hashpaystream_trade_settlement_wallets_chain_id_check check(chain_id=5042002)');
+  const migrated = createTradeCommunityStore(pool);
+  await migrated.checkoutStatus(owner('buyer'),checkoutThread,checkoutOffer);
+  assert.deepEqual((await pool.query('select * from hashpaystream_trade_settlement_wallets order by offer_id,actor')).rows,legacyBefore);
+  const privyItem = {...listing,id:randomUUID(),currency:'USDC'};
+  await listings.save(privyItem,0);
+  const privyThread = await migrated.start(owner('buyer'),privyItem.id), privyOffer = randomUUID();
+  await migrated.offer(owner('seller'),privyThread,privyOffer,'propose',{...terms,currency:'USDC'});
+  await migrated.offer(owner('buyer'),privyThread,privyOffer,'accept');
+  const privyWallet = {...walletFixtures.buyer,walletId:'privy:'+walletFixtures.buyer.address.toLowerCase(),chainId:196};
+  assert.equal((await migrated.settlementWallet(owner('buyer'),privyThread,privyOffer,privyWallet)).chainId,196);
+  await assert.rejects(()=>migrated.settlementWallet(owner('buyer'),privyThread,privyOffer,walletFixtures.buyer),e=>e.status===409);
+  await migrated.checkoutEvidence(owner('buyer'),privyThread,privyOffer,'synthetic-hash','Synthetic delivery reference');
+  await migrated.checkoutEvidence(owner('buyer'),privyThread,privyOffer,'synthetic-hash','Synthetic delivery reference');
+  await assert.rejects(()=>migrated.checkoutEvidence(owner('intruder'),privyThread,privyOffer,'another-hash','Synthetic evidence'),e=>e.status===404);
+  assert.equal((await pool.query('select count(*)::int n from hashpaystream_trade_checkout_evidence where offer_id=$1',[privyOffer])).rows[0].n,1);
+  console.log('Trade wallet migration passed: legacy Circle records preserved, Privy identifiers supported, fixed wallet binding and participant-only durable evidence.');
   console.log(
     "Funding reservation passed: default-off gate, authenticated roles, concurrent retry recovery, immutable binding, restart/block/removal recovery, and cancellation hold.",
   );

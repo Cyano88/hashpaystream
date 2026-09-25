@@ -20,7 +20,7 @@ export default function StreamPayNotifications() {
   const notices = useMemo(() => buildStreamNotices(agreements.agreements, requests.requests), [agreements.agreements, requests.requests])
   const { markRead } = useNotificationReadState(notices)
 
-  if (agreements.loading || requests.loading) return <StreamPayLoadingState active="requests" />
+  if (agreements.loading || requests.loading) return <StreamPayLoadingState active="notifications" />
   return <section className="stream-screen w-full max-w-md py-5 sm:py-8">
     <div className="flex items-center gap-3"><Link to={homeTo} className="stream-icon-button" aria-label="Back home"><ArrowLeftIcon className="h-4 w-4" /></Link><h1 className="text-xl font-extrabold tracking-tight text-gray-950 dark:text-white">Notifications</h1></div>
     {(agreements.error || requests.error) && <p className="mt-4 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700 dark:bg-red-400/10 dark:text-red-200">{agreements.error || requests.error}</p>}

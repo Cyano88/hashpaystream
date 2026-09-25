@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { Capacitor } from '@capacitor/core'
 
 const SPLASH_SESSION_KEY = 'hashpaystream_signin_splash_shown_v2'
+// Module lifetime is the WebView document, not the authenticated wallet subtree.
+let launchClaimed = false
 const MOBILE_SPLASH_QUERY = '(max-width: 767px)'
-export const SPLASH_TIMING = { entering: 100, mark: 250, assembling: 850, reading: 450, exit: 0 } as const
+export const SPLASH_TIMING = { entering: 200, mark: 800, assembling: 600, reading: 1500, exit: 160 } as const
 
 export type HashPayStreamSplashState = 'idle' | 'entering' | 'mark' | 'assembling' | 'holding' | 'launching'
 
@@ -13,7 +15,7 @@ function isPageReload() {
 }
 
 function initialState(enabled: boolean): HashPayStreamSplashState {
-  if (!enabled) return 'idle'
+  if (!enabled || launchClaimed) return 'idle'
   try {
     const nativeRuntime = Capacitor.isNativePlatform()
     const alreadyShown = window.sessionStorage.getItem(SPLASH_SESSION_KEY) === 'true'
@@ -27,6 +29,11 @@ function initialState(enabled: boolean): HashPayStreamSplashState {
 
 export function useHashPayStreamSessionSplash(enabled: boolean, canLaunch = true) {
   const [state, setState] = useState<HashPayStreamSplashState>(() => initialState(enabled))
+
+  useEffect(() => {
+    if (state !== 'idle') launchClaimed = true
+    // Claim only after commit, so React StrictMode's double initializer is safe.
+  }, [])
 
   // The launch animation belongs to this mount, not to route changes.
   useEffect(() => {

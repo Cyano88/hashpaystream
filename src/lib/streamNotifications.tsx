@@ -52,7 +52,7 @@ export function buildStreamNotices(agreements: AgreementSummary[], requests: Ser
       'request.funded': { title: 'Customer funded the agreement', role: 'Payment' },
     }
     const label = labels[event.type] ?? { title: 'Request updated', role: 'HashPayStream' as const }
-    return { id: `request:${item.id}:${event.id}`, destination: `/requests?tab=${item.direction}`, role: label.role, title: label.title, detail: terms?.title ?? 'Job request', occurredAt: event.createdAt, tone: event.type.includes('decline') || event.type.includes('cancel') ? 'text-gray-500' : 'text-blue-600', Icon: event.type.includes('accept') ? CheckCircleIcon : BriefcaseIcon }
+    return { id: `request:${item.id}:${event.id}`, destination: `/requests?tab=${item.direction}&view=details&request=${encodeURIComponent(item.id)}`, role: label.role, title: label.title, detail: terms?.title ?? 'Job request', occurredAt: event.createdAt, tone: event.type.includes('decline') || event.type.includes('cancel') ? 'text-gray-500' : 'text-blue-600', Icon: event.type.includes('accept') ? CheckCircleIcon : BriefcaseIcon }
   }))
   const agreementNotices = agreements.flatMap(agreement => {
     const customerResponse: StreamNotice[] = agreement.customerRequest?.decision === 'declined' ? [{

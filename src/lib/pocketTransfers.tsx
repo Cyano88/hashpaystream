@@ -1,3 +1,4 @@
+import { ARC_WALLET_CHAIN_ID } from './arcWalletConfig'
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { formatUnits } from 'viem'
@@ -48,7 +49,7 @@ function useTransfers() {
   }, [outboxKey, request, upsert])
   const refresh = useCallback(async () => {
     const scopes: TransferScope[] = [
-      ...(wallet.address ? [{ chainId: 5042002, owner: wallet.address as `0x${string}`, asset: '0x3600000000000000000000000000000000000000' as `0x${string}` }] : []),
+      ...(wallet.address ? [{ chainId: ARC_WALLET_CHAIN_ID, owner: wallet.address as `0x${string}`, asset: '0x3600000000000000000000000000000000000000' as `0x${string}` }] : []),
       ...(xlayer.address ? [{ chainId: 196, owner: xlayer.address, asset: XLAYER_USDC_ADDRESS }] : []),
     ]
     for (const scope of scopes) {
@@ -59,17 +60,21 @@ function useTransfers() {
       const migrationKey = storageKey + ':migration-id'
       const id = localStorage.getItem(migrationKey) || (/^[0-9a-f-]{36}$/i.test(old.key) ? old.key : crypto.randomUUID())
       localStorage.setItem(migrationKey, id)
-      await request({ action: 'import', id, ...scope, ...old, userToken: scope.chainId === 5042002 ? wallet.session?.userToken : undefined })
+      await request({ action: 'import', id, ...scope, ...old, userToken: scope.chainId === ARC_WALLET_CHAIN_ID ? wallet.session?.userToken : undefined })
       localStorage.removeItem(storageKey)
       localStorage.removeItem(migrationKey)
     }
     const outbox = JSON.parse(localStorage.getItem(outboxKey) || '{}')
-    for (const [id, references] of Object.entries(outbox)) await track(id, references as TransferReferences)
+    // Fetch the server-selected network rows before replaying local status writes.
+    // Retain sandbox entries while still recovering existing X Layer writes.
+    const visible = await request()
+    const visibleIds = new Set(visible.transfers.map(row => row.id))
+    for (const [id, references] of Object.entries(outbox)) if (visibleIds.has(id)) await track(id, references as TransferReferences)
     const data = await request()
     if (data.transfers.some(row => terminal(row))) { void wallet.refreshBalance().catch(() => undefined); void xlayer.refresh().catch(() => undefined) }
     setSnapshot(previous => ({ actor, rows: data.transfers.map(row => { const newer = previous.actor === actor ? previous.rows.find(item => item.id === row.id && item.updatedAt > row.updatedAt) : undefined; return newer ?? row }) }))
     setReadyActor(actor); setError('')
-    for (const row of data.transfers.filter(row => row.chainId === 5042002 && row.owner.toLowerCase() === wallet.address.toLowerCase() && !terminal(row) && !row.hash && (row.challengeId || row.transactionId)).sort((a,b) => a.updatedAt.localeCompare(b.updatedAt)).slice(0, 3)) {
+    for (const row of data.transfers.filter(row => row.chainId === ARC_WALLET_CHAIN_ID && row.owner.toLowerCase() === wallet.address.toLowerCase() && !terminal(row) && !row.hash && (row.challengeId || row.transactionId)).sort((a,b) => a.updatedAt.localeCompare(b.updatedAt)).slice(0, 3)) {
       try { const result = await request({ action: 'reconcile_circle', id: row.id, userToken: wallet.session?.userToken }); upsert(result.transfer) } catch { /* Resume discovery when the wallet session is available. */ }
     }
   }, [actor, outboxKey, request, track, wallet.address, wallet.session?.userToken, wallet.refreshBalance, xlayer.address, xlayer.refresh, upsert])
@@ -85,7 +90,7 @@ function useTransfers() {
     const key = 'hashpaystream:transfer-draft:' + actor + ':' + scope.chainId + ':' + scope.owner.toLowerCase() + ':' + intent.recipient.toLowerCase() + ':' + intent.units
     const id = localStorage.getItem(key) || crypto.randomUUID()
     localStorage.setItem(key, id)
-    const data = await request({ action: 'create', id, ...scope, ...intent, userToken: scope.chainId === 5042002 ? wallet.session?.userToken : undefined })
+    const data = await request({ action: 'create', id, ...scope, ...intent, userToken: scope.chainId === ARC_WALLET_CHAIN_ID ? wallet.session?.userToken : undefined })
     upsert(data.transfer)
     return { transfer: data.transfer, releaseDraft: () => localStorage.removeItem(key) }
   }, [actor, request, upsert, wallet.session?.userToken])
@@ -94,7 +99,7 @@ function useTransfers() {
     return units > reserved ? units - reserved : 0n
   }
   const resume = async (row: PocketTransfer) => {
-    if (row.chainId !== 5042002 || row.hash || row.status !== 'awaiting_approval') return
+    if (row.chainId !== ARC_WALLET_CHAIN_ID || row.hash || row.status !== 'awaiting_approval') return
     if (wallet.address.toLowerCase() !== row.owner.toLowerCase()) throw Error('Open the wallet that owns this payment.')
     const found = await wallet.lookupTransfer(row)
     if (found.hash) { await track(row.id, found); return }

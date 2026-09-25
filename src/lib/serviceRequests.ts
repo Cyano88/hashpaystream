@@ -1,3 +1,4 @@
+import type { WorkPayment } from './workXLayer'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { reconcileUpdatedSnapshots } from './stableSnapshots'
@@ -5,6 +6,7 @@ import { fetchWithTimeout } from './fetchWithTimeout'
 
 const API = '/api/hashpaystream/v1/service-requests'
 export type ServiceRequestTerms = {
+  xlayerPayment?: WorkPayment
   version: number; title: string; description: string; amount: string; amountUsdcUnits: string
   durationSeconds: number; cancellationWindowSeconds: number; upfrontRequested: boolean; upfrontReason?: string
   proposedBy: 'customer' | 'provider'; createdAt: string
@@ -21,6 +23,7 @@ export type EarlyPaySettlement = {
   platformFeeUsdcUnits: string
 }
 export type ServiceRequest = {
+  workState?:number; workEscrow?:string
   id: string; role: 'customer' | 'provider'; direction: 'sent' | 'received'; counterparty: string
   status: 'sent' | 'countered' | 'provider_accepted' | 'awaiting_funding' | 'funded' | 'expired' | 'completed' | 'refunded' | 'declined' | 'cancelled'
   acceptancePending?: boolean; activeVersion: number; terms: ServiceRequestTerms[]; events: ServiceRequestEvent[]

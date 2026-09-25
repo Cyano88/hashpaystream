@@ -16,7 +16,7 @@ import { validateTradeTerms } from "../src/lib/tradeAgreement.js";
 type Client = pg.PoolClient;
 // Server-only, read-only adapter: must verify an approved deployment.
 // It must never issue challenges or transactions; database deadlock retries can call it again.
-// No production adapter is installed; HTTP input never supplies these values.
+// HTTP input never supplies deployment configuration.
 export type TradeFundingContext = (participants: {
   buyer: string;
   seller: string;
@@ -60,12 +60,19 @@ export function createTradeCommunityStore(
         create index if not exists trade_offers_thread on hashpaystream_trade_offers(thread_id,created_at);
         create table if not exists hashpaystream_trade_settlement_wallets (
           offer_id uuid not null references hashpaystream_trade_offers(id), actor text not null,
-          wallet_id uuid not null, address text not null, chain_id integer not null check(chain_id=5042002),
+          wallet_id text not null, address text not null, chain_id integer not null check(chain_id in (5042002,196)),
           verified_at bigint not null, primary key(offer_id,actor), unique(offer_id,address));
         create table if not exists hashpaystream_trade_funding_reservations (
           id uuid primary key, offer_id uuid not null unique references hashpaystream_trade_offers(id),
           listing_id uuid not null unique references hashpaystream_trade_listings(id),
           binding jsonb not null, created_at bigint not null);
+        alter table hashpaystream_trade_settlement_wallets alter column wallet_id type text using wallet_id::text;
+        alter table hashpaystream_trade_settlement_wallets drop constraint if exists hashpaystream_trade_settlement_wallets_chain_id_check;
+        alter table hashpaystream_trade_settlement_wallets add constraint hashpaystream_trade_settlement_wallets_chain_id_check check(chain_id in (5042002,196));
+        create table if not exists hashpaystream_trade_checkout_evidence (
+          offer_id uuid not null references hashpaystream_trade_offers(id), actor text not null,
+          evidence_hash text not null, body text not null, created_at bigint not null,
+          primary key(offer_id,actor,evidence_hash));
         create index if not exists trade_reports_open on hashpaystream_trade_reports(status,created_at);
       `);
     })().catch((error) => {
@@ -162,6 +169,14 @@ export function createTradeCommunityStore(
         }
       : null;
   return {
+    async checkoutEvidence(viewer: string, threadId: string, offerId: string, hash: string, body: string) {
+      return transaction(async client => {
+        await thread(client, threadId, viewer);
+        const row = await client.query('select id from hashpaystream_trade_offers where id=$1 and thread_id=$2', [offerId,threadId]);
+        if (!row.rowCount) fail('Offer not found.',404);
+        await client.query('insert into hashpaystream_trade_checkout_evidence(offer_id,actor,evidence_hash,body,created_at) values($1,$2,$3,$4,$5) on conflict do nothing', [offerId,viewer,hash,body,Date.now()]);
+      });
+    },
     async checkoutStatus(viewer: string, threadId: string, offerId: string) {
       return transaction(async (client) => {
         const t = await thread(client, threadId, viewer);

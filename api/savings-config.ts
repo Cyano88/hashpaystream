@@ -1,3 +1,4 @@
+import { arcWalletEnvironment } from './arc-wallet-environment.js'
 import type { Request, Response } from 'express'
 import { getAddress, isAddress, zeroAddress, type Address } from 'viem'
 
@@ -33,20 +34,23 @@ export function createSavingsConfigHandler(overrides: Partial<SavingsConfigDepen
     }
 
     const env = dependencies.env()
+    let profile: ReturnType<typeof arcWalletEnvironment>
+    try { profile = arcWalletEnvironment(env) } catch { return res.status(503).json({ ok: false, error: 'Savings environment is unavailable.' }) }
     const vaultAddress = address(
+      profile.live ? env.HASHPAYSTREAM_ARC_MAINNET_SAVINGS_VAULT_ADDRESS :
       env.HASHPAYSTREAM_SAVINGS_VAULT_ADDRESS
       ?? env.VITE_HASHPAYSTREAM_SAVINGS_VAULT_ADDRESS,
     )
     const depositsEnabled = Boolean(
       vaultAddress
-      && enabled(env.HASHPAYSTREAM_SAVINGS_DEPOSITS_ENABLED),
+      && enabled(profile.live ? env.HASHPAYSTREAM_ARC_MAINNET_SAVINGS_DEPOSITS_ENABLED : env.HASHPAYSTREAM_SAVINGS_DEPOSITS_ENABLED),
     )
 
     return res.status(200).json({
       ok: true,
       savings: {
-        chainId: SAVINGS_CHAIN_ID,
-        network: 'Arc Testnet',
+        chainId: profile.chainId,
+        network: profile.live ? 'Arc' : 'Arc Testnet',
         assetAddress: SAVINGS_USDC_ADDRESS,
         vaultAddress: vaultAddress ?? null,
         depositsEnabled,

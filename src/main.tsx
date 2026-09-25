@@ -48,7 +48,7 @@ function Providers() {
   }
   const config: PrivyClientConfig = {
     loginMethods: ['email'],
-    supportedChains: import.meta.env.VITE_HASHPAYSTREAM_STOCK_EARLY_PAY_ENABLED === 'true' && upfrontXLayerChain.id !== xLayerMainnet.id ? [upfrontXLayerChain, arcTestnet, xLayerMainnet] : [upfrontXLayerChain, arcTestnet],
+    supportedChains: [...new Map([upfrontXLayerChain, arcTestnet, xLayerMainnet].map(chain => [chain.id, chain])).values()],
     allowOAuthInEmbeddedBrowsers: true,
     embeddedWallets: {
       ethereum: { createOnLogin: 'off' },
@@ -61,7 +61,7 @@ function Providers() {
       theme: 'light',
       accentColor: '#2563eb',
       logo: logoUrl,
-      landingHeader: 'HashPayStream',
+      landingHeader: 'Hash PayStream',
       loginMessage: 'Our team will never ask for your login code.',
       emailDomain: 'HashPayStream',
     },

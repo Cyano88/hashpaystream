@@ -124,9 +124,9 @@ export function StreamPayEmailLogin({
           disabled={busy}
           onClick={changeEmail}
           aria-label="Back to email"
-          className="fixed left-4 top-[calc(var(--stream-safe-top)+0.75rem)] z-10 flex h-12 w-12 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-950 shadow-sm transition active:scale-95 disabled:opacity-50"
+          className="fixed left-4 top-[calc(var(--stream-safe-top)+0.75rem)] z-10 stream-icon-button disabled:opacity-50"
         >
-          <ArrowLeftIcon className="h-5 w-5" />
+          <ArrowLeftIcon className="h-4 w-4" />
         </button>
         <main className="stream-auth-content mx-auto flex w-full max-w-[430px] flex-col justify-center py-4">
           <div className="text-center">

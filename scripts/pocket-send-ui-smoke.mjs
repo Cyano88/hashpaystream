@@ -11,7 +11,7 @@ let resolveRecipient,finishSend,sends=0
 const wallet={address:'0x1111111111111111111111111111111111111111',session:{},balanceReady:true,balance:'2',sendUsdc:async()=>{sends++;return new Promise(resolve=>finishSend=resolve)}}
 const account={resolvePocketId:async()=>new Promise(resolve=>resolveRecipient=resolve),recordTransfer:async()=>{throw Error('Activity offline')}}
 const transfers={ready:true, available:(_,units)=>units, begin:async()=>({transfer:{id:'payment-one',status:'awaiting_approval'},releaseDraft(){}}),track:async()=>{throw Error('Status write offline')}}
-const context={exports:{},React,...React,formatUnits,getAddress,isAddress,parseUnits,zeroAddress,usePrivy:()=>({authenticated:true,user:{id:'owner'}}),useStreamAccount:()=>account,useCircleWallet:()=>wallet,usePocketTransfers:()=>transfers,useStreamPayPath:p=>p,formatUsdcBalance:()=>'',readPendingTransfer:()=>undefined,queueArcActivity(){},removeArcActivity(){},ArrowLeftIcon:()=>null,CheckCircleIcon:()=>null,AgreementSignInLanding:()=>null,Link:({children})=>children}
+const context={ARC_WALLET_CHAIN_ID:5042002,exports:{},React,...React,formatUnits,getAddress,isAddress,parseUnits,zeroAddress,usePrivy:()=>({authenticated:true,user:{id:'owner'}}),useStreamAccount:()=>account,useCircleWallet:()=>wallet,usePocketTransfers:()=>transfers,useStreamPayPath:p=>p,formatUsdcBalance:()=>'',readPendingTransfer:()=>undefined,queueArcActivity(){},removeArcActivity(){},ArrowLeftIcon:()=>null,CheckCircleIcon:()=>null,AgreementSignInLanding:()=>null,Link:({children})=>children}
 vm.runInNewContext(compiled,context)
 let root
 await act(async()=>{root=TestRenderer.create(React.createElement(context.exports.default))})

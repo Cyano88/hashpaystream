@@ -1,8 +1,9 @@
+import { WORK_STATES, workPaymentLabel } from '../../lib/workXLayer'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
-import { ArrowTopRightOnSquareIcon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, ClipboardIcon } from '@heroicons/react/24/outline'
+import { ArrowTopRightOnSquareIcon, CheckIcon, ChevronDownIcon, ArrowLeftIcon, ChevronRightIcon, DocumentPlusIcon, InboxIcon, ClockIcon, CheckCircleIcon, DocumentTextIcon, ClipboardIcon } from '@heroicons/react/24/outline'
 import { Link, useLocation, useNavigate } from '../../lib/router'
-import { useStreamPayPath } from '../../lib/useStreamPayPath'
+import { streamPayPath, useStreamPayPath } from '../../lib/useStreamPayPath'
 import UnifiedReceipt from '../UnifiedReceipt'
 import { AgreementSignInLanding } from './AgreementSignInLanding'
 import type { PaylinkReceipt } from '../../lib/paymentReceiptPdf'
@@ -251,11 +252,17 @@ export default function AgreementDashboard() {
   const { search } = useLocation()
   const navigate = useNavigate()
   const agreementsTo = useStreamPayPath('/agreements')
+  const requestsTo = useStreamPayPath('/requests')
+  const newRequestTo = useStreamPayPath('/requests?compose=1&from=agreements')
+  const homeTo = useStreamPayPath('/home')
+  const section = new URLSearchParams(search).get('section')
+  const listOpen = section === 'ongoing' || section === 'completed'
   const requestedAgreementId = new URLSearchParams(search).get('agreementId') || ''
   const scope = authenticated ? user?.id ?? 'pending' : ''
   const cached = scope ? dashboardCache.get(scope) : undefined
   const [agreements, setAgreements] = useState<Agreement[]>(() => cached ?? [])
-  const [filter, setFilter] = useState<AgreementFilter>('ongoing')
+  const [filter, setFilter] = useState<AgreementFilter>(section === 'completed' ? 'completed' : 'ongoing')
+  useEffect(() => { setFilter(section === 'completed' ? 'completed' : 'ongoing'); setVisibleAgreementCount(10) }, [section])
   const [activeId, setActiveId] = useState(requestedAgreementId)
   const [mobileDetailOpen, setMobileDetailOpen] = useState(Boolean(requestedAgreementId))
   const [loading, setLoading] = useState(() => !cached)
@@ -349,7 +356,7 @@ export default function AgreementDashboard() {
     return ['completed', 'cancelled', 'refunded'].includes(agreement.status)
   }), [agreements, filter])
   const customerAgreements = useMemo(() => requests.requests.filter(request =>
-    request.role === 'customer' && Boolean(request.agreementId) && ['awaiting_funding', 'funded', 'expired', 'completed', 'refunded', 'cancelled'].includes(request.status)
+    !request.terms.some(term=>term.version===request.activeVersion&&term.xlayerPayment) && request.role === 'customer' && Boolean(request.agreementId) && ['awaiting_funding', 'funded', 'expired', 'completed', 'refunded', 'cancelled'].includes(request.status)
   ), [requests.requests])
   const filteredCustomerAgreements = useMemo(() => customerAgreements.filter(request => {
     const status = customerAgreementStatus(request)
@@ -357,10 +364,13 @@ export default function AgreementDashboard() {
       ? ['awaiting_start', 'active', 'expired'].includes(status)
       : ['completed', 'cancelled', 'refunded'].includes(status)
   }), [customerAgreements, filter])
+  const workAgreements=requests.requests.filter(request=>request.agreementId&&request.terms.some(term=>term.version===request.activeVersion&&term.xlayerPayment));
+  const visibleWork=workAgreements.filter(request=>filter==='ongoing'?!['completed','refunded','cancelled'].includes(request.status):['completed','refunded','cancelled'].includes(request.status));
   const sortedRows = useMemo(() => [
+    ...visibleWork.map(request => ({ kind: 'work' as const, id: request.id, updatedAt: request.updatedAt, request })),
     ...filteredCustomerAgreements.map(request => ({ kind: 'customer' as const, id: request.id, updatedAt: request.updatedAt, request })),
     ...filteredAgreements.map(agreement => ({ kind: 'agreement' as const, id: agreement.id, updatedAt: agreement.updatedAt, agreement })),
-  ].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)), [filteredAgreements, filteredCustomerAgreements])
+  ].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)), [filteredAgreements, filteredCustomerAgreements, visibleWork])
   const visibleRows = useMemo(() => sortedRows.slice(0, visibleAgreementCount), [sortedRows, visibleAgreementCount])
   const activeCustomer = useMemo(
     () => customerAgreements.find(request => request.agreementId === activeId),
@@ -377,7 +387,7 @@ export default function AgreementDashboard() {
     setVisibleAgreementCount(10)
     setActiveId('')
     setMobileDetailOpen(false)
-    navigate(agreementsTo, { replace: true })
+    navigate(streamPayPath('/agreements?section=' + next, search))
   }
 
   const activity = useMemo(() => {
@@ -439,14 +449,14 @@ export default function AgreementDashboard() {
     setActiveId(agreementId)
     setMobileDetailOpen(true)
     const separator = agreementsTo.includes('?') ? '&' : '?'
-    navigate(`${agreementsTo}${separator}agreementId=${encodeURIComponent(agreementId)}`)
+    navigate(`${agreementsTo}${separator}section=${filter}&agreementId=${encodeURIComponent(agreementId)}`)
     if (window.matchMedia('(max-width: 1023px)').matches) window.scrollTo({ top: 0, behavior: 'auto' })
   }
 
   function closeMobileAgreement() {
     setActiveId('')
     setMobileDetailOpen(false)
-    navigate(agreementsTo, { replace: true })
+    navigate(streamPayPath('/agreements?section=' + filter, search), { replace: true })
     window.scrollTo({ top: 0, behavior: 'auto' })
   }
 
@@ -491,16 +501,25 @@ export default function AgreementDashboard() {
     return <AgreementSignInLanding />
   }
 
-  if (!ready || loading || requests.loading) {
+  if (!ready || ((listOpen || requestedAgreementId) && (loading || requests.loading))) {
     return <StreamPayLoadingState active="agreements" />
   }
 
+  if (!listOpen && !requestedAgreementId) return (
+    <section className="stream-screen w-full max-w-md py-5 sm:py-8">
+      <div className="mb-5 grid grid-cols-[3rem_1fr_3rem] items-center gap-3"><Link to={homeTo} aria-label="Back home" className="stream-icon-button"><ArrowLeftIcon className="h-4 w-4" /></Link><h1 className="text-center text-lg font-bold">Agreements</h1><span aria-hidden="true" /></div>
+      <div className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+        <AgreementMenuRow to={newRequestTo} title="Start new agreement" description="Set the work and payment terms" Icon={DocumentPlusIcon} />
+        <AgreementMenuRow to={requestsTo} title="Requests" description="Review and respond to work requests" Icon={InboxIcon} />
+        <AgreementMenuRow onClick={() => chooseFilter('ongoing')} title="Ongoing" description="Track work and payments in progress" Icon={ClockIcon} />
+        <AgreementMenuRow onClick={() => chooseFilter('completed')} title="Completed" description="View finished and closed agreements" Icon={CheckCircleIcon} />
+      </div>
+    </section>
+  )
+
   return (
     <section className="stream-screen w-full max-w-md py-5 sm:py-8">
-      <div className="grid grid-cols-2 rounded-full bg-gray-200/70 p-1 dark:bg-white/[0.06]" aria-label="Agreement status filters">
-        {([['ongoing', 'Ongoing'], ['completed', 'Completed']] as const).map(([value, label]) => <button key={value} type="button" onClick={() => chooseFilter(value)} className={`min-h-11 rounded-full px-2 text-xs font-extrabold transition ${filter === value ? 'bg-gray-950 text-white shadow-sm dark:bg-white dark:text-gray-950' : 'text-gray-500 dark:text-gray-400'}`}>{label}</button>)}
-      </div>
-
+      {!mobileDetailOpen && <div className="mb-5 grid grid-cols-[3rem_1fr_3rem] items-center gap-3"><Link to={agreementsTo} aria-label="Back to agreements" className="stream-icon-button"><ArrowLeftIcon className="h-4 w-4" /></Link><h1 className="text-center text-lg font-bold">{filter === 'ongoing' ? 'Ongoing' : 'Completed'}</h1><span aria-hidden="true" /></div>}
       {(loadError || requests.error) && (
         <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300">
           {loadError || requests.error}
@@ -512,7 +531,7 @@ export default function AgreementDashboard() {
         </div>
       )}
 
-      {!loadError && !requests.error && agreements.length === 0 && customerAgreements.length === 0 ? (
+      {!loadError && !requests.error && agreements.length === 0 && customerAgreements.length === 0 && workAgreements.length === 0 ? (
         <div className="mt-8 rounded-3xl border border-gray-200 bg-white px-6 py-12 text-center dark:border-white/10 dark:bg-[#18181b]">
           <h2 className="text-lg font-semibold text-gray-950 dark:text-white">No agreements yet</h2>
           <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-gray-500 dark:text-gray-400">
@@ -522,8 +541,10 @@ export default function AgreementDashboard() {
       ) : !loadError && !requests.error && (
         <>
           <div className="mt-5 grid gap-4">
-            <div className={`space-y-2 ${mobileDetailOpen ? 'hidden' : ''}`}>
-              {visibleRows.map(row => row.kind === 'customer' ? (
+            <div className={`divide-y divide-gray-100 dark:divide-white/[0.05] ${mobileDetailOpen ? 'hidden' : ''}`}>
+              {visibleRows.map(row => row.kind === 'work' ? (
+                <AgreementListRow key={'work:' + row.id} title={customerAgreementTerms(row.request).title} amount={customerAgreementTerms(row.request).amount + ' ' + workPaymentLabel(customerAgreementTerms(row.request).xlayerPayment!)} status={row.request.workState === undefined ? 'Ready for work escrow' : WORK_STATES[row.request.workState]} detail="X Layer" onSelect={() => navigate(streamPayPath('/requests?tab=' + row.request.direction + '&view=details&request=' + encodeURIComponent(row.request.id), search))} />
+              ) : row.kind === 'customer' ? (
                 <CustomerAgreementCard
                   key={`customer:${row.id}`}
                   request={row.request}
@@ -532,32 +553,14 @@ export default function AgreementDashboard() {
                   onSelect={() => selectAgreement(row.request.agreementId)}
                 />
               ) : (
-                <button
-                  type="button"
-                  key={`agreement:${row.id}`}
-                  onClick={() => selectAgreement(row.agreement.id)}
-                  className={`w-full rounded-2xl border p-4 text-left transition-colors ${activeId === row.agreement.id
-                    ? 'border-blue-300 bg-blue-50/70 text-gray-950 ring-1 ring-blue-100 dark:border-blue-400/30 dark:bg-blue-400/[0.08] dark:text-white dark:ring-blue-400/10'
-                    : 'border-gray-200 bg-white text-gray-950 hover:border-gray-300 dark:border-white/10 dark:bg-[#18181b] dark:text-white dark:hover:border-white/20'}`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{row.agreement.title || 'Arc agreement'}</p>
-                      <p className="mt-1 text-xs text-gray-400">
-                        {row.agreement.chain ? formatUsdc(row.agreement.chain.amountUsdcUnits) : `${row.agreement.amount || '0'} USDC`} {'\u00b7'} Work for you
-                      </p>
-                    </div>
-                    <StatusBadge status={row.agreement.status} />
-                  </div>
-                  {agreementListDate(row.agreement) && <p className="mt-2 text-[10px] font-medium text-gray-400">{agreementListDate(row.agreement)}</p>}
-                </button>
+                <AgreementListRow key={'agreement:' + row.id} title={row.agreement.title || 'Arc agreement'} amount={row.agreement.chain ? formatUsdc(row.agreement.chain.amountUsdcUnits) : (row.agreement.amount || '0') + ' USDC'} status={STATUS_LABEL[row.agreement.status]} detail="Work for you" onSelect={() => selectAgreement(row.agreement.id)} />
               ))}
               {visibleAgreementCount < sortedRows.length && (
                 <button type="button" onClick={() => setVisibleAgreementCount(count => count + 10)} className="min-h-11 w-full rounded-full text-xs font-bold text-blue-600 transition active:opacity-60 dark:text-blue-300">
                   Show more
                 </button>
               )}
-              {filteredAgreements.length === 0 && filteredCustomerAgreements.length === 0 && <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-5 py-9 text-center text-xs font-medium text-gray-400 dark:border-white/10 dark:bg-white/[0.025]">No agreements in this section.</div>}
+              {filteredAgreements.length === 0 && filteredCustomerAgreements.length === 0 && visibleWork.length === 0 && <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-5 py-9 text-center text-xs font-medium text-gray-400 dark:border-white/10 dark:bg-white/[0.025]">No agreements in this section.</div>}
             </div>
 
             {activeCustomer && (
@@ -572,9 +575,8 @@ export default function AgreementDashboard() {
             )}
             {active && (
               <article className={`${mobileDetailOpen ? '' : 'hidden'} rounded-3xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#18181b] sm:p-6`}>
-                <button type="button" onClick={closeMobileAgreement} className="mb-5 inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-950 dark:text-gray-400 dark:hover:text-white">
-                  <ChevronLeftIcon className="h-4 w-4" />
-                  All agreements
+                <button type="button" onClick={closeMobileAgreement} aria-label="Back to agreements" className="stream-icon-button mb-5">
+                  <ArrowLeftIcon className="h-4 w-4" />
                 </button>
                 <div>
                   <StatusBadge status={active.status} />
@@ -794,24 +796,14 @@ function CustomerAgreementCard({ request, selected, dateLabel, onSelect }: {
 }) {
   const terms = customerAgreementTerms(request)
   const status = customerAgreementStatus(request)
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`w-full rounded-2xl border p-4 text-left transition-colors ${selected
-        ? 'border-blue-300 bg-blue-50/70 text-gray-950 ring-1 ring-blue-100 dark:border-blue-400/30 dark:bg-blue-400/[0.08] dark:text-white dark:ring-blue-400/10'
-        : 'border-gray-200 bg-white text-gray-950 hover:border-gray-300 dark:border-white/10 dark:bg-[#18181b] dark:text-white dark:hover:border-white/20'}`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{terms.title}</p>
-          <p className="mt-1 text-xs text-gray-400">
-            {formatUsdc(terms.amountUsdcUnits)} {'\u00b7'} Requested by you
-          </p>
-        </div>
-        <StatusBadge status={status} />
-      </div>
-      {dateLabel && <p className="mt-2 text-[10px] font-medium text-gray-400">{dateLabel}</p>}
-    </button>
-  )
+  return <AgreementListRow title={terms.title} amount={formatUsdc(terms.amountUsdcUnits)} status={STATUS_LABEL[status]} detail="Requested by you" onSelect={onSelect} />
+}
+
+function AgreementListRow({ title, amount, status, detail, onSelect }: { title: string; amount: string; status: string; detail: string; onSelect: () => void }) {
+  return <button type="button" onClick={onSelect} className="flex min-h-[80px] w-full items-center gap-3 rounded-2xl px-1 py-3 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.04]"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-white/[0.07]"><DocumentTextIcon className="h-5 w-5" /></span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold">{title}</span><span className="mt-1 block text-[10px] text-gray-400">{detail}</span></span><span className="max-w-[45%] text-right"><span className="block break-words text-xs font-bold tabular-nums">{amount}</span><span className="mt-1 block text-[10px] text-gray-400">{status}</span></span><ChevronRightIcon className="h-3.5 w-3.5 shrink-0 text-gray-400" /></button>
+}
+function AgreementMenuRow({ to, onClick, title, description, Icon }: { to?: string; onClick?: () => void; title: string; description: string; Icon: typeof DocumentPlusIcon }) {
+  const content = <><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-500 dark:bg-white/[0.07] dark:text-gray-300"><Icon className="h-5 w-5" /></span><span className="min-w-0 flex-1"><span className="block text-sm font-bold">{title}</span><span className="mt-1 block text-xs text-gray-400">{description}</span></span><ChevronRightIcon className="h-4 w-4 shrink-0 text-gray-400" /></>
+  const className = 'flex min-h-[80px] w-full items-center gap-3 rounded-2xl px-1 py-4 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.04]'
+  return to ? <Link to={to} className={className}>{content}</Link> : <button type="button" onClick={onClick} className={className}>{content}</button>
 }

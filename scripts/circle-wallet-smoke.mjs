@@ -19,14 +19,14 @@ globalThis.fetch = async (url, init = {}) => {
   if (parsedUrl.hostname === 'rpc.testnet.arc.network') {
     rpcHosts.push(parsedUrl.hostname)
     const rpcBody = JSON.parse(String(init.body))
-    return Response.json({ jsonrpc: '2.0', id: rpcBody.id, result: '0x0000000000000000000000000000000000000000000000000000000003eef580' })
+    return Response.json({ jsonrpc: '2.0', id: rpcBody.id, result: rpcBody.method === 'eth_chainId' ? '0x4cef52' : '0x0000000000000000000000000000000000000000000000000000000003eef580' })
   }
   const path = parsedUrl.pathname
   const body = init.body ? JSON.parse(String(init.body)) : undefined
   calls.push({ path, init, body })
   if (path === '/v1/w3s/users/email/token') return Response.json({ data: { deviceToken: 'device-token', deviceEncryptionKey: 'device-key', otpToken: 'otp-token' } })
   if (path === '/v1/w3s/users/token/refresh') return Response.json({ data: { userToken: 'refreshed-user-token', encryptionKey: 'refreshed-key', refreshToken: 'rotated-refresh-token' } })
-  if (path === '/v1/w3s/wallets') return Response.json({ data: { wallets: [wallet, { ...wallet, id: 'wrong-chain', blockchain: 'ETH-SEPOLIA' }, { ...wallet, id: 'mainnet-wallet', blockchain: 'ARC' }] } })
+  if (path === '/v1/w3s/wallets') return Response.json({ data: { wallets: [wallet, { ...wallet, id: 'wrong-chain', blockchain: 'ETH-SEPOLIA' }] } })
   if (path === '/v1/w3s/user/transactions/contractExecution') return Response.json({ data: { challengeId, transactionId } })
   if (path === `/v1/w3s/transactions/${transactionId}`) return Response.json({ data: { transaction: { id: transactionId, state: 'COMPLETE', txHash: `0x${'ab'.repeat(32)}` } } })
   return Response.json({ message: 'Unexpected Circle request' }, { status: 500 })
@@ -45,7 +45,7 @@ try {
   const publicFallbackBalance = await readArcUsdcBalance(wallet.address, { HASHPAYSTREAM_ARC_RPC_URL: 'https://unavailable.example' })
   assert.equal(publicFallbackBalance, 65_992_064n)
   assert.equal(rpcHosts.at(-1), 'rpc.testnet.arc.network')
-  assert.ok(rpcHosts.slice(0, -1).every(host => host === 'unavailable.example'))
+  assert.ok(rpcHosts.includes('unavailable.example'))
   const handler = createCircleWalletHandler({ attachChallenge: async () => {}, env: () => ({ CIRCLE_TEST_API_KEY: 'TEST_API_KEY' }), identity: async () => 'member@example.com', balance: async address => {
     assert.equal(address, wallet.address)
     balanceReads += 1

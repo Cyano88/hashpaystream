@@ -29,3 +29,12 @@ clearStoredCircleSession(storage)
 assert.equal(readStoredCircleSession(storage, 'circle-app', 'member@example.com', 'device-id'), undefined)
 
 console.log('Circle device-bound session persistence checks passed.')
+
+const {canReuseNativeCircleSession}=await import('../src/lib/circleSession.ts');
+const now=Date.now();
+const nativeFixture={encryptionKey:'fixture',savedAt:now-1000,userToken:'header.'+Buffer.from(JSON.stringify({exp:Math.floor(now/1000)+3600})).toString('base64url')+'.signature'};
+assert.equal(canReuseNativeCircleSession(nativeFixture,now),true);
+assert.equal(canReuseNativeCircleSession({...nativeFixture,userToken:'header.'+Buffer.from(JSON.stringify({exp:Math.floor(now/1000)-1})).toString('base64url')+'.signature'},now),false);
+assert.equal(canReuseNativeCircleSession({...nativeFixture,savedAt:now-13*60*60*1000},now),false);
+assert.equal(canReuseNativeCircleSession({...nativeFixture,savedAt:now+1000},now),false);
+console.log('Valid saved native sessions restore silently; expired tokens refresh before reuse.');

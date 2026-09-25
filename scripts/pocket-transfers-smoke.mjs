@@ -40,3 +40,26 @@ store={records:[{id:id(9),actor:'actor',chainId:196,owner,recipient,units:'1',ha
 await reconcilePocketTransfers({...deps,inspect:async()=>{store.records[0].status='successful';return {status:'processing'}}})
 assert.equal(store.records[0].status,'successful')
 console.log('Overlapping worker results cannot downgrade verified success.')
+
+// Live recovery must not load or mutate sandbox rows, even for the same user/address.
+const originalMode=process.env.HASHPAYSTREAM_ARC_ENVIRONMENT
+try {
+ process.env.HASHPAYSTREAM_ARC_ENVIRONMENT='test';store=undefined
+ assert.equal((await call({...create(20,'100'),chainId:5042002})).code,200)
+ const sandbox=structuredClone(store.records[0])
+ process.env.HASHPAYSTREAM_ARC_ENVIRONMENT='live'
+ assert.deepEqual((await call(undefined,'GET')).body.transfers,[])
+ assert.equal((await call({...create(21,'100'),chainId:5042002})).code,400)
+ assert.equal((await call({action:'track',id:id(20),hash:'0x'+'e'.repeat(64)})).code,409)
+ assert.equal((await call({...create(22,'100'),chainId:5042})).code,200)
+ assert.equal((await call({...create(23,'100'),chainId:196})).code,200,'X Layer remains available')
+ assert.deepEqual((await call(undefined,'GET')).body.transfers.map(r=>r.chainId).sort(),[196,5042])
+ await call({action:'track',id:id(22),hash:'0x'+'a'.repeat(64)})
+ const inspected=[],recorded=[]
+ await reconcilePocketTransfers({...deps,inspect:async r=>{inspected.push(r.chainId);return {status:'successful'}},recordActivity:async r=>{recorded.push(r.chainId);return true}})
+ assert.deepEqual(inspected,[5042]);assert.deepEqual(recorded,[5042])
+ assert.deepEqual(store.records[0],sandbox,'Sandbox payment preserved verbatim')
+ process.env.HASHPAYSTREAM_ARC_ENVIRONMENT='test'
+ assert.deepEqual((await call(undefined,'GET')).body.transfers.map(r=>r.chainId).sort(),[196,5042002])
+} finally { if(originalMode===undefined)delete process.env.HASHPAYSTREAM_ARC_ENVIRONMENT;else process.env.HASHPAYSTREAM_ARC_ENVIRONMENT=originalMode }
+console.log('Live/test transfer isolation, Arc mainnet recovery and X Layer continuity passed.')

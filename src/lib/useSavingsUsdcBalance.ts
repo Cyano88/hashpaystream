@@ -31,10 +31,11 @@ export function useSavingsUsdcBalance() {
     if (!address) { setUnits(undefined); setError(''); return }
     try {
       const client = createPublicClient({ chain: savingsChain, transport: http() })
+      if (await client.getChainId() !== savingsChain.id) throw new Error('Savings network mismatch.')
       const next = await client.readContract({ address: SAVINGS_USDC_ADDRESS, abi: ERC20_ABI, functionName: 'balanceOf', args: [address] })
       if (sequence.current === request) { setUnits(next); setError('') }
     } catch {
-      if (sequence.current === request) setError('Arc Testnet balance is temporarily unavailable.')
+      if (sequence.current === request) setError('Arc balance is temporarily unavailable.')
     }
   }, [address])
 
