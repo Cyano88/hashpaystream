@@ -22,7 +22,7 @@ API regression: stale observation retry, bounded failure, unchanged identity che
 UI regression: unavailable status blocks actions, cancelled review restores actions, processing hides CTAs, funded state removes unpaid actions, final receipt hides technical data by default.
 Display tests: exact and rounded amounts, carry to one unit, tiny nonzero quantities, large integers.
 App regression: connection click during background refresh runs once and gives immediate progress.
-Browser component checks: both actual confirmation components at 1440x900, 390x844 and 320x568, viewport containment, desktop center, mobile base alignment, keyboard focus loop and Escape; screenshots saved locally under output/playwright. Long-content, reduced-motion and deployed-page checks are recorded in the release follow-up.
+Browser component checks: both actual confirmation components at 1440x900, 390x844 and 320x568, viewport containment, desktop center, mobile base alignment, keyboard focus loop and Escape; screenshots saved locally under output/playwright. Long payment content fits at 320x568, and reduced-motion disables the entrance animation. Deployed-page checks are recorded below.
 
 ## Explicitly deferred live coverage
 At the user's request, document these now and execute after programme selection, before claiming broad production readiness. Local contract/fork tests do not count as these live tests.
@@ -53,3 +53,14 @@ Do not record or move additional funds until the user funds the necessary wallet
 6. Verify successful chain settlement and empty escrow, stop recording, replay the file and check duration/audio/cropping before delivery.
 
 A full-app polished demo also needs a screen-by-screen walkthrough of Home, Agreements, Trade and Account. Do not label this Trade rehearsal as testing all app products.
+
+## Release verification follow-up
+- Hash PayStream release `f897b62d6f411dcf8aa5f7736cbf05c66b30622f` is live.
+- Hosted checkout cleanup `2f7225efe` was included in live Hash PayLink merge `b8dc529a38dfd816ef847d9bf57dc9e216708f34`, preserving the other session's Pocket changes.
+- Buyer receipt verified in the deployed browser: Payment released, Paid to seller, About 0.00222 NVIDIA (NVDAx); technical details collapsed and no unpaid payment buttons.
+- Hash PayStream typecheck and production build passed. Targeted API, hosted UI, display math, share routing, and app interaction tests passed. Hash PayLink Vite build completed; its repository-wide typecheck was stopped without completion and is not reported as passed.
+- During the next shared-service deployment, live health and asset requests returned HTTP 502, blocking seller receipt and app wallet-session restoration checks. Recheck after deployment recovery before recording or requesting demo funds.
+
+- Shared service recovered on release `6e270f2fc45555c577e7b514a3451319c369a321`; health returned 200. Seller browser now shows Payment released and You received, About 0.00222 NVDAx. Buyer app restored its saved Circle session on retry without a new OTP and shows Payment released in the Trade conversation.
+- Full-app walkthrough found a wallet-source mismatch: Home stock balance, stock Receive and stock Send use the original app Privy wallet; hosted Trade and Swap use the separately connected Hash PayLink wallet. The zero Home balance is therefore not evidence that the hosted wallet is empty. Full-app demo readiness remains blocked on deciding and implementing a consistent wallet experience; no funds were moved to correct this.
+- Follow-up copy correction: zero delivery fees display No charge; one-day terms use singular day.

@@ -215,7 +215,7 @@ export default function TradeAgreementCard({
             </dd>
             <dt>Delivery</dt>
             <dd className="text-right">
-              {latest.terms.deliveryFee} {xStockPaymentLabel(latest.terms)}
+              {Number(latest.terms.deliveryFee) === 0 ? 'No charge' : `${latest.terms.deliveryFee} ${xStockPaymentLabel(latest.terms)}`}
             </dd>
             <dt className="font-bold">Total</dt>
             <dd className="text-right font-bold">
@@ -224,16 +224,16 @@ export default function TradeAgreementCard({
           </dl>
           <p className="text-xs">
             {latest.terms.handover} in {latest.terms.location}. Handover within{" "}
-            {latest.terms.dispatchDays} days after confirmed payment.
+            {latest.terms.dispatchDays} {latest.terms.dispatchDays === 1 ? 'day' : 'days'} after confirmed payment.
             Inspection: {latest.terms.inspectionHours} hours after receipt.
             {latest.terms.deliveryDays
-              ? ` Delivery or handover is due within ${latest.terms.deliveryDays} days after dispatch or the pickup appointment is recorded.`
+              ? ` Delivery or handover is due within ${latest.terms.deliveryDays} ${latest.terms.deliveryDays === 1 ? 'day' : 'days'} after dispatch or the pickup appointment is recorded.`
               : ""}
           </p>
           {latest.terms.carrier && (
             <p className="text-xs">
               Proposed carrier: {latest.terms.carrier}. Provider licensing is
-              not verified by HashPayStream.
+              not verified by Hash PayStream.
             </p>
           )}
           <p className="whitespace-pre-wrap break-words text-xs">
