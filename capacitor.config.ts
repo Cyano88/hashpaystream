@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
   appId: 'app.hashpaystream',
-  appName: 'HashPayStream',
+  appName: 'Hash PayStream',
   webDir: 'dist',
   loggingBehavior: 'none',
   server: {

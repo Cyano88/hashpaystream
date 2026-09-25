@@ -39,7 +39,7 @@ assert.match(gradle, /releaseBuildRequested && !releaseSigningConfigured/)
 assert.match(gradle, /minifyEnabled true/)
 assert.match(gradle, /shrinkResources true/)
 
-assert.match(strings, /<string name="app_name">HashPayStream<\/string>/)
+assert.match(strings, /<string name="app_name">Hash PayStream<\/string>/)
 assert.match(strings, /<string name="custom_url_scheme">hashpaystream<\/string>/)
 assert.match(styles, /name="AppTheme\.LaunchBase"[\s\S]*postSplashScreenTheme[^\n]*@style\/AppTheme\.NoActionBar/)
 assert.match(styles, /name="AppTheme\.NoActionBarLaunch" parent="AppTheme\.LaunchBase"/)

@@ -53,3 +53,12 @@ Pending: deploy the reviewed Hash PayLink follow-up, obtain owner approval for w
 Hash PayLink commit 74e4f37111c8c2e664f1112512cb43b55cbbb724 is live. Owner approved the new project grant. Separate Agreement funding (agreement:recipient, agreement:fund), hosted connection (wallet:connect), and Arc wallet (wallet:arc) keys were issued and handed to the Hash PayStream Render service through the CLI. Each single-variable write passed internal readback verification; no key value was printed. These three keys expire 25 October 2026. The existing draft key expires 24 October 2026.
 
 Live scoped wallet configuration returned HTTP 200, ARC, chain 5042. The configured mainnet RPC independently returned chain 5042. Mainnet wallet and Agreement funding flags remain off. Hash PayStream full typecheck and Vite build passed in the prepared source workspace. An isolated release checkout now exists at C:/Users/USER/.audit-tools/hashpaystream-hosted-release-20260925, based on the deployed aaa1e32 commit; it preserves production-only documents and excludes contract and Android changes. Release publication, coordinated live environment activation, and matching APK installation are still pending.
+
+
+## Live wallet cutover and installed Android update
+
+Render deployment dep-daqv2rk9v7es738sld2g is live on ed113add4f0e18380abb5972ab9f0ca369b561a3. Mainnet wallet and human Agreement read environments are live. Retired stock Early Pay UI is disabled. Agreement funding stays disabled because upstream escrow execution is still disabled. Health and web root returned HTTP 200; unauthenticated wallet access returned 401.
+
+Mainnet public-configuration build passed. Candidate APK 1.0.38, version code 39, SHA-256 1651022548D6745F2FB811C32FF468B8FA9AC58B22365E2347C1A36DF8EF160F, was installed with adb install -r on the existing app.hashpaystream.candidate and launched on the Pixel. Exactly one Hash PayStream package is installed. No data was cleared. Android readiness, OTP, biometric vault, mainnet read isolation and mainnet Agreement request fixture checks passed. The Android readiness assertion now uses the approved Hash PayStream display name.
+
+The user must still complete and verify the real mainnet Circle wallet session. No transfer, escrow activation, or real-money canary was performed. Sandbox data/configuration is retained separately.
