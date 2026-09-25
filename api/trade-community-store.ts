@@ -204,7 +204,7 @@ export function createTradeCommunityStore(
         if(!Array.isArray(offer.snapshot.photos)||!offer.snapshot.photos.length) fail('The preserved listing is incomplete.',409)
         const snapshotHash=createHash('sha256').update(JSON.stringify(offer.snapshot)).digest('hex')
         const {price,deliveryFee,handover,location,carrier,returns,dispatchDays,deliveryDays,inspectionHours}=terms
-        const reservation={kind:'hosted-trade-v1',walletAppId:buyer.wallet_app_id,idempotencyKey:'hashpaystream-trade-'+offerId,request:{kind:'trade',title:offer.snapshot.title,description:offer.snapshot.description,
+        const reservation={kind:'hosted-trade-v1',walletAppId:buyer.wallet_app_id,idempotencyKey:'hashpaystream-trade-'+offerId,request:{kind:'trade',stockCustody:'xstocks-shares-v2',title:offer.snapshot.title,description:offer.snapshot.description,
           amount:tradeTotal(terms),paymentToken:terms.settlementToken,customerUserId:buyer.user_id,providerUserId:seller.user_id,
           trade:{offerId,listingRevision:offer.listing_revision,snapshotHash,price,deliveryFee,handover,location,carrier,returns,dispatchDays,deliveryDays,inspectionHours}}}
         // Reserve locally before the remote request. Retries reuse the same immutable payload.

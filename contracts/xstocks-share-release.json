@@ -1,0 +1,15 @@
+{
+  "chainId": 196,
+  "contract": "XStocksTradeEscrowFactory",
+  "compiler": "0.8.24+commit.e11b9ed9",
+  "arbiter": "0xf80E88df7D4570FC8eb6eAaC7AED0b93a413bBbA",
+  "initialTokens": [
+    "0xc845b2894dbddd03858fd2d643b4ef725fe0849d"
+  ],
+  "creationBytecodeHash": "0x48c3008c20fe046e7776c81d3beab2fb9629714c94a5842d7f5057afea0e4c9c",
+  "runtimeHash": "0xedfaf81d96643191e9486dc01c7b62ae59a985995457117dac8a69b4d8737c7e",
+  "sources": {
+    "src/XStocksTradeEscrow.sol": "23dcdb0fb1564f880ff9dfa42ec6bc2969f66796d228530252da5ee0b6052f6c",
+    "src/XStocksTradeEscrowFactory.sol": "1d8708a71087b504c28338ae79eed09634b638099a78132d4a955aa2bef98442"
+  }
+}

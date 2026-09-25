@@ -1,0 +1,13 @@
+{
+  "base": "hashpaylink-sdk-1.1.0-candidate.3.tgz",
+  "baseSha256": "68c0c9894cb7fe7ac7263d8cb393c114ab9f9ddb61033f41254664837e294abe",
+  "addonSourceSha256": "5803f7ba5ee57f8c9c7255554809db28420b23a06819014fba44b30ea444188c",
+  "preservedWalletFiles": {
+    "wallet.js": "137f47c54ca98065dce21a60f5a79034f4d556a7e4745cb8b034779ade6c72c1",
+    "wallet.cjs": "5503e3e831dd63b8f81e4f574e3da0adc587b70c88d2dcb241e867b847982146",
+    "wallet.css": "f8b0070bb0527ea5602963e09283c88c2f56b861ed7c47bc6a911be42c872fbc",
+    "wallet.d.ts": "d453c130ca2bc3a911007cb151f7128ebb1e61b1612fe5e6e237a793c98cf5e2",
+    "wallet.d.cts": "d453c130ca2bc3a911007cb151f7128ebb1e61b1612fe5e6e237a793c98cf5e2"
+  },
+  "note": "Candidate 3 contents retained; typed xStocks module and root exports added. Wallet binaries/CSS unchanged."
+}

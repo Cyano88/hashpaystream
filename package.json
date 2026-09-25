@@ -135,7 +135,7 @@
     "@circle-fin/w3s-pw-web-sdk": "^1.1.11",
     "@circle-fin/x402-batching": "^3.3.0",
     "@fontsource/plus-jakarta-sans": "^5.2.8",
-    "@hashpaylink/sdk": "file:vendor/hashpaylink-sdk-1.1.0-candidate.3.tgz",
+    "@hashpaylink/sdk": "file:vendor/hashpaylink-sdk-1.1.0-candidate.4-shares.1.tgz",
     "@heroicons/react": "^2.2.0",
     "@privy-io/node": "0.28.0",
     "@privy-io/react-auth": "3.28.0",

@@ -12,6 +12,8 @@ try{
  assert.deepEqual(calls.map(c=>c.init.method),['GET','POST']);assert.deepEqual(JSON.parse(calls[1].init.body),reservation.request)
  missing=false;calls=[];await hostedTradeCheckout(reservation,env);assert.equal(calls.length,1,'Recovery reads existing checkout without creating again')
  for(const change of [{walletAppId:'wrong-app'},{checkoutPath:'https://evil.example'},{terms:{...agreement.terms,amount:'2.00'}},{terms:{...agreement.terms,trade:{...agreement.terms.trade,snapshotHash:'wrong'}}}]){override={...agreement,...change};await assert.rejects(()=>hostedTradeCheckout(reservation,env),e=>e.status===502)}
+ override=undefined;await assert.rejects(()=>hostedTradeCheckout({...reservation,request:{...reservation.request,stockCustody:'xstocks-shares-v2'}},env),e=>e.status===502);
+ override={...agreement,terms:{...agreement.terms,stockCustody:{policy:'xstocks-shares-v2'}}};await hostedTradeCheckout({...reservation,request:{...reservation.request,stockCustody:'xstocks-shares-v2'}},env);
  override=undefined;missing=true;failCreate=true;await assert.rejects(()=>hostedTradeCheckout(reservation,env),e=>e.status===409)
  calls=[];await assert.rejects(()=>hostedTradeCheckout(reservation,{}),e=>e.status===503);assert.equal(calls.length,0)
  assert.equal((await hostedTradeAssets(env)).assets[0].address,token);assert.deepEqual(await hostedTradeAssets({}),{enabled:false,assets:[]})

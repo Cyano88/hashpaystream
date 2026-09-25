@@ -16,6 +16,7 @@ export async function hostedTradeCheckout(reservation:HostedTradeReservation,env
   const agreement=data.agreement
   if(!agreement||!/^xag_[a-f0-9]{64}$/.test(agreement.id)||agreement.walletAppId!==reservation.walletAppId||agreement.checkoutPath!=='/agreements/xstocks/'+agreement.id
     ||agreement.terms?.kind!=='trade'||agreement.terms.trade?.offerId!==reservation.request.trade.offerId||agreement.terms.trade?.snapshotHash!==reservation.request.trade.snapshotHash
+    ||(reservation.request.stockCustody!==undefined&&agreement.terms.stockCustody?.policy!==reservation.request.stockCustody)
     ||agreement.terms.amount!==reservation.request.amount||agreement.terms.xlayerPayment?.token?.toLowerCase()!==reservation.request.paymentToken.toLowerCase())fail(502,'The checkout does not match the accepted Trade.')
   return {checkoutUrl:ORIGIN+agreement.checkoutPath,state:agreement.observed?.state,observedBlock:agreement.observed?.observedBlock}
 }

@@ -11,6 +11,7 @@ contract MockRebasingStock {
  function setShortTransfer(bool v) external {shortTransfer=v;}
  function mintShares(address a,uint256 n) external {sharesOf[a]+=n;}
  function getSharesByUnderlyingAmount(uint256 n) public view returns(uint256){return n*1e18/multiplier;}
+ function getUnderlyingAmountByShares(uint256 n) external view returns(uint256){return n*multiplier/1e18;}
  function balanceOf(address a) external view returns(uint256){return sharesOf[a]*multiplier/1e18;}
  function approve(address a,uint256 n) external returns(bool){allowance[msg.sender][a]=n;return true;}
  function transferFrom(address a,address b,uint256 n) external returns(bool){allowance[a][msg.sender]-=n;move(a,b,getSharesByUnderlyingAmount(n));return true;}

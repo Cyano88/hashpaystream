@@ -8,12 +8,17 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 /// @dev No silent timeout payout during disputes. Arbiter unavailability can lock disputed funds.
 interface IStockShares {
     function sharesOf(address) external view returns (uint256);
+    function getUnderlyingAmountByShares(uint256) external view returns (uint256);
     function getSharesByUnderlyingAmount(uint256) external view returns (uint256);
     function transferShares(address,uint256) external returns (bool);
 }
 /// @dev V2 candidate: accepted nominal amount determines shares at funding; settlement distributes those shares.
 contract XStocksTradeEscrow is ReentrancyGuard {
     uint256 public fundedShares;
+    uint256 public buyerSettledShares;
+    uint256 public sellerSettledShares;
+    uint256 public buyerUnderlyingAtSettlement;
+    uint256 public sellerUnderlyingAtSettlement;
     event SharesFunded(uint256 shares);
     event SharesSettled(uint256 buyerShares,uint256 sellerShares);
     error ShareTransferMismatch();
@@ -214,6 +219,10 @@ contract XStocksTradeEscrow is ReentrancyGuard {
         uint256 sellerShares=fundedShares-buyerShares;
         if (buyerShares>0) _sendShares(buyer,buyerShares);
         if (sellerShares>0) _sendShares(seller,sellerShares);
+        buyerSettledShares=buyerShares;
+        sellerSettledShares=sellerShares;
+        buyerUnderlyingAtSettlement=IStockShares(address(token)).getUnderlyingAmountByShares(buyerShares);
+        sellerUnderlyingAtSettlement=IStockShares(address(token)).getUnderlyingAmountByShares(sellerShares);
         emit SharesSettled(buyerShares,sellerShares);
         emit ShareSettlementAllocation(offerId,buyerAmount,amount-buyerAmount,evidence,terminal);
     }
