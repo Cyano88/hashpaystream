@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+import {JsonRpcProvider,Contract,keccak256} from 'ethers';
+const hash=process.argv[2];if(!/^0x[a-fA-F0-9]{64}$/.test(hash||''))throw Error('Pass the signed deployment transaction hash.');
+const plan=JSON.parse(fs.readFileSync('deployment-plans/xstocks-share-mainnet.json','utf8')),manifest=JSON.parse(fs.readFileSync('xstocks-share-release.json','utf8')),rpc=new JsonRpcProvider('https://rpc.xlayer.tech');
+if((await rpc.getNetwork()).chainId!==196n)throw Error('Wrong chain');
+const receipt=await rpc.getTransactionReceipt(hash),tx=await rpc.getTransaction(hash);if(!receipt||receipt.status!==1||!receipt.contractAddress||!tx||tx.to!==null||tx.from.toLowerCase()!==plan.from.toLowerCase()||tx.data!==plan.data||tx.value!==0n)throw Error('Deployment transaction does not match the reviewed plan.');
+if(await rpc.getBlockNumber()<receipt.blockNumber+2)throw Error('Wait for three confirmations.');
+if(keccak256(await rpc.getCode(receipt.contractAddress))!==manifest.runtimeHash)throw Error('Factory runtime mismatch');
+const factory=new Contract(receipt.contractAddress,['function arbiter() view returns(address)','function approvedTokens(address) view returns(bool)','function approvedTokenCount() view returns(uint256)'],rpc);
+if((await factory.arbiter()).toLowerCase()!==manifest.arbiter.toLowerCase()||await factory.approvedTokenCount()!==BigInt(manifest.initialTokens.length))throw Error('Factory configuration mismatch');
+for(const token of manifest.initialTokens)if(!await factory.approvedTokens(token))throw Error('Token not approved');
+const verified={chainId:196,factory:receipt.contractAddress,transactionHash:hash,block:receipt.blockNumber,runtimeHash:manifest.runtimeHash,fundingEnabled:false};fs.writeFileSync('deployment-plans/xstocks-share-verified.json',JSON.stringify(verified,null,2)+'\n');console.log(JSON.stringify(verified));
