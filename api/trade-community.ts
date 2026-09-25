@@ -1,3 +1,5 @@
+import { readHostedAccountForUser } from './hosted-account.js';
+import { hostedTradeCheckout, hostedTradeAssets } from './trade-hosted-checkout.js';
 import { keccak256, stringToHex } from 'viem';
 import { tradeXLayerAssets } from './trade-xlayer-assets.js';
 import { verifyTradePrivyWallet } from './trade-privy-wallet.js';
@@ -60,6 +62,8 @@ export function createTradeCommunityRouter(
     env: () => NodeJS.ProcessEnv;
     identity: typeof verifiedTradeIdentity;
     wallet: typeof verifyTradeCircleWallet;
+    hostedAccount: typeof readHostedAccountForUser;
+    hostedCheckout: typeof hostedTradeCheckout;
     admin: typeof isAdmin;
     store: () => ReturnType<typeof createTradeCommunityStore>;
   }> = {},
@@ -68,6 +72,8 @@ export function createTradeCommunityRouter(
     env: () => process.env,
     identity: verifiedTradeIdentity,
     wallet: verifyTradeCircleWallet,
+    hostedAccount: readHostedAccountForUser,
+    hostedCheckout: hostedTradeCheckout,
     admin: isAdmin,
     store: () =>
       (configured ??= createTradeCommunityStore(configuredTradePool(), tradeXLayerFundingContext(overrides.env ?? (() => process.env)))),
@@ -109,7 +115,7 @@ export function createTradeCommunityRouter(
     };
   const parse = express.json({ limit: "32kb" });
   router.get('/xlayer-assets', rateLimit({name:'trade-assets-read',windowMs:60000,max:12}), secure(async (_req,res) => {
-    res.json({ok:true,...await tradeXLayerAssets(deps.env())});
+    res.json({ok:true,...await (deps.env().HASHPAYSTREAM_TRADE_HOSTED_ENABLED==='true'?hostedTradeAssets(deps.env()):tradeXLayerAssets(deps.env()))});
   }));
   const writes = rateLimit({
     name: "trade-community-write",
@@ -131,6 +137,31 @@ export function createTradeCommunityRouter(
       }),
     ),
   );
+  router.post('/hosted-checkout', writes, parse, secure(async(req,res,viewer,userId)=>{
+    const threadId=id(req.body?.threadId),offerId=id(req.body?.offerId),action=req.body?.action
+    if(!['status','connect','open'].includes(action))fail('Choose a supported checkout action.',400)
+    const env=deps.env(),enabled=env.HASHPAYSTREAM_TRADE_HOSTED_ENABLED==='true'
+    const current=await deps.store().hostedCheckout(viewer,threadId,offerId)
+    if(current.mode==='legacy'){res.json({ok:true,mode:'legacy'});return}
+    if(!enabled&&!current.reservation){res.json({ok:true,mode:'hosted',enabled:false});return}
+    let status=current
+    if(action==='connect'){
+      if(!enabled)fail('New hosted checkouts are paused.',409)
+      const linked=await deps.hostedAccount(userId,env)
+      if(!linked){res.json({ok:true,mode:'hosted',enabled,needsConnection:true});return}
+      status=await deps.store().hostedCheckout(viewer,threadId,offerId,linked)
+    }
+    if(action==='open'&&!status.reservation){
+      if(!enabled)fail('New hosted checkouts are paused.',409)
+      status=await deps.store().hostedCheckout(viewer,threadId,offerId,undefined,true)
+    }
+    if(status.reservation){
+      if(status.reservation.kind!=='hosted-trade-v1')fail('Use the existing escrow recovery path.',409)
+      const checkout=await deps.hostedCheckout(status.reservation,env)
+      res.json({ok:true,mode:'hosted',enabled,...checkout});return
+    }
+    res.json({ok:true,mode:'hosted',enabled,buyerReady:status.buyerReady,sellerReady:status.sellerReady,ready:status.ready})
+  }));
   router.post('/xlayer-wallet', writes, parse, secure(async (req, res, viewer, userId) => {
     const threadId = id(req.body?.threadId), offerId = id(req.body?.offerId);
     await deps.store().settlementWallet(viewer, threadId, offerId);

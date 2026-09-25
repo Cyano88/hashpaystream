@@ -121,3 +121,13 @@ export function createHostedAccountHandler(overrides: Partial<Deps> = {}) {
   }
 }
 export default createHostedAccountHandler()
+
+// Server-only lookup. Never accept a linked participant ID from the client.
+export async function readHostedAccountForUser(userId: string, env: NodeJS.ProcessEnv): Promise<HostedAccount | undefined> {
+  const config = configuration(env)
+  const subject = subjectFor({ userId, email:'' }, config)
+  const record = await readDurableJson<RecordValue>(storeKey(subject))
+  if (record && record.subject !== subject) fail(409, 'Account record mismatch.')
+  if (record?.linked && record.linked.walletAppId !== config.appId) fail(409, 'Wallet configuration changed. Contact support.')
+  return record?.linked
+}

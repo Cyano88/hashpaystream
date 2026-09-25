@@ -759,6 +759,26 @@ try {
   );
   const raceOffer = (await store.offers(owner("buyer"), racingThread))[0];
   assert.equal(raceOffer.status, raceReservation ? "accepted" : "cancelled");
+  // Hosted reservations use the same listing lock and cancellation hold as native escrow.
+  const hostedItem={...listing,id:randomUUID()};await listings.save(hostedItem,0);
+  const hostedThread=await store.start(owner('buyer'),hostedItem.id),hostedOffer=randomUUID();
+  await store.offer(owner('seller'),hostedThread,hostedOffer,'propose',{...terms,currency:'XLAYER_ASSET',settlementAsset:'XLAYER_TOKENIZED_ASSET',settlementToken:'0x'+'77'.repeat(20)});
+  await store.offer(owner('buyer'),hostedThread,hostedOffer,'accept');
+  const linkedBuyer={hashPayLinkUserId:'did:privy:hostedbuyer',walletAppId:'fixture'},linkedSeller={hashPayLinkUserId:'did:privy:hostedseller',walletAppId:'fixture'};
+  await assert.rejects(()=>store.hostedCheckout(owner('intruder'),hostedThread,hostedOffer),e=>e.status===404);
+  await store.hostedCheckout(owner('buyer'),hostedThread,hostedOffer,linkedBuyer);
+  await assert.rejects(()=>store.hostedCheckout(owner('seller'),hostedThread,hostedOffer,linkedBuyer),e=>e.status===409);
+  await assert.rejects(()=>store.settlementWallet(owner('buyer'),hostedThread,hostedOffer,walletFixtures.buyer),e=>e.status===409);
+  await store.hostedCheckout(owner('seller'),hostedThread,hostedOffer,linkedSeller);
+  await assert.rejects(()=>store.hostedCheckout(owner('seller'),hostedThread,hostedOffer,undefined,true),e=>e.status===403);
+  const hostedRetries=await Promise.all([store.hostedCheckout(owner('buyer'),hostedThread,hostedOffer,undefined,true),store.hostedCheckout(owner('buyer'),hostedThread,hostedOffer,undefined,true)]);
+  assert.deepEqual(hostedRetries[0],hostedRetries[1]);
+  assert.equal(hostedRetries[0].reservation.request.customerUserId,linkedBuyer.hashPayLinkUserId);
+  assert.equal(hostedRetries[0].reservation.request.trade.deliveryDays,terms.deliveryDays);
+  await assert.rejects(()=>store.offer(owner('buyer'),hostedThread,hostedOffer,'cancel'),e=>e.status===409);
+  assert.equal((await pool.query('select count(*)::int n from hashpaystream_trade_funding_reservations where offer_id=$1',[hostedOffer])).rows[0].n,1);
+  assert.equal((await store.hostedCheckout(owner('buyer'),checkoutThread,checkoutOffer)).mode,'legacy');
+  console.log('Hosted Trade storage passed: participant binding, native exclusion, buyer-only reserve, racing retry identity and cancellation hold.');
   // Migrate the legacy UUID/Arc-only schema without losing bound Circle wallets.
   const legacyBefore = (await pool.query('select * from hashpaystream_trade_settlement_wallets order by offer_id,actor')).rows;
   await pool.query('alter table hashpaystream_trade_settlement_wallets alter column wallet_id type uuid using wallet_id::uuid');

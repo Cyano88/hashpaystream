@@ -1,5 +1,5 @@
 import type { TradeSettlementWallet } from "./trade-wallet-verification.js";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type pg from "pg";
 import {
   createPostgresTradeStore,
@@ -11,7 +11,7 @@ import {
   type TradeBindingInput,
 } from "./trade-escrow-binding.js";
 
-import { validateTradeTerms } from "../src/lib/tradeAgreement.js";
+import { tradeTotal, validateTradeTerms } from "../src/lib/tradeAgreement.js";
 
 type Client = pg.PoolClient;
 // Server-only, read-only adapter: must verify an approved deployment.
@@ -73,6 +73,9 @@ export function createTradeCommunityStore(
           offer_id uuid not null references hashpaystream_trade_offers(id), actor text not null,
           evidence_hash text not null, body text not null, created_at bigint not null,
           primary key(offer_id,actor,evidence_hash));
+        create table if not exists hashpaystream_trade_hosted_participants (
+          offer_id uuid not null references hashpaystream_trade_offers(id), actor text not null,
+          user_id text not null, wallet_app_id text not null, primary key(offer_id,actor), unique(offer_id,user_id));
         create index if not exists trade_reports_open on hashpaystream_trade_reports(status,created_at);
       `);
     })().catch((error) => {
@@ -169,6 +172,46 @@ export function createTradeCommunityStore(
         }
       : null;
   return {
+    async hostedCheckout(viewer: string, threadId: string, offerId: string, linked?: {hashPayLinkUserId:string;walletAppId:string}, reserve=false) {
+      return transaction(async client => {
+        const t = await thread(client,threadId,viewer)
+        await pairLock(client,t.buyer,t.seller)
+        const listing = (await client.query('select * from hashpaystream_trade_listings where id=$1 for update',[t.listing_id])).rows[0]
+        const offer = (await client.query('select * from hashpaystream_trade_offers where id=$1 and thread_id=$2 for update',[offerId,threadId])).rows[0]
+        if (!offer) fail('Offer not found.',404)
+        const existing = (await client.query('select * from hashpaystream_trade_funding_reservations where offer_id=$1',[offerId])).rows[0]
+        if (existing) return {mode:existing.binding.kind==='hosted-trade-v1'?'hosted':'legacy',reservation:existing.binding}
+        const legacy = await client.query('select actor from hashpaystream_trade_settlement_wallets where offer_id=$1',[offerId])
+        if (legacy.rowCount) return {mode:'legacy'}
+        if (linked || reserve) {
+          if (offer.status!=='accepted'||listing.status!=='active'||listing.revision!==offer.listing_revision||(await blocks(client,t.buyer,t.seller)).blocked) fail('Accepted terms or listing changed. Checkout is unavailable.',409)
+          if (linked) {
+            const previous=(await client.query('select * from hashpaystream_trade_hosted_participants where offer_id=$1 and actor=$2',[offerId,viewer])).rows[0]
+            if (previous&&(previous.user_id!==linked.hashPayLinkUserId||previous.wallet_app_id!==linked.walletAppId)) fail('The connected account is fixed for this offer.',409)
+            const other=(await client.query('select actor from hashpaystream_trade_hosted_participants where offer_id=$1 and user_id=$2 and actor<>$3',[offerId,linked.hashPayLinkUserId,viewer])).rowCount
+            if(other) fail('Buyer and seller must connect different accounts.',409)
+            await client.query('insert into hashpaystream_trade_hosted_participants(offer_id,actor,user_id,wallet_app_id) values($1,$2,$3,$4) on conflict do nothing',[offerId,viewer,linked.hashPayLinkUserId,linked.walletAppId])
+          }
+        }
+        const participants=(await client.query('select * from hashpaystream_trade_hosted_participants where offer_id=$1',[offerId])).rows
+        const buyer=participants.find(p=>p.actor===t.buyer),seller=participants.find(p=>p.actor===t.seller)
+        if (!reserve) return {mode:'hosted',buyerReady:!!buyer,sellerReady:!!seller,ready:participants.some(p=>p.actor===viewer)}
+        if(viewer!==t.buyer) fail('Only the buyer can reserve checkout.',403)
+        if(!buyer||!seller) fail('Both participants must connect their Hash PayLink accounts.',409)
+        if(buyer.wallet_app_id!==seller.wallet_app_id) fail('Participants must use the same wallet service.',409)
+        const terms=validateTradeTerms(offer.terms)
+        if(terms.currency!=='XLAYER_ASSET'||terms.settlementAsset!=='XLAYER_TOKENIZED_ASSET') fail('Hosted Trade currently supports xStocks payments only.',409)
+        if(!Array.isArray(offer.snapshot.photos)||!offer.snapshot.photos.length) fail('The preserved listing is incomplete.',409)
+        const snapshotHash=createHash('sha256').update(JSON.stringify(offer.snapshot)).digest('hex')
+        const {price,deliveryFee,handover,location,carrier,returns,dispatchDays,deliveryDays,inspectionHours}=terms
+        const reservation={kind:'hosted-trade-v1',walletAppId:buyer.wallet_app_id,idempotencyKey:'hashpaystream-trade-'+offerId,request:{kind:'trade',title:offer.snapshot.title,description:offer.snapshot.description,
+          amount:tradeTotal(terms),paymentToken:terms.settlementToken,customerUserId:buyer.user_id,providerUserId:seller.user_id,
+          trade:{offerId,listingRevision:offer.listing_revision,snapshotHash,price,deliveryFee,handover,location,carrier,returns,dispatchDays,deliveryDays,inspectionHours}}}
+        // Reserve locally before the remote request. Retries reuse the same immutable payload.
+        await client.query('insert into hashpaystream_trade_funding_reservations(id,offer_id,listing_id,binding,created_at) values($1,$2,$3,$4,$5)',[randomUUID(),offerId,t.listing_id,reservation,Date.now()])
+        return {mode:'hosted',reservation}
+      })
+    },
     async checkoutEvidence(viewer: string, threadId: string, offerId: string, hash: string, body: string) {
       return transaction(async client => {
         await thread(client, threadId, viewer);
@@ -252,6 +295,8 @@ export function createTradeCommunityStore(
               }
             : null;
         if (!verified) return project(existing);
+        if ((await client.query('select actor from hashpaystream_trade_hosted_participants where offer_id=$1',[offerId])).rowCount) fail('This offer uses Hash PayLink hosted checkout.',409);
+
         if (existing) {
           if (
             existing.wallet_id !== verified.walletId ||

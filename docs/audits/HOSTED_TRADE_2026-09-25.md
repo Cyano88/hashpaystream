@@ -1,0 +1,9 @@
+# Hash PayStream hosted Trade cutover
+
+New xStocks Trade offers use the shared Hash PayLink checkout. Each participant connects their verified Hash PayLink account, then the buyer reserves checkout. The server loads the accepted listing and terms itself; browser-provided identities, quantities and checkout URLs are never trusted.
+
+Hosted participant bindings are immutable per offer. The existing funding reservation table and listing/pair locks reserve a single immutable remote request, preventing duplicate checkouts, local-wallet mixing and cancellation races. The remote request happens outside database retries. Recovery first looks up the same project-scoped idempotency reference. Existing local wallet/escrow records keep the original Privy recovery path.
+
+Configuration: a separate draft/read `HASHPAYSTREAM_XSTOCKS_AGREEMENT_API_KEY`, existing wallet-connection key/ownership secret, Hash PayLink authority `HASHPAYSTREAM_HASH_PAYLINK_PRIVY_APP_ID`, `HASHPAYSTREAM_HOSTED_ACCOUNT_ENABLED=true`, and `HASHPAYSTREAM_TRADE_HOSTED_ENABLED=true`. Native `HASHPAYSTREAM_TRADE_XLAYER_ENABLED` remains off for this rollout. Hash PayLink separately gates Trade by project. No financial flags were enabled during implementation.
+
+Passed: application TypeScript, isolated PostgreSQL listing/community/concurrency suites, hosted proxy response-binding/retry tests, account linking tests and legacy X Layer planner suite. No live two-participant funding, dispatch, release or refund was performed. The active CLI grant was expired and did not contain xStocks draft/read scopes; renewed owner authorization is required before key creation and Render handoff. The linked Hash PayLink wallet is a distinct authority from a user's existing Hash PayStream embedded wallet; account connection does not transfer balances.
