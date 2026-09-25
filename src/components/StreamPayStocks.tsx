@@ -13,7 +13,7 @@ type Asset = typeof catalogue.assets[number]
 function AssetRow({ asset, onOpen }: { asset: Asset; onOpen: () => void }) {
   const [imageFailed, setImageFailed] = useState(false)
   return <button type="button" onClick={onOpen} className="flex min-h-[72px] w-full items-center gap-3 rounded-2xl px-1 py-3 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.04]">
-    <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-[10px] font-black dark:bg-white/10">{!imageFailed ? <img src={asset.icon} onError={() => setImageFailed(true)} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-contain" /> : asset.symbol.slice(0, 3)}</span>
+    <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-[10px] font-black dark:bg-white/10">{!imageFailed ? <img src={asset.sourceIcon} onError={() => setImageFailed(true)} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-contain" /> : asset.symbol.slice(0, 3)}</span>
     <span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold">{asset.name}</span><span className="mt-1 block text-[10px] text-gray-400">{asset.symbol}</span></span>
     <ChevronRightIcon className="h-3.5 w-3.5 shrink-0 text-gray-400" />
   </button>

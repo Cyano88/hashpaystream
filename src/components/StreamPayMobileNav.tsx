@@ -20,7 +20,7 @@ export function StreamPayMobileNav() {
           path === '/agreements' ? route.startsWith('/agreements') || route === '/requests'
             : path === '/trade' ? route.startsWith('/trade')
             : path === '/account' ? ['/account', '/upfront', '/funding'].some(prefix => route === prefix || route.startsWith(prefix + '/'))
-            : ['/home', '/savings', '/move', '/send', '/receive', '/notifications', '/activity'].some(prefix => route === prefix || route.startsWith(prefix + '/'))
+            : ['/home', '/xstocks', '/savings', '/move', '/send', '/receive', '/notifications', '/activity'].some(prefix => route === prefix || route.startsWith(prefix + '/'))
         } Icon={Icon} />)}
       </div>
     </nav>

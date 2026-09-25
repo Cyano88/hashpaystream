@@ -19,6 +19,7 @@ export function StreamPayLayout({ children }: { children: ReactNode }) {
       '/upfront',
       '/funding',
       '/savings',
+      '/xstocks',
       '/move',
       '/send',
       '/receive',
