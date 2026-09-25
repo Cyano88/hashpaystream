@@ -8,6 +8,7 @@ import StreamPayDocsHome from './components/docs/StreamPayDocsHome'
 import StreamPayArcAgreementDocs from './components/docs/StreamPayArcAgreementDocs'
 import StreamPayCircleMarketplaceDocs from './components/docs/StreamPayCircleMarketplaceDocs'
 import StreamPayHome from './components/StreamPayHome'
+import StreamPayStocks from './components/StreamPayStocks'
 import StreamPayTrade from './components/StreamPayTrade'
 import StreamPayActivity from './components/StreamPayActivity'
 import StreamPayNotifications from './components/StreamPayNotifications'
@@ -32,7 +33,7 @@ import { CircleWalletGate } from './components/CircleWalletGate'
 import { useThemeSurface } from './lib/ThemeContext'
 import { useCircleWallet } from './lib/circleWallet'
 
-const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/upfront', '/funding', '/savings', '/move', '/move/xlayer/send', '/send', '/receive', '/activity', '/notifications', '/requests', '/account', '/operations', '/admin/analytics'])
+const AUTH_DECISION_ROUTES = new Set(['/', '/home', '/agreements', '/agreements/new', '/upfront', '/funding', '/savings', '/xstocks', '/move', '/move/xlayer/send', '/send', '/receive', '/activity', '/notifications', '/requests', '/account', '/operations', '/admin/analytics'])
 const CIRCLE_ROUTES = new Set([
   '/home',
   '/agreements',
@@ -128,6 +129,7 @@ function StreamPayRoute() {
   else if (route === '/') content = <StreamPayLanding />
   else if (route === '/trade') content = <StreamPayTrade />
   else if (route === '/home') content = <StreamPayHome />
+  else if (route === '/xstocks') content = <StreamPayStocks />
   else if (route === '/agreements') content = <AgreementDashboard />
   else if (route === '/agreements/new') content = <Navigate to={composeRequestTo} replace />
   else if (route === '/upfront') content = <StreamPayUpfront />

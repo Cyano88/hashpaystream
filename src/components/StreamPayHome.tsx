@@ -2,7 +2,7 @@ import {
   ArrowRightIcon,
   PaperAirplaneIcon,
   ArrowDownTrayIcon,
-  ArrowsRightLeftIcon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline'
 import { useMemo } from 'react'
 import { Link, useLocation } from '../lib/router'
@@ -42,6 +42,7 @@ export default function StreamPayHome() {
   const createTo = useStreamPayPath('/requests?compose=1')
   const sendTo = useStreamPayPath('/send')
   const receiveTo = useStreamPayPath('/receive')
+  const stocksTo = useStreamPayPath('/xstocks')
   const { search } = useLocation()
   const activityTo = useStreamPayPath('/activity')
   const notificationsTo = useStreamPayPath('/notifications')
@@ -65,7 +66,7 @@ export default function StreamPayHome() {
   const actions = [
     { label: 'Send', Icon: PaperAirplaneIcon, to: sendTo },
     { label: 'Receive', Icon: ArrowDownTrayIcon, to: receiveTo },
-    { label: 'Swap', Icon: ArrowsRightLeftIcon, to: null },
+    { label: 'xStocks', Icon: ChartBarIcon, to: stocksTo },
   ]
 
   return (
