@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs';import vm from 'node:vm';import ts from 'typescript';import React from 'react';import TestRenderer,{act} from 'react-test-renderer'
 import {stockPortfolioExpiresAt,stockPortfolioValueIsFresh} from '../src/lib/readStockBalances.ts'
-let clock=Date.now(),user='a',fail=false,hold=false,reply,total=12.5,calls=0
+let clock=Date.now(),user='a',fail=false,hold=false,reply,total=12.5,calls=0,ready=true,tokenHold=false
 let observed=clock,priceTime=clock
 const timers=new Map(),intervals=new Map(),events=new Map();let nextId=1
 const document={visibilityState:'visible',addEventListener:(k,f)=>events.set(k,f),removeEventListener:k=>events.delete(k)}
@@ -9,7 +9,7 @@ const window={setTimeout:(f,delay)=>{const id=nextId++;timers.set(id,{f,at:clock
 const source=fs.readFileSync('src/components/StocksBalanceCard.tsx','utf8').replace(/^import .*\r?\n/gm,'')
 const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.React}}).outputText
 const portfolio=()=>({chainId:196,complete:true,stale:false,estimatedValueUsd:total,observedAt:observed,holdings:[{address:'0x1',symbol:'TESTx',balance:'1.25',priceObservedAt:priceTime}]})
-const context={exports:{},React,...React,AbortController,Intl,window,document,Date:class extends Date{static now(){return clock}},stockPortfolioExpiresAt,stockPortfolioValueIsFresh,ChartBarIcon:()=>null,usePrivy:()=>({user:{id:user},getAccessToken:async()=>user}),useWallets:()=>({ready:true,wallets:[{walletClientType:'privy',address:'0x'+'1'.repeat(40)}]}),readStockBalances:async()=>{calls++;if(hold)return new Promise(r=>reply=r);if(fail)throw Error('offline');return portfolio()}}
+const context={exports:{},React,...React,AbortController,Intl,window,document,Date:class extends Date{static now(){return clock}},stockPortfolioExpiresAt,stockPortfolioValueIsFresh,ChartBarIcon:()=>null,usePrivy:()=>({ready,user:{id:user,linkedAccounts:[{type:'wallet',chainType:'ethereum',walletClientType:'privy',connectorType:'embedded',address:'0x'+'1'.repeat(40)}]},getAccessToken:async()=>tokenHold ? new Promise(()=>{}) : user}),useWallets:()=>({ready,wallets:[{walletClientType:'privy',address:'0x'+'1'.repeat(40)}]}),readStockBalances:async()=>{calls++;if(hold)return new Promise(r=>reply=r);if(fail)throw Error('offline');return portfolio()}}
 vm.runInNewContext(code,context);let renderer
 const drain=async()=>{for(let i=0;i<10;i++)await new Promise(r=>setImmediate(r))}
 const actRun=async fn=>act(async()=>{fn();await drain()})
@@ -26,5 +26,11 @@ document.visibilityState='hidden';const hiddenCalls=calls;await actRun(()=>[...i
 clock+=60001;fail=true;await actRun(()=>events.get('online')());assert.doesNotMatch(text(),/12.50/);assert.match(text(),/Last known balances/)
 fail=false;hold=true;await actRun(()=>events.get('focus')());const old=reply;hold=false;user='b';total=null;observed=clock;priceTime=clock;await actRun(()=>renderer.update(React.createElement(context.exports.default)));await actRun(()=>old({...portfolio(),estimatedValueUsd:999}));assert.doesNotMatch(text(),/999/)
 await actRun(()=>renderer.unmount());assert.equal(timers.size,0);assert.equal(intervals.size,0);assert.equal(events.size,0)
+// Wallet SDK readiness and token acquisition must both finish with a retry state.
+ready=false;await actRun(()=>{renderer=TestRenderer.create(React.createElement(context.exports.default))});clock+=10001
+await actRun(()=>{for(const [id,t]of [...timers])if(t.at<=clock){timers.delete(id);t.f()}});assert.match(text(),/Stock balances are not available yet/);assert.doesNotMatch(text(),/Loading stock balances/)
+ready=true;tokenHold=true;await actRun(()=>renderer.update(React.createElement(context.exports.default)));clock+=50001
+await actRun(()=>{for(const [id,t]of [...timers])if(t.at<=clock){timers.delete(id);t.f()}});assert.match(text(),/Stock balances could not be loaded/);assert.doesNotMatch(text(),/Loading stock balances/)
+await actRun(()=>renderer.unmount());assert.equal(timers.size,0);assert.equal(intervals.size,0)
 assert.equal(stockPortfolioValueIsFresh({...portfolio(),estimatedValueUsd:1,observedAt:clock+60000},clock),false)
 console.log('Stocks card passed: provider timestamp expiry, automatic refresh, no overlapping reads, background pause, native resume, failed refresh, account isolation and cleanup.')

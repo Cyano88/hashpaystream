@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { usePrivy, useWallets } from '@privy-io/react-auth'
+import { usePrivy } from '@privy-io/react-auth'
 import { ChartBarIcon } from '@heroicons/react/24/outline'
 import { readStockBalances, stockPortfolioExpiresAt, stockPortfolioValueIsFresh } from '../lib/readStockBalances'
 import type { StockPortfolio } from '../lib/readStockBalances'
@@ -7,10 +7,12 @@ import type { StockPortfolio } from '../lib/readStockBalances'
 type Holding = StockPortfolio['holdings'][number]
 type Snapshot = { scope: string; status: 'ready' | 'unavailable' | 'error'; holdings: Holding[]; portfolio?: StockPortfolio; refreshError?: boolean }
 export default function StocksBalanceCard() {
-  const { user, getAccessToken } = usePrivy()
-  const { ready, wallets } = useWallets()
-  const embedded = wallets.filter(wallet => wallet.walletClientType === 'privy' || wallet.walletClientType === 'privy-v2')
-  const address = ready && embedded.length === 1 ? embedded[0].address : ''
+  const { ready, user, getAccessToken } = usePrivy()
+  // A balance read needs the linked address, not an initialized transaction signer.
+  // The server independently verifies this wallet against the authenticated account.
+  const embedded = (user?.linkedAccounts || []).filter(account => account.type === 'wallet'
+    && account.chainType === 'ethereum' && account.walletClientType === 'privy' && account.connectorType === 'embedded')
+  const address = ready && embedded.length === 1 && embedded[0].type === 'wallet' ? embedded[0].address : ''
   const scope = (user?.id || '') + ':' + address.toLowerCase()
   const getToken = useRef(getAccessToken); getToken.current = getAccessToken
   const [snapshot, setSnapshot] = useState<Snapshot>()
@@ -22,22 +24,39 @@ export default function StocksBalanceCard() {
     let inFlight = false
     setSnapshot(previous => previous?.scope === scope ? previous : undefined)
     setRefreshing(false)
-    if (!ready || !user) return () => controller.abort()
+    if (!ready || !user) {
+      const timer = window.setTimeout(() => setSnapshot({ scope, status: 'unavailable', holdings: [] }), 10000)
+      return () => { controller.abort(); window.clearTimeout(timer) }
+    }
     if (!address) { setSnapshot({ scope, status: 'unavailable', holdings: [] }); return () => controller.abort() }
     const load = async () => {
       setNow(Date.now())
       if (inFlight || controller.signal.aborted || document.visibilityState === 'hidden') return
       inFlight = true; setRefreshing(true)
+      const request = new AbortController()
+      const abortRequest = () => request.abort()
+      controller.signal.addEventListener('abort', abortRequest, { once: true })
+      let deadline = 0
+      let rejectCancelled: (() => void) | undefined
       try {
+        const portfolio = await Promise.race([
+          (async () => {
         const token = await getToken.current()
-        if (controller.signal.aborted) return
+        if (request.signal.aborted) throw Error('Request cancelled.')
         if (!token) throw Error('Sign in again.')
-        const portfolio = await readStockBalances(address, token, controller.signal)
+        return readStockBalances(address, token, request.signal)
+          })(),
+          new Promise<never>((_, reject) => {
+            deadline = window.setTimeout(() => { request.abort(); reject(Error('Stock balances took too long.')) }, 50000)
+            rejectCancelled = () => reject(Error('Request cancelled.'))
+            controller.signal.addEventListener('abort', rejectCancelled, { once: true })
+          }),
+        ])
         if (!controller.signal.aborted) setSnapshot({ scope, status: 'ready', holdings: portfolio.holdings, portfolio })
       } catch {
         if (!controller.signal.aborted) setSnapshot(previous => previous?.scope === scope && previous.status === 'ready'
           ? { ...previous, refreshError: true } : { scope, status: 'error', holdings: [] })
-      } finally { inFlight = false; if (!controller.signal.aborted) { setRefreshing(false); setNow(Date.now()) } }
+      } finally { window.clearTimeout(deadline); if (rejectCancelled) controller.signal.removeEventListener('abort', rejectCancelled); controller.signal.removeEventListener('abort', abortRequest); inFlight = false; if (!controller.signal.aborted) { setRefreshing(false); setNow(Date.now()) } }
     }
     const refresh = () => { void load() }
     refresh()
