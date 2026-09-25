@@ -123,7 +123,7 @@ export default function TradeAgreementCard({
               : "Cancel agreed terms?",
           description:
             action === "accept"
-              ? `After you confirm receipt, the ${offer?.terms.inspectionHours}-hour inspection period starts. Payment then becomes releasable unless a dispute is confirmed on-chain before the deadline. Disputes require mutual agreement or arbitration and may keep funds locked. Accepting terms does not make a payment.`
+              ? `After you confirm receipt, the ${offer?.terms.inspectionHours}-hour inspection period starts. Payment then becomes releasable unless a dispute is recorded before the deadline. Disputes need an agreement between both people or a decision from the dispute reviewer. Payment stays held until then. Accepting terms does not make a payment.`
               : "This cancels the accepted terms and makes the item available for another agreement. Cancellation is blocked if checkout becomes reserved.",
           action: action === "accept" ? "Accept terms" : "Cancel terms",
         });
@@ -248,13 +248,13 @@ export default function TradeAgreementCard({
             <p className="text-xs text-gray-500">
               Confirming receipt starts inspection. After{" "}
               {latest.terms.inspectionHours} hours, payment becomes releasable
-              unless a dispute was confirmed on-chain before the deadline.
-              Disputes require mutual agreement or arbitration and may keep
-              funds locked. The arbitrator is shown before funding.
+              unless a dispute was recorded before the deadline.
+              Both people must agree on a resolution, or the dispute reviewer must decide.
+              Payment stays held until then. The dispute reviewer is shown before payment.
             </p>
           ) : (
             <p className="text-xs text-gray-500">
-              These older terms need a new offer before escrow funding.
+              These older terms need a new offer before payment.
             </p>
           )}
           {latest.status === "accepted" ? (
@@ -489,9 +489,9 @@ export default function TradeAgreementCard({
           </label>
           <p className="text-xs text-gray-500">
             Confirming receipt starts inspection. Payment becomes releasable
-            when inspection ends unless a dispute is confirmed on-chain first.
-            Disputes require mutual agreement or the arbitrator shown before
-            funding; unresolved disputes may keep funds locked.
+            when the review period ends unless a dispute is recorded first.
+            Disputes need agreement from both people or a decision from the reviewer shown before
+            payment; unresolved disputes may keep funds locked.
           </p>
           <p className="text-xs text-gray-500">
             The current listing description and photos will be preserved with
