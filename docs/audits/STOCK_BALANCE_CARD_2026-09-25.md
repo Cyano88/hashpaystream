@@ -22,3 +22,5 @@ Hash PayStream c53a34294710d3bee111a82b1e2a40e2beb01f12 is live under deployment
 ## Freshness correction
 
 Hash PayStream previously fetched only at mount/manual refresh and never aged out the displayed value. The card now refreshes every 30 seconds while visible, on focus/reconnection/visibility/native resume, skips overlapping reads, and expires the estimated total at the earliest balance or provider-price timestamp plus 60 seconds. Failed refreshes retain labeled last-known holdings, not an expired total. Controlled-clock tests cover expiry, background pause, native resume, failures, account switches and timer cleanup. Pocket code is unchanged. Candidate version 1.0.40 (41).
+
+Freshness correction deployed: 155ced18f519e4a1234ab47ac82685b6ce87e88c, Render dep-dar0vcg473hc739e7p9g, live. Web health and served bundle confirm the expiry notice and native resume event. Android 1.0.40-candidate (41) installed in-place and launched. APK SHA-256 328134F237D75BE2FA2D757F49684D7CA02C5A69D01474ECF7C57681EE434094. Mainnet build, typecheck, controlled-clock refresh tests and Gradle passed. No Pocket source changes or money movements.
