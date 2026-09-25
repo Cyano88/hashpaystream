@@ -22,7 +22,8 @@ function HostedTrade(props:Props){
   const [status,setStatus]=useState<Status>(),[error,setError]=useState(''),[busy,setBusy]=useState(false);
   const active=useRef(true),lock=useRef(false),cancel=useRef(props.onCancelAvailability);cancel.current=props.onCancelAvailability;
   async function request(action='status'){
-    const token=await getAccessToken();if(!active.current)return;
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    const token=await Promise.race([getAccessToken(),new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(Error('Your session is taking too long. Try again.')),15000)})]).finally(()=>clearTimeout(timer));if(!active.current)return;
     const next=await communityRequest('hosted-checkout',token,{threadId:props.thread.id,offerId:props.offer.id,action}) as Status;
     if(!active.current)return;
     if(next.checkoutUrl&&!/^https:\/\/app\.hashpaylink\.com\/agreements\/xstocks\/xag_[a-f0-9]{64}$/.test(next.checkoutUrl))throw Error('Invalid checkout link.');
