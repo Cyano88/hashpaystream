@@ -272,3 +272,11 @@ html[data-stream-theme-surface='launch'], html[data-stream-theme-surface='launch
   .stream-app-shell[data-stream-platform="web"] .stream-mobile-nav-inner > a:not([aria-current="page"]) { color: #71717a; }
   .dark .stream-app-shell[data-stream-platform="web"] .stream-mobile-nav-inner > a:not([aria-current="page"]) { color: #a1a1aa; }
 }
+
+/* Disclosure controls: down chevron, rotated up when expanded. */
+.stream-trade-disclosure summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
+.stream-trade-disclosure summary::-webkit-details-marker { display: none; }
+.stream-trade-disclosure summary::marker { content: ''; }
+.stream-trade-disclosure summary::after { content: ''; width: 8px; height: 8px; flex: 0 0 8px; margin: 0 4px 4px 0; border-right: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor; transform: rotate(45deg); transition: transform 160ms ease; }
+.stream-trade-disclosure details[open] > summary::after { transform: rotate(225deg); margin-bottom: 0; }
+@media (prefers-reduced-motion: reduce) { .stream-trade-disclosure summary::after { transition: none; } }

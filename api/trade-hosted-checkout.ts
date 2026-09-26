@@ -7,18 +7,19 @@ export async function hostedTradeCheckout(reservation:HostedTradeReservation,env
   const call=async(method:string,path:string,body?:unknown)=>{
     const response=await fetch(ORIGIN+path,{method,redirect:'error',signal:AbortSignal.timeout(20000),headers:{'x-api-key':apiKey!,'content-type':'application/json','idempotency-key':reservation.idempotencyKey},...(body?{body:JSON.stringify(body)}:{})})
     const data=await response.json().catch(()=>fail(502,'Checkout service is unavailable. Try again.'))
-    return {response,data}
+    return {response,data,method}
   }
-  let result=await call('GET','/api/v2/xstocks-agreements?idempotencyKey='+encodeURIComponent(reservation.idempotencyKey))
+  let result=await call('GET','/api/v2/xstocks-agreements?idempotencyKey='+encodeURIComponent(reservation.idempotencyKey)+'&reconcile=true')
   if(result.response.status===404)result=await call('POST','/api/v2/xstocks-agreements',reservation.request)
   const {response,data}=result
   if(!response.ok||data.ok!==true)fail(response.status===409?409:502,response.status===409?'New stock checkout is currently paused. Existing escrow recovery remains available.':'Could not open hosted checkout. Try again.')
+  if(result.method==='GET'&&(typeof data.observation?.pending!=='boolean'||!Number.isFinite(Date.parse(data.observation?.checkedAt))))fail(502,'Payment status could not be verified. Try again.')
   const agreement=data.agreement
   if(!agreement||!/^xag_[a-f0-9]{64}$/.test(agreement.id)||agreement.walletAppId!==reservation.walletAppId||agreement.checkoutPath!=='/agreements/xstocks/'+agreement.id
     ||agreement.terms?.kind!=='trade'||agreement.terms.trade?.offerId!==reservation.request.trade.offerId||agreement.terms.trade?.snapshotHash!==reservation.request.trade.snapshotHash
     ||(reservation.request.stockCustody!==undefined&&agreement.terms.stockCustody?.policy!==reservation.request.stockCustody)
     ||agreement.terms.amount!==reservation.request.amount||agreement.terms.xlayerPayment?.token?.toLowerCase()!==reservation.request.paymentToken.toLowerCase())fail(502,'The checkout does not match the accepted Trade.')
-  return {checkoutUrl:ORIGIN+agreement.checkoutPath,state:agreement.observed?.state,observedBlock:agreement.observed?.observedBlock}
+  return {checkoutUrl:ORIGIN+agreement.checkoutPath,state:agreement.observed?.state,observedBlock:agreement.observed?.observedBlock,pending:data.observation?.pending===true}
 }
 
 export async function hostedTradeAssets(env:NodeJS.ProcessEnv){

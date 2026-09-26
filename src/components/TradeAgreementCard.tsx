@@ -167,7 +167,7 @@ export default function TradeAgreementCard({
     }));
   }
   return (
-    <section className="stream-card space-y-3 p-4" aria-label="Trade agreement">
+    <section className="stream-trade-disclosure stream-card space-y-3 p-4" aria-label="Trade agreement">
       {confirmation}
       <h3 className="text-sm font-bold">Agreement</h3>
       {!loaded && !error && (

@@ -1,3 +1,4 @@
+import { tradeCheckoutLink } from '../lib/tradeCheckoutLink';
 import PrivyTradeCheckout from './PrivyTradeCheckout';
 import { useEffect, useRef, useState } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
@@ -16,7 +17,7 @@ export default function TradeCheckout(props: Parameters<typeof PrivyTradeCheckou
   return <HostedTrade key={user?.id+':'+props.thread.id+':'+props.offer.id} {...props}/>;
 }
 type Props=Parameters<typeof TradeCheckout>[0];
-type Status={mode:'legacy'|'hosted';enabled?:boolean;ready?:boolean;buyerReady?:boolean;sellerReady?:boolean;needsConnection?:boolean;checkoutUrl?:string;state?:number};
+type Status={mode:'legacy'|'hosted';enabled?:boolean;ready?:boolean;buyerReady?:boolean;sellerReady?:boolean;needsConnection?:boolean;checkoutUrl?:string;state?:number;pending?:boolean};
 function HostedTrade(props:Props){
   const {getAccessToken}=usePrivy();
   const [status,setStatus]=useState<Status>(),[error,setError]=useState(''),[busy,setBusy]=useState(false);
@@ -33,7 +34,7 @@ function HostedTrade(props:Props){
   }
   useEffect(()=>{
     active.current=true;cancel.current(false);
-    const update=()=>{if(!lock.current&&!background.current){background.current=request().catch(e=>{if(active.current)setError(e.message)}).finally(()=>{background.current=null})}};
+    const update=()=>{if(!lock.current&&!background.current&&(typeof document==='undefined'||document.visibilityState!=='hidden')){background.current=request().catch(e=>{if(active.current)setError(e.message)}).finally(()=>{background.current=null})}};
     update();const timer=setInterval(update,15000);window.addEventListener('focus',update);window.addEventListener('hashpaystream:resume',update);
     return()=>{active.current=false;clearInterval(timer);window.removeEventListener('focus',update);window.removeEventListener('hashpaystream:resume',update)};
   },[]);
@@ -44,8 +45,8 @@ function HostedTrade(props:Props){
     {!status&&!error&&<div role='status' className='h-11 animate-pulse rounded-xl bg-gray-100 dark:bg-white/5'><span className='sr-only'>Loading checkout</span></div>}
     {status?.checkoutUrl?<>
       <p className='text-xs text-gray-500'>Review terms and manage this Trade securely with Hash PayLink.</p>
-      <a className={button+' flex items-center justify-center'} href={status.checkoutUrl} target='_blank' rel='noreferrer'>Open Trade checkout</a>
-      {status.state!==undefined&&<p className='text-xs text-gray-500'>{['Waiting for seller','Ready for payment','Payment held securely','Sent or ready for pickup','Inspection period','Disputed','Payment released','Refunded','Resolved','Cancelled'][status.state]||'Checking payment'}</p>}
+      <a className={button+' flex items-center justify-center'} href={tradeCheckoutLink(status.checkoutUrl,props.thread.id)} target='_blank' rel='noreferrer'>Open Trade checkout</a>
+      {!error&&(status.pending||status.state!==undefined)&&<p className='text-xs text-gray-500'>{status.pending?'Waiting for network confirmation':['Waiting for seller','Ready for payment','Payment held securely','Sent or ready for pickup','Inspection period','Disputed','Payment released','Refunded','Resolved','Cancelled'][status.state!]||'Checking payment'}</p>}
     </>:status?.enabled?<>
       {status.needsConnection&&<HostedAccountConnection/>}
       {!status.ready&&<button className={button} disabled={busy} onClick={()=>void run('connect')}>{busy?'Connecting account...':'Use Hash PayLink account'}</button>}
