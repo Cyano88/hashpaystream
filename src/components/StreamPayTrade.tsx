@@ -666,9 +666,9 @@ function TradeScreen({
             Loading listings...
           </p>
         ) : (
-          <div className="space-y-4">
+          <div className="stream-trade-disclosure space-y-8">
             <div>
-              <h2 className="text-xl font-bold">My listings</h2>
+              <h2 className="text-2xl font-bold tracking-tight">My listings</h2>
               <p className="mt-2 text-xs leading-5 text-zinc-500">
                 {mode === "preview"
                   ? "Unpublished drafts on this device."
@@ -706,25 +706,23 @@ function TradeScreen({
                     Your published items will appear here.
                   </p>
                 ) : (
-                  mine.map((listing) => (
-                    <div key={listing.id} className="stream-card space-y-3 p-3">
-                      <div className="flex items-center gap-3">
-                        <TradeImage
-                          src={listing.photos[0]}
-                          alt=""
-                          className="h-14 w-14 rounded-xl object-cover"
-                        />
+                  <div className="stream-trade-list divide-y divide-gray-100 dark:divide-white/[0.05]">
+                  {mine.map((listing) => (
+                    <article key={listing.id} className="min-w-0">
+                    <details>
+                      <summary aria-label={`Manage ${listing.title}`} className="min-h-[80px] rounded-2xl px-1 py-3 transition hover:bg-gray-50 dark:hover:bg-white/[0.04]">
+                        <span className="w-14 shrink-0"><ItemArt item={listing} compact /></span>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-xs font-bold">
                             {listing.title}
                           </p>
                           <p className="mt-1 text-xs text-zinc-500">
-                            {tradePrice(listing)} ·{" "}
                             {listing.status === "sold" ? "Sold" : "Published"}
                           </p>
                         </div>
-                      </div>
-                      <div className="flex flex-wrap gap-3">
+                        <span className="shrink-0 text-xs font-bold tabular-nums">{tradePrice(listing)}</span>
+                      </summary>
+                      <div className="flex flex-wrap gap-x-5 px-1 pb-2 sm:pl-[72px]">
                         {listing.status === "active" && (
                           <>
                             <button
@@ -753,8 +751,10 @@ function TradeScreen({
                           Remove listing
                         </button>
                       </div>
-                    </div>
-                  ))
+                    </details>
+                    </article>
+                  ))}
+                  </div>
                 )}
               </section>
             )}
@@ -767,22 +767,21 @@ function TradeScreen({
                   Your saved drafts will appear here.
                 </p>
               ) : (
-                pocket.drafts.map((d) => (
-                  <div
-                    key={d.id}
-                    className="stream-card flex items-center gap-3 p-3"
-                  >
-                    <TradeImage
-                      src={d.photos[0]}
-                      alt=""
-                      className="h-14 w-14 rounded-xl object-cover"
-                    />
+                <div className="stream-trade-list divide-y divide-gray-100 dark:divide-white/[0.05]">
+                {pocket.drafts.map((d) => (
+                  <article key={d.id} className="min-w-0">
+                    <details>
+                    <summary aria-label={`Manage draft ${d.title || "Untitled item"}`} className="min-h-[80px] rounded-2xl px-1 py-3 transition hover:bg-gray-50 dark:hover:bg-white/[0.04]">
+                    <span className="w-14 shrink-0"><ItemArt item={d} compact /></span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-bold">{d.title}</p>
+                      <p className="truncate text-xs font-bold">{d.title || "Untitled item"}</p>
                       <p className="mt-1 text-xs text-zinc-500">
-                        {tradePrice(d)} · Draft
+                        Draft
                       </p>
                     </div>
+                    <span className="shrink-0 text-xs font-bold tabular-nums">{d.price ? tradePrice(d) : "No price yet"}</span>
+                    </summary>
+                    <div className="flex flex-wrap gap-x-5 px-1 pb-2 sm:pl-[72px]">
                     <button
                       disabled={busy}
                       onClick={() => {
@@ -790,9 +789,9 @@ function TradeScreen({
                         setRevision(0);
                         go("Sell");
                       }}
-                      className="min-h-11 px-2 text-xs font-bold"
+                      className="min-h-11 text-xs font-bold"
                     >
-                      Edit
+                      Edit draft
                     </button>
                     <button
                       disabled={busy}
@@ -811,12 +810,15 @@ function TradeScreen({
                             drafts: pocket.drafts.filter((x) => x.id !== d.id),
                           });
                       }}
-                      className="flex h-11 w-11 items-center justify-center text-zinc-500"
+                      className="min-h-11 text-xs font-bold text-red-600"
                     >
-                      <XMarkIcon className="h-4 w-4" />
+                      Delete draft
                     </button>
-                  </div>
-                ))
+                    </div>
+                    </details>
+                  </article>
+                ))}
+                </div>
               )}
             </section>
             <button
