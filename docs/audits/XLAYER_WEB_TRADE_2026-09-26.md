@@ -73,3 +73,11 @@ The focused provider UI TypeScript graph and production Vite build passed. The s
 ## My listings layout
 
 Reused Browse's ItemArt, thumbnail sizing, price alignment and responsive list grid for published listings and drafts. Native expandable rows reveal existing edit/sold/remove actions; sold items still omit edit/sold actions and existing destructive confirmations remain. No listing data or action handlers changed. TypeScript, the production build and listing validation passed. Rendered current JSX with synthetic active/sold listings and inspected desktop and narrow-screen previews, including the expanded actions. These previews do not establish a new production payment test. Live sign-in was restored and the existing My listings page was inspected. This UI change is local and awaits the coordinated Trade deployment.
+
+## Listing folders and navigation audit
+
+My listings now starts with Listings and Drafts rows. The selected folder is represented by section=listings or section=drafts, with a back route and invalid-section fallback. Existing management handlers and confirmations remain; actions use Heroicons plus text in a compact panel.
+
+Fixed the desktop header shift: Sell/details/enquiries previously narrowed the outer screen from 1120px to 760px. Only the content is now constrained, while the web header/tabs retain their width and stick during scrolling. Browse failures are no longer displayed over unrelated private sections. Failed listing availability no longer leaves a loading count, and failed saved-item loading shows a retry instruction.
+
+Validation: TypeScript, production build and the new component navigation regression passed. Rendered current component output with synthetic data: My listings and Sell measured x=272, y=32, width=1120 at a 1440px viewport; the navigation stayed at top=0 after scrolling 364px. At 390px, both folder rows measured 80px high and there was no horizontal overflow. Fixture asset/font fetch failures limit these previews to layout; they are not authenticated production or payment evidence. Latest label-only correction passed the component regression. Changes remain local, awaiting the coordinated provider-first release and live checkout verification.

@@ -9,6 +9,12 @@ import {
   ChatBubbleLeftRightIcon,
   AdjustmentsHorizontalIcon,
   BookmarkIcon,
+  CheckCircleIcon,
+  ChevronRightIcon,
+  DocumentTextIcon,
+  QueueListIcon,
+  PencilSquareIcon,
+  TrashIcon,
   MagnifyingGlassIcon,
   PhotoIcon,
   XMarkIcon,
@@ -90,6 +96,8 @@ function TradeScreen({
   const tab: Tab =
     tabs.find((t) => t.toLowerCase().replaceAll(" ", "-") === requested) ||
     "Browse";
+  const listingSection = tab === "My listings" && ["listings", "drafts"].includes(params.get("section") || "")
+    ? params.get("section") : null;
   const initialPage = useRef(cachedTradePage()).current;
   const [mode, setMode] = useState<"loading" | "preview" | "live" | "error">(
     initialPage ? (initialPage.enabled ? "live" : "preview") : "loading",
@@ -385,10 +393,11 @@ function TradeScreen({
       if (alive.current) setBusy(false);
     }
   }
-  function go(next: Tab, id?: string) {
+  function go(next: Tab, id?: string, section?: "listings" | "drafts") {
     const u = new URL(base, window.location.origin);
     u.searchParams.set("view", next.toLowerCase().replaceAll(" ", "-"));
     if (id) u.searchParams.set("item", id);
+    if (next === "My listings" && section) u.searchParams.set("section", section);
     navigate(u.pathname + u.search);
     setNotice("");
     setError("");
@@ -486,6 +495,7 @@ function TradeScreen({
   return (
     <section className="stream-screen w-full max-w-md space-y-4 pb-6 pt-4">
       {confirmation}
+      <div className="stream-trade-navigation space-y-4">
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
@@ -534,7 +544,9 @@ function TradeScreen({
           </button>
         ))}
       </nav>
-      {marketError && (
+      </div>
+      <div className="stream-trade-content space-y-4">
+      {marketError && requested !== "enquiries" && (tab === "Browse" || tab === "Saved" || !!detailId) && (
         <p
           role="alert"
           className="rounded-2xl bg-red-50 p-3 text-xs text-red-700"
@@ -663,21 +675,34 @@ function TradeScreen({
           signIn
         ) : !loaded ? (
           <p role="status" className="text-sm text-zinc-500">
-            Loading listings...
+            {error ? "Saved items could not be loaded. Use Retry above." : "Loading listings..."}
           </p>
         ) : (
           <div className="stream-trade-disclosure space-y-8">
             <div>
-              <h2 className="text-2xl font-bold tracking-tight">My listings</h2>
+              {listingSection && <button type="button" onClick={() => go("My listings")} className="mb-3 flex min-h-11 items-center gap-2 text-xs font-semibold text-zinc-500"><ArrowLeftIcon aria-hidden="true" className="h-4 w-4" />My listings</button>}
+              <h2 className="text-2xl font-bold tracking-tight">{listingSection === "listings" ? "Listings" : listingSection === "drafts" ? "Drafts" : "My listings"}</h2>
               <p className="mt-2 text-xs leading-5 text-zinc-500">
-                {mode === "preview"
-                  ? "Unpublished drafts on this device."
-                  : "Manage your published items and drafts."}
+                {listingSection === "drafts" ? "Unpublished items saved on this device." : listingSection === "listings" ? "Manage your published items." : "Your published items and saved drafts."}
               </p>
             </div>
-            {mode !== "preview" && (
-              <section className="space-y-3">
-                <h3 className="text-sm font-bold">Published items</h3>
+            {!listingSection && <div className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+              <button type="button" onClick={() => go("My listings", undefined, "listings")} className="stream-listing-folder">
+                <QueueListIcon aria-hidden="true" className="h-5 w-5 text-zinc-500" />
+                <span className="min-w-0 flex-1"><span className="block font-semibold">Listings</span><span className="mt-1 block text-xs text-zinc-500">Published and sold items</span></span>
+                <span className="text-xs text-zinc-500">{mode === "preview" || mode === "error" ? "Unavailable" : mineStatus === "ready" ? mine.length : mineStatus === "error" ? "Unavailable" : "Loading"}</span>
+                <ChevronRightIcon aria-hidden="true" className="h-4 w-4 text-zinc-400" />
+              </button>
+              <button type="button" onClick={() => go("My listings", undefined, "drafts")} className="stream-listing-folder">
+                <DocumentTextIcon aria-hidden="true" className="h-5 w-5 text-zinc-500" />
+                <span className="min-w-0 flex-1"><span className="block font-semibold">Drafts</span><span className="mt-1 block text-xs text-zinc-500">Continue a saved listing</span></span>
+                <span className="text-xs text-zinc-500">{pocket.drafts.length}</span>
+                <ChevronRightIcon aria-hidden="true" className="h-4 w-4 text-zinc-400" />
+              </button>
+            </div>}
+            {listingSection === "listings" && mode === "preview" && <p className="text-xs text-zinc-500">Published listings will be available when Trade is enabled.</p>}
+            {listingSection === "listings" && mode !== "preview" && (
+              <section className="space-y-3" aria-label="Published listings">
                 {(mode === "error" || mineStatus === "error") && (
                   <div role="status" className="text-xs text-zinc-500">
                     <p>
@@ -722,33 +747,36 @@ function TradeScreen({
                         </div>
                         <span className="shrink-0 text-xs font-bold tabular-nums">{tradePrice(listing)}</span>
                       </summary>
-                      <div className="flex flex-wrap gap-x-5 px-1 pb-2 sm:pl-[72px]">
+                      <div role="group" aria-label="Manage listing" className="stream-listing-actions">
                         {listing.status === "active" && (
                           <>
                             <button
                               disabled={busy}
                               onClick={() => void editPublished(listing)}
-                              className="min-h-11 text-xs font-bold"
+                              className="stream-listing-action"
                             >
-                              Edit listing
+                              <PencilSquareIcon aria-hidden="true" />
+                              Edit
                             </button>
                             <button
                               disabled={busy}
                               onClick={() =>
                                 void changeListing(listing, "sold")
                               }
-                              className="min-h-11 text-xs font-bold"
+                              className="stream-listing-action"
                             >
-                              Mark sold
+                              <CheckCircleIcon aria-hidden="true" />
+                              Mark as sold
                             </button>
                           </>
                         )}
                         <button
                           disabled={busy}
                           onClick={() => void changeListing(listing, "remove")}
-                          className="min-h-11 text-xs font-bold text-red-600"
+                          className="stream-listing-action stream-listing-action-danger"
                         >
-                          Remove listing
+                          <TrashIcon aria-hidden="true" />
+                          Remove
                         </button>
                       </div>
                     </details>
@@ -758,7 +786,7 @@ function TradeScreen({
                 )}
               </section>
             )}
-            <section className="space-y-3">
+            {listingSection === "drafts" && <section className="space-y-3">
               <h3 className="text-sm font-bold">
                 Your drafts · {pocket.drafts.length}
               </h3>
@@ -781,7 +809,7 @@ function TradeScreen({
                     </div>
                     <span className="shrink-0 text-xs font-bold tabular-nums">{d.price ? tradePrice(d) : "No price yet"}</span>
                     </summary>
-                    <div className="flex flex-wrap gap-x-5 px-1 pb-2 sm:pl-[72px]">
+                    <div role="group" aria-label="Manage draft" className="stream-listing-actions">
                     <button
                       disabled={busy}
                       onClick={() => {
@@ -789,8 +817,9 @@ function TradeScreen({
                         setRevision(0);
                         go("Sell");
                       }}
-                      className="min-h-11 text-xs font-bold"
+                      className="stream-listing-action"
                     >
+                      <PencilSquareIcon aria-hidden="true" />
                       Edit draft
                     </button>
                     <button
@@ -810,8 +839,9 @@ function TradeScreen({
                             drafts: pocket.drafts.filter((x) => x.id !== d.id),
                           });
                       }}
-                      className="min-h-11 text-xs font-bold text-red-600"
+                      className="stream-listing-action stream-listing-action-danger"
                     >
+                      <TrashIcon aria-hidden="true" />
                       Delete draft
                     </button>
                     </div>
@@ -820,7 +850,7 @@ function TradeScreen({
                 ))}
                 </div>
               )}
-            </section>
+            </section>}
             <button
               onClick={() => {
                 setDraft(blank());
@@ -1297,6 +1327,7 @@ function TradeScreen({
           )}
         </>
       )}
+      </div>
     </section>
   );
 }

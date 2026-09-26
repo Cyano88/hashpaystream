@@ -191,7 +191,7 @@ html[data-stream-theme-surface='launch'], html[data-stream-theme-surface='launch
   .stream-app-shell[data-stream-platform="web"][data-stream-route="/trade"] .stream-mobile-main > .stream-screen {
     max-width: 1120px;
   }
-  .stream-app-shell[data-stream-platform="web"][data-stream-route="/trade"]:is([data-stream-view="sell"], [data-stream-view="enquiries"], [data-stream-view="detail"]) .stream-mobile-main > .stream-screen {
+  .stream-app-shell[data-stream-platform="web"][data-stream-route="/trade"]:is([data-stream-view="sell"], [data-stream-view="enquiries"], [data-stream-view="detail"]) .stream-trade-content {
     max-width: 760px;
   }
   .stream-app-shell[data-stream-platform="web"] .stream-bottom-nav {
@@ -245,7 +245,7 @@ html[data-stream-theme-surface='launch'], html[data-stream-theme-surface='launch
   }
   .stream-app-shell[data-stream-platform="web"] .stream-balance-cards > * { min-width: 0; width: 100%; }
   .stream-app-shell[data-stream-platform="web"] .stream-balance-pagination { display: none; }
-  .stream-app-shell[data-stream-platform="web"] .stream-screen > .stream-segment { max-width: 560px; }
+  .stream-app-shell[data-stream-platform="web"] .stream-screen .stream-segment { max-width: 560px; }
   .stream-app-shell[data-stream-platform="web"] a:focus-visible,
   .stream-app-shell[data-stream-platform="web"] button:focus-visible { outline: 2px solid #3b82f6; outline-offset: 3px; }
 }
@@ -280,3 +280,32 @@ html[data-stream-theme-surface='launch'], html[data-stream-theme-surface='launch
 .stream-trade-disclosure summary::after { content: ''; width: 8px; height: 8px; flex: 0 0 8px; margin: 0 4px 4px 0; border-right: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor; transform: rotate(45deg); transition: transform 160ms ease; }
 .stream-trade-disclosure details[open] > summary::after { transform: rotate(225deg); margin-bottom: 0; }
 @media (prefers-reduced-motion: reduce) { .stream-trade-disclosure summary::after { transition: none; } }
+
+/* Listing management shares the list rhythm, with explicit text and quiet icons. */
+.stream-listing-actions { margin: 0 4px 12px; padding: 4px; border: 1px solid #e4e4e7; border-radius: 16px; background: #fff; }
+.stream-listing-action { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 10px 12px; border-radius: 11px; font-size: 12px; font-weight: 500; text-align: left; color: #3f3f46; transition: background-color 120ms ease; }
+.stream-listing-action svg { width: 18px; height: 18px; flex-shrink: 0; color: #71717a; }
+.stream-listing-action:hover:not(:disabled) { background: #f4f4f5; }
+.stream-listing-action:focus-visible { outline: 2px solid #3b82f6; outline-offset: -2px; }
+.stream-listing-action:disabled { opacity: .45; cursor: not-allowed; }
+.stream-listing-action-danger { color: #b45353; }
+.stream-listing-action-danger svg { color: currentColor; }
+.stream-listing-action + .stream-listing-action-danger { margin-top: 4px; border-top: 1px solid #f4f4f5; border-top-left-radius: 0; border-top-right-radius: 0; }
+.stream-listing-action-danger:hover:not(:disabled) { background: #fff1f2; }
+.dark .stream-listing-actions { background: #18181b; border-color: #303036; }
+.dark .stream-listing-action { color: #e4e4e7; }
+.dark .stream-listing-action svg { color: #a1a1aa; }
+.dark .stream-listing-action:hover:not(:disabled) { background: #27272a; }
+.dark .stream-listing-action-danger, .dark .stream-listing-action-danger svg { color: #e79b9b; }
+.dark .stream-listing-action + .stream-listing-action-danger { border-top-color: #303036; }
+.dark .stream-listing-action-danger:hover:not(:disabled) { background: #352326; }
+@media (min-width: 640px) { .stream-listing-actions { margin-left: 72px; max-width: 280px; } }
+@media (prefers-reduced-motion: reduce) { .stream-listing-action { transition: none; } }
+
+.stream-listing-folder { display: flex; align-items: center; gap: 16px; width: 100%; min-height: 80px; padding: 16px 8px; border-radius: 16px; text-align: left; font-size: 14px; }
+.stream-listing-folder:hover { background: #f4f4f5; }
+.dark .stream-listing-folder:hover { background: #18181b; }
+.stream-listing-folder > svg { flex-shrink: 0; }
+.stream-app-shell[data-stream-platform="web"] .stream-trade-navigation { position: sticky; top: var(--stream-safe-top); z-index: 20; padding: 12px 0; background: #f6f6f3; }
+.dark .stream-app-shell[data-stream-platform="web"] .stream-trade-navigation { background: #000; }
+@media (min-width: 1024px) { html { scrollbar-gutter: stable; } }
