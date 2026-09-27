@@ -27,3 +27,15 @@ Existing completed Trades stay Published because the hosted checkout read previo
 This projection runs when either participant refreshes the existing hosted checkout. It is not an unattended reconciliation worker. No old funding reservation is deleted or reused, and no escrow transaction is sent.
 
 Remaining lifecycle work: reserved/funded visibility; explicit relisting after confirmed cancellation/refund; disputed/resolved outcome policy; unattended event reconciliation. Refund/dispute/cancel states do not automatically reopen a listing. The unique per-listing funding reservation remains intact until a separately reviewed relisting model exists. Do not equate this release-only improvement with full lifecycle coverage.
+
+## Validation and live storage metadata
+
+TypeScript, authenticated hosted-route tests and the isolated real PostgreSQL harness passed, including existing publication/community/funding tests and the new concurrent release projection test. Browser-injected state is ignored. No production transaction was signed.
+
+A read-only SSH metadata inventory confirmed DATABASE_URL/POSTGRES_URL presence and DATA_PATH configuration. The disk has eight top-level entries: seven recognized store/session names and one still unclassified entry. Existing files include agent-wallet-provisioning.json, agent-profiles.json, circle-pocket-actions.json, event-registry.json, helper-profiles.json and helper-usage.json; circle-web-sessions is an existing directory. No file contents, session material or credentials were read/exported. A second pass used each adapter's exact fallback semantics: wallet-link, recipient-wallet, POS, Paycrest and local-currency JSON paths were not existing disk files; this is not evidence of database record completeness. Live record parity and remaining session migration requirements are still unverified.
+
+## Deployment outcome
+
+Release 9dbc905 deployed live as dep-das61evavr4c7395se10. Verified through the authenticated existing demo: after its confirmed released checkout refreshed, My listings showed Demo trade - NVDAx payment as Sold. Browse showed two items instead of three and omitted that completed listing. The other two listings were unchanged. No new payment, signing, manual Mark sold action or escrow modification was performed.
+
+Deployment availability is NOT fixed by this release; the verified disk dependency and migration requirements above remain open. Reserved/funded/dispute/refund/relisting behavior and unattended reconciliation remain separate work.
