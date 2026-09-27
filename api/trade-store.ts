@@ -1,3 +1,4 @@
+import { createTradeSchemaInitializer, tradeReservedSql } from "./trade-schema.js";
 import pg from "pg";
 import { renderDurableStoreConnectionConfig } from "./durable-store.js";
 import type { TradeListing } from "../src/lib/tradePreview.js";
@@ -6,6 +7,7 @@ export type ListingRecord = TradeListing & {
   owner: string;
   status: "active" | "sold" | "removed";
   revision: number;
+  reserved?: boolean;
 };
 export type TradeFilters = {
   q?: string;
@@ -28,23 +30,7 @@ export function tradeFailure(message: string, status: number): never {
 
 // Photos belong to one listing row; discovery only reads metadata, never image bodies.
 export function createPostgresTradeStore(pool: pg.Pool): TradeStore {
-  let schema: Promise<unknown> | undefined;
-  async function ready() {
-    schema ??= pool
-      .query(
-        `create table if not exists hashpaystream_trade_listings (
-      id uuid primary key, owner text not null, status text not null check (status in ('active','sold','removed')),
-      revision integer not null check (revision > 0), data jsonb not null,
-      created_at bigint not null
-    ); create index if not exists hashpaystream_trade_owner on hashpaystream_trade_listings(owner);
-    create index if not exists hashpaystream_trade_browse on hashpaystream_trade_listings(status,created_at desc,id desc);`,
-      )
-      .catch((error) => {
-        schema = undefined;
-        throw error;
-      });
-    await schema;
-  }
+  const ready = createTradeSchemaInitializer(pool);
   const pattern = (value?: string) =>
     value
       ? "%" +
@@ -57,15 +43,17 @@ export function createPostgresTradeStore(pool: pg.Pool): TradeStore {
     owner: row.owner,
     status: row.status,
     revision: row.revision,
+    reserved: row.status === "active" && Boolean(row.reserved),
     createdAt: Number(row.created_at),
   });
   return {
     async list(owner, before, filters = {}) {
       await ready();
       const result = await pool.query(
-        `select id,owner,status,revision,created_at,
+        `select id,owner,status,revision,created_at, ${tradeReservedSql} as reserved,
         (data - 'photos') || jsonb_build_object('photos', (select jsonb_agg('photo:' || n::text) from generate_series(0,jsonb_array_length(data->'photos')-1) n)) as data
         from hashpaystream_trade_listings where ($1::text is null and (status='active' or $6::uuid[] is not null and status='sold') or owner=$1 and status<>'removed')
+        and ($1::text is not null or $6::uuid[] is not null or not ${tradeReservedSql})
         and ($3::text = '' or lower(concat_ws(' ',data->>'title',data->>'category',data->>'condition',data->>'size',data->>'city')) like $3 escape '!')
         and ($4::text = '' or data->>'category'=$4) and ($5::text = '' or lower(data->>'city') like $5 escape '!')
         and ($6::uuid[] is null or id=any($6))
@@ -84,7 +72,7 @@ export function createPostgresTradeStore(pool: pg.Pool): TradeStore {
     async get(id) {
       await ready();
       const result = await pool.query(
-        "select * from hashpaystream_trade_listings where id=$1",
+        `select *, ${tradeReservedSql} as reserved from hashpaystream_trade_listings where id=$1`,
         [id],
       );
       return result.rows[0] ? map(result.rows[0]) : undefined;
@@ -129,7 +117,7 @@ export function createPostgresTradeStore(pool: pg.Pool): TradeStore {
           createdAt: current?.createdAt ?? record.createdAt,
           revision: expected + 1,
         };
-        const { owner, status, revision, ...data } = next;
+        const { owner, status, revision, reserved: _reserved, ...data } = next;
         if (current)
           await client.query(
             "update hashpaystream_trade_listings set status=$3,revision=$4,data=$5::jsonb where id=$1 and owner=$2",

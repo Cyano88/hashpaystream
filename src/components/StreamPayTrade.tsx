@@ -667,7 +667,7 @@ function TradeScreen({
               ? "Sample item. Not for sale."
               : (item as PublishedListing).status === "sold"
                 ? "Sold"
-                : "Agree on the details with the seller before opening checkout."}
+                : (item as PublishedListing).reserved ? "This item is reserved." : "Agree on the details with the seller before opening checkout."}
           </p>
         </div>
       ) : tab === "My listings" ? (
@@ -742,7 +742,7 @@ function TradeScreen({
                             {listing.title}
                           </p>
                           <p className="mt-1 text-xs text-zinc-500">
-                            {listing.status === "sold" ? "Sold" : "Published"}
+                            {listing.status === "sold" ? "Sold" : listing.reserved ? "Reserved" : "Published"}
                           </p>
                         </div>
                         <span className="shrink-0 text-xs font-bold tabular-nums">{tradePrice(listing)}</span>
@@ -1280,7 +1280,7 @@ function TradeScreen({
                   <button onClick={() => go(tab, listing.id)} aria-label={`View ${listing.title}`} className="flex min-h-[80px] min-w-0 flex-1 items-center gap-3 rounded-2xl px-1 py-3 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.04]">
                     <span className="w-14 shrink-0"><ItemArt item={listing} compact /></span>
                     <span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold">{listing.title}</span><span className="mt-1 block truncate text-[10px] text-gray-400">{[listing.condition, listing.size, listing.city].filter(Boolean).join(' · ')}</span></span>
-                    <span className="shrink-0 text-right"><span className="block text-xs font-bold tabular-nums">{tradePrice(listing)}</span>{(listing as PublishedListing).status === 'sold' && <span className="mt-1 block text-[10px] text-gray-400">Sold</span>}</span>
+                    <span className="shrink-0 text-right"><span className="block text-xs font-bold tabular-nums">{tradePrice(listing)}</span>{((listing as PublishedListing).status === 'sold' || (listing as PublishedListing).reserved) && <span className="mt-1 block text-[10px] text-gray-400">{(listing as PublishedListing).status === 'sold' ? 'Sold' : 'Reserved'}</span>}</span>
                   </button>
                   <SaveButton item={listing} saved={pocket.saved.includes(listing.id)} disabled={busy || !ready || (!!owner && !loaded)} onClick={() => void saveItem(listing.id)} />
                 </article>

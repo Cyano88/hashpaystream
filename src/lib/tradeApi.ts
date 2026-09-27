@@ -4,6 +4,7 @@ import type { TradeListing } from "./tradePreview";
 export type PublishedListing = TradeListing & {
   status: "active" | "sold" | "removed";
   revision: number;
+  reserved?: boolean;
 };
 const API = "/api/hashpaystream/v1/trade/listings";
 // Public results only. Never retain tokens, drafts, mine, or conversations here.

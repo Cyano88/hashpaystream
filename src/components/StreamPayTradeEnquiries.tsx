@@ -168,7 +168,7 @@ export function TradeItemActions({
     <div className="space-y-3">
       {!isOwn && (
         <div className="flex flex-wrap items-center gap-4">
-          {item.status === "active" && (
+          {item.status === "active" && !item.reserved && (
             <button
               disabled={busy}
               className={button}
