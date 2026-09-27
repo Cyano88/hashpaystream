@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import {randomUUID,randomBytes} from 'node:crypto';
+import pg from 'pg';
+import {createPostgresTradeStore} from '../api/trade-store.ts';
+import {createTradeCommunityStore} from '../api/trade-community-store.ts';
+const url=process.env.TRADE_TEST_DATABASE_URL||'postgresql://trade_test@127.0.0.1:55439/postgres';
+if(!['localhost','127.0.0.1','[::1]'].includes(new URL(url).hostname))throw Error('Local test database required');
+const schema='trade_release_'+randomBytes(8).toString('hex'),admin=new pg.Pool({connectionString:url});
+await admin.query(`create schema ${schema}`);
+const pool=new pg.Pool({connectionString:url,options:`-c search_path=${schema}`}),listings=createPostgresTradeStore(pool),store=createTradeCommunityStore(pool);
+try{
+ const id=randomUUID(),offer=randomUUID();
+ await listings.save({id,owner:'seller',status:'active',revision:0,title:'Synthetic item',price:'1',currency:'USD',city:'Test',category:'Home',condition:'Good',size:'',description:'Local test only',delivery:'Pickup',photos:[],createdAt:Date.now()},0);
+ const thread=await store.start('buyer',id);
+ await pool.query("insert into hashpaystream_trade_offers(id,thread_id,listing_id,listing_revision,terms,snapshot,status,created_at,expires_at) values($1,$2,$3,1,'{}','{}','accepted',1,9999999999999)",[offer,thread,id]);
+ const key='synthetic-hosted-'+offer,binding={kind:'hosted-trade-v1',idempotencyKey:key,request:{trade:{offerId:offer}}};
+ await pool.query('insert into hashpaystream_trade_funding_reservations(id,offer_id,listing_id,binding,created_at) values($1,$2,$3,$4,1)',[randomUUID(),offer,id,binding]);
+ for(const state of [0,1,2,3,4,5,7,8,9])await store.recordHostedRelease('buyer',thread,offer,key,{state,observedBlock:'100'});
+ await store.recordHostedRelease('buyer',thread,offer,key,{state:6,pending:true,observedBlock:'100'});
+ assert.equal((await listings.get(id)).status,'active','unconfirmed and other lifecycle states never mark sold');
+ await assert.rejects(()=>store.recordHostedRelease('buyer',thread,offer,key,{state:6}),e=>e.status===502);
+ await assert.rejects(()=>store.recordHostedRelease('outsider',thread,offer,key,{state:6,observedBlock:'100'}),e=>e.status===404||e.status===403);
+ await assert.rejects(()=>store.recordHostedRelease('buyer',thread,offer,'wrong-key',{state:6,observedBlock:'100'}),e=>e.status===409);
+ await Promise.all([store.recordHostedRelease('buyer',thread,offer,key,{state:6,observedBlock:'100'}),store.recordHostedRelease('seller',thread,offer,key,{state:6,observedBlock:'101'})]);
+ assert.equal((await listings.get(id)).status,'sold');assert.equal((await listings.get(id)).revision,2,'concurrent refreshes increment once');
+ assert.equal((await listings.list()).length,0,'released item leaves public Browse');
+ assert.equal((await listings.list('seller'))[0].status,'sold','seller retains the record');
+ assert.deepEqual((await pool.query('select binding from hashpaystream_trade_funding_reservations where offer_id=$1',[offer])).rows[0].binding,binding,'immutable funding reservation retained');
+ await listings.save({...await listings.get(id),status:'removed'},2);
+ await store.recordHostedRelease('buyer',thread,offer,key,{state:6,observedBlock:'102'});
+ assert.equal((await listings.get(id)).status,'removed','never restore a removed item');
+ console.log('Hosted release PostgreSQL passed: reservation binding, viewer isolation, confirmed-only state, concurrent idempotency, Browse removal and preserved records.');
+}finally{await pool.end();await admin.query(`drop schema ${schema} cascade`);await admin.end();}

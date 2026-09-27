@@ -212,6 +212,27 @@ export function createTradeCommunityStore(
         return {mode:'hosted',reservation}
       })
     },
+    // Only the authenticated server adapter supplies this observation. Never accept
+    // payment state from a browser body or alter a reservation to permit resale.
+    async recordHostedRelease(viewer: string, threadId: string, offerId: string, idempotencyKey: string,
+      observation: {state?: number; pending?: boolean; observedBlock?: string}) {
+      if (observation.pending || observation.state !== 6) return;
+      if (!observation.observedBlock || !/^[1-9][0-9]{0,77}$/.test(observation.observedBlock))
+        fail('Confirmed payment block is unavailable.', 502);
+      return transaction(async client => {
+        const t = await thread(client, threadId, viewer);
+        await pairLock(client, t.buyer, t.seller);
+        const listing = (await client.query('select * from hashpaystream_trade_listings where id=$1 for update', [t.listing_id])).rows[0];
+        const offer = (await client.query('select * from hashpaystream_trade_offers where id=$1 and thread_id=$2', [offerId, threadId])).rows[0];
+        const reservation = (await client.query('select * from hashpaystream_trade_funding_reservations where offer_id=$1', [offerId])).rows[0];
+        if (!offer || !reservation || reservation.listing_id !== t.listing_id || reservation.binding?.kind !== 'hosted-trade-v1'
+          || reservation.binding.idempotencyKey !== idempotencyKey || reservation.binding.request?.trade?.offerId !== offerId)
+          fail('Payment does not match the reserved listing.', 409);
+        // Preserve manual removals and avoid duplicate revision bumps on polling.
+        if (listing?.status === 'active')
+          await client.query("update hashpaystream_trade_listings set status='sold',revision=revision+1 where id=$1 and status='active'", [t.listing_id]);
+      });
+    },
     async checkoutEvidence(viewer: string, threadId: string, offerId: string, hash: string, body: string) {
       return transaction(async client => {
         await thread(client, threadId, viewer);

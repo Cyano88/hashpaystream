@@ -158,6 +158,7 @@ export function createTradeCommunityRouter(
     if(status.reservation){
       if(status.reservation.kind!=='hosted-trade-v1')fail('Use the existing escrow recovery path.',409)
       const checkout=await deps.hostedCheckout(status.reservation,env)
+      await deps.store().recordHostedRelease(viewer,threadId,offerId,status.reservation.idempotencyKey,checkout)
       res.json({ok:true,mode:'hosted',enabled,...checkout});return
     }
     res.json({ok:true,mode:'hosted',enabled,buyerReady:status.buyerReady,sellerReady:status.sellerReady,ready:status.ready})
