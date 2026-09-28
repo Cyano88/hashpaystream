@@ -37,6 +37,7 @@ export default function TradeAgreementCard({
   checkoutWallet?: TradeCheckoutWallet;
   getAccessToken: () => Promise<string | null>;
 }) {
+  const [paymentState,setPaymentState]=useState<{offerId:string;state:number}>();
   const [checkoutCanCancel, setCheckoutCanCancel] = useState(false);
   const [offers, setOffers] = useState<TradeOffer[]>([]),
     [editing, setEditing] = useState(false),
@@ -157,6 +158,8 @@ export default function TradeAgreementCard({
   const latest = offers[0],
     accepted = offers.find((o) => o.status === "accepted"),
     seller = thread.role === "seller";
+  const currentPayment=paymentState?.offerId===latest?.id?paymentState?.state:undefined;
+  const finalPayment=currentPayment!==undefined&&[6,7,8,9].includes(currentPayment);
   function change<K extends keyof TradeTerms>(key: K, value: TradeTerms[K]) {
     setTerms((t) => ({
       ...t,
@@ -185,7 +188,7 @@ export default function TradeAgreementCard({
         <>
           <p className="text-xs font-bold">
             {latest.status === "accepted"
-              ? "Terms accepted"
+              ? (currentPayment===6?"Trade completed":currentPayment===7?"Payment refunded":currentPayment===8?"Dispute resolved":currentPayment===9?"Payment cancelled":"Terms accepted")
               : latest.status === "proposed"
                 ? "Review these terms"
                 : latest.status === "expired"
@@ -222,6 +225,8 @@ export default function TradeAgreementCard({
               {tradeTotal(latest.terms)} {xStockPaymentLabel(latest.terms)}
             </dd>
           </dl>
+          <details open={!finalPayment} className="text-xs">
+            <summary className="min-h-8 cursor-pointer">Agreed terms</summary>
           <p className="text-xs">
             {latest.terms.handover} in {latest.terms.location}. Handover within{" "}
             {latest.terms.dispatchDays} {latest.terms.dispatchDays === 1 ? 'day' : 'days'} after confirmed payment.
@@ -257,6 +262,7 @@ export default function TradeAgreementCard({
               These older terms need a new offer before payment.
             </p>
           )}
+          </details>
           {latest.status === "accepted" ? (
             <TradeCheckout
               key={thread.id + ":" + latest.id}
@@ -264,6 +270,7 @@ export default function TradeAgreementCard({
               offer={latest}
               wallet={checkoutWallet}
               getAccessToken={getAccessToken}
+              onPaymentState={state=>setPaymentState(state===undefined?undefined:{offerId:latest.id,state})}
               onCancelAvailability={setCheckoutCanCancel}
             />
           ) : (
@@ -296,7 +303,7 @@ export default function TradeAgreementCard({
                 {seller ? "Withdraw offer" : "Decline"}
               </button>
             )}
-            {latest.status === "accepted" && (
+            {latest.status === "accepted" && !finalPayment && (
               <button
                 disabled={busy || !checkoutCanCancel}
                 className="min-h-11 text-xs font-bold disabled:opacity-40"

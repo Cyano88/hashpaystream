@@ -11,7 +11,7 @@ export type TradeCheckoutWallet = {
 };
 // New Trades use hosted checkout; existing local escrows retain their recovery UI.
 export default function TradeCheckout(props: Parameters<typeof PrivyTradeCheckout>[0] & {
-  wallet?: TradeCheckoutWallet; getAccessToken: () => Promise<string | null>;
+  onPaymentState?: (state: number | undefined) => void; wallet?: TradeCheckoutWallet; getAccessToken: () => Promise<string | null>;
 }) {
   const {user}=usePrivy();
   return <HostedTrade key={user?.id+':'+props.thread.id+':'+props.offer.id} {...props}/>;
@@ -21,6 +21,7 @@ type Status={mode:'legacy'|'hosted';enabled?:boolean;ready?:boolean;buyerReady?:
 function HostedTrade(props:Props){
   const {getAccessToken}=usePrivy();
   const [status,setStatus]=useState<Status>(),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+  const finalState=useRef(false),notify=useRef(props.onPaymentState);notify.current=props.onPaymentState;
   const background=useRef<Promise<void>|null>(null);
   const active=useRef(true),lock=useRef(false),cancel=useRef(props.onCancelAvailability);cancel.current=props.onCancelAvailability;
   async function request(action='status'){
@@ -29,12 +30,13 @@ function HostedTrade(props:Props){
     const next=await communityRequest('hosted-checkout',token,{threadId:props.thread.id,offerId:props.offer.id,action}) as Status;
     if(!active.current)return;
     if(next.checkoutUrl&&!/^https:\/\/app\.hashpaylink\.com\/agreements\/xstocks\/xag_[a-f0-9]{64}$/.test(next.checkoutUrl))throw Error('Invalid checkout link.');
+    finalState.current=next.mode==='hosted'&&!next.pending&&next.state!==undefined&&[6,7,8,9].includes(next.state);notify.current?.(next.pending?undefined:next.state);
     setStatus(previous=>({...next,needsConnection:next.needsConnection||(!next.ready&&!next.checkoutUrl&&previous?.needsConnection)}));setError('');
     if(next.mode==='hosted')cancel.current(!next.checkoutUrl);
   }
   useEffect(()=>{
     active.current=true;cancel.current(false);
-    const update=()=>{if(!lock.current&&!background.current&&(typeof document==='undefined'||document.visibilityState!=='hidden')){background.current=request().catch(e=>{if(active.current)setError(e.message)}).finally(()=>{background.current=null})}};
+    const update=()=>{if(!finalState.current&&!lock.current&&!background.current&&(typeof document==='undefined'||document.visibilityState!=='hidden')){background.current=request().catch(e=>{if(active.current)setError(e.message)}).finally(()=>{background.current=null})}};
     update();const timer=setInterval(update,15000);window.addEventListener('focus',update);window.addEventListener('hashpaystream:resume',update);
     return()=>{active.current=false;clearInterval(timer);window.removeEventListener('focus',update);window.removeEventListener('hashpaystream:resume',update)};
   },[]);
@@ -44,8 +46,8 @@ function HostedTrade(props:Props){
   return <section className='mt-4 space-y-3 border-t border-gray-200 pt-4 dark:border-white/10' aria-label='Trade checkout'>
     {!status&&!error&&<button className={button} disabled aria-busy='true'><span role='status'>Checking payment...</span></button>}
     {status?.checkoutUrl?<>
-      <p className='text-xs text-gray-500'>Review terms and manage this Trade securely with Hash PayLink.</p>
-      <a className={button+' flex items-center justify-center'} href={tradeCheckoutLink(status.checkoutUrl,props.thread.id)} target='_blank' rel='noreferrer'>{status.pending?'View payment progress':'Open Trade checkout'}</a>
+      <p className='text-xs text-gray-500'>{finalState.current?'View the final payment record and agreed terms.':'Review terms and manage this Trade securely with Hash PayLink.'}</p>
+      <a className={button+' flex items-center justify-center'} href={tradeCheckoutLink(status.checkoutUrl,props.thread.id)} target='_blank' rel='noreferrer'>{finalState.current?'View payment receipt':status.pending?'View payment progress':'Open Trade checkout'}</a>
       {!error&&!status.pending&&status.state!==undefined&&<p role='status' className='inline-flex rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-900 dark:bg-white/10 dark:text-white'>{['Waiting for seller','Ready for payment','Payment held securely','Sent or ready for pickup','Inspection period','Disputed','Payment released','Refunded','Resolved','Cancelled'][status.state!]||'Checking payment'}</p>}
     </>:status?.enabled?<>
       {status.needsConnection&&<HostedAccountConnection/>}
