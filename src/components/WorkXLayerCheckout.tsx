@@ -62,18 +62,18 @@ export default function WorkXLayerCheckout({item,request,onUpdated}:{item:Servic
   return <section className='mt-4 space-y-3 border-t border-gray-200 pt-4 dark:border-white/10' aria-label='Work escrow'>
     {confirmation}<h3 className='text-sm font-bold'>Work payment</h3>
     <p className='text-sm font-bold'>{terms.amount} {workPaymentLabel(payment)}</p>
-    <p className='text-xs text-gray-500'>{status?.pending?'Waiting for network confirmation':status?.state!==undefined?WORK_STATES[status.state]:'Confirm participant wallets to prepare escrow.'}</p>
+    {!busy&&!pending&&!status?.pending&&<p className='text-xs font-semibold'>{status?.pending?'Waiting for network confirmation':status?.state!==undefined?WORK_STATES[status.state]:'Confirm participant wallets to prepare escrow.'}</p>}
     <details className='text-xs text-gray-500'><summary className='min-h-8 cursor-pointer'>Accepted payment rules</summary><p>{workTermsNotice(terms.durationSeconds,payment)}</p><p className='break-all'>Asset: {payment.token} · X Layer</p><p className='break-all'>Worker: {status?.workerAddress||'Not confirmed'}</p><p className='break-all'>Client: {status?.clientAddress||'Not confirmed'}</p><p className='break-all'>Dispute arbitrator: {TRADE_XLAYER_ARBITER}</p>{status?.fundBy&&<p>Fund by {new Date(status.fundBy*1000).toLocaleString()}.</p>}</details>
     {status?.escrow&& !/^0x0{40}$/i.test(status.escrow)&&<a className='block text-xs underline' href={'https://www.oklink.com/xlayer/address/'+status.escrow} target='_blank' rel='noreferrer'>View escrow on X Layer</a>}
     {!wallet&&<p className='text-xs'>Your embedded wallet is not ready. Sign in again if it does not load.</p>}
-    {status&&!status.wallet&&<button className={button} disabled={!!busy||!wallet||!status.enabled} onClick={()=>void run('wallet')}>Confirm payment wallet</button>}
+    {!busy&&status&&!status.wallet&&<button className={button} disabled={!!busy||!wallet||!status.enabled} onClick={()=>void run('wallet')}>Confirm payment wallet</button>}
     {status?.customerReady&&status.providerReady&&!status.pending&&status.state===undefined&&!status.actions.length&&<p className='text-xs text-gray-500'>Escrow creation is currently unavailable. Refresh to check the payment asset and funding deadline.</p>}
     {status?.wallet&&!(status.customerReady&&status.providerReady)&&<p className='text-xs'>Waiting for the other participant to confirm their wallet.</p>}
     {status?.actions.some(action=>['dispatch','refund','dispute'].includes(action))&&<label className='block text-xs'>Work link or explanation<textarea className='mt-1 w-full rounded-xl border bg-transparent p-3' minLength={10} maxLength={2000} value={evidence} disabled={!!busy} onChange={event=>setEvidence(event.target.value)}/></label>}
     {!!status?.workEvidence?.length&&<details className='text-xs'><summary>Shared evidence notes</summary><p className='text-gray-500'>Notes are saved before signing. A note alone is not proof of an on-chain submission.</p>{status.workEvidence.map(note=><p className='mt-2 whitespace-pre-wrap break-words' key={note.actor+note.hash}>{note.actor==='provider'?'Worker':'Client'}: {note.body}</p>)}</details>}
-    {!pending&&status?.actions.map(action=><button key={action} className={button} disabled={!!busy||!wallet||status.wallet?.address.toLowerCase()!==wallet.address.toLowerCase()} onClick={()=>void run(action)}>{WORK_ACTION_LABELS[action]}</button>)}
-    {pending&&<button className={button} disabled={!!busy} onClick={()=>void run('recover')}>Check pending transaction</button>}
-    {busy&&<p role='status' className='text-xs'>{busy}</p>}{error&&<p role='alert' className='text-xs text-red-600'>{error}</p>}
+    {!busy&&!pending&&!status?.pending&&status?.actions.map(action=><button key={action} className={button} disabled={!!busy||!wallet||status.wallet?.address.toLowerCase()!==wallet.address.toLowerCase()} onClick={()=>void run(action)}>{WORK_ACTION_LABELS[action]}</button>)}
+    {pending&&!busy&&<button className={button} disabled={!!busy} onClick={()=>void run('recover')}>Check pending transaction</button>}
+    {(busy||(!pending&&status?.pending))&&<button className={button} disabled aria-busy='true'><span role='status'>{busy||'Confirming transaction...'}</span></button>}{error&&<p role='alert' className='text-xs text-red-600'>{error}</p>}
     <button className='min-h-10 text-xs font-bold underline' disabled={!!busy} onClick={()=>void refresh().then(()=>updatedRef.current()).catch(e=>setError(e.message))}>Refresh agreement</button>
   </section>;
 }

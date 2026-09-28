@@ -39,7 +39,7 @@ export default function PrivyTradeCheckout({thread,offer,onCancelAvailability}:{
   },[identity]);
   async function reconcile(record:Pending){
     if(!record.hash)throw Error('Submission status is uncertain. Check wallet activity before retrying; another payment will not be sent.');
-    setBusy('Confirming transaction?');
+    setBusy('Confirming transaction...');
     const receipt=await rpc.waitForTransactionReceipt({hash:record.hash,confirmations:3,timeout:90000});assertCurrent();
     if(receipt.transactionHash.toLowerCase()!==record.hash.toLowerCase())throw Error('Transaction was replaced. Check wallet activity before continuing.');
     const tx=await rpc.getTransaction({hash:record.hash});assertCurrent();
@@ -108,17 +108,17 @@ export default function PrivyTradeCheckout({thread,offer,onCancelAvailability}:{
       <p className='break-all'>Dispute arbitrator: {TRADE_XLAYER_ARBITER}</p>
     </details>
     {!wallet&&<p className='text-xs text-gray-500'>{ready?'Your trading wallet is unavailable. Sign in again to restore it.':'Loading your trading wallet?'}</p>}
-    <p className='text-xs text-gray-500'>{status?.state!==undefined?states[status.state]:status?.pending?'Waiting for network confirmation':status?.enabled?'Secure payment on X Layer':'Payments are not available yet.'}</p>
+    {!busy&&!pending&&!status?.pending&&<p className='text-xs font-semibold'>{status?.state!==undefined?states[status.state]:status?.pending?'Waiting for network confirmation':status?.enabled?'Secure payment on X Layer':'Payments are not available yet.'}</p>}
     {checkout?.wallet?.chainId===5042002?<p className='text-xs'>This agreement uses an older wallet setup. Create a new offer to use your trading wallet.</p>:eligible&&<>
-      {!checkout?.wallet&&<button className={button} disabled={!!busy||!wallet||!checkout} onClick={()=>void run('wallet')}>Continue with trading wallet</button>}
+      {!busy&&!checkout?.wallet&&<button className={button} disabled={!!busy||!wallet||!checkout} onClick={()=>void run('wallet')}>Continue with trading wallet</button>}
       {checkout?.wallet&&!(checkout.buyerReady&&checkout.sellerReady)&&<p className='text-xs text-gray-500'>Waiting for the other participant to confirm their trading wallet.</p>}
-      {status?.enabled&&checkout?.buyerReady&&checkout.sellerReady&&!checkout.reservation&&thread.role==='buyer'&&<button className={button} disabled={!!busy} onClick={()=>void run('reserve')}>Prepare checkout</button>}
+      {!busy&&status?.enabled&&checkout?.buyerReady&&checkout.sellerReady&&!checkout.reservation&&thread.role==='buyer'&&<button className={button} disabled={!!busy} onClick={()=>void run('reserve')}>Prepare checkout</button>}
       {checkout?.reservation&&status?.enabled&&!status.actions.length&&status.state===undefined&&!status.pending&&<p className='text-xs text-gray-500'>Waiting for the seller to prepare escrow.</p>}
       {status?.actions.some(a=>['dispatch','refund','dispute'].includes(a))&&<label className='block text-xs'>Delivery reference or explanation<textarea className='mt-1 w-full rounded-xl border bg-transparent p-2' maxLength={2000} value={evidence} onChange={e=>setEvidence(e.target.value)} disabled={!!busy}/></label>}
-      {!pending&&status?.actions.map(action=><button key={action} className={button} disabled={!!busy||!wallet||getAddress(checkout!.wallet!.address)!==getAddress(wallet.address)} onClick={()=>void run(action)}>{action==='approve'?'Pay into escrow':TRADE_ACTION_LABELS[action]}</button>)}
+      {!busy&&!pending&&!status?.pending&&status?.actions.map(action=><button key={action} className={button} disabled={!!busy||!wallet||getAddress(checkout!.wallet!.address)!==getAddress(wallet.address)} onClick={()=>void run(action)}>{action==='approve'?'Pay into escrow':TRADE_ACTION_LABELS[action]}</button>)}
     </>}
-    {pending&&<button className={button} disabled={!!busy} onClick={()=>void run('recover')}>Check pending transaction</button>}
-    {busy&&<p role='status' className='text-xs'>{busy}</p>}
+    {pending&&!busy&&<button className={button} disabled={!!busy} onClick={()=>void run('recover')}>Check pending transaction</button>}
+    {(busy||(!pending&&status?.pending))&&<button className={button} disabled aria-busy='true'><span role='status'>{busy||'Confirming transaction...'}</span></button>}
     {error&&<p role='alert' className='text-xs text-red-600'>{error}</p>}
     <button className='min-h-11 text-xs font-bold underline' disabled={!!busy} onClick={()=>void refresh().catch(e=>setError(e.message))}>Refresh checkout</button>
   </section>;

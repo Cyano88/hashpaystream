@@ -42,7 +42,7 @@ function HostedTrade(props:Props){
   if(status?.mode==='legacy')return <PrivyTradeCheckout {...props}/>;
   const button='min-h-11 w-full rounded-full bg-gray-950 px-4 text-xs font-bold text-white disabled:opacity-40 dark:bg-white dark:text-gray-950';
   return <section className='mt-4 space-y-3 border-t border-gray-200 pt-4 dark:border-white/10' aria-label='Trade checkout'>
-    {!status&&!error&&<button className={button} disabled aria-busy='true'><span role='status'>Checking payment?</span></button>}
+    {!status&&!error&&<button className={button} disabled aria-busy='true'><span role='status'>Checking payment...</span></button>}
     {status?.checkoutUrl?<>
       <p className='text-xs text-gray-500'>Review terms and manage this Trade securely with Hash PayLink.</p>
       <a className={button+' flex items-center justify-center'} href={tradeCheckoutLink(status.checkoutUrl,props.thread.id)} target='_blank' rel='noreferrer'>{status.pending?'View payment progress':'Open Trade checkout'}</a>
