@@ -271,6 +271,7 @@ export default function TradeAgreementCard({
               wallet={checkoutWallet}
               getAccessToken={getAccessToken}
               onPaymentState={state=>setPaymentState(state===undefined?undefined:{offerId:latest.id,state})}
+              onExpired={()=>void load()}
               onCancelAvailability={setCheckoutCanCancel}
             />
           ) : (

@@ -167,12 +167,37 @@ export function createTradeCommunityStore(
         const listing = (await client.query('select * from hashpaystream_trade_listings where id=$1 for update', [t.listing_id])).rows[0];
         const offer = (await client.query('select * from hashpaystream_trade_offers where id=$1 and thread_id=$2', [offerId, threadId])).rows[0];
         const reservation = (await client.query('select * from hashpaystream_trade_funding_reservations where offer_id=$1', [offerId])).rows[0];
-        if (!offer || !reservation || reservation.listing_id !== t.listing_id || reservation.binding?.kind !== 'hosted-trade-v1'
+        if (!offer || !reservation || reservation.retired_at || reservation.listing_id !== t.listing_id || reservation.binding?.kind !== 'hosted-trade-v1'
           || reservation.binding.idempotencyKey !== idempotencyKey || reservation.binding.request?.trade?.offerId !== offerId)
           fail('Payment does not match the reserved listing.', 409);
         // Preserve manual removals and avoid duplicate revision bumps on polling.
         if (listing?.status === 'active')
           await client.query("update hashpaystream_trade_listings set status='sold',revision=revision+1 where id=$1 and status='active'", [t.listing_id]);
+      });
+    },
+    async closeExpiredHosted(viewer:string,threadId:string,offerId:string,idempotencyKey:string,
+      observation:{canCloseExpired?:boolean;state?:number;pending?:boolean;expiry?:{fundingExpired:true;escrow:string;observedBlock:string;checkedAt:string;fundBy:number}}){
+      const proof=observation.expiry,now=Date.now();
+      if(!observation.canCloseExpired||observation.pending||observation.state!==undefined||!proof||proof.fundingExpired!==true
+        ||proof.escrow!=='0x0000000000000000000000000000000000000000'||!/^[1-9][0-9]{0,77}$/.test(proof.observedBlock)
+        ||!Number.isSafeInteger(proof.fundBy)||proof.fundBy<=0||proof.fundBy*1000>now
+        ||!Number.isFinite(Date.parse(proof.checkedAt))||Date.parse(proof.checkedAt)<now-60000||Date.parse(proof.checkedAt)>now+5000)
+        fail('An expired, unpaid checkout could not be verified. Refresh before continuing.',409);
+      return transaction(async client=>{
+        const t=await thread(client,threadId,viewer);await pairLock(client,t.buyer,t.seller);
+        if(viewer!==t.seller)fail('Only the seller can close an expired checkout.',403);
+        const listing=(await client.query('select * from hashpaystream_trade_listings where id=$1 for update',[t.listing_id])).rows[0];
+        const offer=(await client.query('select * from hashpaystream_trade_offers where id=$1 and thread_id=$2 for update',[offerId,threadId])).rows[0];
+        const reservation=(await client.query('select * from hashpaystream_trade_funding_reservations where offer_id=$1 for update',[offerId])).rows[0];
+        if(!offer||!reservation||reservation.listing_id!==t.listing_id||reservation.binding?.kind!=='hosted-trade-v1'
+          ||reservation.binding.idempotencyKey!==idempotencyKey||reservation.binding.request?.trade?.offerId!==offerId)
+          fail('Payment does not match the reserved listing.',409);
+        if(reservation.retired_at)return;
+        if(offer.status!=='accepted'||listing.status==='sold')fail('This Trade cannot be reopened.',409);
+        await client.query('update hashpaystream_trade_funding_reservations set retired_at=$2,retirement=$3 where offer_id=$1',[offerId,now,proof]);
+        await client.query("update hashpaystream_trade_offers set status='cancelled',decided_at=$2 where id=$1",[offerId,now]);
+        await client.query('update hashpaystream_trade_threads set updated_at=$2 where id=$1',[threadId,now]);
+        // Keep original offer, binding, participants and checkout; never restore removed listings.
       });
     },
     async checkoutEvidence(viewer: string, threadId: string, offerId: string, hash: string, body: string) {

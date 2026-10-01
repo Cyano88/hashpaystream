@@ -11,13 +11,13 @@ export type TradeCheckoutWallet = {
 };
 // New Trades use hosted checkout; existing local escrows retain their recovery UI.
 export default function TradeCheckout(props: Parameters<typeof PrivyTradeCheckout>[0] & {
-  onPaymentState?: (state: number | undefined) => void; wallet?: TradeCheckoutWallet; getAccessToken: () => Promise<string | null>;
+  onExpired?: () => void; onPaymentState?: (state: number | undefined) => void; wallet?: TradeCheckoutWallet; getAccessToken: () => Promise<string | null>;
 }) {
   const {user}=usePrivy();
   return <HostedTrade key={user?.id+':'+props.thread.id+':'+props.offer.id} {...props}/>;
 }
 type Props=Parameters<typeof TradeCheckout>[0];
-type Status={mode:'legacy'|'hosted';enabled?:boolean;ready?:boolean;buyerReady?:boolean;sellerReady?:boolean;needsConnection?:boolean;checkoutUrl?:string;state?:number;pending?:boolean};
+type Status={canCloseExpired?:boolean;closed?:boolean;mode:'legacy'|'hosted';enabled?:boolean;ready?:boolean;buyerReady?:boolean;sellerReady?:boolean;needsConnection?:boolean;checkoutUrl?:string;state?:number;pending?:boolean};
 function HostedTrade(props:Props){
   const {getAccessToken}=usePrivy();
   const [status,setStatus]=useState<Status>(),[error,setError]=useState(''),[busy,setBusy]=useState(false);
@@ -31,6 +31,7 @@ function HostedTrade(props:Props){
     if(!active.current)return;
     if(next.checkoutUrl&&!/^https:\/\/app\.hashpaylink\.com\/agreements\/xstocks\/xag_[a-f0-9]{64}$/.test(next.checkoutUrl))throw Error('Invalid checkout link.');
     finalState.current=next.mode==='hosted'&&!next.pending&&next.state!==undefined&&[6,7,8,9].includes(next.state);notify.current?.(next.pending?undefined:next.state);
+    if(next.closed){props.onExpired?.();return;}
     setStatus(previous=>({...next,needsConnection:next.needsConnection||(!next.ready&&!next.checkoutUrl&&previous?.needsConnection)}));setError('');
     if(next.mode==='hosted')cancel.current(!next.checkoutUrl);
   }
@@ -48,6 +49,7 @@ function HostedTrade(props:Props){
     {status?.checkoutUrl?<>
       <p className='text-xs text-gray-500'>{finalState.current?'View the final payment record and agreed terms.':'Review terms and manage this Trade securely with Hash PayLink.'}</p>
       <a className={button+' flex items-center justify-center'} href={tradeCheckoutLink(status.checkoutUrl,props.thread.id)} target='_blank' rel='noreferrer'>{finalState.current?'View payment receipt':status.pending?'View payment progress':'Open Trade checkout'}</a>
+      {status.canCloseExpired&&!error&&!status.pending&&<><p className='text-xs text-gray-500'>The payment deadline passed before payment was set up.</p>{props.thread.role==='seller'&&<button className={button} disabled={busy} onClick={()=>void run('close_expired')}>{busy?'Checking expired checkout...':'Close expired checkout'}</button>}</>}
       {!error&&!status.pending&&status.state!==undefined&&<p role='status' className='inline-flex rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-900 dark:bg-white/10 dark:text-white'>{['Waiting for seller','Ready for payment','Payment held securely','Sent or ready for pickup','Inspection period','Disputed','Payment released','Refunded','Resolved','Cancelled'][status.state!]||'Checking payment'}</p>}
     </>:status?.enabled?<>
       {status.needsConnection&&<HostedAccountConnection/>}

@@ -139,7 +139,7 @@ export function createTradeCommunityRouter(
   );
   router.post('/hosted-checkout', writes, parse, secure(async(req,res,viewer,userId)=>{
     const threadId=id(req.body?.threadId),offerId=id(req.body?.offerId),action=req.body?.action
-    if(!['status','connect','open'].includes(action))fail('Choose a supported checkout action.',400)
+    if(!['status','connect','open','close_expired'].includes(action))fail('Choose a supported checkout action.',400)
     const env=deps.env(),enabled=env.HASHPAYSTREAM_TRADE_HOSTED_ENABLED==='true'
     const current=await deps.store().hostedCheckout(viewer,threadId,offerId)
     if(current.mode==='legacy'){res.json({ok:true,mode:'legacy'});return}
@@ -158,9 +158,14 @@ export function createTradeCommunityRouter(
     if(status.reservation){
       if(status.reservation.kind!=='hosted-trade-v1')fail('Use the existing escrow recovery path.',409)
       const checkout=await deps.hostedCheckout(status.reservation,env)
+      if(action==='close_expired'){
+        await deps.store().closeExpiredHosted(viewer,threadId,offerId,status.reservation.idempotencyKey,checkout)
+        res.json({ok:true,mode:'hosted',enabled,...checkout,closed:true});return
+      }
       await deps.store().recordHostedRelease(viewer,threadId,offerId,status.reservation.idempotencyKey,checkout)
       res.json({ok:true,mode:'hosted',enabled,...checkout});return
     }
+    if(action==='close_expired')fail('There is no hosted checkout to close.',409)
     res.json({ok:true,mode:'hosted',enabled,buyerReady:status.buyerReady,sellerReady:status.sellerReady,ready:status.ready})
   }));
   router.post('/xlayer-wallet', writes, parse, secure(async (req, res, viewer, userId) => {

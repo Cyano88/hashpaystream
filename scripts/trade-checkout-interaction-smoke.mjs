@@ -21,5 +21,10 @@ await act(async()=>{window.dispatchEvent(new Event('focus'))});
 assert.equal(paymentState,6);assert.ok(tree.root.findAllByType('a').some(a=>a.children.join('')==='View payment receipt'));assert.doesNotMatch(JSON.stringify(tree.toJSON()),/Review terms and manage/);
 globalThis.__tradeRequest=async()=>{throw Error('Should not poll a completed trade')};
 await act(async()=>{window.dispatchEvent(new Event('focus'))});assert.doesNotMatch(JSON.stringify(tree.toJSON()),/Should not poll/);
-await act(async()=>tree.unmount());console.log('Trade connection waits for an in-flight refresh and runs the user action exactly once.');
+await act(async()=>tree.unmount());
+let closed=false,expiryCalls=[];globalThis.__tradeRequest=async(_p,_t,payload)=>{expiryCalls.push(payload.action);return {mode:'hosted',enabled:true,canCloseExpired:true,closed:payload.action==='close_expired',checkoutUrl:'https://app.hashpaylink.com/agreements/xstocks/xag_'+'b'.repeat(64)}};
+await act(async()=>{tree=TestRenderer.create(React.createElement(Checkout,{thread:{id:'expiry',role:'seller'},offer:{id:'expired'},getAccessToken:async()=> 'fixture',onCancelAvailability(){},onExpired(){closed=true}}))});
+assert.ok(find('Close expired checkout'));assert.match(JSON.stringify(tree.toJSON()),/payment deadline passed/);
+await act(async()=>find('Close expired checkout').props.onClick());assert.equal(closed,true);assert.deepEqual(expiryCalls,['status','close_expired']);await act(async()=>tree.unmount());
+await act(async()=>{tree=TestRenderer.create(React.createElement(Checkout,{thread:{id:'expiry-buyer',role:'buyer'},offer:{id:'expired'},getAccessToken:async()=> 'fixture',onCancelAvailability(){}}))});assert.equal(find('Close expired checkout'),undefined);await act(async()=>tree.unmount());console.log('Trade connection waits for an in-flight refresh and runs the user action exactly once.');
 }finally{await unlink(output)}

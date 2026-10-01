@@ -19,7 +19,13 @@ export async function hostedTradeCheckout(reservation:HostedTradeReservation,env
     ||agreement.terms?.kind!=='trade'||agreement.terms.trade?.offerId!==reservation.request.trade.offerId||agreement.terms.trade?.snapshotHash!==reservation.request.trade.snapshotHash
     ||(reservation.request.stockCustody!==undefined&&agreement.terms.stockCustody?.policy!==reservation.request.stockCustody)
     ||agreement.terms.amount!==reservation.request.amount||agreement.terms.xlayerPayment?.token?.toLowerCase()!==reservation.request.paymentToken.toLowerCase())fail(502,'The checkout does not match the accepted Trade.')
-  return {checkoutUrl:ORIGIN+agreement.checkoutPath,state:agreement.observed?.state,observedBlock:agreement.observed?.observedBlock,pending:data.observation?.pending===true}
+  const seen=data.observation,checked=Date.parse(seen?.checkedAt),fundBy=agreement.binding?.contractTerms?.fundBy;
+  const canCloseExpired=result.method==='GET' && seen?.pending===false && seen?.fundingExpired===true
+    && seen.escrow==='0x0000000000000000000000000000000000000000' && /^[1-9][0-9]{0,77}$/.test(seen.observedBlock||'')
+    && agreement.observed?.state===undefined && Number.isSafeInteger(fundBy) && fundBy>0 && fundBy*1000<=Date.now()
+    && checked<=Date.now()+5000 && checked>=Date.now()-60000;
+  const expiry=canCloseExpired?{fundingExpired:true as const,escrow:seen.escrow,observedBlock:seen.observedBlock,checkedAt:seen.checkedAt,fundBy}:undefined;
+  return {canCloseExpired,expiry,checkoutUrl:ORIGIN+agreement.checkoutPath,state:agreement.observed?.state,observedBlock:agreement.observed?.observedBlock,pending:data.observation?.pending===true}
 }
 
 export async function hostedTradeAssets(env:NodeJS.ProcessEnv){

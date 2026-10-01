@@ -42,5 +42,26 @@ try{
  await listings.save({...await listings.get(id),status:'removed'},2);
  await store.recordHostedRelease('buyer',thread,offer,key,{state:6,observedBlock:'102'});
  assert.equal((await listings.get(id)).status,'removed','never restore a removed item');
+ const eid=randomUUID(),eo=randomUUID();await listings.save({id:eid,owner:'seller',status:'active',revision:0,title:'Expired test',price:'1',currency:'USD',city:'Test',category:'Home',condition:'Good',size:'',description:'Local only',delivery:'Pickup',photos:[],createdAt:Date.now()},0);
+ const et=await store.start('buyer',eid),ek='synthetic-expired-'+eo;
+ await pool.query("insert into hashpaystream_trade_offers(id,thread_id,listing_id,listing_revision,terms,snapshot,status,created_at,expires_at) values($1,$2,$3,1,'{}','{}','accepted',1,9999999999999)",[eo,et,eid]);
+ const eb={kind:'hosted-trade-v1',idempotencyKey:ek,request:{trade:{offerId:eo}}};
+ await pool.query('insert into hashpaystream_trade_funding_reservations(id,offer_id,listing_id,binding,created_at) values($1,$2,$3,$4,1)',[randomUUID(),eo,eid,eb]);
+ const proof={canCloseExpired:true,pending:false,expiry:{fundingExpired:true,escrow:'0x'+'00'.repeat(20),observedBlock:'200',checkedAt:new Date().toISOString(),fundBy:Math.floor(Date.now()/1000)-60}};
+ for(const bad of [{...proof,pending:true},{...proof,state:2},{...proof,canCloseExpired:false},{...proof,expiry:{...proof.expiry,checkedAt:new Date(0).toISOString()}},{...proof,expiry:{...proof.expiry,escrow:'0x'+'44'.repeat(20)}}])await assert.rejects(()=>store.closeExpiredHosted('seller',et,eo,ek,bad),e=>e.status===409);
+ await assert.rejects(()=>store.closeExpiredHosted('buyer',et,eo,ek,proof),e=>e.status===403);
+ await assert.rejects(()=>store.closeExpiredHosted('seller',et,eo,'wrong',proof),e=>e.status===409);
+ assert.equal((await listings.get(eid)).reserved,true);
+ await Promise.all([store.closeExpiredHosted('seller',et,eo,ek,proof),store.closeExpiredHosted('seller',et,eo,ek,proof)]);
+ assert.equal((await listings.get(eid)).reserved,false);assert.equal((await listings.get(eid)).status,'active');
+ const saved=(await pool.query('select * from hashpaystream_trade_funding_reservations where offer_id=$1',[eo])).rows[0];assert.ok(saved.retired_at);assert.deepEqual(saved.binding,eb);assert.deepEqual(saved.retirement,proof.expiry);
+ assert.equal((await pool.query('select status from hashpaystream_trade_offers where id=$1',[eo])).rows[0].status,'cancelled');
+ assert.ok(await store.start('new-buyer',eid));
+ const replacement=randomUUID();await pool.query("insert into hashpaystream_trade_offers(id,thread_id,listing_id,listing_revision,terms,snapshot,status,created_at,expires_at) values($1,$2,$3,1,'{}','{}','accepted',1,9999999999999)",[replacement,et,eid]);
+ await pool.query('insert into hashpaystream_trade_funding_reservations(id,offer_id,listing_id,binding,created_at) values($1,$2,$3,$4,1)',[randomUUID(),replacement,eid,{}]);
+ assert.equal((await listings.get(eid)).reserved,true,'Replacement reservation still excludes another buyer');
+ const competing=randomUUID();await pool.query("insert into hashpaystream_trade_offers(id,thread_id,listing_id,listing_revision,terms,snapshot,status,created_at,expires_at) values($1,$2,$3,1,'{}','{}','proposed',1,9999999999999)",[competing,et,eid]);
+ await assert.rejects(()=>pool.query('insert into hashpaystream_trade_funding_reservations(id,offer_id,listing_id,binding,created_at) values($1,$2,$3,$4,1)',[randomUUID(),competing,eid,{}]));
+ console.log('Expired hosted checkout closure passed: seller-only, fresh proof, concurrency, immutable history and new reservation.');
  console.log('Hosted release PostgreSQL passed: reservation binding, viewer isolation, confirmed-only state, concurrent idempotency, Browse removal and preserved records.');
 }finally{await pool.end();await admin.query(`drop schema ${schema} cascade`);await admin.end();}

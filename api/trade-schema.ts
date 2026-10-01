@@ -46,6 +46,10 @@ export function createTradeSchemaInitializer(pool: pg.Pool) {
           id uuid primary key, offer_id uuid not null unique references hashpaystream_trade_offers(id),
           listing_id uuid not null unique references hashpaystream_trade_listings(id),
           binding jsonb not null, created_at bigint not null);
+        alter table hashpaystream_trade_funding_reservations add column if not exists retired_at bigint;
+        alter table hashpaystream_trade_funding_reservations add column if not exists retirement jsonb;
+        create unique index if not exists trade_active_funding_listing on hashpaystream_trade_funding_reservations(listing_id) where retired_at is null;
+        alter table hashpaystream_trade_funding_reservations drop constraint if exists hashpaystream_trade_funding_reservations_listing_id_key;
         alter table hashpaystream_trade_settlement_wallets alter column wallet_id type text using wallet_id::text;
         alter table hashpaystream_trade_settlement_wallets drop constraint if exists hashpaystream_trade_settlement_wallets_chain_id_check;
         alter table hashpaystream_trade_settlement_wallets add constraint hashpaystream_trade_settlement_wallets_chain_id_check check(chain_id in (5042002,196));
@@ -64,4 +68,4 @@ export function createTradeSchemaInitializer(pool: pg.Pool) {
 }
 
 // An accepted offer reserves an item, but is not proof of payment.
-export const tradeReservedSql = `(exists(select 1 from hashpaystream_trade_offers o where o.listing_id=hashpaystream_trade_listings.id and o.status='accepted') or exists(select 1 from hashpaystream_trade_funding_reservations r where r.listing_id=hashpaystream_trade_listings.id))`;
+export const tradeReservedSql = `(exists(select 1 from hashpaystream_trade_offers o where o.listing_id=hashpaystream_trade_listings.id and o.status='accepted') or exists(select 1 from hashpaystream_trade_funding_reservations r where r.listing_id=hashpaystream_trade_listings.id and r.retired_at is null))`;
