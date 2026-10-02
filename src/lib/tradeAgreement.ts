@@ -1,4 +1,6 @@
+import { tradePayment, tradeTermsDecimals, type TradePaymentRail } from './tradePayment';
 export type TradeTerms = {
+  paymentRail?: TradePaymentRail;
   price: string;
   deliveryFee: string;
   currency: "NGN" | "USD" | "USDC" | "XLAYER_ASSET";
@@ -42,8 +44,9 @@ export function tradeUnits(value: string, decimals = 2) {
   return BigInt(whole) * 10n ** BigInt(decimals) + BigInt(fraction.padEnd(decimals, "0"));
 }
 export function tradeTotal(terms: TradeTerms) {
-  const decimals = terms.currency === "XLAYER_ASSET"
+  const decimals = (terms.currency === "XLAYER_ASSET" || terms.paymentRail === "arc")
     ? Math.max(2, terms.price.split(".")[1]?.length || 0, terms.deliveryFee.split(".")[1]?.length || 0) : 2;
+  if (decimals > tradeTermsDecimals(terms)) throw Error('Amount exceeds the selected payment precision.');
   const amount = tradeUnits(terms.price, decimals) + tradeUnits(terms.deliveryFee, decimals);
   const scale = 10n ** BigInt(decimals);
   return (
@@ -54,7 +57,7 @@ export function tradeTotal(terms: TradeTerms) {
 }
 export function validateTradeTerms(value: unknown): TradeTerms {
   const t = value as TradeTerms;
-  const decimals = t?.currency === "XLAYER_ASSET" ? 18 : 2;
+  const decimals = tradeTermsDecimals(t || {} as TradeTerms);
   if (
     !t ||
     typeof t !== "object" ||
@@ -106,7 +109,9 @@ export function validateTradeTerms(value: unknown): TradeTerms {
     throw Error("Pickup must have zero delivery cost.");
   if (t.handover === "Delivery" && !t.carrier.trim())
     throw Error("Name the proposed delivery provider.");
+  if (t.paymentRail !== undefined) tradePayment(t);
   return {
+    ...(t.paymentRail ? { paymentRail: t.paymentRail } : {}),
     price: t.price,
     deliveryFee: t.deliveryFee,
     currency: t.currency,

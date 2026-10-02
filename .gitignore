@@ -12,3 +12,6 @@ contracts/typechain-types/
 output/playwright/
 
 output/trade-postgres-audit/
+
+contracts/artifacts-arc-trade/
+contracts/cache-arc-trade/

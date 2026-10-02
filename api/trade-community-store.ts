@@ -1,3 +1,4 @@
+import { tradePayment } from '../src/lib/tradePayment.js';
 import { createTradeSchemaInitializer, tradeReservedSql } from "./trade-schema.js";
 import type { TradeSettlementWallet } from "./trade-wallet-verification.js";
 import { createHash, randomUUID } from "node:crypto";
@@ -142,7 +143,8 @@ export function createTradeCommunityStore(
         if(!buyer||!seller) fail('Both participants must connect their Hash PayLink accounts.',409)
         if(buyer.wallet_app_id!==seller.wallet_app_id) fail('Participants must use the same wallet service.',409)
         const terms=validateTradeTerms(offer.terms)
-        if(terms.currency!=='XLAYER_ASSET'||terms.settlementAsset!=='XLAYER_TOKENIZED_ASSET') fail('Hosted Trade currently supports xStocks payments only.',409)
+        const payment=tradePayment(terms)
+        if(payment.rail!=='xlayer') fail('Hosted Trade currently supports xStocks payments only.',409)
         if(!Array.isArray(offer.snapshot.photos)||!offer.snapshot.photos.length) fail('The preserved listing is incomplete.',409)
         const snapshotHash=createHash('sha256').update(JSON.stringify(offer.snapshot)).digest('hex')
         const {price,deliveryFee,handover,location,carrier,returns,dispatchDays,deliveryDays,inspectionHours}=terms
