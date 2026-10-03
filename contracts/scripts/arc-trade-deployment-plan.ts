@@ -35,6 +35,24 @@ export async function buildArcTradeDeploymentPlan(input:{artifact:any;build:any;
     if(arbiter===ZeroAddress||arbiter===ARC_TRADE_USDC)throw Error('Arbiter must differ from zero and USDC.')
   }
   const data=arbiter?(await new ContractFactory(artifact.abi,artifact.bytecode).getDeployTransaction(ARC_TRADE_USDC,arbiter)).data:null
+  let expectedRuntime:string|null=null
+  if(arbiter){
+    const declarations=build.output.sources[artifact.sourceName].ast.nodes
+      .find((node:any)=>node.nodeType==='ContractDefinition'&&node.name==='TradeEscrowFactory').nodes
+      .filter((node:any)=>node.nodeType==='VariableDeclaration'&&node.mutability==='immutable')
+    const values=new Map(declarations.map((node:any)=>[String(node.id),node.name==='token'?ARC_TRADE_USDC:node.name==='arbiter'?arbiter:null]))
+    if(values.size!==2||[...values.values()].some(value=>!value))throw Error('Unexpected factory immutable declarations.')
+    const bytes=Buffer.from(artifact.deployedBytecode.slice(2),'hex')
+    for(const [id,refs] of Object.entries(compiled.evm.deployedBytecode.immutableReferences)){
+      const address=values.get(id) as string|undefined
+      if(!address)throw Error('Unexpected factory immutable reference.')
+      for(const ref of refs as {start:number;length:number}[]){
+        if(ref.length!==32||ref.start+32>bytes.length)throw Error('Invalid immutable byte range.')
+        Buffer.from(address.slice(2).padStart(64,'0'),'hex').copy(bytes,ref.start)
+      }
+    }
+    expectedRuntime='0x'+bytes.toString('hex')
+  }
   return {
     status:'unsigned-review-candidate',chainId:5042,contractName:'TradeEscrowFactory',
     token:ARC_TRADE_USDC,tokenDecimals:6,arbiter,
@@ -43,6 +61,7 @@ export async function buildArcTradeDeploymentPlan(input:{artifact:any;build:any;
     // Solidity immutable slots are still zero here. This is NOT the runtime
     // hash accepted by Hash PayLink's deployed factory release registry.
     runtimeTemplateHash:keccak256(artifact.deployedBytecode),
+    expectedRuntimeHash:expectedRuntime?keccak256(expectedRuntime):null,
     immutableReferences:compiled.evm.deployedBytecode.immutableReferences,
     constructorArguments:arbiter?[ARC_TRADE_USDC,arbiter]:null,
     unsignedCreation:data?{chainId:5042,value:'0',data,initCodeHash:keccak256(data)}:null,

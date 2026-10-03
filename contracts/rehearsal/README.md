@@ -56,3 +56,9 @@ exact creation-data construction, rejection of source/artifact/settings drift,
 and a local deployment of the prepared bytes with constructor readback. That
 last check uses a code stub at the USDC address solely to satisfy the constructor;
 it does not validate real USDC or an on-chain Safe.
+
+The plan now also includes `expectedRuntimeHash` when an arbiter is supplied.
+It applies the constructor token/arbiter to the compiler's immutable byte ranges.
+The local constructor-readback test verifies this hash against the actual deployed
+runtime. This is the expected hash for subsequent deployment verification, not
+evidence that a mainnet factory already exists.

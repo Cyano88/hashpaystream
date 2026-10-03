@@ -49,6 +49,7 @@ describe('Unsigned Arc Trade deployment plan',()=>{
       const factory=await ethers.getContractAt('TradeEscrowFactory',receipt!.contractAddress!)
       expect(await factory.token()).to.equal(ARC_TRADE_USDC);expect(await factory.arbiter()).to.equal(arbiter)
       expect(ethers.keccak256(await ethers.provider.getCode(receipt!.contractAddress!))).not.to.equal(plan.runtimeTemplateHash)
+      expect(ethers.keccak256(await ethers.provider.getCode(receipt!.contractAddress!))).to.equal(plan.expectedRuntimeHash)
     }finally{await network.provider.send('evm_revert',[snapshot])}
   })
 })
