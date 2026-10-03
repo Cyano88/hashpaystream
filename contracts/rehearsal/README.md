@@ -62,3 +62,9 @@ It applies the constructor token/arbiter to the compiler's immutable byte ranges
 The local constructor-readback test verifies this hash against the actual deployed
 runtime. This is the expected hash for subsequent deployment verification, not
 evidence that a mainnet factory already exists.
+
+For explorer input reproducibility, set `ARC_TRADE_EXPLORER_REQUEST` to the
+public request JSON produced by Hash PayLink's explorer verifier and run
+`npx.cmd hardhat run --no-compile --config hardhat.arc-trade.config.ts scripts/check-arc-explorer-input.ts`.
+The isolated seven-file input was recompiled with Solidity 0.8.24 and matched both
+creation bytecode and runtime template exactly before the explorer source check.
