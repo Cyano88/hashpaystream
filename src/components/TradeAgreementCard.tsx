@@ -1,4 +1,6 @@
 import XStockPaymentPicker from './XStockPaymentPicker';
+import TradePaymentPicker from './TradePaymentPicker';
+import {tradePaymentChoice,type TradeRailAvailability} from '../lib/tradePaymentChoice';
 import { xStockPaymentLabel } from '../lib/xStocksAssets';
 import TradeCheckout, { type TradeCheckoutWallet } from "./TradeCheckout";
 import { useEffect, useRef, useState } from "react";
@@ -38,6 +40,7 @@ export default function TradeAgreementCard({
   getAccessToken: () => Promise<string | null>;
 }) {
   const [paymentState,setPaymentState]=useState<{offerId:string;state:number}>();
+  const [railAvailability,setRailAvailability]=useState<TradeRailAvailability>({arc:false,xlayer:false});
   const [checkoutCanCancel, setCheckoutCanCancel] = useState(false);
   const [offers, setOffers] = useState<TradeOffer[]>([]),
     [editing, setEditing] = useState(false),
@@ -96,6 +99,8 @@ export default function TradeAgreementCard({
       let id = offer?.id,
         validated: TradeTerms | undefined;
       if (action === "propose") {
+        const rail=tradePaymentChoice(terms);
+        if(rail==='legacy'||!railAvailability[rail])throw Error('Choose an available payment network before proposing terms.');
         validated = validateTradeTerms(terms);
         const body = JSON.stringify(validated);
         if (pending.current?.body !== body)
@@ -173,8 +178,9 @@ export default function TradeAgreementCard({
     <section className="stream-trade-disclosure stream-card space-y-3 p-4" aria-label="Trade agreement">
       {confirmation}
       <h3 className="text-sm font-bold">Agreement</h3>
+      {latest&&!editing&&<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{latest.terms.paymentRail==='arc'?'USDC on Arc':latest.terms.currency==='XLAYER_ASSET'?'xStocks on XLayer':`Previous ${latest.terms.currency} quote`}</p>}
       {!loaded && !error && (
-        <p className="text-xs text-gray-500">Loading terms...</p>
+        <div role="status" aria-label="Loading agreement terms" className="h-12 animate-pulse rounded-xl bg-gray-100 dark:bg-white/10" />
       )}
       {error && (
         <p role="alert" className="text-xs text-red-600">
@@ -353,31 +359,7 @@ export default function TradeAgreementCard({
             void act("propose");
           }}
         >
-          <StreamSelect
-            label="Currency"
-            value={terms.currency}
-            options={["NGN", "USD", "USDC", "XLAYER_ASSET"].map((value) => ({
-              value,
-              label: value === "XLAYER_ASSET" ? "Tokenized stocks - X Layer" : value,
-            }))}
-            disabled={busy}
-            onChange={(v) => {
-              const currency = v as TradeTerms["currency"];
-              change("currency", currency);
-              change("price", "");
-              change("deliveryFee", "0");
-              if (currency === "XLAYER_ASSET") {
-                change("settlementAsset", "XLAYER_TOKENIZED_ASSET");
-                change("settlementToken", undefined);
-              } else if (currency === "USDC") {
-                change("settlementAsset", "USDC");
-                change("settlementToken", undefined);
-              } else {
-                change("settlementAsset", undefined);
-                change("settlementToken", undefined);
-              }
-            }}
-          />
+          <TradePaymentPicker terms={terms} disabled={busy} getAccessToken={getAccessToken} onChange={setTerms} onAvailability={setRailAvailability}/>
           {terms.currency === "XLAYER_ASSET" && <>
             <XStockPaymentPicker value={terms.settlementToken || ''} disabled={busy} getAccessToken={getAccessToken} onChange={asset => {
               setTerms(previous => ({...previous, settlementToken:asset.address, settlementAsset:'XLAYER_TOKENIZED_ASSET', price:'', deliveryFee:'0'}));

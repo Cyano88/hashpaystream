@@ -779,6 +779,24 @@ try {
   assert.equal((await pool.query('select count(*)::int n from hashpaystream_trade_funding_reservations where offer_id=$1',[hostedOffer])).rows[0].n,1);
   assert.equal((await store.hostedCheckout(owner('buyer'),checkoutThread,checkoutOffer)).mode,'legacy');
   console.log('Hosted Trade storage passed: participant binding, native exclusion, buyer-only reserve, racing retry identity and cancellation hold.');
+  const arcItem={...listing,id:randomUUID()};await listings.save(arcItem,0);
+  const arcThread=await store.start(owner('buyer'),arcItem.id),arcOffer=randomUUID();
+  await store.offer(owner('seller'),arcThread,arcOffer,'propose',{...terms,currency:'USDC',paymentRail:'arc',settlementAsset:'USDC',settlementToken:'0x3600000000000000000000000000000000000000',price:'1.000001',deliveryFee:'0'});
+  await store.offer(owner('buyer'),arcThread,arcOffer,'accept');
+  assert.equal((await store.hostedCheckout(owner('buyer'),arcThread,arcOffer)).paymentRail,'arc');
+  await store.hostedCheckout(owner('buyer'),arcThread,arcOffer,linkedBuyer);
+  await store.hostedCheckout(owner('seller'),arcThread,arcOffer,linkedSeller);
+  await assert.rejects(()=>store.hostedCheckout(owner('buyer'),arcThread,arcOffer,undefined,true),e=>e.status===409);
+  const arcRetries=await Promise.all([store.hostedCheckout(owner('buyer'),arcThread,arcOffer,undefined,true,['arc']),store.hostedCheckout(owner('buyer'),arcThread,arcOffer,undefined,true,['arc'])]);
+  assert.deepEqual(arcRetries[0],arcRetries[1]);const ar=arcRetries[0].reservation;
+  assert.equal(ar.kind,'hosted-trade-arc-v1');assert.equal(ar.idempotencyKey,'hashpaystream-arc-trade-'+arcOffer);
+  assert.equal(ar.request.chainId,5042);assert.equal(ar.request.paymentRail,'arc');assert.equal(ar.request.amount,'1.000001');assert.equal(ar.request.stockCustody,undefined);
+  assert.equal((await pool.query('select count(*)::int n from hashpaystream_trade_funding_reservations where offer_id=$1',[arcOffer])).rows[0].n,1);
+  assert.deepEqual((await store.hostedCheckout(owner('buyer'),arcThread,arcOffer,undefined,true,[])).reservation,ar,'paused recovery preserves the original reservation');
+  await assert.rejects(()=>store.offer(owner('buyer'),arcThread,arcOffer,'cancel'),e=>e.status===409);
+  await store.recordHostedRelease(owner('buyer'),arcThread,arcOffer,ar.idempotencyKey,{state:6,observedBlock:'101'});
+  assert.equal((await listings.get(arcItem.id)).status,'sold');
+  console.log('Arc hosted storage passed: explicit rail gate, immutable concurrent reservation, paused recovery and confirmed release.');
   // Migrate the legacy UUID/Arc-only schema without losing bound Circle wallets.
   const legacyBefore = (await pool.query('select * from hashpaystream_trade_settlement_wallets order by offer_id,actor')).rows;
   await pool.query('alter table hashpaystream_trade_settlement_wallets alter column wallet_id type uuid using wallet_id::uuid');

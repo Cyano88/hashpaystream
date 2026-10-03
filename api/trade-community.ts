@@ -1,5 +1,5 @@
 import { readHostedAccountForUser } from './hosted-account.js';
-import { hostedTradeCheckout, hostedTradeAssets } from './trade-hosted-checkout.js';
+import { hostedTradeCheckout, hostedTradeAssets, hostedArcTradeAvailable, hostedTradePaymentRails, isHostedTradeKind } from './trade-hosted-checkout.js';
 import { keccak256, stringToHex } from 'viem';
 import { tradeXLayerAssets } from './trade-xlayer-assets.js';
 import { verifyTradePrivyWallet } from './trade-privy-wallet.js';
@@ -64,6 +64,8 @@ export function createTradeCommunityRouter(
     wallet: typeof verifyTradeCircleWallet;
     hostedAccount: typeof readHostedAccountForUser;
     hostedCheckout: typeof hostedTradeCheckout;
+    arcAvailable: typeof hostedArcTradeAvailable;
+    paymentRails: typeof hostedTradePaymentRails;
     admin: typeof isAdmin;
     store: () => ReturnType<typeof createTradeCommunityStore>;
   }> = {},
@@ -74,6 +76,8 @@ export function createTradeCommunityRouter(
     wallet: verifyTradeCircleWallet,
     hostedAccount: readHostedAccountForUser,
     hostedCheckout: hostedTradeCheckout,
+    arcAvailable: hostedArcTradeAvailable,
+    paymentRails: hostedTradePaymentRails,
     admin: isAdmin,
     store: () =>
       (configured ??= createTradeCommunityStore(configuredTradePool(), tradeXLayerFundingContext(overrides.env ?? (() => process.env)))),
@@ -114,6 +118,9 @@ export function createTradeCommunityRouter(
       }
     };
   const parse = express.json({ limit: "32kb" });
+  router.get('/payment-rails',rateLimit({name:'trade-payment-rails',windowMs:60000,max:12}),secure(async(_req,res)=>{
+    res.setHeader('Cache-Control','no-store');res.json({ok:true,...await deps.paymentRails(deps.env())});
+  }));
   router.get('/xlayer-assets', rateLimit({name:'trade-assets-read',windowMs:60000,max:12}), secure(async (_req,res) => {
     res.json({ok:true,...await (deps.env().HASHPAYSTREAM_TRADE_HOSTED_ENABLED==='true'?hostedTradeAssets(deps.env()):tradeXLayerAssets(deps.env()))});
   }));
@@ -140,9 +147,13 @@ export function createTradeCommunityRouter(
   router.post('/hosted-checkout', writes, parse, secure(async(req,res,viewer,userId)=>{
     const threadId=id(req.body?.threadId),offerId=id(req.body?.offerId),action=req.body?.action
     if(!['status','connect','open','close_expired'].includes(action))fail('Choose a supported checkout action.',400)
-    const env=deps.env(),enabled=env.HASHPAYSTREAM_TRADE_HOSTED_ENABLED==='true'
+    const env=deps.env();let enabled=env.HASHPAYSTREAM_TRADE_HOSTED_ENABLED==='true'
     const current=await deps.store().hostedCheckout(viewer,threadId,offerId)
     if(current.mode==='legacy'){res.json({ok:true,mode:'legacy'});return}
+    if(!current.reservation){
+      if(!current.paymentRail){res.json({ok:true,mode:'hosted',enabled:false,reason:'Accept new terms with an explicit payment network before opening checkout.'});return}
+      if(current.paymentRail==='arc')enabled=enabled&&await deps.arcAvailable(env)
+    }
     if(!enabled&&!current.reservation){res.json({ok:true,mode:'hosted',enabled:false});return}
     let status=current
     if(action==='connect'){
@@ -153,10 +164,10 @@ export function createTradeCommunityRouter(
     }
     if(action==='open'&&!status.reservation){
       if(!enabled)fail('New hosted checkouts are paused.',409)
-      status=await deps.store().hostedCheckout(viewer,threadId,offerId,undefined,true)
+      status=await deps.store().hostedCheckout(viewer,threadId,offerId,undefined,true,current.paymentRail==='arc'?['arc']:['xlayer'])
     }
     if(status.reservation){
-      if(status.reservation.kind!=='hosted-trade-v1')fail('Use the existing escrow recovery path.',409)
+      if(!isHostedTradeKind(status.reservation.kind))fail('Use the existing escrow recovery path.',409)
       const checkout=await deps.hostedCheckout(status.reservation,env)
       if(action==='close_expired'){
         await deps.store().closeExpiredHosted(viewer,threadId,offerId,status.reservation.idempotencyKey,checkout)
@@ -276,8 +287,9 @@ export function createTradeCommunityRouter(
     "/offers",
     writes,
     parse,
-    secure(async (req, res, viewer) =>
-      res.json({
+    secure(async (req, res, viewer) => {
+      if(req.body?.action==='propose'&&req.body?.terms?.paymentRail==='arc'&&!await deps.arcAvailable(deps.env()))fail('New Arc Trade agreements are not enabled.',409);
+      return res.json({
         ok: true,
         offer: await deps
           .store()
@@ -289,7 +301,7 @@ export function createTradeCommunityRouter(
             req.body?.terms,
           ),
         paymentsEnabled: false,
-      }),
+      });},
     ),
   );
   router.get(

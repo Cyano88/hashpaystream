@@ -1,4 +1,4 @@
-import { tradeCheckoutLink } from '../lib/tradeCheckoutLink';
+import { tradeCheckoutLink, isTradeCheckoutUrl } from '../lib/tradeCheckoutLink';
 import PrivyTradeCheckout from './PrivyTradeCheckout';
 import { useEffect, useRef, useState } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
@@ -17,7 +17,7 @@ export default function TradeCheckout(props: Parameters<typeof PrivyTradeCheckou
   return <HostedTrade key={user?.id+':'+props.thread.id+':'+props.offer.id} {...props}/>;
 }
 type Props=Parameters<typeof TradeCheckout>[0];
-type Status={canCloseExpired?:boolean;closed?:boolean;mode:'legacy'|'hosted';enabled?:boolean;ready?:boolean;buyerReady?:boolean;sellerReady?:boolean;needsConnection?:boolean;checkoutUrl?:string;state?:number;pending?:boolean};
+type Status={reason?:string;canCloseExpired?:boolean;closed?:boolean;mode:'legacy'|'hosted';enabled?:boolean;ready?:boolean;buyerReady?:boolean;sellerReady?:boolean;needsConnection?:boolean;checkoutUrl?:string;state?:number;pending?:boolean};
 function HostedTrade(props:Props){
   const {getAccessToken}=usePrivy();
   const [status,setStatus]=useState<Status>(),[error,setError]=useState(''),[busy,setBusy]=useState(false);
@@ -29,7 +29,7 @@ function HostedTrade(props:Props){
     const token=await Promise.race([getAccessToken(),new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(Error('Your session is taking too long. Try again.')),15000)})]).finally(()=>clearTimeout(timer));if(!active.current)return;
     const next=await communityRequest('hosted-checkout',token,{threadId:props.thread.id,offerId:props.offer.id,action}) as Status;
     if(!active.current)return;
-    if(next.checkoutUrl&&!/^https:\/\/app\.hashpaylink\.com\/agreements\/xstocks\/xag_[a-f0-9]{64}$/.test(next.checkoutUrl))throw Error('Invalid checkout link.');
+    if(next.checkoutUrl&&!isTradeCheckoutUrl(next.checkoutUrl))throw Error('Invalid checkout link.');
     finalState.current=next.mode==='hosted'&&!next.pending&&next.state!==undefined&&[6,7,8,9].includes(next.state);notify.current?.(next.pending?undefined:next.state);
     if(next.closed){props.onExpired?.();return;}
     setStatus(previous=>({...next,needsConnection:next.needsConnection||(!next.ready&&!next.checkoutUrl&&previous?.needsConnection)}));setError('');
@@ -56,7 +56,7 @@ function HostedTrade(props:Props){
       {!status.ready&&<button className={button} disabled={busy} onClick={()=>void run('connect')}>{busy?'Connecting account...':'Use Hash PayLink account'}</button>}
       {status.ready&&!(status.buyerReady&&status.sellerReady)&&<p className='text-xs text-gray-500'>Waiting for the other participant to connect their Hash PayLink account.</p>}
       {status.buyerReady&&status.sellerReady&&(props.thread.role==='buyer'?<button className={button} disabled={busy} onClick={()=>void run('open')}>{busy?'Preparing checkout...':'Continue to checkout'}</button>:<p className='text-xs text-gray-500'>Waiting for the buyer to open checkout.</p>)}
-    </>:status&&<p className='text-xs text-gray-500'>Stock payments are not available yet.</p>}
+    </>:status&&<p className='text-xs text-gray-500'>{status.reason||'Payments on this network are currently unavailable.'}</p>}
     {error&&<div><p role='alert' className='text-xs text-red-600'>{error}</p><button className='min-h-11 text-xs underline' disabled={busy} onClick={()=>void run('status')}>Try again</button></div>}
   </section>;
 }

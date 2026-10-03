@@ -1,4 +1,5 @@
 import { tradePayment } from '../src/lib/tradePayment.js';
+import { isHostedTradeKind } from './trade-hosted-checkout.js';
 import { createTradeSchemaInitializer, tradeReservedSql } from "./trade-schema.js";
 import type { TradeSettlementWallet } from "./trade-wallet-verification.js";
 import { createHash, randomUUID } from "node:crypto";
@@ -115,7 +116,7 @@ export function createTradeCommunityStore(
         }
       : null;
   return {
-    async hostedCheckout(viewer: string, threadId: string, offerId: string, linked?: {hashPayLinkUserId:string;walletAppId:string}, reserve=false) {
+    async hostedCheckout(viewer: string, threadId: string, offerId: string, linked?: {hashPayLinkUserId:string;walletAppId:string}, reserve=false, allowedRails:readonly string[]=['xlayer']) {
       return transaction(async client => {
         const t = await thread(client,threadId,viewer)
         await pairLock(client,t.buyer,t.seller)
@@ -123,7 +124,7 @@ export function createTradeCommunityStore(
         const offer = (await client.query('select * from hashpaystream_trade_offers where id=$1 and thread_id=$2 for update',[offerId,threadId])).rows[0]
         if (!offer) fail('Offer not found.',404)
         const existing = (await client.query('select * from hashpaystream_trade_funding_reservations where offer_id=$1',[offerId])).rows[0]
-        if (existing) return {mode:existing.binding.kind==='hosted-trade-v1'?'hosted':'legacy',reservation:existing.binding}
+        if (existing) return {mode:isHostedTradeKind(existing.binding.kind)?'hosted':'legacy',reservation:existing.binding}
         const legacy = await client.query('select actor from hashpaystream_trade_settlement_wallets where offer_id=$1',[offerId])
         if (legacy.rowCount) return {mode:'legacy'}
         if (linked || reserve) {
@@ -138,18 +139,22 @@ export function createTradeCommunityStore(
         }
         const participants=(await client.query('select * from hashpaystream_trade_hosted_participants where offer_id=$1',[offerId])).rows
         const buyer=participants.find(p=>p.actor===t.buyer),seller=participants.find(p=>p.actor===t.seller)
-        if (!reserve) return {mode:'hosted',buyerReady:!!buyer,sellerReady:!!seller,ready:participants.some(p=>p.actor===viewer)}
+        if (!reserve) {
+          let paymentRail:string|undefined
+          try{paymentRail=tradePayment(offer.terms).rail}catch{}
+          return {mode:'hosted',paymentRail,buyerReady:!!buyer,sellerReady:!!seller,ready:participants.some(p=>p.actor===viewer)}
+        }
         if(viewer!==t.buyer) fail('Only the buyer can reserve checkout.',403)
         if(!buyer||!seller) fail('Both participants must connect their Hash PayLink accounts.',409)
         if(buyer.wallet_app_id!==seller.wallet_app_id) fail('Participants must use the same wallet service.',409)
         const terms=validateTradeTerms(offer.terms)
         const payment=tradePayment(terms)
-        if(payment.rail!=='xlayer') fail('Hosted Trade currently supports xStocks payments only.',409)
+        if(!allowedRails.includes(payment.rail)) fail('This Trade payment network is not enabled.',409)
         if(!Array.isArray(offer.snapshot.photos)||!offer.snapshot.photos.length) fail('The preserved listing is incomplete.',409)
         const snapshotHash=createHash('sha256').update(JSON.stringify(offer.snapshot)).digest('hex')
         const {price,deliveryFee,handover,location,carrier,returns,dispatchDays,deliveryDays,inspectionHours}=terms
-        const reservation={kind:'hosted-trade-v1',walletAppId:buyer.wallet_app_id,idempotencyKey:'hashpaystream-trade-'+offerId,request:{kind:'trade',stockCustody:'xstocks-shares-v2',title:offer.snapshot.title,description:offer.snapshot.description,
-          amount:tradeTotal(terms),paymentToken:terms.settlementToken,customerUserId:buyer.user_id,providerUserId:seller.user_id,
+        const reservation={kind:payment.rail==='arc'?'hosted-trade-arc-v1':'hosted-trade-v1',walletAppId:buyer.wallet_app_id,idempotencyKey:(payment.rail==='arc'?'hashpaystream-arc-trade-':'hashpaystream-trade-')+offerId,request:{kind:'trade',...(payment.rail==='arc'?{paymentRail:'arc',chainId:5042}:{stockCustody:'xstocks-shares-v2'}),title:offer.snapshot.title,description:offer.snapshot.description,
+          amount:tradeTotal(terms),paymentToken:payment.rail==='arc'?payment.token:terms.settlementToken,customerUserId:buyer.user_id,providerUserId:seller.user_id,
           trade:{offerId,listingRevision:offer.listing_revision,snapshotHash,price,deliveryFee,handover,location,carrier,returns,dispatchDays,deliveryDays,inspectionHours}}}
         // Reserve locally before the remote request. Retries reuse the same immutable payload.
         await client.query('insert into hashpaystream_trade_funding_reservations(id,offer_id,listing_id,binding,created_at) values($1,$2,$3,$4,$5)',[randomUUID(),offerId,t.listing_id,reservation,Date.now()])
@@ -169,7 +174,7 @@ export function createTradeCommunityStore(
         const listing = (await client.query('select * from hashpaystream_trade_listings where id=$1 for update', [t.listing_id])).rows[0];
         const offer = (await client.query('select * from hashpaystream_trade_offers where id=$1 and thread_id=$2', [offerId, threadId])).rows[0];
         const reservation = (await client.query('select * from hashpaystream_trade_funding_reservations where offer_id=$1', [offerId])).rows[0];
-        if (!offer || !reservation || reservation.retired_at || reservation.listing_id !== t.listing_id || reservation.binding?.kind !== 'hosted-trade-v1'
+        if (!offer || !reservation || reservation.retired_at || reservation.listing_id !== t.listing_id || !isHostedTradeKind(reservation.binding?.kind)
           || reservation.binding.idempotencyKey !== idempotencyKey || reservation.binding.request?.trade?.offerId !== offerId)
           fail('Payment does not match the reserved listing.', 409);
         // Preserve manual removals and avoid duplicate revision bumps on polling.
@@ -191,7 +196,7 @@ export function createTradeCommunityStore(
         const listing=(await client.query('select * from hashpaystream_trade_listings where id=$1 for update',[t.listing_id])).rows[0];
         const offer=(await client.query('select * from hashpaystream_trade_offers where id=$1 and thread_id=$2 for update',[offerId,threadId])).rows[0];
         const reservation=(await client.query('select * from hashpaystream_trade_funding_reservations where offer_id=$1 for update',[offerId])).rows[0];
-        if(!offer||!reservation||reservation.listing_id!==t.listing_id||reservation.binding?.kind!=='hosted-trade-v1'
+        if(!offer||!reservation||reservation.listing_id!==t.listing_id||!isHostedTradeKind(reservation.binding?.kind)
           ||reservation.binding.idempotencyKey!==idempotencyKey||reservation.binding.request?.trade?.offerId!==offerId)
           fail('Payment does not match the reserved listing.',409);
         if(reservation.retired_at)return;
