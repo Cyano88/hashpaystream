@@ -1,0 +1,9 @@
+{
+  "name": "hashpaystream-trade-safe-rehearsal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Isolated, pinned Safe artifacts for local Trade rehearsal only",
+  "dependencies": {
+    "@safe-global/safe-contracts": "1.4.1"
+  }
+}
