@@ -6,6 +6,8 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "test:trade-arc-safe": "hardhat test --config hardhat.arc-trade.config.ts rehearsal/test/TradeArcSafeRehearsal.test.ts",
+    "plan:trade-arc": "hardhat run --config hardhat.arc-trade.config.ts scripts/plan-trade-arc.ts",
+    "test:trade-arc-plan": "hardhat test --config hardhat.arc-trade.config.ts rehearsal/test/TradeArcDeploymentPlan.test.ts",
     "test:upfront": "hardhat test test/UpfrontAdvanceEscrow.test.ts test/ArcRepaymentRouter.test.ts",
     "test:savings": "hardhat test test/PersonalSavingsVault.test.ts test/LockedSavingsCohortVault.test.ts",
     "audit:personal-savings": "hardhat compile && hardhat test test/PersonalSavingsVault.test.ts && node scripts/verify-personal-savings-review.mjs && node scripts/verify-personal-savings-arc-testnet-review.mjs",

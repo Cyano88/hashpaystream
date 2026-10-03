@@ -1,0 +1,79 @@
+{
+  "status": "unsigned-review-candidate",
+  "chainId": 5042,
+  "contractName": "TradeEscrowFactory",
+  "token": "0x3600000000000000000000000000000000000000",
+  "tokenDecimals": 6,
+  "arbiter": null,
+  "compiler": {
+    "version": "0.8.24+commit.e11b9ed9",
+    "settings": {
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "viaIR": true,
+      "evmVersion": "paris",
+      "outputSelection": {
+        "*": {
+          "*": [
+            "abi",
+            "evm.bytecode",
+            "evm.deployedBytecode",
+            "evm.methodIdentifiers",
+            "metadata"
+          ],
+          "": [
+            "ast"
+          ]
+        }
+      }
+    }
+  },
+  "sourceSha256": {
+    "src/TradeEscrowFactory.sol": "fb6f00b32caa2255c976b155458852a1783caf4a041d88b56c2c92a65598f1ca",
+    "src/TradeEscrow.sol": "6c48ad7936fd9a5326968523f167eb303baf7b654a9cbb59c93c82401c8c1151",
+    "@openzeppelin/contracts/token/ERC20/IERC20.sol": "6f2faae462e286e24e091d7718575179644dc60e79936ef0c92e2d1ab3ca3cee",
+    "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol": "471157c89111d7b9eab456b53ebe9042bc69504a64cb5cc980d38da9103379ae",
+    "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol": "912509e0e9bf74e0f8a8c92d031b5b26d2d35c6d4abf3f56251be1ea9ca946bf",
+    "@openzeppelin/contracts/utils/Address.sol": "b3710b1712637eb8c0df81912da3450da6ff67b0b3ed18146b033ed15b1aa3b9",
+    "@openzeppelin/contracts/utils/ReentrancyGuard.sol": "8d0bac508a25133c9ff80206f65164cef959ec084645d1e7b06050c2971ae0fc"
+  },
+  "creationBytecodeHash": "0x522e55a7d828e96223957e611de75ed7584cbff479d4fbb5a5aa3c110ed6a69b",
+  "runtimeTemplateHash": "0xe286fab868f00e56586baa322a1fc75037492e6a336aa4a8d4b0e498104368a2",
+  "immutableReferences": {
+    "10159": [
+      {
+        "length": 32,
+        "start": 192
+      },
+      {
+        "length": 32,
+        "start": 450
+      }
+    ],
+    "10161": [
+      {
+        "length": 32,
+        "start": 119
+      },
+      {
+        "length": 32,
+        "start": 992
+      }
+    ]
+  },
+  "constructorArguments": null,
+  "unsignedCreation": null,
+  "deployed": false,
+  "fundingEnabled": false,
+  "safeVerified": false,
+  "productionReady": false,
+  "blockers": [
+    "Choose and verify the Arc Trade Safe address.",
+    "Verify Arc Safe owners, threshold two, singleton, runtime and disabled modules.",
+    "Review this exact source/build and deploy through an authorized wallet.",
+    "Verify deployed factory bytecode with constructor immutables applied.",
+    "Verify Circle wallet execution and both-rail funded lifecycle evidence."
+  ]
+}

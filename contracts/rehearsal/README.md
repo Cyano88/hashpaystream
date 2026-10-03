@@ -29,3 +29,30 @@ Trade tests and three Safe rehearsal tests):
 ```powershell
 npx.cmd hardhat test --config hardhat.arc-trade.config.ts test/TradeEscrow.test.ts test/TradeEscrowPreflight.test.ts test/TradeEscrowAudit.test.ts rehearsal/test/TradeArcSafeRehearsal.test.ts
 ```
+
+## Unsigned deployment candidate
+
+From `contracts/`, run `npm.cmd run plan:trade-arc`. This uses the local-only
+configuration and reads compilation artifacts; it never obtains a signer or
+contacts Arc. With no authority selected it reports build fingerprints and a
+missing-Safe blocker, with no creation transaction. A checked-in snapshot is at
+`audits/arc-trade-build-candidate.json`.
+
+After selecting the public Arc Trade Safe address, set
+`HASHPAYSTREAM_ARC_TRADE_ARBITER_ADDRESS` and rerun to obtain constructor arguments,
+unsigned creation data and its hash. An address passing syntax validation is
+not Safe verification. The plan always reports `safeVerified: false`,
+`productionReady: false`, and `fundingEnabled: false`.
+
+The planner verifies compiler settings, artifact/compiler-output agreement, and
+current source contents across the factory's transitive imports. It records
+normalized source hashes for review; this is not a security audit or release
+approval. `runtimeTemplateHash` contains zeroed immutable slots and must never
+be copied into Hash PayLink's deployed `factoryRuntimeHash` registry field.
+Verify deployed code and the Safe policy with the existing release preflight.
+
+`npm.cmd run test:trade-arc-plan` passed four checks: missing-authority gating,
+exact creation-data construction, rejection of source/artifact/settings drift,
+and a local deployment of the prepared bytes with constructor readback. That
+last check uses a code stub at the USDC address solely to satisfy the constructor;
+it does not validate real USDC or an on-chain Safe.
