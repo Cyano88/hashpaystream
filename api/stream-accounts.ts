@@ -38,7 +38,7 @@ export async function verifiedIdentity(req: Request, env: NodeJS.ProcessEnv): Pr
   const appId = clean(env.PRIVY_APP_ID ?? env.VITE_PRIVY_APP_ID, 180)
   const appSecret = clean(env.PRIVY_APP_SECRET, 300)
   const token = bearer(req)
-  if (!appId || !appSecret) fail('HashPayStream authentication is unavailable.', 503)
+  if (!appId || !appSecret) fail('Trade authentication is unavailable.', 503)
   if (!token) fail('Sign in to continue.', 401)
   try {
     const privy = new PrivyClient({ appId, appSecret })
@@ -49,7 +49,7 @@ export async function verifiedIdentity(req: Request, env: NodeJS.ProcessEnv): Pr
     if (!emails.length) throw new Error('Verified email is unavailable.')
     return { email: emails[0], emails: [...new Set(emails)].sort(), wallets: [...new Set(wallets)] }
   } catch (cause) {
-    throw Object.assign(fail('Your HashPayStream session is invalid or expired.', 401), { cause })
+    throw Object.assign(fail('Your Trade session is invalid or expired.', 401), { cause })
   }
 }
 
@@ -61,7 +61,7 @@ function configuration(env: NodeJS.ProcessEnv) {
   const network = arcWalletEnvironment(env)
   const storeKey = network.accountStore
   const rpcUrl = network.rpcUrl
-  if (secret.length < 32 || !storeKey || !rpcUrl) fail('HashPayStream accounts are temporarily unavailable.', 503)
+  if (secret.length < 32 || !storeKey || !rpcUrl) fail('Trade accounts are temporarily unavailable.', 503)
   return { secret, storeKey, rpcUrl, network }
 }
 function accountKey(secret: string, email: string) { return createHmac('sha256', secret).update(`hashpaystream.account\0${email.toLowerCase()}`).digest('hex') }
@@ -71,7 +71,7 @@ function makePocketId(secret: string, email: string, attempt = 0) {
 }
 function displayName(email: string) {
   const words = email.split('@')[0].replace(/[^a-zA-Z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean)
-  return words.slice(0, 2).map(word => word[0]?.toUpperCase() + word.slice(1).toLowerCase()).join(' ') || 'HashPayStream member'
+  return words.slice(0, 2).map(word => word[0]?.toUpperCase() + word.slice(1).toLowerCase()).join(' ') || 'Trade member'
 }
 function publicAccount(account: Account) { return { displayName: account.displayName, pocketId: account.pocketId, walletAddress: account.walletAddress ?? '', walletChainId: account.walletChainId } }
 function ensureAccount(store: Store, identity: Identity, secret: string, now: string) {
@@ -107,7 +107,7 @@ export function createStreamAccountsHandler(overrides: Partial<Dependencies> = {
     res.setHeader('Cache-Control', 'no-store')
     if (req.method !== 'GET' && req.method !== 'POST') { res.setHeader('Allow', 'GET, POST'); return res.status(405).json({ ok: false, error: 'Method not allowed.' }) }
     try {
-      if (!dependencies.hasStore()) fail('HashPayStream accounts are temporarily unavailable.', 503)
+      if (!dependencies.hasStore()) fail('Trade accounts are temporarily unavailable.', 503)
       const env = dependencies.env()
       const config = configuration(env)
       const identity = await dependencies.identity(req, env)
@@ -132,7 +132,7 @@ export function createStreamAccountsHandler(overrides: Partial<Dependencies> = {
         const circleWallets = circleUserToken ? await dependencies.circleWallets(circleUserToken, env) : []
         const circleWallet = circleWallets.find(wallet => wallet.blockchain === config.network.blockchain && isAddress(walletAddress) && getAddress(wallet.address) === getAddress(walletAddress))
         const verified = isAddress(walletAddress) && (Boolean(circleWallet) || (!config.network.live && identity.wallets.some(value => getAddress(value) === getAddress(walletAddress))))
-        if (!verified) fail('This Circle wallet is not verified for your HashPayStream account.', 403)
+        if (!verified) fail('This Circle wallet is not verified for your Trade account.', 403)
         const nextAccount = { ...account, walletAddress: getAddress(walletAddress), walletChainId: config.network.chainId, ...(circleWallet ? { circleWalletId: circleWallet.id } : {}), updatedAt: dependencies.now().toISOString() }
         await dependencies.mutate(config.storeKey, current => { const next = safeStore(current); next.accounts[account.accountKey] = nextAccount; return next })
         return res.json({ ok: true, profile: { ...publicAccount(nextAccount), email: nextAccount.email } })
@@ -155,7 +155,7 @@ export function createStreamAccountsHandler(overrides: Partial<Dependencies> = {
           const reservedOwner = next.reservedPocketIds?.[pocketId]
           if ((activeOwner && activeOwner !== account.accountKey) || (reservedOwner && reservedOwner !== account.accountKey)) fail('That Pocket ID is not available.', 409)
           const currentAccount = next.accounts[account.accountKey]
-          if (!currentAccount) fail('HashPayStream account was not found.', 404)
+          if (!currentAccount) fail('Trade account was not found.', 404)
           next.reservedPocketIds ??= {}
           next.reservedPocketIds[currentAccount.pocketId] = account.accountKey
           next.reservedPocketIds[pocketId] = account.accountKey
@@ -189,7 +189,7 @@ export function createStreamAccountsHandler(overrides: Partial<Dependencies> = {
       fail('Account action is invalid.', 400)
     } catch (error) {
       const status = Number((error as { status?: number }).status) || 500
-      return res.status(status).json({ ok: false, error: status >= 500 ? 'HashPayStream accounts are temporarily unavailable.' : (error as Error).message })
+      return res.status(status).json({ ok: false, error: status >= 500 ? 'Trade accounts are temporarily unavailable.' : (error as Error).message })
     }
   }
 }

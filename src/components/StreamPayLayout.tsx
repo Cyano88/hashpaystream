@@ -52,7 +52,7 @@ export function StreamPayLayout({ children }: { children: ReactNode }) {
       >
         {children}
       </main>
-      
+
     </div>
   )
 }

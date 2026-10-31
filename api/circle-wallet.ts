@@ -36,7 +36,7 @@ async function verifiedEmail(req: Request, env: NodeJS.ProcessEnv) {
   const appId = clean(env.PRIVY_APP_ID ?? env.VITE_PRIVY_APP_ID, 180)
   const appSecret = clean(env.PRIVY_APP_SECRET, 300)
   const token = bearer(req)
-  if (!appId || !appSecret) fail('HashPayStream authentication is unavailable.', 503)
+  if (!appId || !appSecret) fail('Trade authentication is unavailable.', 503)
   if (!token) fail('Sign in to continue.', 401)
   try {
     const client = new PrivyClient({ appId, appSecret })
@@ -46,7 +46,7 @@ async function verifiedEmail(req: Request, env: NodeJS.ProcessEnv) {
     if (!email) throw new Error('Verified email is unavailable.')
     return email
   } catch {
-    fail('Your HashPayStream session is invalid or expired.', 401)
+    fail('Your Trade session is invalid or expired.', 401)
   }
 }
 
@@ -134,7 +134,7 @@ export function createCircleWalletHandler(overrides: { env?: () => NodeJS.Proces
       const email = await identity(req, env)
       const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body as Record<string, unknown> : {}
       const profile = arcWalletEnvironment(env)
-      if (profile.live && body.walletEnvironment !== 'live') fail('Update Hash PayStream to use the production wallet.', 409)
+      if (profile.live && body.walletEnvironment !== 'live') fail('Update Trade to use the production wallet.', 409)
       if (body.walletEnvironment && body.walletEnvironment !== profile.mode) fail('Wallet network does not match this app build.', 409)
       const action = clean(body.action, 40)
       if (action === 'configuration') {
@@ -149,7 +149,7 @@ export function createCircleWalletHandler(overrides: { env?: () => NodeJS.Proces
       if (action === 'request_email_otp') {
         const requestedEmail = clean(body.email, 254).toLowerCase()
         const deviceId = clean(body.deviceId, 256)
-        if (requestedEmail !== email || !EMAIL.test(requestedEmail) || !deviceId) fail('Circle must use your verified HashPayStream email.', 403)
+        if (requestedEmail !== email || !EMAIL.test(requestedEmail) || !deviceId) fail('Circle must use your verified Trade email.', 403)
         const data = await circleJson<Record<string, unknown>>(env, '/v1/w3s/users/email/token', { method: 'POST', body: { idempotencyKey: crypto.randomUUID(), deviceId, email } })
         return res.json({ ok: true, ...data })
       }
@@ -167,7 +167,7 @@ export function createCircleWalletHandler(overrides: { env?: () => NodeJS.Proces
       }
       if (action === 'create_wallet') {
         if (!userToken) fail('Circle wallet session is missing.', 400)
-        const data = await circleJson<Record<string, unknown>>(env, '/v1/w3s/user/wallets', { method: 'POST', userToken, body: { idempotencyKey: crypto.randomUUID(), accountType: 'SCA', blockchains: [profile.blockchain], metadata: [{ name: 'HashPayStream Arc' }] } })
+        const data = await circleJson<Record<string, unknown>>(env, '/v1/w3s/user/wallets', { method: 'POST', userToken, body: { idempotencyKey: crypto.randomUUID(), accountType: 'SCA', blockchains: [profile.blockchain], metadata: [{ name: 'Trade Arc' }] } })
         return res.json({ ok: true, ...data })
       }
       if (action === 'receive_details') {

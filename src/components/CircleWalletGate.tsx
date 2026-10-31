@@ -21,7 +21,7 @@ export function CircleWalletGate({ children }: { children: React.ReactNode }) {
       if (!token || abort.signal.aborted) return
       const response = await fetchWithTimeout('/api/hashpaystream/v1/hosted-account', { signal: abort.signal, headers: { authorization: 'Bearer ' + token } })
       const data = await response.json()
-      if (response.ok && data.ok === true && data.enabled && typeof data.projectName === 'string' && !abort.signal.aborted) setProject({ projectName: data.projectName })
+      if (response.ok && data.ok === true && data.enabled && typeof data.projectName === 'string' && !abort.signal.aborted) setProject({ projectName: /^hash\s*paystream$/i.test(data.projectName.trim()) ? 'Trade' : data.projectName })
     })().catch(() => { /* Optional bridge branding must not prevent wallet sign-in. */ })
     return () => abort.abort()
   }, [user?.id, getAccessToken])
