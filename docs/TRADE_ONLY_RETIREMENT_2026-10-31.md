@@ -11,3 +11,5 @@ Validation: typecheck and build passed; actual local HTTP retirement boundary pa
 Historical read-only observations and asset-reconciliation limits are recorded in the companion Hash PayLink retirement audit. The configured Trade API key currently receives 403 on hosted reconciliation; resolve that access issue before claiming live end-to-end Trade readiness. No account funds were moved.
 
 Signed-in Playwright verification exposed expired hosted wallet/Trade keys (expiry October 24-25), predating this retirement. This prevents full wallet/checkout verification despite readiness returning 200. No access checks were bypassed or grants renewed. A follow-up normalizes the cached legacy project name on the wallet access screen and removes legacy branding from active auth/account errors. Typecheck and production build passed again.
+
+The obsolete public marketplace OpenAPI specification and downloadable endpoint guide are archived outside the public root. Both production services now have Render automatic deployment off, verified through the service API, to prevent older configured branches restoring retired code.
