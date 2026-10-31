@@ -159,7 +159,7 @@ function CircleWalletSession({ children }: { children: ReactNode }) {
       try {
         if (!APP_ID) throw new Error('Circle Arc wallet is not configured.')
         const configuration = await request({ action: 'configuration' })
-        if (configuration.environment !== ARC_WALLET_ENVIRONMENT || configuration.chainId !== ARC_WALLET_CHAIN_ID || configuration.appId !== APP_ID) throw new Error('Wallet configuration has changed. Update Hash PayStream before continuing.')
+        if (configuration.environment !== ARC_WALLET_ENVIRONMENT || configuration.chainId !== ARC_WALLET_CHAIN_ID || configuration.appId !== APP_ID) throw new Error('Wallet configuration has changed. Update Trade before continuing.')
         if (!authenticated || !email) throw new Error('Sign in with email to open your Circle wallet.')
         const { W3SSdk } = await import('@circle-fin/w3s-pw-web-sdk')
         const sdk = new W3SSdk({ appSettings: { appId: APP_ID } })
@@ -246,9 +246,9 @@ function CircleWalletSession({ children }: { children: ReactNode }) {
         assertCircleWalletNetwork(wallet)
         const verifiedWallet = { ...wallet, address: getAddress(wallet.address) }
         const accessToken = await getAccessToken()
-        if (!accessToken) throw new Error('HashPayStream session expired while linking Circle.')
+        if (!accessToken) throw new Error('Trade session expired while linking Circle.')
         const linked = await fetchWithTimeout(runtimeUrl('/api/hashpaystream/v1/accounts'), { method: 'POST', cache: 'no-store', headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' }, body: JSON.stringify({ action: 'register_wallet', walletAddress: verifiedWallet.address, circleUserToken: login.userToken }) })
-        if (!linked.ok) { const body = await linked.json().catch(() => ({})) as { error?: string }; throw new Error(body.error || 'Circle wallet could not be linked to HashPayStream.') }
+        if (!linked.ok) { const body = await linked.json().catch(() => ({})) as { error?: string }; throw new Error(body.error || 'Circle wallet could not be linked to Trade.') }
         setSession({ ...login, deviceId, wallet: verifiedWallet })
         if (login.refreshToken) await writePersistedCircleSession(window.localStorage, { version: 1, appId: APP_ID, email, userToken: login.userToken, encryptionKey: login.encryptionKey, refreshToken: login.refreshToken, deviceId, wallet: verifiedWallet })
         setState('ready')

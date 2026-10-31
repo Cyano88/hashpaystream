@@ -244,7 +244,7 @@ export default function TradeAgreementCard({
           {latest.terms.carrier && (
             <p className="text-xs">
               Proposed carrier: {latest.terms.carrier}. Provider licensing is
-              not verified by Hash PayStream.
+              not verified by Trade.
             </p>
           )}
           <p className="whitespace-pre-wrap break-words text-xs">

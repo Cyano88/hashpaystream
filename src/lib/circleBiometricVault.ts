@@ -56,7 +56,7 @@ export function createCircleBiometricVault(native: NativeStore = NativeBiometric
       if (!secured) throw Error('Wallet unlock needs to be set up again. Verify your wallet.')
       secrets.delete(server)
       // One native prompt; no separate verifyIdentity prompt before reading the protected key.
-      const credential = await native.getSecureCredentials({ server: keyServer(server), title: 'Unlock your wallet', reason: 'Use fingerprint or face to open Hash PayStream.', negativeButtonText: 'Cancel' })
+      const credential = await native.getSecureCredentials({ server: keyServer(server), title: 'Unlock your wallet', reason: 'Use fingerprint or face to open Trade.', negativeButtonText: 'Cancel' })
       if (credential.username !== email || !credential.password.startsWith(KEY_PREFIX)) throw Error('Wallet unlock does not match this account.')
       const secret = bytes(credential.password.slice(KEY_PREFIX.length))
       if (secret.length !== 32) throw Error('Wallet unlock key is invalid.')

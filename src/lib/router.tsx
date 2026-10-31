@@ -61,7 +61,7 @@ export function BrowserRouter({ children }: { children: ReactNode }) {
 
 function useRouter() {
   const value = useContext(RouterContext)
-  if (!value) throw new Error('HashPayStream router is unavailable.')
+  if (!value) throw new Error('Trade router is unavailable.')
   return value
 }
 

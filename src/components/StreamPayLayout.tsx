@@ -3,7 +3,7 @@ import { Capacitor } from '@capacitor/core'
 import { usePrivy } from '@privy-io/react-auth'
 import { useLocation } from '../lib/router'
 import { StreamPayHeader } from './StreamPayHeader'
-import { StreamPayMobileNav } from './StreamPayMobileNav'
+
 
 export function StreamPayLayout({ children }: { children: ReactNode }) {
   const { pathname, search } = useLocation()
@@ -44,7 +44,7 @@ export function StreamPayLayout({ children }: { children: ReactNode }) {
           : 'bg-[#F5F5F7] dark:bg-[#111113]')
       }
     >
-      {!foundationPage && !mobileAppPage && <StreamPayHeader />}
+      {!foundationPage && <StreamPayHeader />}
       {mobileAppPage && <div aria-hidden="true" className="stream-status-boundary" />}
 
       <main
@@ -52,7 +52,7 @@ export function StreamPayLayout({ children }: { children: ReactNode }) {
       >
         {children}
       </main>
-      {mobileAppPage && <StreamPayMobileNav guest={!authenticated} />}
+      
     </div>
   )
 }

@@ -11,14 +11,14 @@ import '@fontsource/plus-jakarta-sans/800.css'
 import './index.css'
 import App from './App'
 import { ThemeProvider } from './lib/ThemeContext'
-import { PocketTransfersProvider } from './lib/pocketTransfers'
+
 import { CircleWalletProvider } from './lib/circleWallet'
 import { arcTestnet, upfrontXLayerChain, xLayerMainnet } from './lib/upfrontChains'
 import { initializeNativeApp } from './lib/nativeApp'
 import { installNativeApiTransport } from './lib/nativeApiTransport'
 
 const appId = String(import.meta.env.VITE_PRIVY_APP_ID || '').trim()
-const logoUrl = new URL('/brand/hashpaystream-logo-light.svg', window.location.origin).toString()
+const logoUrl = new URL('/brand/hashpaylink-mark-dark.png', window.location.origin).toString()
 const termsUrl = new URL('/terms', window.location.origin).toString()
 const privacyUrl = new URL('/privacy', window.location.origin).toString()
 const deploymentReloadKey = 'hashpaystream:deployment-reload'
@@ -61,16 +61,16 @@ function Providers() {
       theme: 'light',
       accentColor: '#2563eb',
       logo: logoUrl,
-      landingHeader: 'Hash PayStream',
+      landingHeader: 'Trade',
       loginMessage: 'Our team will never ask for your login code.',
-      emailDomain: 'HashPayStream',
+      emailDomain: 'Trade',
     },
     legal: {
       termsAndConditionsUrl: termsUrl,
       privacyPolicyUrl: privacyUrl,
     },
   }
-  return <PrivyProvider appId={appId} config={config}><CircleWalletProvider><PocketTransfersProvider><App /></PocketTransfersProvider></CircleWalletProvider></PrivyProvider>
+  return <PrivyProvider appId={appId} config={config}><CircleWalletProvider><App /></CircleWalletProvider></PrivyProvider>
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

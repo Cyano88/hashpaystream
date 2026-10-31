@@ -27,8 +27,8 @@ function readableError(error: unknown, action: 'send' | 'verify') {
     return 'That code is invalid or expired. Request a new code and try again.'
   }
   return action === 'send'
-    ? 'HashPayStream could not send the code. Check your connection and try again.'
-    : 'HashPayStream could not verify the code. Check your connection and try again.'
+    ? 'Trade could not send the code. Check your connection and try again.'
+    : 'Trade could not verify the code. Check your connection and try again.'
 }
 
 export function StreamPayEmailLogin({
@@ -221,7 +221,7 @@ export function StreamPayEmailLogin({
           <div className="mt-9 text-center">
             <p className="flex items-center justify-center gap-1.5 text-xs font-semibold text-gray-500">
               <LockClosedIcon className="h-4 w-4" />
-              HashPayStream will never ask you to share this code.
+              Trade will never ask you to share this code.
             </p>
             <p
               className="mt-3 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-gray-400"

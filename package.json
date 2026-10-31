@@ -11,8 +11,6 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "start": "tsx server.ts",
-    "settlement:worker": "tsx scripts/upfront-settlement-daemon.ts",
-    "settlement:preflight": "tsx scripts/upfront-settlement-worker-preflight.ts",
     "typecheck": "tsc --noEmit",
     "test:agreement-gateway": "node --import tsx scripts/agreement-gateway-smoke.mjs",
     "test:upfront-agreement-gateway": "node --import tsx scripts/upfront-agreement-gateway-smoke.mjs",
@@ -85,13 +83,10 @@
     "test:stock-offers": "node --import tsx scripts/stock-funding-offers-smoke.mjs && node --import tsx scripts/funding-offer-selector-smoke.mjs && node --import tsx scripts/stock-funding-checkout-smoke.mjs && node --import tsx scripts/stock-funder-desk-smoke.mjs",
     "test:stock-integration": "node --import tsx scripts/stock-early-pay-integration.mjs",
     "test:stock-employer": "node --import tsx scripts/stock-employer-smoke.mjs",
-    "stock:receipt-worker": "tsx scripts/stock-receipt-worker.ts",
-    "stock:settlement-worker": "tsx scripts/stock-settlement-worker.ts",
     "test:stock-postgres": "node --import tsx scripts/stock-early-pay-integration.mjs --postgres",
     "test:stock-mainnet-fork": "node --import tsx scripts/stock-early-pay-integration.mjs --postgres --mainnet-fork",
     "audit:stock-candidate": "node scripts/stock-xlayer-candidate-audit.mjs",
     "test:stock-wrapper-fork": "node scripts/stock-wrapper-fork.mjs",
-    "stock:deployment-plan": "node scripts/stock-paused-deployment-plan.mjs",
     "test:stock-scan-bounds": "node --import tsx scripts/stock-scan-bounds-smoke.mjs",
     "test:stock-participants": "node --import tsx scripts/stock-participant-clearance-smoke.mjs",
     "audit:stock-dex-exit": "node scripts/stock-dex-exit-audit.mjs",
@@ -116,7 +111,8 @@
     "test:hosted-account": "node --import tsx scripts/hosted-account-smoke.mjs",
     "test:circle-biometric": "node --import tsx scripts/circle-biometric-vault-smoke.mjs",
     "test:circle-otp": "node --import tsx scripts/circle-otp-flow-smoke.mjs",
-    "test:arc-wallet-environment": "node --import tsx scripts/arc-wallet-environment-smoke.mjs"
+    "test:arc-wallet-environment": "node --import tsx scripts/arc-wallet-environment-smoke.mjs",
+    "test:retirement": "node --import tsx scripts/trade-retirement-http-smoke.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.5.1",

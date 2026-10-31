@@ -12,5 +12,5 @@ export function HashPayStreamMark({ className = 'h-6 w-6', title, surface = 'aut
 }
 
 export function HashPayStreamWordmark() {
-  return <><span className="text-gray-950 dark:text-white">Hash</span>{' '}<span className="text-blue-600 dark:text-blue-400">PayStream</span></>
+  return <span className="text-gray-950 dark:text-white">Trade</span>
 }

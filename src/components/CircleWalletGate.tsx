@@ -44,7 +44,7 @@ export function CircleWalletGate({ children }: { children: React.ReactNode }) {
     }
   }
   return <CircleWalletAccessScreen
-    productName="Hash PayStream"
+    productName="Trade"
     project={project}
     busy={wallet.state !== 'error'}
     error={wallet.error || ''}

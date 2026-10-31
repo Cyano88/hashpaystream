@@ -1,0 +1,702 @@
+[
+  {
+    "original": "api/admin-analytics.ts",
+    "archive": "hash paystream roll downs/api/admin-analytics.ts",
+    "sha256": "20c88b0a6fce250cdfce153e22865415ce3d7ff49d60e3224107c1d10a0a1800"
+  },
+  {
+    "original": "api/agent-agreement-gateway.ts",
+    "archive": "hash paystream roll downs/api/agent-agreement-gateway.ts",
+    "sha256": "c64ee3a8d861be9fb6ae8d6a935dfa2f1ad715d526315b2deacf69c7b2a0aad4"
+  },
+  {
+    "original": "api/agent-arc-webhook.ts",
+    "archive": "hash paystream roll downs/api/agent-arc-webhook.ts",
+    "sha256": "3fe0e046fd39d0ec5ddfed6aac75f6cb5fe41d8a05f2cb333c20b26874cbed3d"
+  },
+  {
+    "original": "api/agent-auth.ts",
+    "archive": "hash paystream roll downs/api/agent-auth.ts",
+    "sha256": "6558b1052e25271b55db1921d8e5e74c0bab41677f1a0f9057715d99e1d0c10e"
+  },
+  {
+    "original": "api/agent-credential-registry.ts",
+    "archive": "hash paystream roll downs/api/agent-credential-registry.ts",
+    "sha256": "fecde274a297a9b066984bad1a078eda4b69b6c2b4b08e63a2376e5f3a7c0ca4"
+  },
+  {
+    "original": "api/agreement-credentials.ts",
+    "archive": "hash paystream roll downs/api/agreement-credentials.ts",
+    "sha256": "dc0918fa230a1a1631bb21692352f954ee6131479bbea64e4bfb6ab3a72ce9b4"
+  },
+  {
+    "original": "api/agreement-gateway.ts",
+    "archive": "hash paystream roll downs/api/agreement-gateway.ts",
+    "sha256": "45f7d16d7d5cc75c56f48a8364bd5fc73afe93e695b11c451158fdf1274c9f24"
+  },
+  {
+    "original": "api/agreement-intelligence-schema.ts",
+    "archive": "hash paystream roll downs/api/agreement-intelligence-schema.ts",
+    "sha256": "9c91be6a46070c5d5588f11b9484b785726d6aa7f752f3e2f2d87f6e53f04e8d"
+  },
+  {
+    "original": "api/arc-agreement-webhook.ts",
+    "archive": "hash paystream roll downs/api/arc-agreement-webhook.ts",
+    "sha256": "bfbfb42ad5ccefa2503ab51bbce165bd8833c1d1f733acfca5214d706fe869f1"
+  },
+  {
+    "original": "api/circle-marketplace.ts",
+    "archive": "hash paystream roll downs/api/circle-marketplace.ts",
+    "sha256": "09ae764b6e9a39a677b3ab44e15f1fac757ec857dfcf092d8e5e15b71866a3cd"
+  },
+  {
+    "original": "api/customer-requests.ts",
+    "archive": "hash paystream roll downs/api/customer-requests.ts",
+    "sha256": "80f65db6c86b7379970e61065af4a3303f71b3a9d6cf5426bc70b711838fbb30"
+  },
+  {
+    "original": "api/early-pay-timing-policy.ts",
+    "archive": "hash paystream roll downs/api/early-pay-timing-policy.ts",
+    "sha256": "70d523d16416c9a8f2d179ecd215855ba54120a9fd1d2d14e366ea656e64dd98"
+  },
+  {
+    "original": "api/financial-core-inventory.ts",
+    "archive": "hash paystream roll downs/api/financial-core-inventory.ts",
+    "sha256": "9f220798f5d46c4456101cb1edc1320b11da8c789905e086247e2b92d7e22501"
+  },
+  {
+    "original": "api/financial-core-reconciliation.ts",
+    "archive": "hash paystream roll downs/api/financial-core-reconciliation.ts",
+    "sha256": "83b824cd36d0f8251c96a175ad6c1a5de7c25ed64220edb028e9ab8e837f92a6"
+  },
+  {
+    "original": "api/financial-core.ts",
+    "archive": "hash paystream roll downs/api/financial-core.ts",
+    "sha256": "e4f19c8e42b5228cfdafd8778c8b5034be4624f3b007b9af23fa516be2c0aa67"
+  },
+  {
+    "original": "api/funding-partners.ts",
+    "archive": "hash paystream roll downs/api/funding-partners.ts",
+    "sha256": "4e016998e81653d70036902e69255e307e4706e81f40f0359eba402c095d1ccb"
+  },
+  {
+    "original": "api/polydesk-upfront-client.ts",
+    "archive": "hash paystream roll downs/api/polydesk-upfront-client.ts",
+    "sha256": "2703c542761900e0dacde2056e8bd14d8958b8b9c222d2ab6961dabd823dfca6"
+  },
+  {
+    "original": "api/public-stats.ts",
+    "archive": "hash paystream roll downs/api/public-stats.ts",
+    "sha256": "f9e6bb87e21e8f72ee20610c07b64c8701c6be7fcff40fcfa48170109038ce80"
+  },
+  {
+    "original": "api/readiness.ts",
+    "archive": "hash paystream roll downs/api/readiness.ts",
+    "sha256": "9f97bb3e3fcaa91b6ce72d3c0e81abdb4bcc9360e00d0c03ee7446dec6fe6d9e"
+  },
+  {
+    "original": "api/request-telemetry.ts",
+    "archive": "hash paystream roll downs/api/request-telemetry.ts",
+    "sha256": "44bd60622faca2dbeb0deba79ecb81cb7fe3f270afdbc87c2a9d324af7013d6d"
+  },
+  {
+    "original": "api/savings-config.ts",
+    "archive": "hash paystream roll downs/api/savings-config.ts",
+    "sha256": "2771a20a09ad2efae70d181a672d26b50414b8cbc832f425220ce17ff3c92bf4"
+  },
+  {
+    "original": "api/service-requests.ts",
+    "archive": "hash paystream roll downs/api/service-requests.ts",
+    "sha256": "dcad3409b5ad296b3c4a726da9b926472ff9094043b966df217da72a62cea8a0"
+  },
+  {
+    "original": "api/stock-balances.ts",
+    "archive": "hash paystream roll downs/api/stock-balances.ts",
+    "sha256": "4eadc6dc56b9378d9c3e209527215e277726a26427a3820cb79ef9556b0a9959"
+  },
+  {
+    "original": "api/stock-dex-history.ts",
+    "archive": "hash paystream roll downs/api/stock-dex-history.ts",
+    "sha256": "db6f4cf3550daf04e94389a9b9a787d77baca562d08629f81bfa931155184dc8"
+  },
+  {
+    "original": "api/stock-dex-market.ts",
+    "archive": "hash paystream roll downs/api/stock-dex-market.ts",
+    "sha256": "d673979e1e411e9a371517f742221de084e8fceec78e4bb1c7f1cf2f5b97960f"
+  },
+  {
+    "original": "api/stock-early-pay-chain.ts",
+    "archive": "hash paystream roll downs/api/stock-early-pay-chain.ts",
+    "sha256": "7a7616d302f86f39be06296623aa048d40697ad94b12c23210f04b074158f294"
+  },
+  {
+    "original": "api/stock-early-pay-config.ts",
+    "archive": "hash paystream roll downs/api/stock-early-pay-config.ts",
+    "sha256": "ee8a6fa0f0c74926cba97a1f1205e6d500e19bc3df077005d7b31e83a407d972"
+  },
+  {
+    "original": "api/stock-early-pay-reconciliation.ts",
+    "archive": "hash paystream roll downs/api/stock-early-pay-reconciliation.ts",
+    "sha256": "e1042dd09001bfe808a06104169a1cbbe2b8cd482e7be7f20627b9d421f6aec8"
+  },
+  {
+    "original": "api/stock-early-pay.ts",
+    "archive": "hash paystream roll downs/api/stock-early-pay.ts",
+    "sha256": "aa5f578967621763c4f31cfc94eff0934f95ca6e6a85d4285ec5651d1bce6164"
+  },
+  {
+    "original": "api/stock-market-data.ts",
+    "archive": "hash paystream roll downs/api/stock-market-data.ts",
+    "sha256": "c8f82a2c30169582012603315a0b8ef312764e5d8fc36af05d056bf3b4811a28"
+  },
+  {
+    "original": "api/stock-participant-clearance.ts",
+    "archive": "hash paystream roll downs/api/stock-participant-clearance.ts",
+    "sha256": "eaeb8bdbcc2e06a4a4630f4d3f8b96a7ab8683a27bff41b12564a00c12864ff4"
+  },
+  {
+    "original": "api/stock-pyth-market-data.ts",
+    "archive": "hash paystream roll downs/api/stock-pyth-market-data.ts",
+    "sha256": "dd54854a083956532af4fecc4f5734e01cf2dbf7c92c74f40a131ef0c5d908ea"
+  },
+  {
+    "original": "api/stock-settlement-worker.ts",
+    "archive": "hash paystream roll downs/api/stock-settlement-worker.ts",
+    "sha256": "d2ada52a867d07f937bc5bca3a1a3fdb034e1863177fe4bb37180743b32e18cc"
+  },
+  {
+    "original": "api/stock-twelve-data-market-data.ts",
+    "archive": "hash paystream roll downs/api/stock-twelve-data-market-data.ts",
+    "sha256": "6cd9b0454cc624a27ec7b640ec386f74ff9812ab6d7446bfe9e16df2bf297eae"
+  },
+  {
+    "original": "api/trade-escrow-preflight.ts",
+    "archive": "hash paystream roll downs/api/trade-escrow-preflight.ts",
+    "sha256": "7459a55faf5ba5c09731da3c2d9f1d8d4a17741e1e1507c72223ca96148a35bb"
+  },
+  {
+    "original": "api/upfront-agreement-gateway.ts",
+    "archive": "hash paystream roll downs/api/upfront-agreement-gateway.ts",
+    "sha256": "f4e51ac7d7833e15ea2fbf9f175033b754717dd0e40b0c6e70e1c76a64ba805e"
+  },
+  {
+    "original": "api/upfront-arc-webhook.ts",
+    "archive": "hash paystream roll downs/api/upfront-arc-webhook.ts",
+    "sha256": "9010b0a7fdcff2b8bbcfec7bbda488f9b1889ae3bc1acffdaa610acdfd45672e"
+  },
+  {
+    "original": "api/upfront-assessment.ts",
+    "archive": "hash paystream roll downs/api/upfront-assessment.ts",
+    "sha256": "5afaec307ff5f04dfa8fb3bdd447821542a1e0b477e2bb762bc2ce02d9d355f3"
+  },
+  {
+    "original": "api/upfront-fees.ts",
+    "archive": "hash paystream roll downs/api/upfront-fees.ts",
+    "sha256": "eed6de83491122d1b9b205ea083f4ddc99c6b689baa585b691be5af2f398f2a7"
+  },
+  {
+    "original": "api/upfront-funding-terms.ts",
+    "archive": "hash paystream roll downs/api/upfront-funding-terms.ts",
+    "sha256": "3a0f28bdd126ef5d0f6c6dd1a0ac9f9396d7e16fb89a280d094837cab72cae6a"
+  },
+  {
+    "original": "api/upfront-opportunities.ts",
+    "archive": "hash paystream roll downs/api/upfront-opportunities.ts",
+    "sha256": "979a1c743ce8b94540a1fa8a318e2c49b89cdeb68d79a48937153ecd1a457b7b"
+  },
+  {
+    "original": "api/upfront-protection-attestation.ts",
+    "archive": "hash paystream roll downs/api/upfront-protection-attestation.ts",
+    "sha256": "78e326857fe8935e66eb87658bc9ceb266872735ca7851d1eea1420ffef573d4"
+  },
+  {
+    "original": "api/upfront-protection.ts",
+    "archive": "hash paystream roll downs/api/upfront-protection.ts",
+    "sha256": "16b157e64a5ba1c7dd3f0a987335a76be94244d556b4ce82a07f704978ee5a8c"
+  },
+  {
+    "original": "api/upfront-reviews.ts",
+    "archive": "hash paystream roll downs/api/upfront-reviews.ts",
+    "sha256": "b402cf7d063aa81fef71a2012d337a59a8f38bb28c86b553d189bb6902cb25de"
+  },
+  {
+    "original": "api/upfront-settlement-daemon.ts",
+    "archive": "hash paystream roll downs/api/upfront-settlement-daemon.ts",
+    "sha256": "e639fa7f9d71dc81e3233a0caa2f2aa6ddb16ad9486e51bb9cf2525dcd56e240"
+  },
+  {
+    "original": "api/upfront-settlement-evidence.ts",
+    "archive": "hash paystream roll downs/api/upfront-settlement-evidence.ts",
+    "sha256": "8858ccd708845880968e680dbb073bd85fcbfbd562574394a4c13d645fc25aae"
+  },
+  {
+    "original": "api/upfront-settlement-runtime.ts",
+    "archive": "hash paystream roll downs/api/upfront-settlement-runtime.ts",
+    "sha256": "77c3c3e09c970167fe12451d8894f1659a41fff367fdc83bec423e49afd3bae8"
+  },
+  {
+    "original": "api/upfront-settlement-targets.ts",
+    "archive": "hash paystream roll downs/api/upfront-settlement-targets.ts",
+    "sha256": "df8462c1000e28005de349cb67e473983b585b28387d7be343587a9e39f6264b"
+  },
+  {
+    "original": "api/upfront-settlement-worker.ts",
+    "archive": "hash paystream roll downs/api/upfront-settlement-worker.ts",
+    "sha256": "be9a9246edeaf6c6462f54d3440d828c4c59a96cc0d9f33439a08df71cc86a3b"
+  },
+  {
+    "original": "api/upfront-v3.ts",
+    "archive": "hash paystream roll downs/api/upfront-v3.ts",
+    "sha256": "f3893ab810db6a8621571f8b860db081d8aa5bd9bb64d668acdbf979aa84d191"
+  },
+  {
+    "original": "api/wallet-swap.ts",
+    "archive": "hash paystream roll downs/api/wallet-swap.ts",
+    "sha256": "4d6683f058542735ee1226540ba6b1d9d063ce04983443600762d2c73d2ee210"
+  },
+  {
+    "original": "api/work-xlayer.ts",
+    "archive": "hash paystream roll downs/api/work-xlayer.ts",
+    "sha256": "6122d2cefc129d031184263fd2b16e5253566044d50df00fb4d3eaaab04470bb"
+  },
+  {
+    "original": "src/components/EarlierStockWallet.tsx",
+    "archive": "hash paystream roll downs/src/components/EarlierStockWallet.tsx",
+    "sha256": "ce85049e43722fadd6c068d6bd56bd319f9801de68f0d6d470b9c69f0e277c3d"
+  },
+  {
+    "original": "src/components/EarlyPaySettlementSummary.tsx",
+    "archive": "hash paystream roll downs/src/components/EarlyPaySettlementSummary.tsx",
+    "sha256": "cef5bb2972b92fd20d0847b3a00e5a043030b0d17b9aa034e8ccd7ce7ea7c9bf"
+  },
+  {
+    "original": "src/components/FundingOfferSelector.tsx",
+    "archive": "hash paystream roll downs/src/components/FundingOfferSelector.tsx",
+    "sha256": "d97e86175257768d9ca3d139e2eeb7f8b879b734efecb579d837f2f705e61e6f"
+  },
+  {
+    "original": "src/components/FundingPartnerPicker.tsx",
+    "archive": "hash paystream roll downs/src/components/FundingPartnerPicker.tsx",
+    "sha256": "e60f48b11a23d0d7c38a54e8c116c9c2b7b1453142befac74564e819790389fb"
+  },
+  {
+    "original": "src/components/FundingPositionReceipt.tsx",
+    "archive": "hash paystream roll downs/src/components/FundingPositionReceipt.tsx",
+    "sha256": "e152f66bbdcc319239f13fe26b59c3eae0bbb8c34010c163a2977164d9339838"
+  },
+  {
+    "original": "src/components/HomeBalanceCarousel.tsx",
+    "archive": "hash paystream roll downs/src/components/HomeBalanceCarousel.tsx",
+    "sha256": "c8fdd3d4e6fd2dcb100dd243c809458d02324bb57b9be23f4472f5a2993b76b0"
+  },
+  {
+    "original": "src/components/HostedStockSend.tsx",
+    "archive": "hash paystream roll downs/src/components/HostedStockSend.tsx",
+    "sha256": "5d18c117c81bae80657198a20c5f013bb6bbffb1d71d35291e358403afb0287b"
+  },
+  {
+    "original": "src/components/ProviderPayoutWallet.tsx",
+    "archive": "hash paystream roll downs/src/components/ProviderPayoutWallet.tsx",
+    "sha256": "2b06ecdfa140df693ff70337db9f1ff614487c24be7275e1fe95b5cdb385f1d5"
+  },
+  {
+    "original": "src/components/StockEmployerFunding.tsx",
+    "archive": "hash paystream roll downs/src/components/StockEmployerFunding.tsx",
+    "sha256": "11689570d812ab102a63fc788a17a97471bbb7ed50515e5d37a4f0ee58e4ca98"
+  },
+  {
+    "original": "src/components/StockFunderDesk.tsx",
+    "archive": "hash paystream roll downs/src/components/StockFunderDesk.tsx",
+    "sha256": "e85a4cf874e0b61855db761e8db54886b2ac54bcc37ce3f42bab39442bbb122f"
+  },
+  {
+    "original": "src/components/StockFunderOfferTerms.tsx",
+    "archive": "hash paystream roll downs/src/components/StockFunderOfferTerms.tsx",
+    "sha256": "e94a7e732b8cec3a7c85e1b09f60cba313ef5dccf8359930f0b5f8e3c3276c48"
+  },
+  {
+    "original": "src/components/StockFundingCheckout.tsx",
+    "archive": "hash paystream roll downs/src/components/StockFundingCheckout.tsx",
+    "sha256": "93670e0a4a37c375e0b72aba2f62a2216fd0542f738c8000cd79df20733b4136"
+  },
+  {
+    "original": "src/components/StockMarketStatus.tsx",
+    "archive": "hash paystream roll downs/src/components/StockMarketStatus.tsx",
+    "sha256": "0d1e27b72a1f489036938e2e8853df3af870d4f5e279a3c4b21f6d31175ba6f2"
+  },
+  {
+    "original": "src/components/StockWorkerFunding.tsx",
+    "archive": "hash paystream roll downs/src/components/StockWorkerFunding.tsx",
+    "sha256": "6964bd16b14ef998e0f4b789d9c201f5c96ec4ed7eefe550a95b4662f700360d"
+  },
+  {
+    "original": "src/components/StocksBalanceCard.tsx",
+    "archive": "hash paystream roll downs/src/components/StocksBalanceCard.tsx",
+    "sha256": "92e1b083604ec3a75d2679d92ec42195934e59c9679fd97b0ff49bb87d391139"
+  },
+  {
+    "original": "src/components/StreamPayAccount.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPayAccount.tsx",
+    "sha256": "c3ee8c3a42fb77e79ff232f167fe5c082c2afeda3e08ecbac2913f3198e6e75b"
+  },
+  {
+    "original": "src/components/StreamPayActivity.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPayActivity.tsx",
+    "sha256": "1e8a68191be3410d159ad0adf102e0265060b6eac16e138212fe1f515cec08b5"
+  },
+  {
+    "original": "src/components/StreamPayAgentDocs.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPayAgentDocs.tsx",
+    "sha256": "b81d4132fb3441c40cc305c0abbdb35ac76b405a2b32b82a78bfceb78864d755"
+  },
+  {
+    "original": "src/components/StreamPayFundRequest.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPayFundRequest.tsx",
+    "sha256": "99482d50463bfec710de492e53b15adf84c520c6a0994fa5a44f5c9b1f2755f3"
+  },
+  {
+    "original": "src/components/StreamPayFunding.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPayFunding.tsx",
+    "sha256": "1296c6d30446a361acddc83cd52f461ca2629988e04fa58e6a904321ac464600"
+  },
+  {
+    "original": "src/components/StreamPayFundingDesk.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPayFundingDesk.tsx",
+    "sha256": "bfd4a1f3644af86b31a7c9ab8ee331305204d1cc91ae2a5afa0469eb20c0cd40"
+  },
+  {
+    "original": "src/components/StreamPayGrow.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPayGrow.tsx",
+    "sha256": "27ced01f667e069058a97dc6c6aba51eb83941408212a494433ab45345fc9f20"
+  },
+  {
+    "original": "src/components/StreamPayHome.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPayHome.tsx",
+    "sha256": "12fc90a343b862ae5022fd1905a10e6b83ca2b291283aca3fe8f85de5b071c84"
+  },
+  {
+    "original": "src/components/StreamPayMobileNav.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPayMobileNav.tsx",
+    "sha256": "56f2e06b3a6943d9ddd793130f137e9b332de3f9623473b48e2768ff6b40ec19"
+  },
+  {
+    "original": "src/components/StreamPayMove.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPayMove.tsx",
+    "sha256": "166c2f240d39a3e5ae6f65c932535b4a5d40b72e7d27f109debf71df26d33a28"
+  },
+  {
+    "original": "src/components/StreamPayNotifications.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPayNotifications.tsx",
+    "sha256": "8a6f1fab845d9d51e758eac1065e17f67d0e15a21dbb1688a64f03023c40d132"
+  },
+  {
+    "original": "src/components/StreamPayReceive.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPayReceive.tsx",
+    "sha256": "c2cfada8a9382358066c05e8e4970d40e0c0ec5a4d282b44929a4965050279ca"
+  },
+  {
+    "original": "src/components/StreamPayRequests.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPayRequests.tsx",
+    "sha256": "94746fac34fcdb76446dc8b2cdcbd801e602110e35685aa1eb06b03ddb78655f"
+  },
+  {
+    "original": "src/components/StreamPaySavings.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPaySavings.tsx",
+    "sha256": "839ccea7c4f062a504b7b69751548246ceb3ddc2c9c7d8a9c1f307a74843c981"
+  },
+  {
+    "original": "src/components/StreamPaySend.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPaySend.tsx",
+    "sha256": "e63f78f94c28fe3ae0620bd2267557b6230b2a81b3e7eb5c997e887d2987b503"
+  },
+  {
+    "original": "src/components/StreamPaySendOptions.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPaySendOptions.tsx",
+    "sha256": "e15bad431d884f67a82d4157b3818f5345096c256d1a55e0520aec4206a94343"
+  },
+  {
+    "original": "src/components/StreamPayStats.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPayStats.tsx",
+    "sha256": "901596ebb015f1d97a0acdbb214808bb30b96d34bfda9c0d1152a28cd7e9dde7"
+  },
+  {
+    "original": "src/components/StreamPayStocks.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPayStocks.tsx",
+    "sha256": "beb08baa20e5fdd038d69221d14d0aaede8f50108ce217a283b8334d6d385e84"
+  },
+  {
+    "original": "src/components/StreamPaySwap.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPaySwap.tsx",
+    "sha256": "cf5ae6c99aa5f8a045c27b4e1838d00c8e6cd66047f000d48fdaa3c458162bc8"
+  },
+  {
+    "original": "src/components/StreamPayUpfront.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPayUpfront.tsx",
+    "sha256": "921111bfcd46bc302117622b2ee8fb88c937ebbc851a94c04d608bf09e154627"
+  },
+  {
+    "original": "src/components/StreamPayXLayerSend.tsx",
+    "archive": "hash paystream roll downs/src/components/StreamPayXLayerSend.tsx",
+    "sha256": "3ad0ed949b4a17b7c213346d359790d828a6cf08153d4855f594702d75617e7d"
+  },
+  {
+    "original": "src/components/SubmittedWorkLink.tsx",
+    "archive": "hash paystream roll downs/src/components/SubmittedWorkLink.tsx",
+    "sha256": "656386b6d82ec8dd5f289088a1d1977b0eaa23546723232e7f97abc7ffe37212"
+  },
+  {
+    "original": "src/components/UnifiedReceipt.tsx",
+    "archive": "hash paystream roll downs/src/components/UnifiedReceipt.tsx",
+    "sha256": "ec0226cc464a08f4811eb4d29dad2cf7ba145d8d55b1dfd4bb46c15e4157e2f1"
+  },
+  {
+    "original": "src/components/UpfrontFundButton.tsx",
+    "archive": "hash paystream roll downs/src/components/UpfrontFundButton.tsx",
+    "sha256": "fdec7781a6f3a0b41900e9dc6fbb39b78cefc1d5ab8a0c1ac91385d3d992a82b"
+  },
+  {
+    "original": "src/components/UpfrontLifecycleButton.tsx",
+    "archive": "hash paystream roll downs/src/components/UpfrontLifecycleButton.tsx",
+    "sha256": "53b3472954a0dcedce77b247ea4a9156b92b626c66c7404a97659d510e5ce45b"
+  },
+  {
+    "original": "src/components/UpfrontTreasuryWallet.tsx",
+    "archive": "hash paystream roll downs/src/components/UpfrontTreasuryWallet.tsx",
+    "sha256": "22edb434dfa224e589a92fd718fb16b134c31509986fc6a7b95ff0da6ffe0d8e"
+  },
+  {
+    "original": "src/components/WalletBiometricUnlock.tsx",
+    "archive": "hash paystream roll downs/src/components/WalletBiometricUnlock.tsx",
+    "sha256": "212c9beff7c6e1b04572979dc98d41a7a9b8353ed25abaf741b9e7b9b1752d07"
+  },
+  {
+    "original": "src/components/WorkPaymentFields.tsx",
+    "archive": "hash paystream roll downs/src/components/WorkPaymentFields.tsx",
+    "sha256": "41b18dbcc1f767807231e034ffe380386cfa052736843b597099a99335937eb8"
+  },
+  {
+    "original": "src/components/WorkXLayerCheckout.tsx",
+    "archive": "hash paystream roll downs/src/components/WorkXLayerCheckout.tsx",
+    "sha256": "d5e909b5268f29069d4cbe172c0ff82b0bc474c4b39eaa04d0f45e343924bac3"
+  },
+  {
+    "original": "src/components/admin/ArcRepaymentControl.tsx",
+    "archive": "hash paystream roll downs/src/components/admin/ArcRepaymentControl.tsx",
+    "sha256": "75b59c90b5bec4a48b0446946c5fd62734b751531e5026843041306232581ed1"
+  },
+  {
+    "original": "src/components/admin/FundingPartnerReviewPanel.tsx",
+    "archive": "hash paystream roll downs/src/components/admin/FundingPartnerReviewPanel.tsx",
+    "sha256": "4862ad7bd1845bc5a5f6d03d3ca696524d051ea351a56c4da5542cdf869e9bec"
+  },
+  {
+    "original": "src/components/admin/StreamPayAnalytics.tsx",
+    "archive": "hash paystream roll downs/src/components/admin/StreamPayAnalytics.tsx",
+    "sha256": "6ba2d7509857232545256073dfd33c9c857e7919ba167f922b70eec432b77995"
+  },
+  {
+    "original": "src/components/admin/UpfrontReviewPanel.tsx",
+    "archive": "hash paystream roll downs/src/components/admin/UpfrontReviewPanel.tsx",
+    "sha256": "1a7e4d2be99de3e236d3fcb90d933767e8ee7267f471da92598cb52e5259a641"
+  },
+  {
+    "original": "src/components/agreements/AgreementDashboard.tsx",
+    "archive": "hash paystream roll downs/src/components/agreements/AgreementDashboard.tsx",
+    "sha256": "a93df5fa0bfaa26ffc34dad7a068aa8bc26875e79eb2622a6a2e648774bb69a5"
+  },
+  {
+    "original": "src/components/docs/StreamPayAgentDocsPage.tsx",
+    "archive": "hash paystream roll downs/src/components/docs/StreamPayAgentDocsPage.tsx",
+    "sha256": "fd111b136bae98396461b23afdecc347d3eb6440e7d46c4c7fee8f560b70f572"
+  },
+  {
+    "original": "src/components/docs/StreamPayArcAgreementDocs.tsx",
+    "archive": "hash paystream roll downs/src/components/docs/StreamPayArcAgreementDocs.tsx",
+    "sha256": "f6337bcb1d23c3085838c434dff27063e3f48604936bc0dca194dfbbfb72e0fa"
+  },
+  {
+    "original": "src/components/docs/StreamPayCircleMarketplaceDocs.tsx",
+    "archive": "hash paystream roll downs/src/components/docs/StreamPayCircleMarketplaceDocs.tsx",
+    "sha256": "06b2eb85f3c8266ff9a0a03dbf70da51d0c7b14481c8d0ec50b3c6de50547438"
+  },
+  {
+    "original": "src/components/docs/StreamPayDocsHome.tsx",
+    "archive": "hash paystream roll downs/src/components/docs/StreamPayDocsHome.tsx",
+    "sha256": "2734d5d12bce0138270adef7c19ce90ea66749fa6f2466af5fa30c22298648bd"
+  },
+  {
+    "original": "src/components/docs/StreamPayDocsShell.tsx",
+    "archive": "hash paystream roll downs/src/components/docs/StreamPayDocsShell.tsx",
+    "sha256": "b48e1ff3666999030a7f06f7e41af9932a66b9de1af58331265bb70669b0bf4b"
+  },
+  {
+    "original": "src/components/savings/SavingsDepositSheet.tsx",
+    "archive": "hash paystream roll downs/src/components/savings/SavingsDepositSheet.tsx",
+    "sha256": "d614beb3ae1c3907244a07d9dd237895dafe119d2138b7e01564488d11e88c28"
+  },
+  {
+    "original": "src/components/savings/SavingsPlanCard.tsx",
+    "archive": "hash paystream roll downs/src/components/savings/SavingsPlanCard.tsx",
+    "sha256": "e2bc063a6de22143ec45be94f49079caa13676440c71f7bf1350ff8d6f91e45e"
+  },
+  {
+    "original": "src/components/savings/SavingsReceipts.tsx",
+    "archive": "hash paystream roll downs/src/components/savings/SavingsReceipts.tsx",
+    "sha256": "1bf16b356e8608e1fe5f10370f37b6f1cfe2fa95f06efbd418f393f432a2ad21"
+  },
+  {
+    "original": "src/components/ui/AgreementProgress.tsx",
+    "archive": "hash paystream roll downs/src/components/ui/AgreementProgress.tsx",
+    "sha256": "cc374169ba2919a919a2575e4982973ffe622274d31ef0a8f010fc0ca562d917"
+  },
+  {
+    "original": "src/components/ui/StreamPayLoadingState.tsx",
+    "archive": "hash paystream roll downs/src/components/ui/StreamPayLoadingState.tsx",
+    "sha256": "0f85f1ef4c9cb1ef7a033b5bfb7b328046ffbebbbb4cf7c48ef8c81601578c3b"
+  },
+  {
+    "original": "src/lib/AuthButton.tsx",
+    "archive": "hash paystream roll downs/src/lib/AuthButton.tsx",
+    "sha256": "c28f2c143284df57844f8f2178b5d04de45965479b5a7a74ba86ed2089156926"
+  },
+  {
+    "original": "src/lib/arcTransferActivity.ts",
+    "archive": "hash paystream roll downs/src/lib/arcTransferActivity.ts",
+    "sha256": "1d2ac49d4e92d26fe672f6c08bbf1b5e93cf2d07ae47be5f24d5c2b7f517e74d"
+  },
+  {
+    "original": "src/lib/arcWallet.ts",
+    "archive": "hash paystream roll downs/src/lib/arcWallet.ts",
+    "sha256": "75057b2dd3d49c73af2103d068783d8bc68c054e3fb3fb8f9756695356641d39"
+  },
+  {
+    "original": "src/lib/customerRequests.ts",
+    "archive": "hash paystream roll downs/src/lib/customerRequests.ts",
+    "sha256": "cb74f345eb153d053ba283fd923302426c8790d1ba93ce6ee3acff80b03e7a6c"
+  },
+  {
+    "original": "src/lib/nativeReceiptShare.ts",
+    "archive": "hash paystream roll downs/src/lib/nativeReceiptShare.ts",
+    "sha256": "551e287825081c247f00704c190aa377b0cad9e442a70268f9a03b0172602242"
+  },
+  {
+    "original": "src/lib/payerLifecycleOutcome.ts",
+    "archive": "hash paystream roll downs/src/lib/payerLifecycleOutcome.ts",
+    "sha256": "0208772fb13fde8673a1504a2ec77f8ad6839de36c6bc82c4fe666c3a56dbf50"
+  },
+  {
+    "original": "src/lib/paymentReceiptPdf.ts",
+    "archive": "hash paystream roll downs/src/lib/paymentReceiptPdf.ts",
+    "sha256": "b3133aae872e135302acab5602965b0e9b0a358bb5c4fdc01551b3eb4121e01b"
+  },
+  {
+    "original": "src/lib/pocketTransfers.tsx",
+    "archive": "hash paystream roll downs/src/lib/pocketTransfers.tsx",
+    "sha256": "8a58524eeb9ef8c8e0423153b4fb948204a908adf96f58436ecc8eb5cf36867f"
+  },
+  {
+    "original": "src/lib/savingsChain.ts",
+    "archive": "hash paystream roll downs/src/lib/savingsChain.ts",
+    "sha256": "fcdcecbf8074757b932906911f06d7d994fb91f4b8f114a7672f2c4fa62c4b3f"
+  },
+  {
+    "original": "src/lib/savingsReceipt.ts",
+    "archive": "hash paystream roll downs/src/lib/savingsReceipt.ts",
+    "sha256": "251ab20119bfe9df644ea29605063593571556a3ef7560a3ebd34953e9542bf0"
+  },
+  {
+    "original": "src/lib/savingsSchedule.ts",
+    "archive": "hash paystream roll downs/src/lib/savingsSchedule.ts",
+    "sha256": "8903cc0e212a16293b185b760ffd52602e4b53e8b0949da5780b309c3d76227c"
+  },
+  {
+    "original": "src/lib/savingsTransaction.ts",
+    "archive": "hash paystream roll downs/src/lib/savingsTransaction.ts",
+    "sha256": "5424a97dd8bcb72b33a751673a6a9573bd7d3de6df396f9b849056057b965e34"
+  },
+  {
+    "original": "src/lib/serviceRequests.ts",
+    "archive": "hash paystream roll downs/src/lib/serviceRequests.ts",
+    "sha256": "da78509e4752d75328c3cef287b468bf6a665563ff3e862708df8902fba4b4dd"
+  },
+  {
+    "original": "src/lib/settlementEvidence.ts",
+    "archive": "hash paystream roll downs/src/lib/settlementEvidence.ts",
+    "sha256": "794e0d0b50bb05370711cc3a355d182dc988c5a88d9dac96271fba5746a38ae4"
+  },
+  {
+    "original": "src/lib/stableSnapshots.ts",
+    "archive": "hash paystream roll downs/src/lib/stableSnapshots.ts",
+    "sha256": "4c41c845e8cf3e58327877291bbe7995a78168065ad2c0333d1e2a5f1bc83dea"
+  },
+  {
+    "original": "src/lib/stockEarlyPayClient.ts",
+    "archive": "hash paystream roll downs/src/lib/stockEarlyPayClient.ts",
+    "sha256": "abb3739b37d69e1820125cee29e945a97b73c242cc6d0f780c7c959d593fb944"
+  },
+  {
+    "original": "src/lib/stockEarlyPayProtocol.ts",
+    "archive": "hash paystream roll downs/src/lib/stockEarlyPayProtocol.ts",
+    "sha256": "bc4c6787e8e6cd1d850f0ed39252294962949e9f426e994cd157dd1d73fd43d5"
+  },
+  {
+    "original": "src/lib/stockEarningsClient.ts",
+    "archive": "hash paystream roll downs/src/lib/stockEarningsClient.ts",
+    "sha256": "a0f4af97d33bb4dab6eea933eb2c77e19a8b2f0ed51e17be4937fbcb9ad4d075"
+  },
+  {
+    "original": "src/lib/stockFundingOffers.ts",
+    "archive": "hash paystream roll downs/src/lib/stockFundingOffers.ts",
+    "sha256": "8e3c0301850e50b9bbc8414ef4ae872e25ed0ca044c8396839798aa032ef3412"
+  },
+  {
+    "original": "src/lib/streamAccount.ts",
+    "archive": "hash paystream roll downs/src/lib/streamAccount.ts",
+    "sha256": "c3ba43e493dbdd6e29f8e22a0134bc4c8055e08726fc85d8ae6d0ed889dab3c1"
+  },
+  {
+    "original": "src/lib/streamNotifications.tsx",
+    "archive": "hash paystream roll downs/src/lib/streamNotifications.tsx",
+    "sha256": "9dd94967399994291fc33b9625c836fd91707c7a114776f8b90ff14c3ddcfeb9"
+  },
+  {
+    "original": "src/lib/upfrontProtocol.ts",
+    "archive": "hash paystream roll downs/src/lib/upfrontProtocol.ts",
+    "sha256": "57b3ab23c80b095d1536722c134b836d89c8cd879998387380d599b27b06a873"
+  },
+  {
+    "original": "src/lib/upfrontRefund.ts",
+    "archive": "hash paystream roll downs/src/lib/upfrontRefund.ts",
+    "sha256": "158ff87a1bbc5bc399bb2b6801a5e744ba1edc518c6d931e2207244306cc6ecb"
+  },
+  {
+    "original": "src/lib/useAgreements.ts",
+    "archive": "hash paystream roll downs/src/lib/useAgreements.ts",
+    "sha256": "f5f402f1c4524f07a0936a62e1776e6dbb71a33ce9f433bd4701fde3ab4bd37e"
+  },
+  {
+    "original": "src/lib/useSavingsUsdcBalance.ts",
+    "archive": "hash paystream roll downs/src/lib/useSavingsUsdcBalance.ts",
+    "sha256": "5a4464a5ccd9859f39e2fd0030959709288cfb69e399397428ba2cf679f2d978"
+  },
+  {
+    "original": "src/lib/useSavingsVault.ts",
+    "archive": "hash paystream roll downs/src/lib/useSavingsVault.ts",
+    "sha256": "813a7743d14ff35f4ad621174246e45199566687be1889397a2947f22f7439d0"
+  },
+  {
+    "original": "src/lib/useStockPaymentSession.ts",
+    "archive": "hash paystream roll downs/src/lib/useStockPaymentSession.ts",
+    "sha256": "3f7fc8c1a9fc15e7c69d5158cfcec7915d7ead308506a9b4878f29dc8bebfd79"
+  },
+  {
+    "original": "src/lib/useXLayerUsdcBalance.ts",
+    "archive": "hash paystream roll downs/src/lib/useXLayerUsdcBalance.ts",
+    "sha256": "87a3225d06c7430dbcfe48414d917a2264e4ac3157d10a8ad8a8e2876ee369df"
+  },
+  {
+    "original": "src/lib/workXLayer.ts",
+    "archive": "hash paystream roll downs/src/lib/workXLayer.ts",
+    "sha256": "3d0fc25d01e44ca40c0429f6e1635f61ebebe77341a07a26cc0c03563ac4c890"
+  }
+]

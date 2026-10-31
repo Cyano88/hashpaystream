@@ -7,15 +7,14 @@ export function AgreementSignInLanding({ compact = false }: { compact?: boolean 
     <section className={`flex w-full max-w-md flex-col items-center justify-center text-center ${compact ? 'min-h-0 lg:min-h-[64vh]' : 'min-h-[64vh]'}`}>
       <HashPayStreamMark className="h-14 w-14" />
       <p className="mt-6 text-sm font-semibold tracking-tight">
-        <HashPayStreamWordmark />
+        Trade
       </p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Payments, work and trade.</h1>
+      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950 dark:text-white">Agree before you pay.</h1>
       <p className="mt-3 max-w-sm text-sm leading-6 text-gray-500 dark:text-gray-400">
-        Sign in to send USDC, manage work agreements and trade with xStocks.
+        List an item, agree on the terms and follow your trade in one place.
       </p>
       <StreamPayEmailLogin className="mt-7 w-full" />
       <div className="mt-5 flex items-center gap-4 text-xs text-gray-400">
-        <Link to="/stats" className="transition-colors hover:text-gray-700 dark:hover:text-gray-200">Product stats</Link>
         <a href="https://x.com/Hash_PayLink" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-700 dark:hover:text-gray-200">Support</a>
       </div>
       <a
